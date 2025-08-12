@@ -1,0 +1,25 @@
+KOPIA ZAPASOWA PROJEKTU GRA WOJENNA
+========================================
+
+Data utworzenia: 2025-08-07 21:20:46
+Projekt źródłowy: c:\Users\klif\kampania1939_restored
+Lokalizacja kopii: C:\Users\klif\Desktop\backups_gra_wojenna\gra_wojenna_20250807_212036
+Wersja: 20250807_212036
+
+STATYSTYKI:
+- Plików skopiowanych: 954
+- Plików pominiętych: 2
+- Folderów utworzonych: 179
+
+WYKLUCZONE WZORCE:
+- *.log
+- *.pyc
+- *.pyo
+- *.temp
+- *.tmp
+- .DS_Store
+- .git
+- .vscode
+- Thumbs.db
+- __pycache__
+- node_modules

@@ -1,0 +1,23 @@
+{
+  "id": "nowy_AC_Kompania__2_nowy_2_PL_AC_Kompania_20250705221939",
+  "nation": "Polska",
+  "unitType": "AC",
+  "unitSize": "Kompania",
+  "shape": "prostokąt",
+  "label": "nowy_2_PL_AC_Kompania",
+  "unit_full_name": "Polska Artyleria ciężka Kompania I",
+  "move": 6,
+  "attack": {
+    "range": 6,
+    "value": 24
+  },
+  "combat_value": 16,
+  "defense_value": 4,
+  "maintenance": 12,
+  "price": 83,
+  "sight": 2,
+  "owner": "2",
+  "image": "assets/tokens/nowe_dla_2/nowy_AC_Kompania__2_nowy_2_PL_AC_Kompania_20250705221939/token.png",
+  "w": 240,
+  "h": 240
+}
