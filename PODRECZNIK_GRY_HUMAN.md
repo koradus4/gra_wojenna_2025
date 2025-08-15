@@ -743,4 +743,45 @@ saves/
 **Autor**: Analiza projektu kampania1939_restored
 **Status**: Kompletny podręcznik dla graczy ludzkich
 
-*Ten dokument powstał na podstawie głębokiej analizy kodu źródłowego i wszystkich mechanik gry. Zawiera kompletne informacje o każdym aspekcie rozgrywki dostępnym dla graczy ludzkich.*
+---
+
+## 🤖 DODATEK: NADCHODZĄCY GRACZ KOMPUTEROWY (AI) – INFORMACJE DLA GRACZY
+
+Ta sekcja opisuje planowany sposób działania przyszłego przeciwnika komputerowego. Celem jest zachowanie FAIR PLAY – AI będzie podlegało tym samym ograniczeniom widoczności, ekonomii i ruchu co gracze ludzcy.
+
+### 📌 Założenia główne
+- Brak „wszechwiedzy”: AI widzi tylko to, co jego dowódcy / generał według zasad widoczności.
+- Brak bonusów statystycznych: żadnych ukrytych modyfikatorów ataku/obrony.
+- Determinizm przy seedzie: powtarzalność decyzji w trybie testowym.
+- Poziomy trudności różnią tylko stylem decyzji (agresja, priorytety), nie „cheatami”.
+
+### 🧠 Model decyzji
+1. Generał AI:
+  - Priorytetyzuje key points o krótkiej „żywotności” (niskie current_value / initial_value).
+  - Alokuje ekonomię do dowódców według intensywności frontu.
+  - Planuje zakupy (jeśli API zakupów dostępne): balans piechota / wsparcie / mobilne.
+2. Dowódcy AI:
+  - Ruch ku celom: wrogie jednostki osłabione lub strategiczne heksy.
+  - Unikanie pól pod silnym ostrzałem (wielu potencjalnych kontrataków).
+  - Atak tylko przy przewidywanej przewadze (heurystyka przewidywanych strat).
+
+### ⚙️ Mechanizm działania (skrót techniczny)
+- Ekstrakcja stanu: lista widocznych żetonów + key points + ekonomia.
+- Scoring heksów docelowych: (wartość strategiczna + szansa zabicia przeciwnika – ryzyko) / koszt ruchu.
+- Kolejka akcji: najpierw ruchy wysokiej wartości, potem ofensywa oportunistyczna.
+- Logowanie: każda decyzja (typ, cel, wynik) zapisywana dla przyszłej adaptacji.
+
+### 🎮 Poziomy trudności (plan)
+- Łatwy: ostrożny, ogranicza liczbę ataków, preferuje obronę.
+- Średni: zbalansowany, reaguje na różnice w VP.
+- Trudny: agresywny przy przewadze, szybciej przejmuje key points, adaptuje kolejność celów.
+
+### 🧪 Transparentność
+W trybie debug będzie można otworzyć panel decyzji AI pokazujący: heurystyka → wynik punktowy → wybrana akcja.
+
+### ⏳ Status
+AI jest w fazie projektowej – implementacja według planu opisanego w `STRUKTURA_PROJEKTU.md` (sekcja: PLAN WDROŻENIA AI).
+
+---
+
+*Ten dokument powstał na podstawie głębokiej analizy kodu źródłowego i wszystkich mechanik gry. Zawiera kompletne informacje o każdym aspekcie rozgrywki dostępnym dla graczy ludzkich. Sekcja AI przedstawia zaplanowane zachowania – może ulec zmianie w trakcie implementacji.*
