@@ -106,6 +106,24 @@ def main():
         f.write(f'Łączny rozmiar: {human_size(total_size)}\n')
         f.write(f'Czas trwania: {dt:.2f}s\n')
 
+    # Rotacja: pozostaw tylko 10 najnowszych snapshotów
+    try:
+        snapshots = []
+        for p in base_output.glob('snapshot_*'):
+            if p.is_dir():
+                snapshots.append((p.stat().st_mtime, p))
+        # Sortuj malejąco po czasie (najnowsze pierwsze)
+        snapshots.sort(key=lambda x: x[0], reverse=True)
+        to_remove = snapshots[10:]
+        for _, old_dir in to_remove:
+            try:
+                shutil.rmtree(old_dir)
+                print(f"🧹 Usunięto stary snapshot: {old_dir.name}")
+            except Exception as e:
+                print(f"⚠️ Nie udało się usunąć {old_dir}: {e}")
+    except Exception as e:
+        print(f"⚠️ Rotacja snapshotów nieudana: {e}")
+
     print("✅ Zakończono.")
     print(f"   Skopiowano: {files_copied}, pominięto: {files_skipped}, błędy: {errors}, rozmiar: {human_size(total_size)}, czas: {dt:.2f}s")
     print(f"   Informacje: {summary}")
