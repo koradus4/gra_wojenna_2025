@@ -293,54 +293,18 @@ class PanelMapa(tk.Frame):
         self._refresh_move_status_markers()
 
     def _refresh_move_status_markers(self):
-        """Rysuje markery statusu ruchu (brak MP / brak paliwa) dla żetonów bieżącego gracza."""
-        current_player = getattr(self.game_engine, 'current_player_obj', None)
-        expected_prefix = None
-        if current_player is not None:
-            expected_prefix = f"{current_player.id} ({current_player.nation})"
-        for token in self.tokens:
-            if token.q is None or token.r is None:
-                continue
-            # Filtruj własne żetony aktywnego dowódcy
-            if expected_prefix and getattr(token, 'owner', '') != expected_prefix:
-                continue
-            can_move, reason = (True, 'ok')
-            try:
-                can_move, reason = token.can_move_reason()
-            except Exception:
-                pass
-            # Usuń ewentualny istniejący marker
-            old = self._move_status_markers.pop(token.id, None)
-            if old is not None:
-                try:
-                    self.canvas.delete(old)
-                except Exception:
-                    pass
-            if can_move:
-                continue
-            # Ustal kolor i pozycję markera
-            img_item = self._token_canvas_items.get(token.id)
-            if not img_item:
-                continue
-            try:
-                x, y = self.canvas.coords(img_item)
-            except Exception:
-                continue
-            r = 7
-            color = '#9e9e9e' if reason == 'no_mp' else '#ff9800'
-            marker = self.canvas.create_oval(x + r, y - 2*r, x + 3*r, y, fill=color, outline='white', width=2, tags=('move_status',))
-            self._move_status_markers[token.id] = marker
-            # Krótki podgląd tekstowy na hover
-            tip_text = 'Brak punktów ruchu' if reason == 'no_mp' else 'Brak paliwa'
-            def _show_tip(e, tx=tip_text):
-                lbl = self.canvas.create_text(self.canvas.canvasx(e.x)+8, self.canvas.canvasy(e.y)-8, text=tx, fill='white', font=('Arial', 9), tags='move_tip')
-                x1, y1, x2, y2 = self.canvas.bbox(lbl)
-                bg = self.canvas.create_rectangle(x1-3, y1-2, x2+3, y2+2, fill='#000000', outline='', tags='move_tip')
-                self.canvas.tag_raise(lbl, bg)
-            def _hide_tip(_):
-                self.canvas.delete('move_tip')
-            self.canvas.tag_bind(marker, '<Enter>', _show_tip)
-            self.canvas.tag_bind(marker, '<Leave>', _hide_tip)
+        """WYŁĄCZONE: nie rysuj kropek statusu ruchu. Czyść tylko ewentualne stare markery."""
+        try:
+            # Usuń markery z canvasu po tagu i wyczyść mapę id->marker
+            self.canvas.delete('move_status')
+        except Exception:
+            pass
+        try:
+            self.canvas.delete('move_tip')
+        except Exception:
+            pass
+        self._move_status_markers = {}
+        # No-op: marker drawing disabled
 
     def _draw_path_on_map(self):
         if self.current_path:

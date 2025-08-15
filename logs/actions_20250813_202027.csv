@@ -1,0 +1,5 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-08-13T20:20:27;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;37;0
+2025-08-13T20:20:35;1;2;Polska;Dowódca;move;P_Kompania__2_Batalion_Strzelc_w;;20;-8;26;-11;;0;0;37;0
+2025-08-13T20:20:42;1;2;Polska;Dowódca;move;P_Batalion__2_Batalion_Strzelc_w;;24;-8;33;-11;OK;0;0;37;0
+2025-08-13T20:20:50;1;2;Polska;Dowódca;move;TL_Kompania__2_Pluton_Tankietek;;23;-7;25;-1;;0;0;37;0
