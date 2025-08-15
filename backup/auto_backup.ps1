@@ -147,4 +147,4 @@ try {
 }
 
 Write-Host ""
-Read-Host "Naciśnij Enter aby zakończyć"
+Write-Host "Deprecated. Use backup_local_min.py"

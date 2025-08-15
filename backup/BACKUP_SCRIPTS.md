@@ -124,3 +124,7 @@ backup\local_backup.bat
 - Backup przed dużymi zmianami
 - Archiwizacja wersji
 - Bezpieczeństwo bez internetu
+
+Ten plik jest przestarzały. Używaj tylko:
+- backup_local_min.py
+- backup_push_github.py

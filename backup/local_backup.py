@@ -207,3 +207,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Deprecated. Use backup_local_min.py

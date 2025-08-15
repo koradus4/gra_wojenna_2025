@@ -44,6 +44,8 @@ try {
     exit 1
 }
 
+Write-Host "Deprecated. Use backup_local_min.py"
+
 # Uruchom skrypt Python
 Write-Host "🔄 Uruchamianie skryptu backup..." -ForegroundColor Yellow
 Write-Host ""
