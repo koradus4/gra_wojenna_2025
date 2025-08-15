@@ -183,11 +183,12 @@ def main():
     if args.watch:
         return watch_loop(args)
     else:
-        pushed, reason = do_single_push(args)
+        # Pojedyncze wywołanie: zawsze wykonaj push (nawet jeśli poprzedni commit był przed chwilą)
+        pushed, reason = do_single_push(args, min_age_override=0)
         if pushed:
-            print("✅ Backup push zakończony")
-            return 0
-        print(f"ℹ️ Nic do zrobienia: {reason}")
+            print("✅ Backup push zakończony (tryb jednorazowy)")
+        else:
+            print(f"ℹ️ Nic do zrobienia: {reason}")
         return 0
 
 if __name__ == '__main__':
