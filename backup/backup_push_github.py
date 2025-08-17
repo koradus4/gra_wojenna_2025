@@ -82,6 +82,20 @@ def last_commit_age_seconds():
     except ValueError:
         return 9999
 
+def commits_ahead_of_remote(branch):
+    """Sprawdza ile commitów jest przed remote"""
+    r = sh(f'git rev-list --count origin/{branch}..{branch}')
+    if r.returncode != 0:
+        # Może nie ma remote tracking - spróbuj fetch
+        sh('git fetch origin', check=False)
+        r = sh(f'git rev-list --count origin/{branch}..{branch}')
+        if r.returncode != 0:
+            return 1  # Załóż że są zmiany do push
+    try:
+        return int(r.stdout.strip()) if r.stdout.strip() else 0
+    except ValueError:
+        return 1
+
 def do_single_push(args, min_age_override=None):
     """Wykonuje pojedynczy cykl commit + push jeśli są zmiany lub ostatni commit stary.
 
@@ -93,6 +107,9 @@ def do_single_push(args, min_age_override=None):
     staged = has_staged_changes()
     age = last_commit_age_seconds()
     min_gap = args.min_gap if min_age_override is None else min_age_override
+    
+    # Sprawdź czy są commity do push
+    commits_ahead = commits_ahead_of_remote(branch)
     
     # Jeśli mamy staged changes, zawsze rób commit + push
     if staged:
@@ -114,10 +131,16 @@ def do_single_push(args, min_age_override=None):
         run_or_die('git add -A')
         print(f"➡️ Tworzę commit: {commit_msg}")
         sh(f'git commit -m {shlex.quote(commit_msg)}')  # commit może być pusty jeśli ktoś w międzyczasie dodał commit
-    elif age < min_gap and not args.force_push:
-        return False, f"Brak zmian i ostatni commit {age:.0f}s temu (<{min_gap}s)"
+        commits_ahead = 1  # Po commicie na pewno mamy coś do push
+    elif commits_ahead == 0 and age < min_gap and not args.force_push:
+        return False, f"Brak zmian i ostatni commit już na remote ({age:.0f}s temu)"
+    elif commits_ahead == 0 and not args.force_push:
+        return False, f"Wszystkie commity już na remote"
     else:
-        print("ℹ️ Czysto – używam istniejącego commita do push (tylko push).")
+        if commits_ahead > 0:
+            print(f"ℹ️ Wykryto {commits_ahead} commit(ów) do push")
+        else:
+            print("ℹ️ Wymuszony push (--force-push)")
 
     cmd_push = f'git push origin {branch}' + (' --force-with-lease' if args.force else '')
     print(f"➡️ Push: {cmd_push}")
