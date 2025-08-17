@@ -11,12 +11,10 @@ Aktualizacja dokumentu dostosowana do potrzeb implementacji modułu AI (gracza k
 ```
 projekt/
 ├── main.py                      # Główny launcher gry (GUI, konfiguracja)
-├── main_ai_vs_human.py          # (Deklarowany tryb AI vs Human – brak modułu AI w tej kopii)
 ├── main_alternative.py          # Szybki start (bez ekranu konfiguracji)
 ├── requirements.txt             # Zależności
 ├── STRUKTURA_PROJEKTU.md        # Ten plik
 ├── accessibility/               # Rozszerzenia dostępności (szkielety)
-├── archive/                     # Archiwum / stare testy
 ├── backup/                      # System kopii zapasowych
 ├── core/                        # Logika „biznesowa” tur, ekonomii itd.
 ├── data/                        # Dane map / konfiguracja
@@ -26,7 +24,13 @@ projekt/
 ├── gui/                         # Panele interfejsu użytkownika
 ├── saves/                       # Zapisy stanu
 ├── scripts/                     # Skrypty porządkowe / automatyzacja
-├── tests/                       # Testy (42+ plików)
+├── tests/                       # Testy (uporządkowane w podkatalogi)
+│   ├── core/                   # Testy logiki biznesowej
+│   ├── engine/                 # Testy silnika gry
+│   ├── gui/                    # Testy interfejsu
+│   ├── integration/            # Testy integracyjne
+│   └── testy_dla_podrecznika/  # Testy dokumentacyjne
+├── tools/                       # Narzędzia diagnostyczne
 ├── tools/                       # Narzędzia diagnostyczne
 ├── utils/                       # Pomocnicze moduły
 └── (plan) ai/                   # PRZYSZŁY moduł sztucznej inteligencji

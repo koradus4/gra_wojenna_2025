@@ -1,9 +1,0 @@
-timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
-2025-08-12T22:22:02;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;6;0
-2025-08-12T22:22:09;1;2;Polska;Dowódca;move_cancel;P_Batalion__2_Batalion_Strzelc_w;;24;-8;30;-11;user_no;0;0;6;0
-2025-08-12T22:22:11;1;2;Polska;Dowódca;move_cancel;P_Batalion__2_Batalion_Strzelc_w;;24;-8;33;-13;user_no;0;0;6;0
-2025-08-12T22:22:13;1;2;Polska;Dowódca;move_error;P_Batalion__2_Batalion_Strzelc_w;;;;;;no_path;0;0;6;0
-2025-08-12T22:22:17;1;2;Polska;Dowódca;move_cancel;P_Batalion__2_Batalion_Strzelc_w;;24;-8;31;-12;user_no;0;0;6;0
-2025-08-12T22:22:42;1;2;Polska;Dowódca;move_cancel;P_Batalion__2_Batalion_Strzelc_w;;24;-8;33;-13;user_no;0;0;6;0
-2025-08-12T22:22:45;1;2;Polska;Dowódca;move_cancel;P_Batalion__2_Batalion_Strzelc_w;;24;-8;34;-11;user_no;0;0;6;0
-2025-08-12T22:22:45;1;2;Polska;Dowódca;move_error;P_Batalion__2_Batalion_Strzelc_w;;;;;;no_path;0;0;6;0
