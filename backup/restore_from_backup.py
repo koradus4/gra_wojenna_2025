@@ -73,12 +73,30 @@ def get_commit_list(branch=None, count=10):
             parts = line.split('|', 3)
             if len(parts) == 4:
                 hash_short, date_str, author, message = parts
-                # Formatuj datę
+                # Formatuj datę - pełna data i czas
                 try:
                     date_obj = datetime.datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                    date_formatted = date_obj.strftime('%d.%m.%Y %H:%M')
+                    date_formatted = date_obj.strftime('%d.%m.%Y %H:%M:%S')
+                    date_short = date_obj.strftime('%d.%m %H:%M')  # Skrócona wersja dla listy
+                    
+                    # Względny czas (np. "2 godziny temu")
+                    now = datetime.datetime.now(date_obj.tzinfo)
+                    diff = now - date_obj
+                    if diff.days > 0:
+                        relative_time = f"{diff.days} dni temu"
+                    elif diff.seconds > 3600:
+                        hours = diff.seconds // 3600
+                        relative_time = f"{hours}h temu"
+                    elif diff.seconds > 60:
+                        minutes = diff.seconds // 60
+                        relative_time = f"{minutes}min temu"
+                    else:
+                        relative_time = "przed chwilą"
+                        
                 except:
-                    date_formatted = date_str[:16]
+                    date_formatted = date_str[:19]
+                    date_short = date_str[:16]
+                    relative_time = ""
                 
                 # Generuj przyjazną nazwę
                 friendly_name = generate_friendly_name(message, date_formatted)
@@ -86,6 +104,8 @@ def get_commit_list(branch=None, count=10):
                 commits.append({
                     'hash': hash_short,
                     'date': date_formatted,
+                    'date_short': date_short,
+                    'relative_time': relative_time,
                     'author': author,
                     'message': message,
                     'friendly_name': friendly_name,
@@ -123,17 +143,25 @@ def generate_friendly_name(message, date):
 def display_commits(commits):
     """Wyświetla listę commitów do wyboru"""
     print("\n📋 OSTATNIE COMMITY:")
-    print("=" * 80)
+    print("=" * 100)
     for i, commit in enumerate(commits, 1):
-        print(f"{i:2d}. {commit['friendly_name']}")
-        print(f"    📅 {commit['date']} | 👤 {commit['author']} | 🔗 {commit['hash']}")
+        # Status aktualności
+        if i == 1:
+            status = "🟢 NAJNOWSZY"
+        elif i == 2:
+            status = "🟡 POPRZEDNI"
+        else:
+            status = f"🔵 #{i}"
+            
+        print(f"{i:2d}. {status} {commit['friendly_name']}")
+        print(f"    📅 {commit['date']} ({commit['relative_time']}) | 👤 {commit['author']} | 🔗 {commit['hash']}")
         print(f"    📝 {commit['message']}")
         print()
 
 def display_commit_aliases(commits):
     """Wyświetla aliasy commitów dla szybkiego wyboru"""
     print("🎯 SZYBKI WYBÓR:")
-    print("-" * 40)
+    print("-" * 50)
     
     # Znajdź specjalne commity
     backup_commits = [i for i, c in enumerate(commits, 1) if '🧹' in c['friendly_name']]
@@ -141,14 +169,18 @@ def display_commit_aliases(commits):
     feature_commits = [i for i, c in enumerate(commits, 1) if '✨' in c['friendly_name']]
     
     if backup_commits:
-        print(f"  backup    → commit {backup_commits[0]} (ostatnie porządkowanie)")
+        backup_commit = commits[backup_commits[0]-1]
+        print(f"  backup    → #{backup_commits[0]} ({backup_commit['date_short']}) ostatnie porządkowanie")
     if fix_commits:
-        print(f"  fix       → commit {fix_commits[0]} (ostatnie poprawki)")
+        fix_commit = commits[fix_commits[0]-1]
+        print(f"  fix       → #{fix_commits[0]} ({fix_commit['date_short']}) ostatnie poprawki")
     if feature_commits:
-        print(f"  feature   → commit {feature_commits[0]} (ostatnie funkcje)")
+        feature_commit = commits[feature_commits[0]-1]
+        print(f"  feature   → #{feature_commits[0]} ({feature_commit['date_short']}) ostatnie funkcje")
     
-    print(f"  latest    → commit 1 (najnowszy)")
-    print(f"  previous  → commit 2 (poprzedni)")
+    print(f"  latest    → #1 ({commits[0]['date_short']}) najnowszy")
+    if len(commits) >= 2:
+        print(f"  previous  → #2 ({commits[1]['date_short']}) poprzedni")
     print()
 
 def create_backup_branch():
@@ -256,7 +288,8 @@ def main():
     # Wybany commit
     selected_commit = commits[choice_num - 1]
     print(f"\n🎯 Wybrałeś: {selected_commit['friendly_name']}")
-    print(f"    📅 {selected_commit['date']} | 🔗 {selected_commit['hash']}")
+    print(f"    📅 {selected_commit['date']} ({selected_commit['relative_time']})")
+    print(f"    👤 {selected_commit['author']} | 🔗 {selected_commit['hash']}")
     print(f"    📝 {selected_commit['message']}")
     
     # Potwierdzenie
