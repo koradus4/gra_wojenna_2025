@@ -9,8 +9,19 @@ from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
 import tkinter as tk
 
-# AI GENERAŁ IMPORT
-from ai import AIGeneral, is_ai_general, set_ai_general_enabled
+# AI GENERAŁ IMPORT (odporny na brak modułu ai)
+try:
+    from ai import AIGeneral, is_ai_general, set_ai_general_enabled  # type: ignore
+except Exception:  # brak modułu lub klasy – degradacja łagodna
+    class AIGeneral:  # minimalny stub
+        def __init__(self, *_args, **_kwargs):
+            pass
+        def make_turn_decisions(self):
+            print("[AI-STUB] Pomijam decyzje – brak implementacji AI.")
+    def is_ai_general(_p):
+        return False
+    def set_ai_general_enabled(_flag):
+        print("[AI-STUB] Flaga AI zignorowana – brak modułu ai.")
 
 
 
@@ -45,37 +56,39 @@ def main():
             read_only=True  # Zapobiega nadpisywaniu pliku mapy
         )
 
-        # Tworzenie obiektów graczy z uwzględnieniem czasu na turę i ścieżek do zdjęć
-        # Automatyczne przypisanie id dowódców zgodnie z ownerami żetonów
-        # Polska: dowódcy id=2,3; Niemcy: dowódcy id=5,6
-        # Ustal kolejność graczy na podstawie miejsc i ról, aby pierwszym był generał wybranej nacji
-        # Szukamy indeksów dla każdej roli i nacji
-        polska_gen = miejsca.index("Polska")
-        polska_dow1 = miejsca.index("Polska", polska_gen+1)
-        polska_dow2 = miejsca.index("Polska", polska_dow1+1)
-        niemcy_gen = miejsca.index("Niemcy")
-        niemcy_dow1 = miejsca.index("Niemcy", niemcy_gen+1)
-        niemcy_dow2 = miejsca.index("Niemcy", niemcy_dow1+1)
+        # Walidacja konfiguracji miejsc (minimum 3 sloty na każdą nację)
+        if miejsca.count("Polska") < 3 or miejsca.count("Niemcy") < 3:
+            print("❌ Konfiguracja miejsc nieprawidłowa – potrzeba min. 3 pozycji dla każdej nacji.")
+            return
 
-        # Kolejność: najpierw generał tej nacji, która jest pierwsza w miejscach
-        if niemcy_gen < polska_gen:
-            players = [
-                Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
-                Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
-                Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
-                Player(1, "Polska", "Generał", czasy[polska_gen]),
-                Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
-                Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
-            ]
-        else:
-            players = [
-                Player(1, "Polska", "Generał", czasy[polska_gen]),
-                Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
-                Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
-                Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
-                Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
-                Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
-            ]
+        # Funkcja pomocnicza do zbudowania listy graczy w ustalonej kolejności
+        def build_players(miejsca, czasy):
+            polska_gen = miejsca.index("Polska")
+            polska_dow1 = miejsca.index("Polska", polska_gen+1)
+            polska_dow2 = miejsca.index("Polska", polska_dow1+1)
+            niemcy_gen = miejsca.index("Niemcy")
+            niemcy_dow1 = miejsca.index("Niemcy", niemcy_gen+1)
+            niemcy_dow2 = miejsca.index("Niemcy", niemcy_dow1+1)
+            if niemcy_gen < polska_gen:
+                return [
+                    Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
+                    Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
+                    Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
+                    Player(1, "Polska", "Generał", czasy[polska_gen]),
+                    Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
+                    Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
+                ]
+            else:
+                return [
+                    Player(1, "Polska", "Generał", czasy[polska_gen]),
+                    Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
+                    Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
+                    Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
+                    Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
+                    Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
+                ]
+
+        players = build_players(miejsca, czasy)
 
         # Uzupełnij economy dla wszystkich graczy (Generał i Dowódca)
         from core.ekonomia import EconomySystem
@@ -115,13 +128,18 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
     
     # --- WARUNKI ZWYCIĘSTWA: 30 rund ---
     victory_conditions = VictoryConditions(max_turns=30)
-    just_loaded_save = False  # Flaga: czy właśnie wczytano save
-    last_loaded_player_info = None  # Przechowuj info o aktywnym graczu po wczytaniu save
+    just_loaded_save = False  # flaga informująca pętlę by pominąć reset ruchu
+    last_loaded_player_info = None  # dane gracza po wczytaniu save (tymczasowe)
     
     # Pętla tur - używamy logiki z main_alternative.py
     while True:
         # Jeśli po wczytaniu save jest info o aktywnym graczu, przełącz na niego
-        if last_loaded_player_info:
+        if last_loaded_player_info:  # obsługa wczytania save na początku iteracji
+            # Po load_game lista graczy mogła się zmienić – zsynchronizuj
+            players = game_engine.players
+            turn_manager.players = players  # zapewnij spójność
+            update_all_players_visibility(players, game_engine.tokens, game_engine.board)
+            # Wybierz aktywnego gracza
             found = None
             for p in players:
                 if (str(p.id) == str(last_loaded_player_info.get('id')) and
@@ -129,10 +147,10 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
                     p.nation == last_loaded_player_info.get('nation')):
                     found = p
                     break
+            current_player = found if found else turn_manager.get_current_player()
             if found:
-                current_player = found
                 turn_manager.current_player_index = players.index(found)
-            last_loaded_player_info = None
+            # Nie czyść last_loaded_player_info tutaj dopóki nie zakończysz pełnej iteracji
         else:
             current_player = turn_manager.get_current_player()
             
@@ -140,28 +158,20 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
         
         print(f"\n🏆 TURA {turn_manager.current_turn}: {current_player.name} ({current_player.nation}, {current_player.role})")
         
-        # Tworzenie paneli z pełną funkcjonalnością
+        # Faza startowa tury gracza (ekonomia / generowanie) – tylko raz na wejście Generała
+        app = None
         if current_player.role == "Generał":
-            # SPRAWDŹ CZY TO AI GENERAŁ
+            # Generowanie ekonomii przed stworzeniem GUI (by panel startował ze świeżymi danymi)
+            start_points = current_player.economy.economic_points
+            current_player.economy.generate_economic_points()
+            current_player.economy.add_special_points()
+            available_points = current_player.economy.get_points()['economic_points']
+            print(f"  💰 Generowanie ekonomii: {start_points} → {available_points} punktów")
             if is_ai_general(current_player):
-                # AI GENERAŁ - bez GUI, automatyczne decyzje
                 ai_general = AIGeneral(current_player, game_engine, players)
-                
-                # Generowanie punktów ekonomicznych (jak w normalnym panelu)
-                start_points = current_player.economy.economic_points
-                current_player.economy.generate_economic_points()
-                current_player.economy.add_special_points()
-                available_points = current_player.economy.get_points()['economic_points']
-                
-                print(f"  💰 Generowanie ekonomii: {start_points} → {available_points} punktów")
-                
-                # AI podejmuje wszystkie decyzje automatycznie
                 ai_general.make_turn_decisions()
-                
-                # POMIŃ app.mainloop() - AI nie potrzebuje GUI
-                app = None  # Żeby nie było błędów w dalszym kodzie
+                app = None
             else:
-                # CZŁOWIEK - normalny panel graficzny
                 app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
         elif current_player.role == "Dowódca":
             app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
@@ -213,15 +223,13 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
             
         # Aktualizacja punktów ekonomicznych dla paneli generałów - tylko dla paneli graficznych
         if app is not None and isinstance(app, PanelGenerala):
-            # Generowanie punktów ekonomicznych
-            start_points = current_player.economy.economic_points
-            current_player.economy.generate_economic_points()
-            current_player.economy.add_special_points()
-            available_points = current_player.economy.get_points()['economic_points']
-            app.update_economy(available_points)  # Przekazanie dostępnych punktów ekonomicznych
-
-            # Synchronizacja dostępnych punktów w sekcji suwaków
-            app.zarzadzanie_punktami(available_points)
+            # Panel już ma zaktualizowaną ekonomię (generowanie wykonane wcześniej)
+            app.update_economy(current_player.economy.get_points()['economic_points'])
+            # Bezpieczne wywołanie suwaki (metoda może oczekiwać innych atrybutów – opakuj)
+            try:
+                app.zarzadzanie_punktami(current_player.economy.get_points()['economic_points'])
+            except Exception:
+                pass
 
         # Aktualizacja punktów ekonomicznych dla paneli dowódców - tylko dla paneli graficznych
         if app is not None and isinstance(app, PanelDowodcy):
@@ -262,23 +270,9 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
             for t in game_engine.tokens:
                 t.movement_mode_locked = False
                 
-        # --- DODANE: wymuszenie aktualnej referencji gracza po wczytaniu save ---
-        if just_loaded_save:
-            # Po wczytaniu save'a zsynchronizuj listę players i current_player z game_engine
-            players = game_engine.players
-            clear_temp_visibility(game_engine.players)
-            update_all_players_visibility(game_engine.players, game_engine.tokens, game_engine.board)
-            # Znajdź aktualnego gracza po wczytaniu save
-            found = None
-            for p in game_engine.players:
-                if (str(p.id) == str(last_loaded_player_info.get('id')) and
-                    p.role == last_loaded_player_info.get('role') and
-                    p.nation == last_loaded_player_info.get('nation')):
-                    found = p
-                    break
-            if found:
-                game_engine.current_player_obj = found
-                current_player = found
+        # Po obsłużeniu iteracji – końcowe czyszczenie flag wczytania
+        if last_loaded_player_info:
+            last_loaded_player_info = None
         just_loaded_save = False
         clear_temp_visibility(players)
 
