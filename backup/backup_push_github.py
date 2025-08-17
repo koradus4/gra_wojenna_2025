@@ -53,6 +53,7 @@ def parse_args():
     ap.add_argument('-b','--branch', help='Gałąź do push (domyślnie aktualna)')
     ap.add_argument('-m','--message', help='Własny komunikat commita')
     ap.add_argument('--force', action='store_true', help='Wymuś push (git push --force-with-lease)')
+    ap.add_argument('--force-push', action='store_true', help='Wymuś push nawet bez zmian')
     ap.add_argument('--watch', action='store_true', help='Tryb ciągłego monitorowania i automatycznych pushy')
     ap.add_argument('--interval', type=int, default=120, help='Odstęp (s) między sprawdzeniami w trybie watch (default: 120)')
     ap.add_argument('--min-gap', type=int, default=60, help='Minimalny odstęp (s) między kolejnymi pushami (default: 60)')
@@ -65,6 +66,11 @@ def working_tree_dirty():
     if r.returncode != 0:
         return True
     return bool(r.stdout.strip())
+
+def has_staged_changes():
+    """Sprawdza czy są zmiany w staging area"""
+    r = sh('git diff --cached --name-only')
+    return bool(r.stdout.strip()) if r.returncode == 0 else False
 
 def last_commit_age_seconds():
     r = sh('git log -1 --format=%ct')
@@ -84,19 +90,32 @@ def do_single_push(args, min_age_override=None):
     """
     branch = args.branch or detect_branch()
     dirty = working_tree_dirty()
+    staged = has_staged_changes()
     age = last_commit_age_seconds()
     min_gap = args.min_gap if min_age_override is None else min_age_override
-    if not dirty and age < min_gap:
-        return False, f"Brak zmian i ostatni commit {age:.0f}s temu (<{min_gap}s)"
-
-    auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    commit_msg = args.message or auto_msg
-    print(f"➡️ Gałąź: {branch}")
-    if dirty:
+    
+    # Jeśli mamy staged changes, zawsze rób commit + push
+    if staged:
+        print("➡️ Wykryto zmiany w staging area - robię commit...")
+        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        commit_msg = args.message or auto_msg
+        print(f"➡️ Gałąź: {branch}")
+        print(f"➡️ Tworzę commit: {commit_msg}")
+        r = sh(f'git commit -m {shlex.quote(commit_msg)}')
+        if r.returncode != 0:
+            print(f"⚠️ Commit nieudany: {r.stderr.strip()}")
+            # Spróbuj dalej z pushem istniejącego commita
+    elif dirty:
+        print("➡️ Wykryto zmiany w working directory...")
+        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        commit_msg = args.message or auto_msg
+        print(f"➡️ Gałąź: {branch}")
         print("➡️ Dodaję zmiany (git add -A)...")
         run_or_die('git add -A')
         print(f"➡️ Tworzę commit: {commit_msg}")
         sh(f'git commit -m {shlex.quote(commit_msg)}')  # commit może być pusty jeśli ktoś w międzyczasie dodał commit
+    elif age < min_gap and not args.force_push:
+        return False, f"Brak zmian i ostatni commit {age:.0f}s temu (<{min_gap}s)"
     else:
         print("ℹ️ Czysto – używam istniejącego commita do push (tylko push).")
 
@@ -116,8 +135,11 @@ def do_single_push(args, min_age_override=None):
 
 
 def compute_status_hash():
-    r = sh('git status --porcelain')
-    return hashlib.sha256((r.stdout or '').encode('utf-8')).hexdigest()
+    """Oblicza hash statusu repo (working tree + staged changes)"""
+    r1 = sh('git status --porcelain')
+    r2 = sh('git diff --cached --name-only')
+    combined = (r1.stdout or '') + (r2.stdout or '')
+    return hashlib.sha256(combined.encode('utf-8')).hexdigest()
 
 
 def watch_loop(args):
@@ -130,20 +152,24 @@ def watch_loop(args):
             start = time.time()
             current_hash = compute_status_hash()
             dirty = working_tree_dirty()
+            staged = has_staged_changes()
             age = last_commit_age_seconds()
+            
             if current_hash != last_status_hash:
                 stable_cycles = 0
                 print("📝 Wykryto zmiany – oczekiwanie na ustabilizowanie...")
                 last_status_hash = current_hash
             else:
-                if dirty:
+                if dirty or staged:
                     stable_cycles += 1
                 else:
                     stable_cycles = 0
 
             ready_time = (time.time() - last_push_time) >= args.min_gap
-            if dirty and stable_cycles >= 1 and ready_time:
-                print("🚀 Zmiany ustabilizowane – próbuję push...")
+            
+            # Push jeśli są staged changes lub stabilne dirty changes
+            if (staged or (dirty and stable_cycles >= 1)) and ready_time:
+                print("🚀 Zmiany gotowe do push...")
                 pushed, reason = do_single_push(args)
                 if pushed:
                     last_push_time = time.time()
@@ -151,7 +177,7 @@ def watch_loop(args):
                     stable_cycles = 0
                 else:
                     print(f"⚠️ Push nie wykonany: {reason}")
-            elif not dirty and ready_time and age >= args.min_gap:
+            elif not dirty and not staged and ready_time and age >= args.min_gap:
                 # Opcjonalnie: można wymusić push (np. jeżeli remote był odrzucony wcześniej)
                 pass
 
