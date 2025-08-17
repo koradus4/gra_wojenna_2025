@@ -114,23 +114,23 @@ def do_single_push(args, min_age_override=None):
     # Jeśli mamy staged changes, zawsze rób commit + push
     if staged:
         print("➡️ Wykryto zmiany w staging area - robię commit...")
-        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         commit_msg = args.message or auto_msg
         print(f"➡️ Gałąź: {branch}")
         print(f"➡️ Tworzę commit: {commit_msg}")
-        r = sh(f'git commit -m {shlex.quote(commit_msg)}')
+        r = sh(f'git commit -m "{commit_msg}"')  # Używam cudzysłowów zamiast shlex.quote
         if r.returncode != 0:
             print(f"⚠️ Commit nieudany: {r.stderr.strip()}")
             # Spróbuj dalej z pushem istniejącego commita
     elif dirty:
         print("➡️ Wykryto zmiany w working directory...")
-        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
         commit_msg = args.message or auto_msg
         print(f"➡️ Gałąź: {branch}")
         print("➡️ Dodaję zmiany (git add -A)...")
         run_or_die('git add -A')
         print(f"➡️ Tworzę commit: {commit_msg}")
-        sh(f'git commit -m {shlex.quote(commit_msg)}')  # commit może być pusty jeśli ktoś w międzyczasie dodał commit
+        sh(f'git commit -m "{commit_msg}"')  # Używam cudzysłowów zamiast shlex.quote
         commits_ahead = 1  # Po commicie na pewno mamy coś do push
     elif commits_ahead == 0 and age < min_gap and not args.force_push:
         return False, f"Brak zmian i ostatni commit już na remote ({age:.0f}s temu)"
@@ -149,6 +149,9 @@ def do_single_push(args, min_age_override=None):
         r = sh(cmd_push)
         if r.returncode == 0:
             print("✅ Push OK")
+            # NOWE: Reset staging area po udanym push
+            print("➡️ Resetuję staging area...")
+            sh('git reset', check=False)  # Reset bez sprawdzania błędów
             return True, 'pushed'
         print(f"⚠️ Push nieudany (próba {attempt}/{args.retry}): {r.stderr.strip().splitlines()[-1] if r.stderr else 'brak stderr'}")
         if attempt < args.retry:

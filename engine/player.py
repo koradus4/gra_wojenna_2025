@@ -5,6 +5,7 @@ class Player:
         self.role = role  # np. "Generał", "Dowódca"
         self.time_limit = time_limit  # czas na turę/podturę
         self.economy = economy  # obiekt ekonomii, jeśli wymagany
+        self.is_ai = False  # Domyślnie gracz to człowiek
 
         # Domyślne ścieżki do obrazów (względne względem katalogu projektu)
         base_path = "gui/images/"
