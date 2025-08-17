@@ -32,21 +32,21 @@ if __name__ == "__main__":
 
     if niemcy_gen < polska_gen:
         players = [
-            Player(4, "Niemcy", "Generał", czasy[niemcy_gen], "c:/Users/klif/kampania1939_fixed/gui/images/Generał pułkownik Walther von Brauchitsch.png"),
-            Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Fedor von Bock.png"),
-            Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Walther von Reichenau.png"),
-            Player(1, "Polska", "Generał", czasy[polska_gen], "c:/Users/klif/kampania1939_fixed/gui/images/Marszałek Polski Edward Rydz-Śmigły.png"),
-            Player(2, "Polska", "Dowódca", czasy[polska_dow1], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Juliusz Rómmel.png"),
-            Player(3, "Polska", "Dowódca", czasy[polska_dow2], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Tadeusz Kutrzeba.png"),
+            Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
+            Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
+            Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
+            Player(1, "Polska", "Generał", czasy[polska_gen]),
+            Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
+            Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
         ]
     else:
         players = [
-            Player(1, "Polska", "Generał", czasy[polska_gen], "c:/Users/klif/kampania1939_fixed/gui/images/Marszałek Polski Edward Rydz-Śmigły.png"),
-            Player(2, "Polska", "Dowódca", czasy[polska_dow1], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Juliusz Rómmel.png"),
-            Player(3, "Polska", "Dowódca", czasy[polska_dow2], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Tadeusz Kutrzeba.png"),
-            Player(4, "Niemcy", "Generał", czasy[niemcy_gen], "c:/Users/klif/kampania1939_fixed/gui/images/Generał pułkownik Walther von Brauchitsch.png"),
-            Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Fedor von Bock.png"),
-            Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2], "c:/Users/klif/kampania1939_fixed/gui/images/Generał Walther von Reichenau.png"),
+            Player(1, "Polska", "Generał", czasy[polska_gen]),
+            Player(2, "Polska", "Dowódca", czasy[polska_dow1]),
+            Player(3, "Polska", "Dowódca", czasy[polska_dow2]),
+            Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
+            Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
+            Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
         ]
 
     # Uzupełnij economy dla wszystkich graczy (Generał i Dowódca)

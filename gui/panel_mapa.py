@@ -58,6 +58,13 @@ class PanelMapa(tk.Frame):
         # markery statusu ruchu (token_id -> marker canvas id)
         self._move_status_markers = {}
         self._draw_tokens_on_map()
+        # Aktywuj podgląd hover dla generała i dowódców jeśli dostępny player w silniku
+        try:
+            if hasattr(self.game_engine, 'current_player_obj') and getattr(self.game_engine.current_player_obj, 'role', None) in ('Generał', 'Dowódca'):
+                self.player = self.game_engine.current_player_obj
+                self._setup_hover_binding()
+        except Exception:
+            pass
 
     def set_active_commander(self, commander_id):
         """Ustawia aktywnego dowódcę dla efektu przezroczystości żetonów"""
@@ -111,6 +118,76 @@ class PanelMapa(tk.Frame):
         scroll_y = max(0.0, min(1.0, scroll_y))
         
         # Przewiń mapę
+        self.canvas.xview_moveto(scroll_x)
+        self.canvas.yview_moveto(scroll_y)
+
+    def center_on_nation_tokens(self, nation: str):
+        """Centruje mapę na geometrycznym środku WSZYSTKICH jednostek danej nacji (nie tylko aktualnego gracza).
+
+        Używane dla generała aby objąć żetony wszystkich jego dowódców.
+        """
+        if not nation:
+            return
+        nation_tokens = []
+        # Szukamy po owner (format: "<id> (Nacja)") oraz po stats['nation'] jako fallback
+        marker = f"({nation})"
+        for token in self.tokens:
+            if token.q is None or token.r is None:
+                continue
+            try:
+                owner_ok = (hasattr(token, 'owner') and token.owner.endswith(marker))
+            except Exception:
+                owner_ok = False
+            nation_ok = False
+            try:
+                nation_ok = (token.stats.get('nation') == nation)
+            except Exception:
+                pass
+            if owner_ok or nation_ok:
+                nation_tokens.append(token)
+        if not nation_tokens:
+            return
+        avg_q = sum(t.q for t in nation_tokens) / len(nation_tokens)
+        avg_r = sum(t.r for t in nation_tokens) / len(nation_tokens)
+        center_x, center_y = self.map_model.hex_to_pixel(avg_q, avg_r)
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        if canvas_width <= 1 or canvas_height <= 1:
+            return
+        scroll_x = (center_x - canvas_width / 2) / self._bg_width
+        scroll_y = (center_y - canvas_height / 2) / self._bg_height
+        scroll_x = max(0.0, min(1.0, scroll_x))
+        scroll_y = max(0.0, min(1.0, scroll_y))
+        self.canvas.xview_moveto(scroll_x)
+        self.canvas.yview_moveto(scroll_y)
+
+    def center_on_commander_token(self, commander_id: str, nation: str):
+        """Centruje mapę na środku wszystkich jednostek przypisanych do konkretnego dowódcy (po prefiksie ownera)."""
+        if not commander_id:
+            return
+        commander_tokens = []
+        marker_suffix = f"({nation})" if nation else ''
+        prefix = f"{commander_id} "  # owner zwykle: '2 (Polska)'
+        for token in self.tokens:
+            if token.q is None or token.r is None:
+                continue
+            if hasattr(token, 'owner') and token.owner.startswith(prefix):
+                if marker_suffix and not token.owner.endswith(marker_suffix):
+                    continue
+                commander_tokens.append(token)
+        if not commander_tokens:
+            return
+        avg_q = sum(t.q for t in commander_tokens) / len(commander_tokens)
+        avg_r = sum(t.r for t in commander_tokens) / len(commander_tokens)
+        center_x, center_y = self.map_model.hex_to_pixel(avg_q, avg_r)
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        if canvas_width <= 1 or canvas_height <= 1:
+            return
+        scroll_x = (center_x - canvas_width / 2) / self._bg_width
+        scroll_y = (center_y - canvas_height / 2) / self._bg_height
+        scroll_x = max(0.0, min(1.0, scroll_x))
+        scroll_y = max(0.0, min(1.0, scroll_y))
         self.canvas.xview_moveto(scroll_x)
         self.canvas.yview_moveto(scroll_y)
 
@@ -322,6 +399,59 @@ class PanelMapa(tk.Frame):
         self._draw_hex_grid()
         self._draw_tokens_on_map()
         self._draw_path_on_map()
+        # Po odświeżeniu aktualizujemy ewentualny podgląd hover
+        if getattr(self, 'last_hover_token_id', None) and self.token_info_panel:
+            tok = next((t for t in self.tokens if t.id == self.last_hover_token_id), None)
+            if tok:
+                try:
+                    self.token_info_panel.show_token(tok)
+                except Exception:
+                    pass
+
+    def _setup_hover_binding(self):
+        # Jednorazowe podłączenie zdarzenia ruchu myszy
+        if not hasattr(self, '_hover_bound'):
+            self.canvas.bind('<Motion>', self._on_mouse_move)
+            self._hover_bound = True
+
+    def _on_mouse_move(self, event):
+        # Podgląd tylko dla ról kontrolujących (Generał lub Dowódca)
+        if not (hasattr(self, 'player') and getattr(self.player, 'role', None) in ('Generał', 'Dowódca')):
+            return
+        if self.token_info_panel is None:
+            return
+        x = self.canvas.canvasx(event.x)
+        y = self.canvas.canvasy(event.y)
+        # znajdź żeton pod kursorem (widoczny dla gracza zgodnie z widocznością)
+        hovered = None
+        for token in self.tokens:
+            if token.q is None or token.r is None:
+                continue
+            # Zachowujemy regułę widocznych tokenów jeśli zdefiniowane
+            visible_ids = set()
+            if hasattr(self.player, 'visible_tokens') and hasattr(self.player, 'temp_visible_tokens'):
+                visible_ids = self.player.visible_tokens | self.player.temp_visible_tokens
+            elif hasattr(self.player, 'visible_tokens'):
+                visible_ids = self.player.visible_tokens
+            if visible_ids and token.id not in visible_ids:
+                continue
+            tx, ty = self.map_model.hex_to_pixel(token.q, token.r)
+            if abs(x - tx) < self.map_model.hex_size // 2 and abs(y - ty) < self.map_model.hex_size // 2:
+                hovered = token
+                break
+        if hovered and hovered.id != getattr(self, 'last_hover_token_id', None):
+            self.last_hover_token_id = hovered.id
+            try:
+                self.token_info_panel.show_token(hovered)
+            except Exception:
+                pass
+        elif hovered is None and getattr(self, 'last_hover_token_id', None) is not None:
+            # Opuściliśmy żeton – czyścimy panel aby nie wprowadzać w błąd
+            self.last_hover_token_id = None
+            try:
+                self.token_info_panel.clear()
+            except Exception:
+                pass
 
     def clear_token_info_panel(self):
         parent = self.master
@@ -334,8 +464,7 @@ class PanelMapa(tk.Frame):
     def _on_click(self, event):
         # Blokada akcji dla generała (podgląd, brak ruchu)
         if hasattr(self, 'player') and hasattr(self.player, 'role') and self.player.role == 'Generał':
-            from tkinter import messagebox
-            messagebox.showinfo("Podgląd", "Generał nie może wykonywać akcji na żetonach.")
+            # Zachowujemy blokadę czynności, ale usuwamy komunikat popup proszony przez użytkownika
             return
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
@@ -769,6 +898,14 @@ class PanelMapa(tk.Frame):
                 if abs(x - tx) < hex_size // 2 and abs(y - ty) < hex_size // 2:
                     clicked_token = token
                     break
+        # Jeśli generał – użyj prawego kliknięcia tylko do podglądu info, bez selekcji/ataku (dowódca zachowuje atak)
+        if hasattr(self, 'player') and getattr(self.player, 'role', None) == 'Generał':
+            if clicked_token and self.token_info_panel is not None:
+                try:
+                    self.token_info_panel.show_token(clicked_token)
+                except Exception:
+                    pass
+            return
         # Sprawdź, czy kliknięto w żeton przeciwnika (nie swój, nie sojusznika)
         if clicked_token and self.selected_token_id:
             attacker = next((t for t in self.tokens if t.id == self.selected_token_id), None)

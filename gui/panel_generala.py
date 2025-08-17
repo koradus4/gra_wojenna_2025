@@ -17,70 +17,68 @@ class PanelGenerala:
         self.gracze = gracze
         self.game_engine = game_engine
 
-        # Tworzenie głównego okna
+        # --- Okno główne ---
         self.root = tk.Tk()
         self.root.title(f"Panel Generała - {self.gracz.nation}")
         self.root.state("zoomed")
 
-        # Wyświetlanie numeru tury
+        # Numer tury
         self.turn_label = tk.Label(self.root, text=f"Tura: {self.turn_number}", font=("Arial", 14), bg="lightgray")
         self.turn_label.pack(pady=5)
 
-        # Główna ramka podziału
+        # Układ główny
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Lewy panel (przyciski)
+        # Lewy panel
         self.left_frame = tk.Frame(self.main_frame, width=300, bg="olive")
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
         self.left_frame.pack_propagate(False)
 
-        # Panel gracza
+        # Panel gracza / portret
         self.panel_gracza = PanelGracza(self.left_frame, self.gracz.name, self.gracz.image_path, self.game_engine, player=self.gracz)
         self.panel_gracza.pack(pady=(10, 1), fill=tk.BOTH, expand=False)
 
-        # Przycisk zmiany tury (timer) NAD sekcję charakterystyki żetonu
+        # Timer
         minutes = self.gracz.time_limit
         self.timer_frame = tk.Label(self.left_frame, text=f"Pozostały czas: {minutes}:00", font=("Arial", 14, "bold"), bg="#6B8E23", fg="white", relief=tk.RAISED, borderwidth=4)
         self.timer_frame.pack(pady=(1, 8), fill=tk.BOTH, expand=False)
         self.timer_frame.bind("<Button-1>", self.confirm_end_turn)
 
-        # Panel informacyjny o żetonie
+        # Panel informacji o żetonie
         self.token_info_panel = TokenInfoPanel(self.left_frame, height=120)
         self.token_info_panel.pack(pady=(1, 15), fill=tk.BOTH, expand=False)
 
-        # Dodanie sekcji raportu ekonomicznego
+        # Raport ekonomiczny
         self.economy_panel = PanelEkonomiczny(self.left_frame)
         self.economy_panel.pack_forget()
         self.economy_panel.pack(side=tk.BOTTOM, pady=10, fill=tk.BOTH, expand=False)
-        self.economy_panel.config(width=300)  # Ustawia stałą szerokość panelu ekonomicznego na 300 pikseli
+        self.economy_panel.config(width=300)
 
         # Panel pogodowy
         self.weather_panel = PanelPogodowy(self.left_frame)
         self.weather_panel.pack_forget()
         self.weather_panel.pack(side=tk.BOTTOM, pady=1, fill=tk.BOTH, expand=False)
 
-        # Przycisk 'punkty ekonomiczne' tuż nad panelem pogodowym (1px odstępu)
+        # Punkty ekonomiczne (przycisk)
         self.points_frame = tk.Label(self.left_frame, text="Punkty ekonomiczne: 0", font=("Arial", 14, "bold"), bg="#6B8E23", fg="white", relief=tk.RAISED, borderwidth=4)
         self.points_frame.pack(side=tk.BOTTOM, pady=(0, 1), fill=tk.BOTH, expand=False)
         self.points_frame.bind("<Button-1>", self.toggle_support_sliders)
-        self._support_sliders_visible = False  # Stan toggle
+        self._support_sliders_visible = False
 
-        # Inicjalizacja suwaków wsparcia dowódców
-        commanders = [gracz for gracz in self.gracze if gracz.nation == self.gracz.nation and gracz.role == "Dowódca"]
+        # Suwaki wsparcia dowódców
+        commanders = [g for g in self.gracze if g.nation == self.gracz.nation and g.role == "Dowódca"]
         self.zarzadzanie_punktami_widget = ZarzadzaniePunktamiEkonomicznymi(
             self.left_frame,
             available_points=self.ekonomia.get_points()['economic_points'],
-            commanders=[dowodca.id for dowodca in commanders],
+            commanders=[d.id for d in commanders],
             on_points_change=self._update_points_label_in_sliders
         )
-        self.zarzadzanie_punktami_widget.pack_forget()  # Ukrycie suwaków na początku
+        self.zarzadzanie_punktami_widget.pack_forget()
 
-        # Prawy panel (mapa)
+        # Mapa
         self.map_frame = tk.Frame(self.main_frame)
         self.map_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        # PanelMapa korzysta z silnika gry
-        # Przekazujemy obiekt gracza do silnika, by umożliwić filtrowanie widoczności
         game_engine.current_player_obj = self.gracz
         self.panel_mapa = PanelMapa(
             parent=self.map_frame,
@@ -91,22 +89,18 @@ class PanelGenerala:
             token_info_panel=self.token_info_panel
         )
         self.panel_mapa.pack(fill="both", expand=True)
-        
-        # Generał widzi wszystkie żetony normalnie (bez efektu przezroczystości)
         self.panel_mapa.set_active_commander(None)
-        
-        # Wycentruj mapę na jednostkach gracza
-        self.root.after(100, self.panel_mapa.center_on_player_tokens)
-        # Dodaj obsługę podglądu żetonu prawym przyciskiem myszy (tylko dla generała)
+
+        # Autocentry na całą nację
+        self.root.after(100, lambda: self.panel_mapa.center_on_nation_tokens(self.gracz.nation))
+        # Prawy przycisk – podgląd (logika w PanelMapa)
         self.panel_mapa.canvas.bind("<Button-3>", self._on_right_click_token)
 
-        # Przeliczenie czasu z minut na sekundy i zapisanie w zmiennej remaining_time
+        # Timer (sekundy) + start
         self.remaining_time = self.gracz.time_limit * 60
-
-        # Uruchomienie timera
         self.update_timer()
 
-        # Dodaj przycisk zakupu nowych jednostek
+        # Sklep jednostek
         self.buy_units_btn = tk.Button(
             self.left_frame,
             text="Zakup nowe jednostki",

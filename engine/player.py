@@ -6,8 +6,8 @@ class Player:
         self.time_limit = time_limit  # czas na turę/podturę
         self.economy = economy  # obiekt ekonomii, jeśli wymagany
 
-        # Domyślne ścieżki do obrazów
-        base_path = "c:/Users/klif/kampania1939_fixed/gui/images/"
+        # Domyślne ścieżki do obrazów (względne względem katalogu projektu)
+        base_path = "gui/images/"
         if image_path is not None:
             self.image_path = image_path
         else:
@@ -30,21 +30,21 @@ class Player:
 
         # Domyślne ścieżki do map
         if self.nation == "Polska" and self.role == "Generał":
-            self.map_path = "C:/Users/klif/kampania1939_fixed/assets/mapa_globalna.jpg"
+            self.map_path = "assets/mapa_globalna.jpg"
         elif self.nation == "Niemcy" and self.role == "Generał":
-            self.map_path = "C:/Users/klif/kampania1939_fixed/assets/mapa_globalna.jpg"
+            self.map_path = "assets/mapa_globalna.jpg"
         elif self.nation == "Polska" and self.role == "Dowódca":
             if self.id == 2:
-                self.map_path = "c:/Users/klif/kampania1939_fixed/gui/mapa_cyfrowa/mapa_dowodca2.jpg"
+                self.map_path = "gui/mapa_cyfrowa/mapa_dowodca2.jpg"
             else:
-                self.map_path = "c:/Users/klif/kampania1939_fixed/gui/mapa_cyfrowa/mapa_dowodca1.jpg"
+                self.map_path = "gui/mapa_cyfrowa/mapa_dowodca1.jpg"
         elif self.nation == "Niemcy" and self.role == "Dowódca":
             if self.id == 6:
-                self.map_path = "c:/Users/klif/kampania1939_fixed/gui/mapa_cyfrowa/mapa_dowodca2.jpg"
+                self.map_path = "gui/mapa_cyfrowa/mapa_dowodca2.jpg"
             else:
-                self.map_path = "c:/Users/klif/kampania1939_fixed/gui/mapa_cyfrowa/mapa_dowodca1.jpg"
+                self.map_path = "gui/mapa_cyfrowa/mapa_dowodca1.jpg"
         else:
-            self.map_path = "c:/Users/klif/kampania1939_fixed/gui/mapa_cyfrowa/mapa_hex.jpg"
+            self.map_path = "gui/mapa_cyfrowa/mapa_hex.jpg"
 
         # Domyślna nazwa gracza
         if self.nation == "Polska" and self.role == "Generał":
