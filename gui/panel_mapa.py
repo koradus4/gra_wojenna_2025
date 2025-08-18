@@ -662,9 +662,10 @@ class PanelMapa(tk.Frame):
                     except Exception:
                         pass
                     def _do_move_to_target():
-                        from engine.action import MoveAction
+                        from engine.action_refactored_clean import MoveAction
                         action = MoveAction(token.id, hr[0], hr[1])
-                        success, msg = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+                        result = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+                        success, msg = result.success, result.message
                         self.tokens = self.game_engine.tokens
                         # LOG: move
                         try:
@@ -708,9 +709,10 @@ class PanelMapa(tk.Frame):
                                 if in_sight and in_range:
                                     # print(f"[REAKCJA WROGA] {enemy.id} ({enemy.owner}) atakuje {moved_token.id} ({moved_token.owner})!")
                                     setattr(moved_token, 'wykryty_do_konca_tury', True)
-                                    from engine.action import CombatAction
+                                    from engine.action_refactored_clean import CombatAction
                                     action = CombatAction(enemy.id, moved_token.id, is_reaction=True)
-                                    success2, msg2 = self.game_engine.execute_action(action)
+                                    result = self.game_engine.execute_action(action)
+                                    success2, msg2 = result.success, result.message
                                     # LOG: reaction attack
                                     try:
                                         from utils.action_logger import log_action
@@ -781,9 +783,10 @@ class PanelMapa(tk.Frame):
                         except Exception:
                             pass
                         def _do_move_to_fallback():
-                            from engine.action import MoveAction
+                            from engine.action_refactored_clean import MoveAction
                             action = MoveAction(token.id, dest[0], dest[1])
-                            success, msg = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+                            result = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+                            success, msg = result.success, result.message
                         self.tokens = self.game_engine.tokens
                         # LOG: move (fallback)
                         try:
@@ -825,9 +828,10 @@ class PanelMapa(tk.Frame):
                                     in_range = dist <= attack_range
                                     if in_sight and in_range:
                                         setattr(moved_token, 'wykryty_do_konca_tury', True)
-                                        from engine.action import CombatAction
+                                        from engine.action_refactored_clean import CombatAction
                                         action2 = CombatAction(enemy.id, moved_token.id, is_reaction=True)
-                                        success2, msg2 = self.game_engine.execute_action(action2)
+                                        result = self.game_engine.execute_action(action2)
+                                        success2, msg2 = result.success, result.message
                                         try:
                                             from utils.action_logger import log_action
                                             current_turn = getattr(getattr(self.game_engine, 'turn_manager', None), 'current_turn', getattr(self.game_engine, 'turn', None))
@@ -933,9 +937,10 @@ class PanelMapa(tk.Frame):
                     pass
                 return
             # Wywołaj CombatAction
-            from engine.action import CombatAction
+            from engine.action_refactored_clean import CombatAction
             action = CombatAction(attacker.id, clicked_token.id)
-            success, msg = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+            result = self.game_engine.execute_action(action, player=getattr(self, 'player', None))
+            success, msg = result.success, result.message
             self.tokens = self.game_engine.tokens
             # LOG: attack
             try:

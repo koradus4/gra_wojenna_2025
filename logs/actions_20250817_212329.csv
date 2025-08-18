@@ -1,0 +1,9 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-08-17T21:23:29;1;2;Polska;Dowódca;deploy;nowy_P_Pluton__2_Pluton_PL_20250817212323;;;;24;-12;deployed;0;0;0;0
+2025-08-17T21:23:33;1;2;Polska;Dowódca;move;nowy_P_Pluton__2_Pluton_PL_20250817212323;;24;-12;26;-12;;0;0;0;0
+2025-08-17T21:23:39;1;2;Polska;Dowódca;move_error;nowy_P_Pluton__2_Pluton_PL_20250817212323;;;;;;no_reachable_hex;0;0;0;0
+2025-08-17T21:23:41;1;2;Polska;Dowódca;move;P_Kompania__2_Batalion_Strzelc_w_20250703213012;;23;-8;26;-9;OK;0;0;0;0
+2025-08-17T21:23:49;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;0;0
+2025-08-17T21:23:55;1;3;Polska;Dowódca;deploy_error;;;;;18;22;invalid_spawn_hex;0;0;0;0
+2025-08-17T21:23:57;1;3;Polska;Dowódca;deploy;nowy_P_Pluton__3_Pluton_PL_20250817212323;;;;18;24;deployed;0;0;0;0
+2025-08-17T21:24:00;1;3;Polska;Dowódca;move;nowy_P_Pluton__3_Pluton_PL_20250817212323;;18;24;19;23;;0;0;0;0

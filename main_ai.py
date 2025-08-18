@@ -135,35 +135,55 @@ class GameLauncher:
         from engine.engine import update_all_players_visibility
         update_all_players_visibility(players, game_engine.tokens, game_engine.board)
 
-        # Inicjalizacja systemów gry
-        economy_system = EconomySystem()
+        # --- SYNCHRONIZACJA PUNKTÓW EKONOMICZNYCH DOWÓDCÓW Z SYSTEMEM EKONOMII ---
+        for p in players:
+            if hasattr(p, 'punkty_ekonomiczne'):
+                p.punkty_ekonomiczne = p.economy.get_points()['economic_points']
+
+        # Inicjalizacja menedżera tur
+        turn_manager = TurnManager(players, game_engine=game_engine)
+        # --- WARUNKI ZWYCIĘSTWA: 10 pełnych rund, start VP=0 (jak w obecnym stanie) ---
         victory_conditions = VictoryConditions(max_turns=10)
-        turn_manager = TurnManager(players, game_engine)
         
         # Dodaj AI generals do turn_manager jako atrybut
         turn_manager.ai_generals = ai_generals
 
         # Uruchomienie głównej pętli gry (skopiowane z main_alternative.py)
-        self.main_game_loop(players, turn_manager, economy_system, victory_conditions, game_engine, ai_generals)
+        self.main_game_loop(players, turn_manager, victory_conditions, game_engine, ai_generals)
 
-    def main_game_loop(self, players, turn_manager, economy_system, victory_conditions, game_engine, ai_generals):
+    def main_game_loop(self, players, turn_manager, victory_conditions, game_engine, ai_generals):
         """Główna pętla gry skopiowana z main_alternative.py"""
         from engine.engine import update_all_players_visibility, clear_temp_visibility
         
-        just_loaded_save = False
-        last_loaded_player_info = None
+        just_loaded_save = False  # Flaga: czy właśnie wczytano save
+        last_loaded_player_info = None  # Przechowuj info o aktywnym graczu po wczytaniu save
         
         while True:
-            current_player = turn_manager.get_current_player()
+            # Jeśli po wczytaniu save jest info o aktywnym graczu, przełącz na niego
+            if last_loaded_player_info:
+                found = None
+                for p in players:
+                    if (str(p.id) == str(last_loaded_player_info.get('id')) and
+                        p.role == last_loaded_player_info.get('role') and
+                        p.nation == last_loaded_player_info.get('nation')):
+                        found = p
+                        break
+                if found:
+                    current_player = found
+                    turn_manager.current_player_index = players.index(found)
+                last_loaded_player_info = None
+            else:
+                current_player = turn_manager.get_current_player()
+            
+            # WAŻNE: Ustaw aktualnego gracza w silniku na początku każdej tury
+            game_engine.current_player_obj = current_player
+            
             update_all_players_visibility(players, game_engine.tokens, game_engine.board)
             
             # Sprawdź czy gracz jest AI
             if hasattr(current_player, 'is_ai') and current_player.is_ai and current_player.id in ai_generals:
                 print(f"Tura AI: {current_player.nation} {current_player.role}")
                 ai_general = ai_generals[current_player.id]
-                
-                # Ustaw aktualnego gracza w silniku (potrzebne dla AI)
-                game_engine.current_player_obj = current_player
                 
                 # Dla AI Generałów - wygeneruj punkty ekonomiczne
                 if current_player.role == "Generał":
@@ -184,8 +204,43 @@ class GameLauncher:
                 elif current_player.role == "Dowódca":
                     app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
                 
-                # Ustaw aktualnego gracza w silniku
-                game_engine.current_player_obj = current_player
+                # Patch: podmień funkcję on_load w PanelGracza, by ustawiać last_loaded_player_info
+                def patch_on_load(panel_gracza):
+                    def new_on_load():
+                        import os
+                        from tkinter import filedialog, messagebox
+                        saves_dir = os.path.join(os.getcwd(), 'saves')
+                        os.makedirs(saves_dir, exist_ok=True)
+                        path = filedialog.askopenfilename(
+                            filetypes=[('Plik zapisu', '*.json')],
+                            initialdir=saves_dir
+                        )
+                        if path:
+                            try:
+                                from engine.save_manager import load_game
+                                global last_loaded_player_info
+                                global just_loaded_save
+                                last_loaded_player_info = load_game(path, game_engine)
+                                just_loaded_save = True
+                                if hasattr(panel_gracza.master, 'panel_mapa'):
+                                    panel_gracza.master.panel_mapa.refresh()
+                                if last_loaded_player_info:
+                                    msg = f"Gra została wczytana!\nAktywny gracz: {last_loaded_player_info.get('role','?')} {last_loaded_player_info.get('id','?')} ({last_loaded_player_info.get('nation','?')})"
+                                    messagebox.showinfo("Wczytanie gry", msg)
+                                else:
+                                    messagebox.showinfo("Wczytanie gry", "Gra została wczytana!")
+                                panel_gracza.winfo_toplevel().destroy()  # Zamknij całe okno, nie tylko ramkę
+                            except Exception as e:
+                                messagebox.showerror("Błąd wczytywania", str(e))
+                    panel_gracza.on_load = new_on_load
+                    if hasattr(panel_gracza, 'btn_load'):
+                        panel_gracza.btn_load.config(command=panel_gracza.on_load)
+
+                # DEBUG: sprawdź dzieci left_frame
+                if hasattr(app, 'left_frame'):
+                    for child in app.left_frame.winfo_children():
+                        if isinstance(child, PanelGracza):
+                            patch_on_load(child)
                 
                 # Aktualizacja pogody dla panelu
                 if hasattr(app, 'update_weather'):
@@ -193,16 +248,21 @@ class GameLauncher:
                 
                 # Aktualizacja dla generałów
                 if isinstance(app, PanelGenerala):
+                    # Debug: bilans przed losowaniem
+                    start_points = current_player.economy.economic_points
                     current_player.economy.generate_economic_points()
                     current_player.economy.add_special_points()
                     available_points = current_player.economy.get_points()['economic_points']
-                    app.update_economy(available_points)
+                    app.update_economy(available_points)  # Przekazanie dostępnych punktów ekonomicznych
+
+                    # Synchronizacja dostępnych punktów w sekcji suwaków
                     app.zarzadzanie_punktami(available_points)
-                
-                # Aktualizacja dla dowódców
+
+                # Aktualizacja punktów ekonomicznych dla paneli dowódców
                 if isinstance(app, PanelDowodcy):
                     przydzielone_punkty = current_player.economy.get_points()['economic_points']
-                    app.update_economy(przydzielone_punkty)
+                    app.update_economy(przydzielone_punkty)  # Aktualizacja interfejsu dowódcy
+                    # --- Synchronizacja punktów ekonomicznych dowódcy z systemem ekonomii ---
                     current_player.punkty_ekonomiczne = przydzielone_punkty
                 
                 try:
@@ -230,13 +290,32 @@ class GameLauncher:
                 print("====================")
                 break
             
-            # Reset blokady trybu ruchu
+            # Reset blokady trybu ruchu na początku każdej tury, ale NIE po wczytaniu save
             if not just_loaded_save:
                 for t in game_engine.tokens:
                     t.movement_mode_locked = False
             
+            # --- DODANE: wymuszenie aktualnej referencji gracza po wczytaniu save ---
+            if just_loaded_save:
+                # Po wczytaniu save'a zsynchronizuj listę players i current_player z game_engine
+                players = game_engine.players
+                clear_temp_visibility(game_engine.players)
+                update_all_players_visibility(game_engine.players, game_engine.tokens, game_engine.board)
+                # Znajdź aktualnego gracza po wczytaniu save
+                found = None
+                for p in game_engine.players:
+                    if (str(p.id) == str(last_loaded_player_info.get('id')) and
+                        p.role == last_loaded_player_info.get('role') and
+                        p.nation == last_loaded_player_info.get('nation')):
+                        found = p
+                        break
+                if found:
+                    game_engine.current_player_obj = found
+                    current_player = found
+                # Usunięto próbę synchronizacji panelu mapy, bo okno mogło być już zniszczone
             just_loaded_save = False
             clear_temp_visibility(players)
+            # --- KONIEC DODATKU ---
 
     def run(self):
         """Uruchom launcher"""
