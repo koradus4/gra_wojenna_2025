@@ -5,6 +5,13 @@ import os
 from pathlib import Path
 from PIL import ImageFont
 from edytory.token_editor_prototyp import create_flag_background
+from core.unit_factory import (
+    compute_unit_stats,
+    build_label_and_full_name,
+    SUPPORT_UPGRADES,
+    ALLOWED_SUPPORT,
+    TRANSPORT_TYPES,
+)
 import traceback
 
 class TokenShop(tk.Toplevel):
@@ -19,32 +26,11 @@ class TokenShop(tk.Toplevel):
         self.unit_size = tk.StringVar(value="Pluton")
         self.selected_supports = set()
         self.selected_transport = tk.StringVar(value="")
-        self.transport_types = ["przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski"]
-        self.support_upgrades = {
-            "drużyna granatników": {"movement": -1, "range": 1, "attack": 2, "combat": 0, "unit_maintenance": 1, "purchase": 10, "defense": 1},
-            "sekcja km.ppanc": {"movement": -1, "range": 1, "attack": 2, "combat": 0, "unit_maintenance": 2, "purchase": 10, "defense": 2},
-            "sekcja ckm": {"movement": -1, "range": 1, "attack": 2, "combat": 0, "unit_maintenance": 2, "purchase": 10, "defense": 2},
-            "przodek dwukonny": {"movement": 2, "range": 0, "attack": 0, "combat": 0, "unit_maintenance": 1, "purchase": 5, "defense": 0},
-            "sam. ciezarowy Fiat 621": {"movement": 5, "range": 0, "attack": 0, "combat": 0, "unit_maintenance": 3, "purchase": 8, "defense": 0},
-            "sam.ciezarowy Praga Rv": {"movement": 5, "range": 0, "attack": 0, "combat": 0, "unit_maintenance": 3, "purchase": 8, "defense": 0},
-            "ciagnik altyleryjski": {"movement": 3, "range": 0, "attack": 0, "combat": 0, "unit_maintenance": 4, "purchase": 12, "defense": 0},
-            "obserwator": {"movement": 0, "range": 0, "attack": 0, "combat": 0, "unit_maintenance": 1, "purchase": 5, "defense": 0}
-        }
-        self.allowed_support = {
-            "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
-            "K": ["sekcja ckm"],
-            "TC": ["obserwator"],
-            "TŚ": ["obserwator"],
-            "TL": ["obserwator"],
-            "TS": ["obserwator"],
-            "AC": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "AL": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "AP": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "Z": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "obserwator"],
-            "D": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
-            "G": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"]
-        }
-        # Lista typów jednostek jak w starym edytorze
+        # Jedno źródło prawdy – odwołania do unit_factory
+        self.transport_types = TRANSPORT_TYPES
+        self.support_upgrades = SUPPORT_UPGRADES
+        self.allowed_support = ALLOWED_SUPPORT
+        # Lista typów jednostek
         self.unit_type_order = [
             ("Piechota (P)", "P", True),
             ("Kawaleria (K)", "K", True),
@@ -159,21 +145,7 @@ class TokenShop(tk.Toplevel):
         support_frame = tk.Frame(form_box, bg="darkolivegreen")
         support_frame.grid(row=4, column=1, sticky="w", pady=2)
         # Słownik allowed_support jak w TokenEditor
-        self.allowed_support = {
-            "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
-            "K": ["sekcja ckm"],
-            "TC": ["obserwator"],
-            "TŚ": ["obserwator"],
-            "TL": ["obserwator"],
-            "TS": ["obserwator"],
-            "AC": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "AL": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "AP": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
-            "Z": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "obserwator"],
-            "D": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
-            "G": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"]
-        }
-        self.transport_types = ["przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski"]
+    # (allowed_support i transport_types już ustawione wcześniej z unit_factory)
         def update_support_state(*_):
             ut = self.unit_type.get()
             allowed = self.allowed_support.get(ut, [])
@@ -252,129 +224,43 @@ class TokenShop(tk.Toplevel):
         self.update_stats()
 
     def update_unit_names(self):
-        # Generuje label i unit_full_name jak w TokenEditor, z dodanym słowem 'nowy'
-        nation = self.nation.get()
-        unit_type = self.unit_type.get()
-        unit_size = self.unit_size.get()
-        dowodca_id = self.selected_commander.get()
-        nation_short = "PL" if nation == "Polska" else ("N" if nation == "Niemcy" else nation[:2].upper())
-        label = f"nowy_{dowodca_id}_{nation_short}_{unit_type}_{unit_size}"
-        unit_type_full = {
-            "P": "Piechota",
-            "K": "Kawaleria",
-            "TC": "Czołg ciężki",
-            "TŚ": "Czołg średni",
-            "TL": "Czołg lekki",
-            "TS": "Sam. pancerny",
-            "AC": "Artyleria ciężka",
-            "AL": "Artyleria lekka",
-            "AP": "Artyleria plot",
-            "Z": "Zaopatrzenie",
-            "D": "Dowództwo",
-            "G": "Generał"
-        }.get(unit_type, unit_type)
-        unit_symbol = {"Pluton": "***", "Kompania": "I", "Batalion": "II"}.get(unit_size, "")
-        unit_full_name = f"{nation} {unit_type_full} {unit_size} {unit_symbol}".strip()
-        self.unit_label_var.set(label)
-        self.unit_full_name_var.set(unit_full_name)
+        # Użyj wspólnej fabryki (uniknięcie duplikacji)
+        data = build_label_and_full_name(
+            self.nation.get(),
+            self.unit_type.get(),
+            self.unit_size.get(),
+            self.selected_commander.get(),
+        )
+        self.unit_label_var.set(data["label"])
+        self.unit_full_name_var.set(data["unit_full_name"])
 
     def update_stats(self):
-        # Pełna logika jak w update_numeric_fields z token_editor_prototyp.py
+        # Nowa implementacja: używa compute_unit_stats z unit_factory (spójność z AI)
         ut = self.unit_type.get()
         size = self.unit_size.get()
-        # Domyślne wartości (pełne, jak w edytorze)
-        defaults = {
-            "ruch": {
-                "P": 2, "K": 4, "TC": 2, "TŚ": 3, "TL": 4, "TS": 5,
-                "AC": 1, "AL": 2, "AP": 2, "Z": 3, "D": 2, "G": 2
-            },
-            "range": {
-                "P": 1, "K": 1, "TC": 2, "TŚ": 2, "TL": 1, "TS": 2,
-                "AC": 6, "AL": 4, "AP": 3, "Z": 1, "D": 0, "G": 0
-            },
-            "attack": {
-                "Pluton": {"P": 2, "K": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 12, "AL": 8, "AP": 6, "Z": 1, "D": 0, "G": 0},
-                "Kompania": {"P": 4, "K": 4, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 24, "AL": 16, "AP": 12, "Z": 2, "D": 0, "G": 0},
-                "Batalion": {"P": 6, "K": 6, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 36, "AL": 24, "AP": 18, "Z": 3, "D": 0, "G": 0}
-            },
-            "combat": {"P__Pluton": 8, "P__Kompania": 15, "P__Batalion": 30, "K__Pluton": 6, "K__Kompania": 12, "K__Batalion": 24, "TC__Pluton": 12, "TC__Kompania": 24, "TC__Batalion": 48, "TŚ__Pluton": 10, "TŚ__Kompania": 20, "TŚ__Batalion": 42, "TL__Pluton": 8, "TL__Kompania": 16, "TL__Batalion": 36, "TS__Pluton": 6, "TS__Kompania": 12, "TS__Batalion": 30, "AC__Pluton": 8, "AC__Kompania": 16, "AC__Batalion": 48, "AL__Pluton": 6, "AL__Kompania": 12, "AL__Batalion": 42, "AP__Pluton": 6, "AP__Kompania": 12, "AP__Batalion": 36, "Z__Pluton": 4, "Z__Kompania": 12, "Z__Batalion": 24, "D__Pluton": 3, "D__Kompania": 9, "D__Batalion": 18, "G__Pluton": 2, "G__Kompania": 6, "G__Batalion": 12},
-            "unit_maintenance": {
-                "Pluton": {"P": 2, "K": 3, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 4, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
-                "Kompania": {"P": 4, "K": 6, "TC": 16, "TŚ": 12, "TL": 8, "TS": 6, "AC": 8, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
-                "Batalion": {"P": 8, "K": 9, "TC": 24, "TŚ": 18, "TL": 12, "TS": 9, "AC": 12, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3}
-            },
-            "purchase": {
-                "Pluton": {"P": 15, "K": 18, "TC": 40, "TŚ": 32, "TL": 25, "TS": 20, "AC": 35, "AL": 25, "AP": 20, "Z": 16, "D": 80, "G": 120},
-                "Kompania": {"P": 30, "K": 36, "TC": 80, "TŚ": 64, "TL": 50, "TS": 40, "AC": 70, "AL": 50, "AP": 40, "Z": 32, "D": 80, "G": 120},
-                "Batalion": {"P": 45, "K": 54, "TC": 120, "TŚ": 96, "TL": 75, "TS": 60, "AC": 105, "AL": 75, "AP": 60, "Z": 48, "D": 80, "G": 120}
-            },
-            "sight": {"P": 1, "K": 3, "TC": 2, "TŚ": 2, "TL": 2, "TS": 3, "AC": 2, "AL": 2, "AP": 2, "D": 4, "G": 6, "Z": 2}
-        }
-        # Domyślne wartości
-        ruch = int(defaults["ruch"].get(ut, 0))
-        zasieg = int(defaults["range"].get(ut, 0))
-        atak = int(defaults["attack"][size].get(ut, 0))
-        combat = int(defaults["combat"].get(f"{ut}__{size}", 0))        # Obrona
-        defense_defaults = {
-            "Pluton": {"P": 4, "K": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 2, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
-            "Kompania": {"P": 8, "K": 4, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 4, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
-            "Batalion": {"P": 15, "K": 6, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 6, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3}
-        }
-        obrona = int(defense_defaults.get(size, {}).get(ut, 0))
-        # Maintenance i cena
-        maintenance = int(defaults["unit_maintenance"][size].get(ut, 0))
-        cena = int(defaults["purchase"][size].get(ut, 0))
-        sight = int(defaults["sight"].get(ut, 0))
-        # --- Modyfikatory wsparcia i transportu ---
-        # Transport (priorytet)
+        # Zbierz wybrane wsparcia (transport pierwszy jeśli jest)
+        supports = []
         transport = None
         for t in self.transport_types:
             if t in self.support_vars and self.support_vars[t].get():
                 transport = t
+                supports.append(t)
                 break
-        if transport:
-            upg = self.support_upgrades[transport]
-            ruch += upg["movement"]
-        # Pozostałe wsparcia
-        movement_penalty_applied = False
-        max_range_bonus = 0
         for sup, var in self.support_vars.items():
-            if var.get() and sup not in self.transport_types:
-                upg = self.support_upgrades[sup]
-                # Kara do ruchu tylko raz
-                if upg["movement"] < 0 and not movement_penalty_applied:
-                    ruch -= 1
-                    movement_penalty_applied = True
-                atak += upg["attack"]
-                combat += upg["combat"]
-                cena += upg["purchase"]
-                maintenance += upg["unit_maintenance"]
-                # Bonus do zasięgu ataku (najwyższy)
-                max_range_bonus = max(max_range_bonus, upg["range"])
-                # Bonus do obrony
-                obrona += upg["defense"]
-        # Zastosuj najwyższy bonus do zasięgu ataku
-        if max_range_bonus > 0:
-            zasieg += max_range_bonus
-        # Dolicz maintenance za transport
-        if transport:
-            maintenance += self.support_upgrades[transport]["unit_maintenance"]
-            cena += self.support_upgrades[transport]["purchase"]
-            obrona += self.support_upgrades[transport]["defense"]
-        # Dolicz obronę za transport
-        # Dolicz sight za wsparcia jeśli mają (w przyszłości)
-        # --- Aktualizacja labeli ---
-        self.stats_labels["Ruch"].config(text=str(ruch))
-        self.stats_labels["Zasięg ataku"].config(text=str(zasieg))
-        self.stats_labels["Siła ataku"].config(text=str(atak))
-        self.stats_labels["Wartość bojowa"].config(text=str(combat))
-        self.stats_labels["Obrona"].config(text=str(obrona))
-        self.stats_labels["Utrzymanie"].config(text=str(maintenance))
-        self.stats_labels["Cena"].config(text=str(cena))
-        self.stats_labels["Zasięg widzenia"].config(text=str(sight))
-        # Blokada przycisku kupna jeśli brak punktów
-        self.buy_btn.config(state="normal" if self.points_var.get() >= cena else "disabled")
-        self.current_stats = dict(ruch=ruch, zasieg=zasieg, atak=atak, combat=combat, obrona=obrona, maintenance=maintenance, cena=cena, sight=sight)
+            if var.get() and sup not in supports:
+                supports.append(sup)
+        stats_obj = compute_unit_stats(ut, size, supports)
+        # Aktualizacja GUI
+        self.stats_labels["Ruch"].config(text=str(stats_obj.move))
+        self.stats_labels["Zasięg ataku"].config(text=str(stats_obj.attack_range))
+        self.stats_labels["Siła ataku"].config(text=str(stats_obj.attack_value))
+        self.stats_labels["Wartość bojowa"].config(text=str(stats_obj.combat_value))
+        self.stats_labels["Obrona"].config(text=str(stats_obj.defense_value))
+        self.stats_labels["Utrzymanie"].config(text=str(stats_obj.maintenance))
+        self.stats_labels["Cena"].config(text=str(stats_obj.price))
+        self.stats_labels["Zasięg widzenia"].config(text=str(stats_obj.sight))
+        self.buy_btn.config(state="normal" if self.points_var.get() >= stats_obj.price else "disabled")
+        self.current_stats = dict(ruch=stats_obj.move, zasieg=stats_obj.attack_range, atak=stats_obj.attack_value, combat=stats_obj.combat_value, obrona=stats_obj.defense_value, maintenance=stats_obj.maintenance, cena=stats_obj.price, sight=stats_obj.sight, supports=supports)
         self.update_token_preview()
 
     def update_token_preview(self):

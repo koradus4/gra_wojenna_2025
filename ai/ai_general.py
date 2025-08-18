@@ -153,50 +153,110 @@ class AIGeneral:
             import traceback
             traceback.print_exc()
             
-    def plan_purchases(self, available_points, commanders):
-        """Planuje jakie jednostki kupić - z inteligentną logiką"""
+    def plan_purchases(self, available_points, commanders, max_purchases=None):
+        """Planuje jakie jednostki kupić - z inteligentną logiką
+
+        Parametry:
+          available_points (int): dostępny budżet
+          commanders (list): lista obiektów dowódców (z atrybutami id, nation, role)
+          max_purchases (int|None): nadpisuje limit zakupów (domyślnie 6); użyteczne do testów/debug
+        """
         print(f"\n📋 Planowanie zakupów (budżet: {available_points} pkt)")
-        
-        # Priorytety zakupów AI - bardziej zróżnicowane
-        unit_templates = [
-            {"type": "P", "size": "Pluton", "cost": 25, "priority": 1, "name": "Piechota Pluton"},
-            {"type": "Z", "size": "Pluton", "cost": 20, "priority": 2, "name": "Zaopatrzenie Pluton"},
-            {"type": "K", "size": "Pluton", "cost": 35, "priority": 3, "name": "Kawaleria Pluton"},
-            {"type": "P", "size": "Kompania", "cost": 40, "priority": 4, "name": "Piechota Kompania"},
-            {"type": "AL", "size": "Pluton", "cost": 30, "priority": 5, "name": "Artyleria Lekka Pluton"},
-        ]
-        
+        from core.unit_factory import PRICE_DEFAULTS
+
+        unit_type_order = ["P","K","TC","TŚ","TL","TS","AC","AL","AP","Z","D","G"]
+        sizes = ["Pluton","Kompania","Batalion"]
+
+        unit_templates = []
+        prio = 1
+        for sz in sizes:
+            for ut in unit_type_order:
+                base_cost = PRICE_DEFAULTS.get(sz, {}).get(ut)
+                if base_cost is None:
+                    continue
+                if base_cost > available_points * 1.2:
+                    continue
+                human_name = {"P": "Piechota","K": "Kawaleria","TC": "Czołg ciężki","TŚ": "Czołg średni","TL": "Czołg lekki","TS": "Sam. pancerny","AC": "Artyleria ciężka","AL": "Artyleria lekka","AP": "Artyleria plot","Z": "Zaopatrzenie","D": "Dowództwo","G": "Generał"}.get(ut, ut)
+                unit_templates.append({"type": ut,"size": sz,"cost": int(base_cost),"priority": prio,"name": f"{human_name} {sz}"})
+                prio += 1
+
         purchases = []
         budget = available_points
-        max_purchases_per_turn = min(6, len(commanders) * 3)  # Max 3 jednostki na dowódcę
-        
-        # Sortuj według priorytetu
+        max_purchases_per_turn = max_purchases if max_purchases is not None else min(6, len(commanders) * 3)
+
         unit_templates.sort(key=lambda x: x['priority'])
-        
-        # Inteligentne planowanie - różnorodność
         purchase_attempts = 0
         template_index = 0
-        
-        while budget >= 20 and len(purchases) < max_purchases_per_turn and purchase_attempts < 20:
-            template = unit_templates[template_index % len(unit_templates)]
-            
+        seen_cycle = 0
+        total_templates = len(unit_templates)
+        while budget >= 15 and len(purchases) < max_purchases_per_turn and purchase_attempts < 200:
+            template = unit_templates[template_index % total_templates]
+            # Jeśli już mamy tę kombinację typu+rozmiaru w zakupach i mamy jeszcze inne nieużyte w pierwszym cyklu -> przejdź dalej
+            existing_pairs = {(p['type'], p['size']) for p in purchases}
+            if (template['type'], template['size']) in existing_pairs and len(existing_pairs) < total_templates:
+                template_index += 1
+                purchase_attempts += 1
+                continue
             if budget >= template['cost']:
-                # Przypisz do dowódcy (rotacja)
                 commander_id = commanders[len(purchases) % len(commanders)].id
-                
                 purchase = template.copy()
                 purchase['commander_id'] = commander_id
+                supports, added_cost = self.select_supports_for_unit(template, budget - template['cost'])
+                purchase['supports'] = supports
+                purchase['cost'] = template['cost'] + added_cost
                 purchases.append(purchase)
-                budget -= template['cost']
-                
-                print(f"📦 Zaplanowano: {template['name']} dla dowódcy {commander_id} ({template['cost']} pkt)")
-            
+                budget -= purchase['cost']
+                print(f"📦 Zaplanowano: {template['name']} dla dowódcy {commander_id} ({purchase['cost']} pkt) wsparcia={supports}")
             template_index += 1
+            if template_index % total_templates == 0:
+                seen_cycle += 1
             purchase_attempts += 1
-                
+
         print(f"💰 Pozostały budżet: {budget} pkt")
         print(f"🎯 Zaplanowano {len(purchases)} zakupów")
         return purchases
+
+    def select_supports_for_unit(self, template, remaining_points):
+        """Dobiera listę wsparć (supports) mieszczącą się w remaining_points. Zwraca (lista, dodatkowy_koszt)."""
+        try:
+            from core.unit_factory import ALLOWED_SUPPORT, SUPPORT_UPGRADES, base_price
+            unit_type = template['type']
+            unit_size = template['size']
+            base_cost = template['cost']
+            allowed = ALLOWED_SUPPORT.get(unit_type, [])
+            supports = []
+            extra_cost = 0
+
+            # Strategiczne priorytety wsparć wg typu
+            priority_order = []
+            if unit_type == 'P':
+                priority_order = ["sekcja km.ppanc", "drużyna granatników", "przodek dwukonny"]
+            elif unit_type in ('AC','AL','AP'):
+                priority_order = ["obserwator", "ciagnik altyleryjski", "sam. ciezarowy Fiat 621"]
+            elif unit_type == 'K':
+                priority_order = ["sekcja ckm"]
+            elif unit_type in ('TL','TC','TS','TŚ'):
+                priority_order = ["obserwator"]
+            elif unit_type == 'Z':
+                priority_order = ["drużyna granatników"]
+
+            # Filtruj dozwolone i unikalne
+            ordered = [s for s in priority_order if s in allowed]
+            # Dodaj ewentualnie transport jeśli korzyść ruchu i budżet > próg
+            for sup in ordered:
+                upg = SUPPORT_UPGRADES.get(sup)
+                if not upg:
+                    continue
+                cost_inc = upg['purchase'] + upg.get('unit_maintenance',0)  # użyj purchase do limitu budżetu
+                if cost_inc <= remaining_points - extra_cost:
+                    supports.append(sup)
+                    extra_cost += upg['purchase']
+
+            # Ograniczenie: maks 1 transport – zapewnione priorytetami (tylko jeden z listy transportów tutaj)
+            return supports, extra_cost
+        except Exception as e:
+            print(f"⚠️ Błąd select_supports_for_unit: {e}")
+            return [], 0
         
     def purchase_unit_programmatically(self, player, purchase_plan):
         """Programowo kupuje jednostkę jak TokenShop"""
@@ -281,67 +341,40 @@ class AIGeneral:
             return False
     
     def prepare_unit_data(self, purchase_plan, commander_id, token_id, nation_name):
-        """Przygotowuje dane JSON dla żetonu - kompatybilne z kreatorem"""
-        print("📝 Przygotowuję dane żetonu...")
-        
-        # Podstawowe statystyki jednostek (jak w kreatora)
-        base_stats = {
-            "P": {"move": 4, "range": 1, "attack": 4, "defense": 4, "combat": 15, "maintenance": 2, "price": 25, "sight": 2},
-            "K": {"move": 6, "range": 1, "attack": 3, "defense": 3, "combat": 12, "maintenance": 3, "price": 35, "sight": 3},
-            "Z": {"move": 4, "range": 0, "attack": 2, "defense": 2, "combat": 8, "maintenance": 1, "price": 20, "sight": 1},
-            "AL": {"move": 3, "range": 3, "attack": 5, "defense": 3, "combat": 18, "maintenance": 4, "price": 30, "sight": 2},
-            "AC": {"move": 2, "range": 4, "attack": 8, "defense": 4, "combat": 25, "maintenance": 6, "price": 50, "sight": 3},
-            "TL": {"move": 5, "range": 2, "attack": 4, "defense": 5, "combat": 20, "maintenance": 5, "price": 45, "sight": 3},
-        }
-        
+        """Przygotowuje dane JSON dla żetonu wykorzystując wspólną fabrykę (pełna parytet z TokenShop)."""
+        print("📝 Przygotowuję dane żetonu (fabryka)...")
+        from core.unit_factory import compute_unit_stats, build_label_and_full_name
+
         unit_type = purchase_plan["type"]
         unit_size = purchase_plan["size"]
-        stats = base_stats.get(unit_type, base_stats["P"]).copy()
-        
-        # Określ pełne nazwy
-        unit_type_full = {
-            "P": "Piechota",
-            "K": "Kawaleria", 
-            "Z": "Zaopatrzenie",
-            "AL": "Artyleria Lekka",
-            "AC": "Artyleria Ciężka", 
-            "TL": "Czołg Lekki",
-            "TC": "Czołg Ciężki",
-            "TS": "Sam. pancerny"
-        }.get(unit_type, unit_type)
-        
-        # Kod nacji
-        nation_code = "PL" if commander_id in [1, 2, 3] else "N"
-        label = f"{unit_size} {nation_code}"
-        unit_full_name = f"{unit_type_full} {unit_size}"
-        
-        # Ścieżka obrazka jak w kreatora
+
+        # TODO: w przyszłości AI będzie wybierało wsparcia; na razie brak wsparć (parytet bazowy)
+        supports = purchase_plan.get("supports", [])  # spodziewana lista nazw wsparć
+        stats = compute_unit_stats(unit_type, unit_size, supports)
+        name_parts = build_label_and_full_name(nation_name, unit_type, unit_size, str(commander_id))
+
         rel_img_path = f"assets/tokens/nowe_dla_{commander_id}/{token_id}/token.png"
-        
-        # Struktura JSON identyczna z kreatorem
         unit_data = {
             "id": token_id,
             "nation": nation_name,
             "unitType": unit_type,
             "unitSize": unit_size,
             "shape": "prostokąt",
-            "label": label,
-            "unit_full_name": unit_full_name,
-            "move": stats["move"],
-            "attack": {"range": stats["range"], "value": stats["attack"]},
-            "combat_value": stats["combat"],
-            "defense_value": stats["defense"],
-            "maintenance": stats["maintenance"],
-            "price": stats["price"],
-            "sight": stats["sight"],
+            "label": name_parts["label"],
+            "unit_full_name": name_parts["unit_full_name"],
+            "move": stats.move,
+            "attack": {"range": stats.attack_range, "value": stats.attack_value},
+            "combat_value": stats.combat_value,
+            "defense_value": stats.defense_value,
+            "maintenance": stats.maintenance,
+            "price": stats.price,
+            "sight": stats.sight,
             "owner": str(commander_id),
             "image": rel_img_path,
             "w": 240,
             "h": 240
         }
-        
-        print(f"📊 Statystyki: ruch={stats['move']}, atak={stats['attack']}, obrona={stats['defense']}, combat={stats['combat']}")
-        
+        print(f"📊 Statystyki: ruch={stats.move}, atak={stats.attack_value}, obrona={stats.defense_value}, combat={stats.combat_value}, cena={stats.price}")
         return unit_data
     
     def create_token_image(self, purchase_plan, nation, img_path):
