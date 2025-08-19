@@ -136,8 +136,24 @@ class AIGeneral:
                 
             print(f"👥 Znaleziono {len(commanders)} dowódców: {[f'{c.id}({c.nation})' for c in commanders]}")
             
-            # Zaplanuj zakupy
-            purchase_plans = self.plan_purchases(available_points, commanders)
+            # FAZA 1A: Zbieranie stanu (per dowódca + globalnie + wróg)
+            state = self._gather_state(game_engine, player, commanders)
+            # FAZA 1B: Decyzja o podziale budżetu (ile wydać teraz)
+            purchase_budget, reserve, budget_diag = self._decide_budget(available_points, state)
+            print(f"📊 Budżet przydzielony na zakupy: {purchase_budget} (rezerwa: {reserve})")
+            # FAZA 2: Priorytety dowódców
+            priorities = self._compute_commander_priorities(state, commanders)
+            print("🧮 Priorytety dowódców:", priorities)
+            # FAZA 3: Plan zakupów z wykorzystaniem priorytetów
+            purchase_plans = self.plan_purchases(purchase_budget, commanders, priorities=priorities, state=state)
+            # Zachowaj kontekst decyzji do logowania
+            self._last_decision_context = {
+                'state': state,
+                'priorities': priorities,
+                'budget_allocated': purchase_budget,
+                'reserve': reserve,
+                'budget_diag': budget_diag
+            }
             
             # Wykonaj zakupy
             for plan in purchase_plans:
@@ -152,21 +168,134 @@ class AIGeneral:
             print(f"❌ Błąd w zakupach AI: {e}")
             import traceback
             traceback.print_exc()
-            
-    def plan_purchases(self, available_points, commanders, max_purchases=None):
-        """Planuje jakie jednostki kupić - z inteligentną logiką
 
-        Parametry:
-          available_points (int): dostępny budżet
-          commanders (list): lista obiektów dowódców (z atrybutami id, nation, role)
-          max_purchases (int|None): nadpisuje limit zakupów (domyślnie 6); użyteczne do testów/debug
+    # === FAZA 1: ZBIERANIE STANU ===
+    def _gather_state(self, game_engine, general_player, commanders):
+        """Zbiera uproszczony stan do decyzji ekonomicznych.
+        Zwraca dict z kluczami:
+          global: {unit_counts_by_type, total_units}
+          per_commander: { commander_id: {unit_counts_by_type, total_units, has_supply, has_artillery, avg_fuel} }
+          enemy: {unit_counts_by_type, total_units, has_artillery, has_armor}
+        (Na razie tylko podstawowe dane – można rozszerzyć później.)
+        """
+        result = {"global": {}, "per_commander": {}}
+        try:
+            all_tokens = []
+            enemy_tokens = []
+            if hasattr(game_engine, 'get_visible_tokens'):
+                visible_all = game_engine.get_visible_tokens(general_player) or []
+                # Podział na własne/obce
+                for tok in visible_all:
+                    tok_nation = getattr(tok, 'nation', None)
+                    if tok_nation == general_player.nation:
+                        all_tokens.append(tok)
+                    else:
+                        enemy_tokens.append(tok)
+                # Per commander
+                for c in commanders:
+                    comm_tokens = [t for t in all_tokens if getattr(t, 'owner', None) == str(c.id)]
+                    counts = {}
+                    fuel_vals = []
+                    for t in comm_tokens:
+                        utype = getattr(t, 'unitType', None) or getattr(t, 'unit_type', None)
+                        if not utype:
+                            continue
+                        counts[utype] = counts.get(utype, 0) + 1
+                        max_fuel = getattr(t, 'maxFuel', 0) or 0
+                        cur_fuel = getattr(t, 'currentFuel', 0) or 0
+                        if max_fuel > 0:
+                            fuel_vals.append(cur_fuel / max_fuel)
+                    has_supply = counts.get('Z', 0) > 0
+                    has_artillery = any(k in counts for k in ('AL','AC','AP'))
+                    avg_fuel = sum(fuel_vals)/len(fuel_vals) if fuel_vals else 1.0
+                    result['per_commander'][c.id] = {
+                        'unit_counts_by_type': counts,
+                        'total_units': sum(counts.values()),
+                        'has_supply': has_supply,
+                        'has_artillery': has_artillery,
+                        'avg_fuel': avg_fuel
+                    }
+            # global own counts
+            g_counts = {}
+            for t in all_tokens:
+                utype = getattr(t, 'unitType', None) or getattr(t, 'unit_type', None)
+                if utype:
+                    g_counts[utype] = g_counts.get(utype, 0) + 1
+            result['global'] = {'unit_counts_by_type': g_counts,'total_units': sum(g_counts.values())}
+            # enemy counts
+            e_counts = {}
+            for t in enemy_tokens:
+                utype = getattr(t, 'unitType', None) or getattr(t, 'unit_type', None)
+                if utype:
+                    e_counts[utype] = e_counts.get(utype, 0) + 1
+            has_enemy_art = any(k in e_counts for k in ('AL','AC','AP'))
+            has_enemy_armor = any(k in e_counts for k in ('TC','TŚ','TL','TS'))
+            result['enemy'] = {
+                'unit_counts_by_type': e_counts,
+                'total_units': sum(e_counts.values()),
+                'has_artillery': has_enemy_art,
+                'has_armor': has_enemy_armor
+            }
+            # Logi
+            print("🛰️ STAN WŁASNY (global):", result['global'])
+            print("🛰️ STAN WROGA (widoczny):", result.get('enemy'))
+            for cid, data in result['per_commander'].items():
+                print(f"   🧭 Dowódca {cid} -> {data}")
+        except Exception as e:
+            print(f"⚠️ _gather_state błąd: {e}")
+        return result
+
+    # === FAZA 2: PODZIAŁ BUDŻETU ===
+    def _decide_budget(self, available_points, state):
+        """Prosty podział budżetu: jeżeli brak artylerii lub zaopatrzenia – wydaj więcej.
+        Zwraca (purchase_budget, reserve, diagnostics).
+        """
+        per_commander = state.get('per_commander', {})
+        enemy = state.get('enemy', {})
+        need_supply = any(not data['has_supply'] for data in per_commander.values()) if per_commander else False
+        need_art = any(not data['has_artillery'] for data in per_commander.values()) if per_commander else False
+        enemy_total = enemy.get('total_units', 0) or 0
+        own_total = state.get('global', {}).get('total_units', 0) or 0
+        pressure = enemy_total / (own_total + 1) if own_total >= 0 else 0
+        base_ratio = 0.5
+        if need_supply:
+            base_ratio += 0.1
+        if need_art:
+            base_ratio += 0.1
+        if pressure > 1.2:
+            base_ratio += 0.15
+        elif pressure > 0.8:
+            base_ratio += 0.05
+        if enemy.get('has_armor') and not any('T' in t for t in state.get('global', {}).get('unit_counts_by_type', {}).keys()):
+            base_ratio += 0.1
+        if base_ratio > 0.85:
+            base_ratio = 0.85
+        purchase_budget = int(available_points * base_ratio)
+        reserve = available_points - purchase_budget
+        print(f"⚖️ Budżet decyzja: need_supply={need_supply} need_art={need_art} pressure={pressure:.2f} ratio={base_ratio:.2f}")
+        diagnostics = {
+            'need_supply': need_supply,
+            'need_art': need_art,
+            'pressure': pressure,
+            'enemy_has_armor': enemy.get('has_armor', False),
+            'ratio': base_ratio
+        }
+        return purchase_budget, reserve, diagnostics
+    
+    def plan_purchases(self, available_points, commanders, max_purchases=None, priorities=None, state=None):
+        """Planuje jakie jednostki kupić (publiczny interfejs)."""
+        return self._plan_purchases_internal(available_points, commanders, max_purchases=max_purchases, priorities=priorities, state=state)
+
+    def _plan_purchases_internal(self, available_points, commanders, max_purchases=None, priorities=None, state=None):
+        """Wewnętrzna implementacja planowania zakupów.
+        priorities: opcjonalny dict commander_id -> waga (float) używany do rotacji przydziału.
+        Jeśli brak priorytetów używa starej prostej rotacji.
         """
         print(f"\n📋 Planowanie zakupów (budżet: {available_points} pkt)")
         from core.unit_factory import PRICE_DEFAULTS
 
         unit_type_order = ["P","K","TC","TŚ","TL","TS","AC","AL","AP","Z","D","G"]
         sizes = ["Pluton","Kompania","Batalion"]
-
         unit_templates = []
         prio = 1
         for sz in sizes:
@@ -177,7 +306,7 @@ class AIGeneral:
                 if base_cost > available_points * 1.2:
                     continue
                 human_name = {"P": "Piechota","K": "Kawaleria","TC": "Czołg ciężki","TŚ": "Czołg średni","TL": "Czołg lekki","TS": "Sam. pancerny","AC": "Artyleria ciężka","AL": "Artyleria lekka","AP": "Artyleria plot","Z": "Zaopatrzenie","D": "Dowództwo","G": "Generał"}.get(ut, ut)
-                unit_templates.append({"type": ut,"size": sz,"cost": int(base_cost),"priority": prio,"name": f"{human_name} {sz}"})
+                unit_templates.append({"type": ut, "size": sz, "cost": int(base_cost), "priority": prio, "name": f"{human_name} {sz}"})
                 prio += 1
 
         purchases = []
@@ -187,18 +316,40 @@ class AIGeneral:
         unit_templates.sort(key=lambda x: x['priority'])
         purchase_attempts = 0
         template_index = 0
-        seen_cycle = 0
         total_templates = len(unit_templates)
-        while budget >= 15 and len(purchases) < max_purchases_per_turn and purchase_attempts < 200:
-            template = unit_templates[template_index % total_templates]
-            # Jeśli już mamy tę kombinację typu+rozmiaru w zakupach i mamy jeszcze inne nieużyte w pierwszym cyklu -> przejdź dalej
+        if priorities:
+            total_w = sum(priorities.values()) or 1.0
+            norm = {cid: (w/total_w) for cid, w in priorities.items()}
+            scale = 100
+            rot = []
+            for cid, w in norm.items():
+                count = max(1, int(w * scale))
+                rot.extend([cid] * count)
+            commander_rotation = rot if rot else [c.id for c in commanders]
+        else:
+            commander_rotation = [c.id for c in commanders]
+        rot_len = len(commander_rotation)
+        rot_index = 0
+        while budget >= 15 and len(purchases) < max_purchases_per_turn and purchase_attempts < 300:
+            if state:
+                template = self._select_template(unit_templates, purchases, budget, state)
+                if template is None:
+                    print("⚠️ Heurystyka nie znalazła pasującego szablonu – fallback rotacja")
+                    template = unit_templates[template_index % total_templates]
+            else:
+                template = unit_templates[template_index % total_templates]
+
             existing_pairs = {(p['type'], p['size']) for p in purchases}
-            if (template['type'], template['size']) in existing_pairs and len(existing_pairs) < total_templates:
+            if not state and (template['type'], template['size']) in existing_pairs and len(existing_pairs) < total_templates:
                 template_index += 1
                 purchase_attempts += 1
                 continue
             if budget >= template['cost']:
-                commander_id = commanders[len(purchases) % len(commanders)].id
+                if priorities:
+                    commander_id = commander_rotation[rot_index % rot_len]
+                    rot_index += 1
+                else:
+                    commander_id = commanders[len(purchases) % len(commanders)].id
                 purchase = template.copy()
                 purchase['commander_id'] = commander_id
                 supports, added_cost = self.select_supports_for_unit(template, budget - template['cost'])
@@ -208,13 +359,112 @@ class AIGeneral:
                 budget -= purchase['cost']
                 print(f"📦 Zaplanowano: {template['name']} dla dowódcy {commander_id} ({purchase['cost']} pkt) wsparcia={supports}")
             template_index += 1
-            if template_index % total_templates == 0:
-                seen_cycle += 1
             purchase_attempts += 1
 
         print(f"💰 Pozostały budżet: {budget} pkt")
         print(f"🎯 Zaplanowano {len(purchases)} zakupów")
         return purchases
+
+    def _select_template(self, unit_templates, purchases, budget, state):
+        """Heurystyczny wybór szablonu jednostki na podstawie braków.
+        Zwraca dict szablonu lub None.
+        Reguły (kolejność):
+          1. Brak zaopatrzenia -> Z (najmniejszy rozmiar dostępny)
+          2. Brak artylerii -> AL potem AC/AP
+          3. Wróg ma pancerz, nasze pancerne < 1 -> TL/TŚ (najtańsze)
+          4. Piechota < 3 -> P
+          5. Mobilność (brak K i TS) -> K
+          6. Dywersyfikacja – weź typ którego najmniej w ratio
+        Rozmiar: dla uzupełnień krytycznych Pluton, dla piechoty jeśli budżet pozwala Kompania.
+        """
+        global_counts = state.get('global', {}).get('unit_counts_by_type', {})
+        enemy = state.get('enemy', {})
+        # Dodaj do counts także planowane (purchases)
+        planned_counts = global_counts.copy()
+        for p in purchases:
+            planned_counts[p['type']] = planned_counts.get(p['type'], 0) + 1
+        def find_template(types_pref, size_pref_order):
+            for t in types_pref:
+                for s in size_pref_order:
+                    cand = next((u for u in unit_templates if u['type']==t and u['size']==s and u['cost']<=budget), None)
+                    if cand:
+                        return cand
+            return None
+        # 1 Supply
+        if planned_counts.get('Z',0)==0:
+            tpl = find_template(['Z'], ['Pluton','Kompania','Batalion'])
+            if tpl:
+                print("🧪 Heurystyka: brak zaopatrzenia -> wybieram", tpl['name'])
+                return tpl
+        # 2 Artillery
+        if all(planned_counts.get(x,0)==0 for x in ('AL','AC','AP')):
+            tpl = find_template(['AL','AC','AP'], ['Pluton','Kompania'])
+            if tpl:
+                print("🧪 Heurystyka: brak artylerii ->", tpl['name'])
+                return tpl
+        # 3 Enemy armor
+        has_enemy_armor = enemy.get('has_armor')
+        own_armor = sum(planned_counts.get(x,0) for x in ('TL','TŚ','TC','TS'))
+        if has_enemy_armor and own_armor==0:
+            tpl = find_template(['TL','TŚ','TS','TC'], ['Pluton','Kompania'])
+            if tpl:
+                print("🧪 Heurystyka: reakcja na pancerz wroga ->", tpl['name'])
+                return tpl
+        # 4 Infantry baseline
+        if planned_counts.get('P',0) < 3:
+            size_order = ['Kompania','Pluton'] if budget>40 else ['Pluton']
+            tpl = find_template(['P'], size_order+['Batalion'])
+            if tpl:
+                print("🧪 Heurystyka: uzupełniam piechotę ->", tpl['name'])
+                return tpl
+        # 5 Mobility
+        if planned_counts.get('K',0)==0 and planned_counts.get('TS',0)==0:
+            tpl = find_template(['K','TS'], ['Pluton','Kompania'])
+            if tpl:
+                print("🧪 Heurystyka: potrzebna mobilność ->", tpl['name'])
+                return tpl
+        # 6 Diversity – wybierz typ o najniższym (count / (1 + waga))
+        type_counts = {}
+        for u in unit_templates:
+            type_counts[u['type']] = planned_counts.get(u['type'],0)
+        sorted_types = sorted(type_counts.items(), key=lambda kv: kv[1])
+        for t,_cnt in sorted_types:
+            tpl = find_template([t], ['Pluton','Kompania','Batalion'])
+            if tpl:
+                print("🧪 Heurystyka: dywersyfikacja ->", tpl['name'])
+                return tpl
+        return None
+
+    # === PRIORYTETY DOWÓDCÓW ===
+    def _compute_commander_priorities(self, state, commanders):
+        """Nadaje wagi dowódcom na podstawie braków i stanu paliwa.
+        Heurystyka (sumuje czynniki):
+          brak zaopatrzenia +0.4
+          brak artylerii +0.3
+          avg_fuel < 0.6 +0.15
+          mało jednostek (<3) + (3-total_units)*0.1
+        Minimalna waga 0.1 aby nikt nie był całkiem pominięty.
+        Zwraca dict commander_id -> weight.
+        """
+        out = {}
+        per_c = state.get('per_commander', {})
+        for c in commanders:
+            data = per_c.get(c.id, {})
+            w = 0.0
+            if not data.get('has_supply'):
+                w += 0.4
+            if not data.get('has_artillery'):
+                w += 0.3
+            avg_fuel = data.get('avg_fuel', 1.0)
+            if avg_fuel < 0.6:
+                w += 0.15
+            total_units = data.get('total_units', 0)
+            if total_units < 3:
+                w += (3 - total_units) * 0.1
+            if w < 0.1:
+                w = 0.1
+            out[c.id] = round(w, 3)
+        return out
 
     def select_supports_for_unit(self, template, remaining_points):
         """Dobiera listę wsparć (supports) mieszczącą się w remaining_points. Zwraca (lista, dodatkowy_koszt)."""
@@ -328,6 +578,12 @@ class AIGeneral:
             # Odejmij punkty
             player.economy.subtract_points(cost)
             remaining_points = player.economy.get_points()['economic_points']
+
+            # Logowanie decyzji zakupowej
+            try:
+                self._log_purchase_decision(player, purchase_plan, current_points, remaining_points)
+            except Exception as log_err:
+                print(f"⚠️ Logger AI purchase błąd: {log_err}")
             
             print(f"💰 Płatność: -{cost} pkt (pozostało: {remaining_points} pkt)")
             print(f"✅ Żeton {purchase_plan['name']} utworzony pomyślnie!")
@@ -517,6 +773,47 @@ class AIGeneral:
             return "white"
         else:
             return "black"
+
+    # === LOGOWANIE ZAKUPÓW ===
+    def _log_purchase_decision(self, player, purchase_plan, points_before, points_after):
+        """Zapisuje szczegóły zakupu AI do pliku CSV (per dzień)."""
+        from pathlib import Path
+        import csv, datetime, json
+        logs_dir = Path('logs')
+        logs_dir.mkdir(exist_ok=True)
+        date_tag = datetime.datetime.now().strftime('%Y%m%d')
+        path = logs_dir / f'ai_purchases_{date_tag}.csv'
+        is_new = not path.exists()
+        ctx = getattr(self, '_last_decision_context', {})
+        budget_diag = ctx.get('budget_diag', {})
+        state = ctx.get('state', {})
+        row = {
+            'timestamp': datetime.datetime.now().isoformat(timespec='seconds'),
+            'nation': getattr(player, 'nation', self.nationality),
+            'commander_id': purchase_plan.get('commander_id'),
+            'unit_type': purchase_plan.get('type'),
+            'unit_size': purchase_plan.get('size'),
+            'cost': purchase_plan.get('cost'),
+            'supports': ';'.join(purchase_plan.get('supports', [])),
+            'points_before': points_before,
+            'points_after': points_after,
+            'budget_allocated': ctx.get('budget_allocated'),
+            'reserve': ctx.get('reserve'),
+            'need_supply': budget_diag.get('need_supply'),
+            'need_art': budget_diag.get('need_art'),
+            'pressure': budget_diag.get('pressure'),
+            'enemy_has_armor': budget_diag.get('enemy_has_armor'),
+            'ratio': budget_diag.get('ratio'),
+            'global_counts': json.dumps(state.get('global', {}).get('unit_counts_by_type', {}), ensure_ascii=False),
+            'enemy_counts': json.dumps(state.get('enemy', {}).get('unit_counts_by_type', {}), ensure_ascii=False)
+        }
+        fieldnames = list(row.keys())
+        with open(path, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if is_new:
+                writer.writeheader()
+            writer.writerow(row)
+        print(f"📝 Zalogowano zakup AI -> {path.name}")
         
     def plan_strategy(self):
         """Strategic planning"""
