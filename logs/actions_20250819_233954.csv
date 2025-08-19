@@ -1,0 +1,87 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-08-19T23:39:54;1;2;Polska;Dowódca;move;P_Pluton__2_Pu_k_Piechoty_20250703213008;;18;-2;22;-6;OK;0;0;82;0
+2025-08-19T23:39:58;1;2;Polska;Dowódca;move;AL_Pluton__2_Bateria_Artylerii;;17;-1;21;-6;OK;0;0;82;0
+2025-08-19T23:40:02;1;2;Polska;Dowódca;move;TL_Pluton__2_Pluton_Tankietek_20250703213014;;16;0;21;-5;OK;0;0;82;0
+2025-08-19T23:40:06;1;2;Polska;Dowódca;move;P_Batalion__2_Pu_k_Piechoty;;23;-3;23;-6;OK;0;0;82;0
+2025-08-19T23:40:10;1;2;Polska;Dowódca;move;P_Kompania__2_Batalion_Strzelc_w;;20;-8;22;-8;;0;0;82;0
+2025-08-19T23:40:15;1;2;Polska;Dowódca;move;P_Kompania__2_Pu_k_Piechoty;;11;-1;17;-4;;0;0;82;0
+2025-08-19T23:40:20;1;2;Polska;Dowódca;move;P_Batalion__2_Kompania_Grenadier_w;;15;-7;19;-7;;0;0;82;0
+2025-08-19T23:40:25;1;2;Polska;Dowódca;move;P_Pluton__2_Batalion_Strzelc_w;;9;-4;15;-7;OK;0;0;82;0
+2025-08-19T23:40:28;1;2;Polska;Dowódca;move;TL_Pluton__2_Pluton_Tankietek;;9;-3;9;-4;OK;0;0;82;0
+2025-08-19T23:40:31;1;2;Polska;Dowódca;move;AL_Batalion__2_Pu_k_Artylerii;;8;-3;15;-4;;0;0;82;0
+2025-08-19T23:40:36;1;2;Polska;Dowódca;move;AL_Kompania__2_Dywizjon_Artylerii;;6;9;15;1;;0;0;82;0
+2025-08-19T23:40:40;1;2;Polska;Dowódca;move;P_Batalion__2_Kompania_Grenadier_w_20250703213005;;20;3;22;-3;;0;0;82;0
+2025-08-19T23:40:44;1;2;Polska;Dowódca;move;P_Pluton__2_Pu_k_Piechoty;;21;3;15;6;OK;0;0;82;0
+2025-08-19T23:40:48;1;2;Polska;Dowódca;move;TL_Pluton__2_Pluton_Tankietek;;9;-4;13;-6;;0;0;82;0
+2025-08-19T23:40:55;1;2;Polska;Dowódca;resupply;AL_Batalion__2_Pu_k_Artylerii;;;;15;-4;fuel+9, combat+0;0;0;73;0
+2025-08-19T23:40:59;1;2;Polska;Dowódca;resupply;TL_Pluton__2_Pluton_Tankietek;;;;13;-6;fuel+5, combat+0;0;0;68;0
+2025-08-19T23:41:02;1;2;Polska;Dowódca;resupply;P_Kompania__2_Pu_k_Piechoty;;;;17;-4;fuel+6, combat+0;0;0;62;0
+2025-08-19T23:41:05;1;2;Polska;Dowódca;resupply;AL_Kompania__2_Dywizjon_Artylerii;;;;15;1;fuel+9, combat+0;0;0;53;0
+2025-08-19T23:41:11;1;2;Polska;Dowódca;resupply;P_Batalion__2_Kompania_Grenadier_w_20250703213005;;;;22;-3;fuel+6, combat+0;0;0;47;0
+2025-08-19T23:41:14;1;2;Polska;Dowódca;resupply;TL_Pluton__2_Pluton_Tankietek_20250703213014;;;;21;-5;fuel+5, combat+0;0;0;42;0
+2025-08-19T23:41:17;1;2;Polska;Dowódca;resupply;P_Batalion__2_Kompania_Grenadier_w;;;;19;-7;fuel+1, combat+0;0;0;41;0
+2025-08-19T23:41:19;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;41;0
+2025-08-19T23:41:24;1;3;Polska;Dowódca;move;P_Batalion__3_Batalion_Strzelc_w;;20;13;25;6;;0;0;41;0
+2025-08-19T23:41:29;1;3;Polska;Dowódca;move;P_Kompania__3_Batalion_Strzelc_w;;20;14;21;11;;0;0;41;0
+2025-08-19T23:41:33;1;3;Polska;Dowódca;move;TS_Kompania__3_Sam_Pancerny_Einheit;;19;14;26;6;;0;0;41;0
+2025-08-19T23:41:36;1;3;Polska;Dowódca;move;P_Batalion__3_Pu_k_Piechoty;;13;15;19;9;;0;0;41;0
+2025-08-19T23:41:40;1;3;Polska;Dowódca;move;AL_Batalion__3_Pu_k_Artylerii;;16;19;17;15;;0;0;41;0
+2025-08-19T23:41:44;1;3;Polska;Dowódca;move;Z_Pluton__3_Kompania_Zaopatrzeniowa;;16;20;18;15;;0;0;41;0
+2025-08-19T23:41:47;1;3;Polska;Dowódca;move;P_Pluton__3_Pu_k_Piechoty;;24;16;24;10;;0;0;41;0
+2025-08-19T23:41:51;1;3;Polska;Dowódca;move;TL_Batalion__3_Kompania_Czo_g_w_Lekkich;;23;17;22;10;;0;0;41;0
+2025-08-19T23:41:55;1;3;Polska;Dowódca;move;K_Batalion__3_Oddzia_Jazdy;;21;18;21;12;;0;0;41;0
+2025-08-19T23:41:58;1;3;Polska;Dowódca;resupply;Z_Pluton__3_Kompania_Zaopatrzeniowa;;;;18;15;fuel+5, combat+0;0;0;36;0
+2025-08-19T23:41:59;1;3;Polska;Dowódca;move_error;Z_Pluton__3_Kompania_Zaopatrzeniowa;;;;;;no_reachable_hex;0;0;36;0
+2025-08-19T23:42:00;1;3;Polska;Dowódca;move_error;Z_Pluton__3_Kompania_Zaopatrzeniowa;;;;;;no_reachable_hex;0;0;36;0
+2025-08-19T23:42:04;1;3;Polska;Dowódca;resupply;AL_Batalion__3_Pu_k_Artylerii;;;;17;15;fuel+3, combat+0;0;0;33;0
+2025-08-19T23:42:05;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;33;0
+2025-08-19T23:42:08;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;33;84
+2025-08-19T23:42:10;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;33;84
+2025-08-19T23:42:13;1;6;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;33;84
+2025-08-19T23:42:42;1;2;Polska;Dowódca;resupply;P_Kompania__2_Batalion_Strzelc_w;;;;22;-8;fuel+2, combat+0;0;0;112;119
+2025-08-19T23:42:45;1;2;Polska;Dowódca;resupply;P_Pluton__2_Pu_k_Piechoty_20250703213008;;;;22;-6;fuel+4, combat+0;0;0;108;119
+2025-08-19T23:42:49;1;2;Polska;Dowódca;resupply;P_Batalion__2_Pu_k_Piechoty;;;;23;-6;fuel+3, combat+0;0;0;105;119
+2025-08-19T23:42:58;1;2;Polska;Dowódca;resupply;AL_Pluton__2_Bateria_Artylerii;;;;21;-6;fuel+5, combat+0;0;0;100;119
+2025-08-19T23:43:01;1;2;Polska;Dowódca;resupply;P_Batalion__2_Kompania_Grenadier_w;;;;19;-7;fuel+3, combat+0;0;0;97;119
+2025-08-19T23:43:05;1;2;Polska;Dowódca;move;TL_Pluton__2_Pluton_Tankietek;;13;-6;9;-4;OK;0;0;97;119
+2025-08-19T23:43:08;1;2;Polska;Dowódca;resupply;TL_Pluton__2_Pluton_Tankietek;;;;9;-4;fuel+4, combat+0;0;0;93;119
+2025-08-19T23:43:13;1;2;Polska;Dowódca;resupply;P_Pluton__2_Batalion_Strzelc_w;;;;15;-7;fuel+6, combat+0;0;0;87;119
+2025-08-19T23:43:18;1;2;Polska;Dowódca;move;AL_Batalion__2_Pu_k_Artylerii;;15;-4;16;-4;;0;0;87;119
+2025-08-19T23:43:18;1;2;Polska;Dowódca;move;AL_Batalion__2_Pu_k_Artylerii;;15;-4;16;-4;;0;0;87;119
+2025-08-19T23:43:22;1;2;Polska;Dowódca;resupply;AL_Batalion__2_Pu_k_Artylerii;;;;16;-4;fuel+1, combat+0;0;0;86;119
+2025-08-19T23:43:30;1;2;Polska;Dowódca;move;P_Batalion__2_Kompania_Grenadier_w_20250703213005;;22;-3;19;-3;;0;0;86;119
+2025-08-19T23:43:39;1;2;Polska;Dowódca;resupply;P_Batalion__2_Kompania_Grenadier_w_20250703213005;;;;19;-3;fuel+4, combat+0;0;0;82;119
+2025-08-19T23:43:43;1;2;Polska;Dowódca;resupply;P_Pluton__2_Pu_k_Piechoty;;;;15;6;fuel+6, combat+0;0;0;76;119
+2025-08-19T23:43:45;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;76;119
+2025-08-19T23:43:51;1;3;Polska;Dowódca;resupply;TS_Kompania__3_Sam_Pancerny_Einheit;;;;26;6;fuel+9, combat+0;0;0;67;119
+2025-08-19T23:43:54;1;3;Polska;Dowódca;move;TS_Kompania__3_Sam_Pancerny_Einheit;;26;6;28;3;OK;0;0;67;119
+2025-08-19T23:43:57;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:43:57;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:43:59;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:00;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:00;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:01;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:01;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:02;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:03;1;3;Polska;Dowódca;move_error;P_Batalion__3_Batalion_Strzelc_w;;;;;;no_reachable_hex;0;0;67;119
+2025-08-19T23:44:05;1;3;Polska;Dowódca;resupply;P_Batalion__3_Batalion_Strzelc_w;;;;25;6;fuel+7, combat+0;0;0;60;119
+2025-08-19T23:44:07;1;3;Polska;Dowódca;move;P_Batalion__3_Batalion_Strzelc_w;;25;6;27;4;OK;0;0;60;119
+2025-08-19T23:44:11;1;3;Polska;Dowódca;move_error;P_Batalion__3_Pu_k_Piechoty;;;;;;no_reachable_hex;0;0;60;119
+2025-08-19T23:44:12;1;3;Polska;Dowódca;move_error;P_Batalion__3_Pu_k_Piechoty;;;;;;no_reachable_hex;0;0;60;119
+2025-08-19T23:44:17;1;3;Polska;Dowódca;resupply;P_Batalion__3_Pu_k_Piechoty;;;;19;9;fuel+6, combat+0;0;0;54;119
+2025-08-19T23:44:17;1;3;Polska;Dowódca;move;P_Batalion__3_Pu_k_Piechoty;;19;9;23;7;;0;0;54;119
+2025-08-19T23:44:22;1;3;Polska;Dowódca;resupply;TL_Batalion__3_Kompania_Czo_g_w_Lekkich;;;;22;10;fuel+3, combat+0;0;0;51;119
+2025-08-19T23:44:24;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;51;119
+2025-08-19T23:44:27;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;51;132
+2025-08-19T23:44:30;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;51;132
+2025-08-19T23:44:32;1;6;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;51;132
+2025-08-19T23:45:07;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;151;167
+2025-08-19T23:45:10;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;151;167
+2025-08-19T23:45:12;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;151;174
+2025-08-19T23:45:15;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;151;174
+2025-08-19T23:45:17;1;6;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;151;174
+2025-08-19T23:45:20;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;213;209
+2025-08-19T23:45:22;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;213;209
+2025-08-19T23:45:24;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;213;281
+2025-08-19T23:45:27;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;213;281
+2025-08-19T23:45:31;1;6;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;213;281
