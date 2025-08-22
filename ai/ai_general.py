@@ -2,6 +2,12 @@
 AI General - Computer player controller
 """
 
+import datetime
+import json
+import csv
+import re
+import uuid
+import traceback
 from enum import Enum, auto
 import datetime, csv, json
 

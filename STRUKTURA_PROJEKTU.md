@@ -1,8 +1,10 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (Sierpień 2025) – ANALIZA POD WDROŻENIE GRACZA KOMPUTEROWEGO
+## 📌 STAN BIEŻĄCY (Sierpień 2025) – WERSJA 3.1 – POSTĘP WDROŻENIA AI
 
-Aktualizacja dokumentu dostosowana do potrzeb implementacji modułu AI (gracza komputerowego). W obecnym snapshotcie repozytorium nie ma katalogu `ai/` – opisane niżej komponenty AI są planem docelowym. Kod silnika zapewnia już stabilne punkty zaczepienia: ruch, walka, pathfinding, widoczność, ekonomia (key points) i zapis stanu.
+Aktualizacja dostosowana do implementacji modułu AI (gracza komputerowego). W przeciwieństwie do wersji 3.0 katalog `ai/` **już istnieje** i zawiera wstępny szkielet (`__init__.py`, `ai_general.py`). Zaimplementowano podstawowego Generała AI skupionego na analizie ekonomii i ważonym przydziale punktów do dowódców (alokacja 60% budżetu z systemem wag i karą za niewydane środki). Brak jeszcze: faktycznych zakupów jednostek, ruchu taktycznego oraz heurystyk mapowych. Kod silnika nadal dostarcza stabilne punkty zaczepienia: ruch, walka, pathfinding, widoczność, ekonomia (key points) i zapis stanu.
+
+**Nowe w 3.1 (skrót):** katalog `ai/`, klasa `AIGeneral` (alokacja ekonomii + logowanie po polsku), fundament pod przyszłe fazy.
 
 ---
 
@@ -33,22 +35,55 @@ projekt/
 ├── tools/                       # Narzędzia diagnostyczne
 ├── tools/                       # Narzędzia diagnostyczne
 ├── utils/                       # Pomocnicze moduły
-└── (plan) ai/                   # PRZYSZŁY moduł sztucznej inteligencji
+└── ai/                          # Wstępny moduł sztucznej inteligencji (Faza 1 częściowa)
 ```
 
-### planowany katalog `ai/` (do utworzenia):
+### Katalog `ai/` (stan bieżący + planowane rozszerzenia)
 ```
 ai/
 ├── __init__.py
-├── state_adapter.py      # Ekstrakcja stanu z GameEngine → struktury AI
-├── evaluator.py          # Heurystyki i funkcje oceny (scoring)
-├── tactical_agent.py     # Decyzje ruchu i walki (dowódcy)
-├── strategic_agent.py    # Priorytety key points, alokacja ekonomii, zakupy (generał)
-├── base_agent.py         # Klasy bazowe / interfejsy
-├── decision_queue.py     # Kolejkowanie i filtrowanie akcji
-├── memory/               # Logi i dane adaptacyjne
-└── README.md             # Dokumentacja modułu AI
+ ├── ai_general.py        # (ZAIMPLEMENTOWANE) Generał AI: analiza ekonomii, alokacja punktów, logi
+ ├── state_adapter.py     # (PLAN) Ekstrakcja stanu z GameEngine → struktury AI
+ ├── evaluator.py         # (PLAN) Heurystyki i funkcje oceny (scoring)
+ ├── tactical_agent.py    # (PLAN) Decyzje ruchu i walki (dowódcy)
+ ├── strategic_agent.py   # (PLAN) Priorytety key points, zakupy, plan tury
+ ├── base_agent.py        # (PLAN) Klasy bazowe / interfejsy
+ ├── decision_queue.py    # (PLAN) Kolejkowanie i filtrowanie akcji
+ ├── memory/              # (PLAN) Logi i dane adaptacyjne
+ └── README.md            # (PLAN) Dokumentacja modułu AI
 ```
+
+### Tabela postępu faz AI (stan na 20.08.2025)
+
+| Faza | Status | Pokrycie | Notatki |
+|------|--------|----------|---------|
+| 0 Dokumentacja kontraktu | ZAKOŃCZONA | 100% | API zidentyfikowane w wersji 3.0 |
+| 1 Szkielet modułu | W TOKU | ~40% | Istnieje `ai/`, klasa `AIGeneral`; brak plików taktycznych |
+| 2 Adapter stanu | NIE ROZPOCZĘTO | 0% | `state_adapter.py` nie istnieje |
+| 3 Ruch taktyczny | NIE ROZPOCZĘTO | 0% | Brak decyzji ruchu / wykorzystania MP |
+| 4 Walka selektywna | NIE ROZPOCZĘTO | 0% | Brak heurystyki ataku |
+| 5 Strategia key points | NIE ROZPOCZĘTO | 0% | Brak priorytetyzacji celów mapy |
+| 6 Ekonomia / zakupy | CZĘŚCIOWO | ~25% | Alokacja działa, brak zakupów jednostek |
+| 7 Poziomy trudności | NIE ROZPOCZĘTO | 0% | Dopiero parametr difficulty w konstruktorze |
+| 8 Logowanie decyzji | CZĘŚCIOWO | ~30% | Log CSV dla akcji ekonomicznych, brak logu ruchów |
+| 9 Adaptacja | NIE ROZPOCZĘTO | 0% | Brak pamięci / uczenia |
+
+### Obecna funkcjonalność AI (3.1)
+* Analiza ekonomii (punkty ekonomiczne + faza BUILD/REGEN na podstawie udziału jednostek z niskim paliwem)
+* Analiza stanu jednostek (liczba, paliwo niskie / zdrowe)
+* Decyzja tylko z zakresu: HOLD / PURCHASE / ALLOCATE (logika PURCHASE jeszcze nie materializuje zakupów)
+* Ważony podział środków między dowódców (czynniki: brak supply, paliwo, kara za niewydane punkty, posiadanie artylerii)
+* System kar za niewydane przydziały (obniżenie wagi w kolejnych turach)
+* Przyjazne logi w języku polskim (dla laika) + emoji
+* Log CSV akcji ekonomicznych (audyt / testowalność)
+
+### Znane ograniczenia (3.1)
+* Sztywny procent alokacji (60%) – brak dynamicznej regulacji budżetu
+* Brak faktycznych zakupów mimo decyzji PURCHASE (placeholdery w `ai_general.py`)
+* Brak ruchu jednostek i interakcji z mapą
+* Brak analizy key points w decyzjach (faza strategiczna uproszczona do BUILD/REGEN)
+* Brak adaptacyjności / pamięci historycznej poza ostatnią akcją i stosunkiem low-fuel
+* Niezaimplementowane moduły taktyczne i ewaluacyjne (ryzyko / wartość celu)
 
 ---
 
@@ -60,7 +95,7 @@ ai/
 | Core (`core/`) | TAK | Tury, ekonomia (key points), warunki zwycięstwa |
 | GUI (`gui/`) | TAK | Interakcja człowieka – dla AI nieużywana (AI działa programowo) |
 | Edytory | TAK | Generowanie/scenariusze testowe |
-| AI (`ai/`) | NIE (PLAN) | Warstwa decyzyjna: analiza + generowanie akcji |
+| AI (`ai/`) | CZĘŚCIOWO | Ekonomia (alokacja), analiza stanu – brak ruchu i walk |
 
 ---
 
@@ -168,12 +203,12 @@ Progi decyzji (konfigurowalne):
 
 ---
 
-## 📊 STATYSTYKI (AKTUALNE W TEJ KOPII)
+## 📊 STATYSTYKI (AKTUALNE – WERSJA 3.1)
 - Edytor żetonów: 1427 linii
 - Edytor map: 1088 linii
 - Silnik (engine + akcje + board + token): ~850+ linii
 - GUI: ~1000+ linii
-- Moduł AI: brak (plan)
+- Moduł AI: wstępny (2 pliki: `__init__.py`, `ai_general.py`) – kod alokatora + logika analizy
 
 Funkcjonalności potwierdzone: ruch, walka, pathfinding, widoczność warstwowa, key points z ekonomią, zapis stanu, refaktoryzowane akcje.
 
@@ -205,23 +240,43 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 ---
 
-## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE)
-1. Utworzyć katalog `ai/` + pliki szkieletowe (Faza 1)
-2. Zaimplementować adapter stanu (Faza 2)
-3. Prosty agent taktyczny: ruch do najbliższego wroga lub key pointu (Faza 3)
-4. Selektor walki z heurystyką przewagi (Faza 4)
-5. Dodać/ujednolicić API zakupów (Faza 6 zależne)
-6. Konfiguracja poziomów trudności poprzez wagi heurystyk (Faza 7)
-7. Logowanie / deterministyczny re-run (Faza 8)
+## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – ZAKTUALIZOWANE)
+1. (Faza 1 → 100%) Dodać brakujące szkielety plików: `state_adapter.py`, `evaluator.py`, `tactical_agent.py`, `strategic_agent.py`.
+2. (Faza 2) Zaimplementować adapter stanu – format ujednolicony + test `test_ai_state_adapter.py`.
+3. (Faza 3) Minimalny ruch taktyczny: kieruj jednostki do najbliższego *key pointu* lub najbliższego widocznego wroga.
+4. (Faza 6) Wdrożyć system zakupów (API + prosta lista szablonów) – ograniczyć nadwyżki ekonomiczne.
+5. (Faza 4) Heurystyka walki: atak tylko przy przewadze (np. stosunek CV ≥ 1.3) lub dobicie przeciwnika o niskim CV.
+6. (Faza 5) Priorytetyzacja key points na podstawie (pozostałe_tury / dystans_MP).
+7. (Faza 7) Parametry trudności: mnożniki wag (agresja, oszczędność, ryzyko).
+8. (Faza 8) Rozszerzyć logowanie: ruchy, bitwy, zakupy (identyfikator tury i seed deterministyczny).
+9. (Faza 9 opcjonalnie) Pamięć statystyczna: średnie wykorzystanie paliwa / sukces ataków → adaptacja wag.
+
+### Szybkie usprawnienia o wysokim ROI
+* Dodać dynamiczny procent alokacji (np. 40–80% w zależności od nadwyżki ekonomii i liczby niewydanych punktów u dowódców)
+* Implementować minimum zakupów (1 jednostka jeśli brak wzrostu armii ≥ 3 tury i econ > próg)
+* Wprowadzić prosty ranking typów jednostek (artyleria > piechota > zwiad) dla pierwszych zakupów
+* Ograniczyć długość logów jednostkowych (przełącznik `verbosity`)
+
+## 🗒️ CHANGELOG
+**3.1 (20.08.2025)**
+* Dodano katalog `ai/` z `ai_general.py` (analiza + alokacja ekonomii)
+* Wprowadzono tabelę postępu faz i sekcję ograniczeń
+* Uaktualniono strukturę projektu – moduł AI już istnieje
+* Dodano listę szybkich usprawnień i zaktualizowane priorytety
+* Zmieniono sekcję statystyk – AI nie jest już tylko planem
+
+**3.0 (15.08.2025)**
+* Konsolidacja dokumentacji kontraktu dla AI (bez implementacji katalogu `ai/`)
+* Określenie faz wdrożenia i heurystyk startowych
 
 ---
 
 ## 📚 META
 Dokument przygotowuje grunt pod implementację gracza komputerowego bez refaktoryzacji istniejących modułów. Zmiany w silniku ograniczyć do dodania (jeśli brak) jednolitego API zakupów.
 
-Wersja: 3.0 (15 sierpnia 2025)
-Status: Uaktualniono pod plan AI
-Autor aktualizacji: analiza wewnętrzna
+Wersja: 3.1 (20 sierpnia 2025)
+Status: Częściowa implementacja (Generał ekonomiczny)
+Autor aktualizacji: analiza wewnętrzna / automatyczna aktualizacja AI
 
 ---
 
