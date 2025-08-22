@@ -1,0 +1,4 @@
+timestamp,nation,commander_id,unit_type,unit_size,cost,supports,points_before,points_after,budget_allocated,reserve,need_supply,need_art,pressure,enemy_has_armor,ratio,global_counts,enemy_counts
+2025-08-22T21:13:38,Polska,2,AP,Pluton,20,,75,55,22,16,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 14, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1}",{}
+2025-08-22T21:19:42,Polska,2,P,Pluton,15,,100,85,15,10,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 14, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1, ""AP"": 1}",{}
+2025-08-22T21:28:08,Polska,2,P,Pluton,15,,99,84,15,10,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 13, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1, ""AP"": 1}",{}

@@ -1,0 +1,2 @@
+timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
+2025-08-22T21:03:00.220334,<Mock name='mock.turn' id='1821679253456'>,Polska,HOLD,econ<MIN_BUY,0.0,0.0,0,0,Za mało punktów – oszczędzam | Faza: BUILD (rozbudowa armii),"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""UNKNOWN"", ""vp_situation"": ""UNKNOWN""}"

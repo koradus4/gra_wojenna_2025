@@ -445,9 +445,10 @@ class CombatResolver:
 class CombatAction(BaseAction):
     """Akcja walki między żetonami"""
     
-    def __init__(self, attacker_id: str, defender_id: str):
+    def __init__(self, attacker_id: str, defender_id: str, is_reaction: bool = False):
         super().__init__(attacker_id)
         self.defender_id = defender_id
+        self.is_reaction = is_reaction
     
     def execute(self, engine) -> ActionResult:
         """Wykonaj walkę"""
