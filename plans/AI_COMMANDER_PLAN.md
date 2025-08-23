@@ -304,7 +304,7 @@ Założenia kosztowe (jeśli później pojawi się różnicowanie): dodamy mapę
 Resupply nie jest TacticalObjective – dzieje się przed ich generacją; jednak jeśli paliwo < próg krytyczny a brak środków → oznacz jednostkę tagiem LIMITED_OPS wpływającym na scoring movement/attack (-15 do oceny).
 
 ---
-Wersja dokumentu: 1.2
+Wersja dokumentu: 1.6 (zaktualizowane; wcześniejsze wpisy wersji w sekcjach 23–26 pozostawione jako changelog)
 Data: 2025-08-23
 Autor: System planowania AI
 \n+## 23. Replan przy kontakcie (kontakt z wrogiem w trakcie ruchu)
@@ -374,5 +374,49 @@ Testy integracyjne (nowe):
 Aktualizacja wersji: 1.4 (dodano sekcję integracji, bez zmian w poprzednich sekcjach).
 
 Wersja dokumentu: 1.4
+Data: 2025-08-23
+Autor: System planowania AI
+
+## 25. Zależność ekonomiczna (obsada key points) – Wersja 1.5
+Fakt systemowy: tylko Generał otrzymuje punkty ekonomiczne z key points (sekcja `GameEngine.process_key_points`). Dowódca NIE dostaje bezpośrednio tych punktów, ale musi utrzymywać żetony na heksach, aby strumień punktów dla Generała (i pośrednio budżety przyszłe) płynął.
+
+Implikacje dla AI Dowódcy:
+1. TacticalObjective `capture` i późniejsze `hold` na KP mają wartość ekonomiczną mimo braku natychmiastowego VP.
+2. Garrison heuristic: jeśli KP nadal ma `current_value` > 0 i brak nadciągającego zagrożenia, utrzymaj 1 jednostkę (najtańszą stabilną) – inne mogą manewrować.
+3. Jeśli brak jednostek rezerwowych → priorytet pozostawienia tej, która już stoi (koszt ruchu = 0) zamiast rotacji.
+4. Rezygnacja z obsady tylko gdy: (a) KP wyczerpane (`current_value <= 0`), (b) krytyczna potrzeba taktyczna (RETREAT / zagrożenie eliminacją), (c) wymiana na jednostkę o wyższym defense_mod.
+5. Scoring modyfikacja: heks na aktywnym KP +5 (już uwzględnione w sekcji 7) → utrzymujemy; jeśli KP prawie wyczerpane (`current_value / initial_value < 0.1`) bonus redukuj do +1.
+
+Rozszerzenie danych (opcjonalne): dodać do stanu w `_gather_state()` pole `key_points[i]['remaining_ratio'] = current/initial` jeśli dostępne.
+
+Testy (future):
+- test_hold_preserves_garrison_when_value_remaining
+- test_release_garrison_when_value_depleted
+
+Aktualizacja wersji: 1.5 (dodano sekcję zależności ekonomicznej – brak zmian logiki wcześniejszych sekcji).
+
+Wersja dokumentu: 1.5
+Data: 2025-08-23
+Autor: System planowania AI
+
+## 26. Zadania integracyjne przed implementacją logiki (Wersja 1.6)
+Cel: Minimalny kod umożliwiający uruchomienie pętli AI Dowódcy zanim powstanie pełna logika objectives.
+
+Do wykonania (małe, niskie ryzyko):
+1. `main_ai.py`: utworzyć słownik `ai_commanders = {}` analogicznie do `ai_generals` i przy tworzeniu graczy oznaczonych jako AI Dowódca dodawać `AICommander(player)`.
+2. Pętla tury: jeśli `current_player.role == "Dowódca"` i `current_player.is_ai_commander`: wywołać `ai_commander.pre_resupply(game_engine)` -> `ai_commander.make_tactical_turn(game_engine)` -> `turn_manager.next_turn()`.
+3. `Player`: jeśli brak, dodać atrybut runtime `is_ai_commander = False` (bez modyfikacji konstruk tora – można ustawić dynamicznie po stworzeniu instancji).
+4. Log: na razie wystarczy print (CSV dopiero przy MVP-5).
+5. Pathfinding: używamy istniejącej implementacji (brak zmian). Jeżeli w przyszłości brak funkcji dostępu – dodać adapter `engine.board.find_path` (A*), ale NIE blokuje startu NO_OP.
+6. Test szybki (manualny): uruchomić grę z jednym AI Dowódcą – oczekiwany output w konsoli: `[AICommander] NO_OP for commander X` i normalny postęp tur.
+
+Kryterium akceptacji planu do wdrożenia:
+- Sekcje 23–26 odzwierciedlają potrzebną integrację i brak otwartych pytań o podstawy.
+
+Po akceptacji: wykonujemy sekcję 26, potem przechodzimy do MVP-1 (ruch do KP).
+
+Aktualizacja wersji: 1.6 (dodano sekcję 26, brak zmian wcześniejszych sekcji).
+
+Wersja dokumentu: 1.6
 Data: 2025-08-23
 Autor: System planowania AI

@@ -9,88 +9,52 @@ from engine.engine import GameEngine, update_all_players_visibility, clear_temp_
 from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
+from ai.ai_commander import AICommander
+
 
 class GameLauncher:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Gra Wojenna 2025 - Launcher")
         self.root.geometry("400x300")
-        
-        # Zmienne do przechowywania ustawień
         self.ai_polish_general = tk.BooleanVar()
         self.ai_german_general = tk.BooleanVar()
-        
         self.setup_ui()
-        
+
     def setup_ui(self):
-        # Główny frame
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Tytuł
-        title_label = ttk.Label(main_frame, text="Gra Wojenna 2025", 
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        
-        # Sekcja AI
-        ai_frame = ttk.LabelFrame(main_frame, text="Ustawienia AI", padding="10")
-        ai_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
-        
-        # Checkbox dla polskiego generała AI
-        polish_ai_cb = ttk.Checkbutton(ai_frame, 
-                                      text="Polski Generał - AI",
-                                      variable=self.ai_polish_general)
-        polish_ai_cb.grid(row=0, column=0, sticky=tk.W, pady=2)
-        
-        # Checkbox dla niemieckiego generała AI
-        german_ai_cb = ttk.Checkbutton(ai_frame, 
-                                      text="Niemiecki Generał - AI",
-                                      variable=self.ai_german_general)
-        german_ai_cb.grid(row=1, column=0, sticky=tk.W, pady=2)
-        
-        # Przyciski
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=2, column=0, columnspan=2, pady=20)
-        
-        start_button = ttk.Button(button_frame, text="Rozpocznij Grę", 
-                                 command=self.start_game)
-        start_button.grid(row=0, column=0, padx=(0, 10))
-        
-        exit_button = ttk.Button(button_frame, text="Wyjście", 
-                                command=self.root.quit)
-        exit_button.grid(row=0, column=1)
-        
+        frame = ttk.Frame(self.root, padding="20")
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text="Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        lf = ttk.LabelFrame(frame, text="AI", padding="10")
+        lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+        ttk.Checkbutton(lf, text="Polski Generał - AI", variable=self.ai_polish_general).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(lf, text="Niemiecki Generał - AI", variable=self.ai_german_general).grid(row=1, column=0, sticky="w")
+        ttk.Button(frame, text="Start", command=self.start_game).grid(row=2, column=0, padx=(0, 10))
+        ttk.Button(frame, text="Wyjście", command=self.root.quit).grid(row=2, column=1)
+
     def start_game(self):
-        """Uruchom grę z wybranymi ustawieniami"""
         try:
-            self.root.destroy()  # Zamknij launcher
+            self.root.destroy()
             self.launch_game_with_settings()
         except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można uruchomić gry: {str(e)}")
-    
+            messagebox.showerror("Błąd", f"Uruchomienie gry nieudane: {e}")
+
     def launch_game_with_settings(self):
-        """Uruchom główną grę z ustawieniami AI"""
-        # Automatyczne ustawienia graczy
         miejsca = ["Polska", "Polska", "Polska", "Niemcy", "Niemcy", "Niemcy"]
-        czasy = [5, 5, 5, 5, 5, 5]  # Czas na turę w minutach
-        
-        # Inicjalizacja silnika gry
+        czasy = [5, 5, 5, 5, 5, 5]
         game_engine = GameEngine(
             map_path="data/map_data.json",
             tokens_index_path="assets/tokens/index.json",
             tokens_start_path="assets/start_tokens.json",
             seed=42,
-            read_only=True  # Zapobiega nadpisywaniu pliku mapy
+            read_only=True
         )
-
-        # Automatyczne przypisanie id dowódców zgodnie z ownerami żetonów
         polska_gen = miejsca.index("Polska")
-        polska_dow1 = miejsca.index("Polska", polska_gen+1)
-        polska_dow2 = miejsca.index("Polska", polska_dow1+1)
+        polska_dow1 = miejsca.index("Polska", polska_gen + 1)
+        polska_dow2 = miejsca.index("Polska", polska_dow1 + 1)
         niemcy_gen = miejsca.index("Niemcy")
-        niemcy_dow1 = miejsca.index("Niemcy", niemcy_gen+1)
-        niemcy_dow2 = miejsca.index("Niemcy", niemcy_dow1+1)
-
+        niemcy_dow1 = miejsca.index("Niemcy", niemcy_gen + 1)
+        niemcy_dow2 = miejsca.index("Niemcy", niemcy_dow1 + 1)
         if niemcy_gen < polska_gen:
             players = [
                 Player(4, "Niemcy", "Generał", czasy[niemcy_gen]),
@@ -109,63 +73,42 @@ class GameLauncher:
                 Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
                 Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
             ]
-
-        # Oznacz graczy AI i dodaj obiekty AI
         ai_generals = {}
+        ai_commanders = {}
         for player in players:
             if player.role == "Generał":
                 if player.nation == "Polska" and self.ai_polish_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("polish")
-                    print(f"Polski Generał (ID: {player.id}) będzie kontrolowany przez AI")
                 elif player.nation == "Niemcy" and self.ai_german_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("german")
-                    print(f"Niemiecki Generał (ID: {player.id}) będzie kontrolowany przez AI")
-
-        # Uzupełnij economy dla wszystkich graczy (skopiowane z main_alternative.py)
+            elif player.role == "Dowódca":
+                player.is_ai_commander = True  # tymczasowo zawsze AI
+                ai_commanders[player.id] = AICommander(player)
+                print(f"[AI] Dowódca AI stub id={player.id} {player.nation}")
         for p in players:
             if not hasattr(p, 'economy') or p.economy is None:
                 p.economy = EconomySystem()
-
-        # Udostępnij listę graczy w game_engine
         game_engine.players = players
-
-        # Aktualizacja widoczności na start
-        from engine.engine import update_all_players_visibility
         update_all_players_visibility(players, game_engine.tokens, game_engine.board)
-
-        # --- SYNCHRONIZACJA PUNKTÓW EKONOMICZNYCH DOWÓDCÓW Z SYSTEMEM EKONOMII ---
         for p in players:
             if hasattr(p, 'punkty_ekonomiczne'):
                 p.punkty_ekonomiczne = p.economy.get_points()['economic_points']
-
-        # Inicjalizacja menedżera tur
         turn_manager = TurnManager(players, game_engine=game_engine)
-        # --- WARUNKI ZWYCIĘSTWA: 10 pełnych rund, start VP=0 (jak w obecnym stanie) ---
         victory_conditions = VictoryConditions(max_turns=10)
-        
-        # Dodaj AI generals do turn_manager jako atrybut
         turn_manager.ai_generals = ai_generals
+        turn_manager.ai_commanders = ai_commanders
+        self.main_game_loop(players, turn_manager, victory_conditions, game_engine, ai_generals, ai_commanders)
 
-        # Uruchomienie głównej pętli gry (skopiowane z main_alternative.py)
-        self.main_game_loop(players, turn_manager, victory_conditions, game_engine, ai_generals)
-
-    def main_game_loop(self, players, turn_manager, victory_conditions, game_engine, ai_generals):
-        """Główna pętla gry skopiowana z main_alternative.py"""
-        from engine.engine import update_all_players_visibility, clear_temp_visibility
-        
-        just_loaded_save = False  # Flaga: czy właśnie wczytano save
-        last_loaded_player_info = None  # Przechowuj info o aktywnym graczu po wczytaniu save
-        
+    def main_game_loop(self, players, turn_manager, victory_conditions, game_engine, ai_generals, ai_commanders):
+        just_loaded_save = False
+        last_loaded_player_info = None
         while True:
-            # Jeśli po wczytaniu save jest info o aktywnym graczu, przełącz na niego
             if last_loaded_player_info:
                 found = None
                 for p in players:
-                    if (str(p.id) == str(last_loaded_player_info.get('id')) and
-                        p.role == last_loaded_player_info.get('role') and
-                        p.nation == last_loaded_player_info.get('nation')):
+                    if (str(p.id) == str(last_loaded_player_info.get('id')) and p.role == last_loaded_player_info.get('role') and p.nation == last_loaded_player_info.get('nation')):
                         found = p
                         break
                 if found:
@@ -174,113 +117,49 @@ class GameLauncher:
                 last_loaded_player_info = None
             else:
                 current_player = turn_manager.get_current_player()
-            
-            # WAŻNE: Ustaw aktualnego gracza w silniku na początku każdej tury
             game_engine.current_player_obj = current_player
-            
             update_all_players_visibility(players, game_engine.tokens, game_engine.board)
-            
-            # Sprawdź czy gracz jest AI
             if hasattr(current_player, 'is_ai') and current_player.is_ai and current_player.id in ai_generals:
                 print(f"Tura AI: {current_player.nation} {current_player.role}")
                 ai_general = ai_generals[current_player.id]
-                
-                # Dla AI Generałów - wygeneruj punkty ekonomiczne
                 if current_player.role == "Generał":
                     current_player.economy.generate_economic_points()
                     current_player.economy.add_special_points()
-                    available_points = current_player.economy.get_points()['economic_points']
-                    print(f"AI Generał otrzymał {available_points} punktów ekonomicznych")
-                
-                # AI podejmuje decyzje
                 ai_general.make_turn(game_engine)
-                
-                # AI automatycznie kończy turę
+                is_full_turn_end = turn_manager.next_turn()
+            elif hasattr(current_player, 'is_ai_commander') and current_player.is_ai_commander and current_player.id in ai_commanders:
+                print(f"Tura AI Dowódcy (stub): {current_player.nation} id={current_player.id}")
+                ai_commander = ai_commanders[current_player.id]
+                ai_commander.make_tactical_turn(game_engine)
                 is_full_turn_end = turn_manager.next_turn()
             else:
-                # Gracz człowiek - uruchom odpowiedni panel
                 if current_player.role == "Generał":
                     app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
                 elif current_player.role == "Dowódca":
                     app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
-                
-                # Patch: podmień funkcję on_load w PanelGracza, by ustawiać last_loaded_player_info
-                def patch_on_load(panel_gracza):
-                    def new_on_load():
-                        import os
-                        from tkinter import filedialog, messagebox
-                        saves_dir = os.path.join(os.getcwd(), 'saves')
-                        os.makedirs(saves_dir, exist_ok=True)
-                        path = filedialog.askopenfilename(
-                            filetypes=[('Plik zapisu', '*.json')],
-                            initialdir=saves_dir
-                        )
-                        if path:
-                            try:
-                                from engine.save_manager import load_game
-                                global last_loaded_player_info
-                                global just_loaded_save
-                                last_loaded_player_info = load_game(path, game_engine)
-                                just_loaded_save = True
-                                if hasattr(panel_gracza.master, 'panel_mapa'):
-                                    panel_gracza.master.panel_mapa.refresh()
-                                if last_loaded_player_info:
-                                    msg = f"Gra została wczytana!\nAktywny gracz: {last_loaded_player_info.get('role','?')} {last_loaded_player_info.get('id','?')} ({last_loaded_player_info.get('nation','?')})"
-                                    messagebox.showinfo("Wczytanie gry", msg)
-                                else:
-                                    messagebox.showinfo("Wczytanie gry", "Gra została wczytana!")
-                                panel_gracza.winfo_toplevel().destroy()  # Zamknij całe okno, nie tylko ramkę
-                            except Exception as e:
-                                messagebox.showerror("Błąd wczytywania", str(e))
-                    panel_gracza.on_load = new_on_load
-                    if hasattr(panel_gracza, 'btn_load'):
-                        panel_gracza.btn_load.config(command=panel_gracza.on_load)
-
-                # DEBUG: sprawdź dzieci left_frame
-                if hasattr(app, 'left_frame'):
-                    for child in app.left_frame.winfo_children():
-                        if isinstance(child, PanelGracza):
-                            patch_on_load(child)
-                
-                # Aktualizacja pogody dla panelu
-                if hasattr(app, 'update_weather'):
+                else:
+                    app = None
+                if app and hasattr(app, 'update_weather'):
                     app.update_weather(turn_manager.current_weather)
-                
-                # Aktualizacja dla generałów
                 if isinstance(app, PanelGenerala):
-                    # Debug: bilans przed losowaniem
-                    start_points = current_player.economy.economic_points
                     current_player.economy.generate_economic_points()
                     current_player.economy.add_special_points()
                     available_points = current_player.economy.get_points()['economic_points']
-                    app.update_economy(available_points)  # Przekazanie dostępnych punktów ekonomicznych
-
-                    # Synchronizacja dostępnych punktów w sekcji suwaków
+                    app.update_economy(available_points)
                     app.zarzadzanie_punktami(available_points)
-
-                # Aktualizacja punktów ekonomicznych dla paneli dowódców
                 if isinstance(app, PanelDowodcy):
                     przydzielone_punkty = current_player.economy.get_points()['economic_points']
-                    app.update_economy(przydzielone_punkty)  # Aktualizacja interfejsu dowódcy
-                    # --- Synchronizacja punktów ekonomicznych dowódcy z systemem ekonomii ---
+                    app.update_economy(przydzielone_punkty)
                     current_player.punkty_ekonomiczne = przydzielone_punkty
-                
-                try:
-                    app.mainloop()  # Uruchomienie panelu
-                except Exception as e:
-                    print(f"Błąd: {e}")
-                
-                # Przejście do następnej tury
+                if app:
+                    try:
+                        app.mainloop()
+                    except Exception as e:
+                        print(f"Błąd: {e}")
                 is_full_turn_end = turn_manager.next_turn()
-            
-            # Rozdziel punkty na końcu pełnej tury
             if is_full_turn_end:
                 game_engine.process_key_points(players)
-            
-            # Aktualizuj widoczność
             game_engine.update_all_players_visibility(players)
-            
-            # Sprawdzenie końca gry
             if victory_conditions.check_game_over(turn_manager.current_turn):
                 print(victory_conditions.get_victory_message())
                 print("=== PODSUMOWANIE ===")
@@ -289,39 +168,20 @@ class GameLauncher:
                     print(f"{p.nation} {p.role} (id={p.id}): {vp} punktów zwycięstwa")
                 print("====================")
                 break
-            
-            # Reset blokady trybu ruchu na początku każdej tury, ale NIE po wczytaniu save
             if not just_loaded_save:
                 for t in game_engine.tokens:
                     t.movement_mode_locked = False
-            
-            # --- DODANE: wymuszenie aktualnej referencji gracza po wczytaniu save ---
             if just_loaded_save:
-                # Po wczytaniu save'a zsynchronizuj listę players i current_player z game_engine
                 players = game_engine.players
                 clear_temp_visibility(game_engine.players)
                 update_all_players_visibility(game_engine.players, game_engine.tokens, game_engine.board)
-                # Znajdź aktualnego gracza po wczytaniu save
-                found = None
-                for p in game_engine.players:
-                    if (str(p.id) == str(last_loaded_player_info.get('id')) and
-                        p.role == last_loaded_player_info.get('role') and
-                        p.nation == last_loaded_player_info.get('nation')):
-                        found = p
-                        break
-                if found:
-                    game_engine.current_player_obj = found
-                    current_player = found
-                # Usunięto próbę synchronizacji panelu mapy, bo okno mogło być już zniszczone
             just_loaded_save = False
             clear_temp_visibility(players)
-            # --- KONIEC DODATKU ---
 
     def run(self):
-        """Uruchom launcher"""
         self.root.mainloop()
 
-# Funkcja główna
+
 if __name__ == "__main__":
     launcher = GameLauncher()
     launcher.run()
