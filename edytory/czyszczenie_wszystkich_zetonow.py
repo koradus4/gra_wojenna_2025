@@ -67,9 +67,40 @@ def clear_tokens_from_map():
     except Exception as e:
         print(f"Błąd podczas czyszczenia map_data.json: {e}")
 
+def confirm_operation():
+    """Potwierdzenie operacji czyszczenia"""
+    print("⚠️  UWAGA! ⚠️")
+    print("To działanie NIEODWRACALNIE usunie:")
+    print("- Wszystkie żetony z katalogu assets/tokens/")
+    print("- Plik assets/start_tokens.json") 
+    print("- Wszystkie żetony z mapy (data/map_data.json)")
+    print()
+    print("❌ WSZYSTKIE ŻETONY ZOSTANĄ USUNIĘTE! ❌")
+    print()
+    
+    while True:
+        response = input("Czy na pewno chcesz kontynuować? Wpisz 'TAK' aby potwierdzić lub 'NIE' aby anulować: ").strip().upper()
+        
+        if response == "TAK":
+            print("✅ Potwierdzono - rozpoczynam czyszczenie...")
+            return True
+        elif response == "NIE":
+            print("❌ Anulowano - żetony pozostają bez zmian")
+            return False
+        else:
+            print("❓ Proszę wpisać 'TAK' lub 'NIE'")
+
 def main():
     """Główna funkcja czyszcząca"""
     print("=== CZYSZCZENIE ŻETONÓW Z GRY ===")
+    print()
+    
+    # Sprawdź czy użytkownik potwierdza operację
+    if not confirm_operation():
+        sys.exit(0)
+    
+    print()
+    print("🔄 Rozpoczynam czyszczenie...")
     print()
     
     # 1. Wyczyść katalog tokens
