@@ -1,3 +1,2 @@
 timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
-2025-08-24T12:18:42;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;20;0
-2025-08-24T12:18:52;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;20;97
+2025-08-24T21:43:24;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;46;0

@@ -7,6 +7,7 @@ from core.ekonomia import EconomySystem
 from engine.engine import GameEngine, update_all_players_visibility, clear_temp_visibility
 from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
+from utils.game_cleaner import clean_all_for_new_game, quick_clean
 import tkinter as tk
 
 # AI GENERAŁ IMPORT (odporny na brak modułu ai)

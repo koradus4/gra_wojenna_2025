@@ -4,6 +4,15 @@ import tkinter.simpledialog as simpledialog
 from tkinter import ttk
 import logging
 
+# Import funkcji czyszczenia
+try:
+    from utils.game_cleaner import clean_all_for_new_game, quick_clean
+except ImportError:
+    def clean_all_for_new_game():
+        print("⚠️ Funkcja czyszczenia niedostępna")
+    def quick_clean():
+        print("⚠️ Funkcja czyszczenia niedostępna")
+
 # Konfiguracja loggera
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -83,6 +92,59 @@ class EkranStartowy:
             fg="gray"
         )
         ai_info.pack()
+
+        # --- SEKCJA CZYSZCZENIA ---
+        clean_frame = tk.LabelFrame(
+            self.root,
+            text="Opcje czyszczenia",
+            bg="#d3d3d3",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=10
+        )
+        clean_frame.pack(pady=(10, 5), padx=20, fill="x")
+        
+        # Opis
+        clean_desc = tk.Label(
+            clean_frame,
+            text="Usuń dane z poprzednich gier dla czystego startu",
+            bg="#d3d3d3",
+            font=("Arial", 9),
+            fg="gray"
+        )
+        clean_desc.pack()
+        
+        # Przyciski czyszczenia
+        clean_buttons_frame = tk.Frame(clean_frame, bg="#d3d3d3")
+        clean_buttons_frame.pack(pady=5)
+        
+        tk.Button(
+            clean_buttons_frame,
+            text="🧹 Szybkie czyszczenie",
+            command=self.quick_clean_action,
+            bg="#FF9800",
+            fg="white",
+            font=("Arial", 9)
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        tk.Button(
+            clean_buttons_frame,
+            text="🗑️ Pełne czyszczenie",
+            command=self.full_clean_action,
+            bg="#F44336",
+            fg="white",
+            font=("Arial", 9)
+        ).pack(side=tk.LEFT)
+        
+        # Info o czyszczeniu
+        clean_info = tk.Label(
+            clean_frame,
+            text="Szybkie: rozkazy strategiczne + zakupione żetony | Pełne: wszystko + logi",
+            bg="#d3d3d3",
+            font=("Arial", 8),
+            fg="gray"
+        )
+        clean_info.pack()
 
         tk.Button(self.root, text="Rozpocznij grę", command=self.rozpocznij_gre, bg="#4CAF50", fg="white").pack(pady=20)
 
@@ -170,6 +232,41 @@ class EkranStartowy:
         czas = self.czas_comboboxes[idx].get()
         logging.debug(f"Czas na turę dla gracza {idx + 1}: {czas}")
         return int(czas) if czas.isdigit() else 5
+
+    def quick_clean_action(self):
+        """Akcja szybkiego czyszczenia"""
+        try:
+            result = messagebox.askyesno(
+                "Potwierdzenie",
+                "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
+                "To usunie:\n"
+                "• Rozkazy strategiczne AI\n"
+                "• Zakupione żetony (nowe_dla_*)"
+            )
+            if result:
+                quick_clean()
+                messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas szybkiego czyszczenia: {e}")
+
+    def full_clean_action(self):
+        """Akcja pełnego czyszczenia"""
+        try:
+            result = messagebox.askyesno(
+                "Potwierdzenie",
+                "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
+                "To usunie:\n"
+                "• Rozkazy strategiczne AI\n"
+                "• Zakupione żetony (nowe_dla_*)\n"
+                "• Logi AI\n"
+                "• Logi akcji gry\n\n"
+                "UWAGA: Ta operacja jest nieodwracalna!"
+            )
+            if result:
+                clean_all_for_new_game()
+                messagebox.showinfo("Sukces", "Pełne czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
 
     # Dodano walidację przy rozpoczęciu gry, aby sprawdzić, czy suma punktów w drużynach wynosi dokładnie 15
     def rozpocznij_gre(self):

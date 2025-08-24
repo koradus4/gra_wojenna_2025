@@ -1,3 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-24T12:48:56.443813,,Polska,HOLD,insufficient_budget,0.0,0.1,25,2,Niewystarczający budżet na żadną akcję | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
-2025-08-24T12:48:57.209330,,Polska,COMBO,strategic_combo_ROZWÓJ,0.08,0.1,25,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.08, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

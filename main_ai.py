@@ -10,6 +10,7 @@ from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
+from utils.game_cleaner import clean_all_for_new_game, quick_clean
 
 
 class GameLauncher:
@@ -56,15 +57,63 @@ class GameLauncher:
         # Przyciski
         button_frame = ttk.Frame(frame)
         button_frame.grid(row=2, column=0, columnspan=2, pady=20)
-        ttk.Button(button_frame, text="Start Gry", command=self.start_game).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(button_frame, text="Test AI", command=self.test_ai).grid(row=0, column=1, padx=(0, 10))
-        ttk.Button(button_frame, text="Wyjście", command=self.root.quit).grid(row=0, column=2)
+        
+        # Sekcja czyszczenia
+        clean_frame = ttk.LabelFrame(frame, text="Czyszczenie danych", padding="15")
+        clean_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+        
+        clean_button_frame = ttk.Frame(clean_frame)
+        clean_button_frame.grid(row=0, column=0, columnspan=2)
+        
+        ttk.Button(clean_button_frame, text="🧹 Szybkie czyszczenie", command=self.quick_clean).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(clean_button_frame, text="🗑️ Pełne czyszczenie", command=self.full_clean).grid(row=0, column=1)
+        
+        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi", 
+                 font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=2, pady=(5, 0))
+        
+        # Główne przyciski
+        main_button_frame = ttk.Frame(frame)
+        main_button_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        ttk.Button(main_button_frame, text="Start Gry", command=self.start_game).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(main_button_frame, text="Test AI", command=self.test_ai).grid(row=0, column=1, padx=(0, 10))
+        ttk.Button(main_button_frame, text="Wyjście", command=self.root.quit).grid(row=0, column=2)
 
     def test_ai(self):
         """Szybki test AI bez uruchamiania pełnej gry"""
         from ai.ai_commander import test_basic_safety
         result = test_basic_safety()
         messagebox.showinfo("Test AI", f"Test AI Commander: {'✓ OK' if result else '✗ Błąd'}")
+    
+    def quick_clean(self):
+        """Szybkie czyszczenie - rozkazy strategiczne i zakupione żetony"""
+        try:
+            result = messagebox.askyesno("Potwierdzenie", 
+                                       "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
+                                       "To usunie:\n"
+                                       "• Rozkazy strategiczne AI\n"
+                                       "• Zakupione żetony (nowe_dla_*)")
+            if result:
+                quick_clean()
+                messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas szybkiego czyszczenia: {e}")
+    
+    def full_clean(self):
+        """Pełne czyszczenie - wszystkie dane gry"""
+        try:
+            result = messagebox.askyesno("Potwierdzenie", 
+                                       "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
+                                       "To usunie:\n"
+                                       "• Rozkazy strategiczne AI\n"
+                                       "• Zakupione żetony (nowe_dla_*)\n"
+                                       "• Logi AI\n"
+                                       "• Logi akcji gry\n\n"
+                                       "UWAGA: Ta operacja jest nieodwracalna!")
+            if result:
+                clean_all_for_new_game()
+                messagebox.showinfo("Sukces", "Pełne czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
 
     def start_game(self):
         try:
@@ -74,8 +123,10 @@ class GameLauncher:
             messagebox.showerror("Błąd", f"Uruchomienie gry nieudane: {e}")
 
     def launch_game_with_settings(self):
+        print("🚀 ROZPOCZYNANIE DIAGNOSTYKI MAIN_AI.PY")
         miejsca = ["Polska", "Polska", "Polska", "Niemcy", "Niemcy", "Niemcy"]
         czasy = [5, 5, 5, 5, 5, 5]
+        print("🔧 TWORZENIE GAMEENGINE...")
         game_engine = GameEngine(
             map_path="data/map_data.json",
             tokens_index_path="assets/tokens/index.json",
@@ -83,6 +134,21 @@ class GameLauncher:
             seed=42,
             read_only=True
         )
+        print("✅ GAMEENGINE UTWORZONY")
+        print("🔥 NATYCHMIASTOWA DIAGNOSTYKA PALIWA:")
+        niepelne_baki = 0
+        polskie_tokeny = 0
+        for token in game_engine.tokens:
+            owner = getattr(token, 'owner', '')
+            if '2 (' in str(owner) or '3 (' in str(owner):
+                polskie_tokeny += 1
+                current_fuel = getattr(token, 'currentFuel', -1)
+                max_fuel = getattr(token, 'maxFuel', -1)
+                if current_fuel < max_fuel:
+                    niepelne_baki += 1
+                    print(f"❌ {token.id}: {current_fuel}/{max_fuel}")
+        print(f"🔥 POLSKICH TOKENÓW: {polskie_tokeny}, NIEPEŁNE BAKI: {niepelne_baki}")
+        print("🔥 KONIEC DIAGNOSTYKI")
         polska_gen = miejsca.index("Polska")
         polska_dow1 = miejsca.index("Polska", polska_gen + 1)
         polska_dow2 = miejsca.index("Polska", polska_dow1 + 1)
@@ -143,6 +209,7 @@ class GameLauncher:
             if not hasattr(p, 'economy') or p.economy is None:
                 p.economy = EconomySystem()
         game_engine.players = players
+        
         update_all_players_visibility(players, game_engine.tokens, game_engine.board)
         for p in players:
             if hasattr(p, 'punkty_ekonomiczne'):

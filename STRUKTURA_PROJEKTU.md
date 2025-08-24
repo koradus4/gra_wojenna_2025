@@ -53,37 +53,55 @@ ai/
  └── README.md            # (PLAN) Dokumentacja modułu AI
 ```
 
-### Tabela postępu faz AI (stan na 20.08.2025)
+### Tabela postępu faz AI (stan na 24.08.2025)
 
 | Faza | Status | Pokrycie | Notatki |
 |------|--------|----------|---------|
 | 0 Dokumentacja kontraktu | ZAKOŃCZONA | 100% | API zidentyfikowane w wersji 3.0 |
-| 1 Szkielet modułu | W TOKU | ~40% | Istnieje `ai/`, klasa `AIGeneral`; brak plików taktycznych |
-| 2 Adapter stanu | NIE ROZPOCZĘTO | 0% | `state_adapter.py` nie istnieje |
-| 3 Ruch taktyczny | NIE ROZPOCZĘTO | 0% | Brak decyzji ruchu / wykorzystania MP |
-| 4 Walka selektywna | NIE ROZPOCZĘTO | 0% | Brak heurystyki ataku |
-| 5 Strategia key points | NIE ROZPOCZĘTO | 0% | Brak priorytetyzacji celów mapy |
-| 6 Ekonomia / zakupy | CZĘŚCIOWO | ~25% | Alokacja działa, brak zakupów jednostek |
-| 7 Poziomy trudności | NIE ROZPOCZĘTO | 0% | Dopiero parametr difficulty w konstruktorze |
-| 8 Logowanie decyzji | CZĘŚCIOWO | ~30% | Log CSV dla akcji ekonomicznych, brak logu ruchów |
-| 9 Adaptacja | NIE ROZPOCZĘTO | 0% | Brak pamięci / uczenia |
+| 1 Szkielet modułu | ZAKOŃCZONA | 100% | AI Commander + AI General implementowane |
+| 2 Adapter stanu | CZĘŚCIOWO | ~60% | Podstawowa analiza stanu, brak pełnego JSON API |
+| 3 Ruch taktyczny | CZĘŚCIOWO | ~40% | AI Commander: ruch bez walki, brak resupply |
+| 4 Walka selektywna | NIE ROZPOCZĘTO | 0% | Brak CombatAction w AI Commander |
+| 5 Strategia key points | CZĘŚCIOWO | ~30% | AI General: analiza KP, AI Commander: brak capture |
+| 6 Ekonomia / zakupy | CZĘŚCIOWO | ~70% | AI General: pełna implementacja, AI Commander: brak resupply |
+| 7 Poziomy trudności | CZĘŚCIOWO | ~20% | AI General: strategie, brak MCTS |
+| 8 Logowanie decyzji | CZĘŚCIOWO | ~60% | AI General: pełne logi, AI Commander: tylko ruchy |
+| 9 Adaptacja | NIE ROZPOCZĘTO | 0% | Brak pamięci / uczenia maszynowego |
 
-### Obecna funkcjonalność AI (3.1)
-* Analiza ekonomii (punkty ekonomiczne + faza BUILD/REGEN na podstawie udziału jednostek z niskim paliwem)
-* Analiza stanu jednostek (liczba, paliwo niskie / zdrowe)
-* Decyzja tylko z zakresu: HOLD / PURCHASE / ALLOCATE (logika PURCHASE jeszcze nie materializuje zakupów)
-* Ważony podział środków między dowódców (czynniki: brak supply, paliwo, kara za niewydane punkty, posiadanie artylerii)
-* System kar za niewydane przydziały (obniżenie wagi w kolejnych turach)
-* Przyjazne logi w języku polskim (dla laika) + emoji
-* Log CSV akcji ekonomicznych (audyt / testowalność)
+### Obecna funkcjonalność AI (3.2 - ZAKTUALIZOWANA)
 
-### Znane ograniczenia (3.1)
-* Sztywny procent alokacji (60%) – brak dynamicznej regulacji budżetu
-* Brak faktycznych zakupów mimo decyzji PURCHASE (placeholdery w `ai_general.py`)
-* Brak ruchu jednostek i interakcji z mapą
-* Brak analizy key points w decyzjach (faza strategiczna uproszczona do BUILD/REGEN)
-* Brak adaptacyjności / pamięci historycznej poza ostatnią akcją i stosunkiem low-fuel
-* Niezaimplementowane moduły taktyczne i ewaluacyjne (ryzyko / wartość celu)
+**AI GENERAL (KOMPLETNY POZIOM STRATEGICZNY):**
+* ✅ Pełny parytet z human generałem - VP, Key Points, faza gry
+* ✅ 5 strategii adaptacyjnych (ROZWÓJ/KRYZYS_PALIWA/DESPERACJA/OCHRONA/EKSPANSJA)
+* ✅ System budżetu 20-40-40 z elastycznym podziałem
+* ✅ Analiza per dowódca (paliwo, combat value, typy jednostek)
+* ✅ EconAction.COMBO - kombinacja alokacji + zakupów
+* ✅ Kompletne logowanie ekonomii, Key Points, strategii
+* ❌ **BRAK: MCTS algorithm, machine learning, poziomy trudności**
+
+**AI COMMANDER (PODSTAWOWY POZIOM TAKTYCZNY):**
+* ✅ Podstawowy ruch jednostek z pathfinding MP/Fuel
+* ✅ Strategiczne rozkazy z JSON + autonomiczny fallback  
+* ✅ Logowanie akcji do CSV
+* ❌ **BRAK: Resupply (fuel/combat regeneration)**
+* ❌ **BRAK: Combat system (CombatAction)**
+* ❌ **BRAK: Key points capture/hold**
+* ❌ **BRAK: Retreat/reposition tactics**
+
+### Znane ograniczenia (3.2)
+
+**AI GENERAL:**
+* Brak Monte Carlo Tree Search dla trudniejszych poziomów
+* Brak machine learning adaptacji między grami  
+* Brak opponent modeling
+* Sztywne strategie bez dynamicznego dostrajania wag
+
+**AI COMMANDER (KRYTYCZNE LUKI):**
+* **pre_resupply()** to placeholder - brak uzupełniania fuel/combat za punkty ekonomiczne
+* Brak implementacji walki - tylko ruch, żadnych ataków
+* Brak taktycznych objectives (capture, retreat, reposition)
+* Brak integracji z player.punkty_ekonomiczne dla resupply
+* Niezaimplementowane formation awareness i multi-unit coordination
 
 ---
 
@@ -240,30 +258,54 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 ---
 
-## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – ZAKTUALIZOWANE)
-1. (Faza 1 → 100%) Dodać brakujące szkielety plików: `state_adapter.py`, `evaluator.py`, `tactical_agent.py`, `strategic_agent.py`.
-2. (Faza 2) Zaimplementować adapter stanu – format ujednolicony + test `test_ai_state_adapter.py`.
-3. (Faza 3) Minimalny ruch taktyczny: kieruj jednostki do najbliższego *key pointu* lub najbliższego widocznego wroga.
-4. (Faza 6) Wdrożyć system zakupów (API + prosta lista szablonów) – ograniczyć nadwyżki ekonomiczne.
-5. (Faza 4) Heurystyka walki: atak tylko przy przewadze (np. stosunek CV ≥ 1.3) lub dobicie przeciwnika o niskim CV.
-6. (Faza 5) Priorytetyzacja key points na podstawie (pozostałe_tury / dystans_MP).
-7. (Faza 7) Parametry trudności: mnożniki wag (agresja, oszczędność, ryzyko).
-8. (Faza 8) Rozszerzyć logowanie: ruchy, bitwy, zakupy (identyfikator tury i seed deterministyczny).
-9. (Faza 9 opcjonalnie) Pamięć statystyczna: średnie wykorzystanie paliwa / sukces ataków → adaptacja wag.
+## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – ZAKTUALIZOWANE 24.08.2025)
 
-### Szybkie usprawnienia o wysokim ROI
-* Dodać dynamiczny procent alokacji (np. 40–80% w zależności od nadwyżki ekonomii i liczby niewydanych punktów u dowódców)
-* Implementować minimum zakupów (1 jednostka jeśli brak wzrostu armii ≥ 3 tury i econ > próg)
-* Wprowadzić prosty ranking typów jednostek (artyleria > piechota > zwiad) dla pierwszych zakupów
-* Ograniczyć długość logów jednostkowych (przełącznik `verbosity`)
+### **IMMEDIATE PRIORITIES - AI COMMANDER:**
+1. **(KRYTYCZNY) Implementacja resupply system** - sekcja 22 z AI_COMMANDER_PLAN.md
+   - pre_resupply() z budżetem 20% rezerwa + 80% operacyjny
+   - Uzupełnianie fuel/combat za player.punkty_ekonomiczne
+   - Priorytetyzacja: paliwo < 30% → combat < 50% → key points
+
+2. **(WAŻNY) Combat system implementation**
+   - CombatAction dla AI Commander
+   - Analiza wrogów w zasięgu ataku
+   - Combat ratio evaluation (min 1.3 dla bezpiecznego ataku)
+
+3. **(WAŻNY) Key points capture/hold**
+   - Capture objectives dla neutralnych/wrogich KP
+   - Hold objectives dla własnych KP z economic value
+
+### **MEDIUM TERM - AI GENERAL:**
+4. **(Faza 7) Monte Carlo Tree Search**
+   - Implementacja MCTS dla poziomów Medium/Hard/Expert
+   - Tree search dla decyzji budżetowych
+   - Simulation engine z lookahead 3-5 tur
+
+5. **(Faza 7) Poziomy trudności**
+   - 4 poziomy: Easy (heurystyki) → Expert (MCTS + ML)
+   - Różne time budgets i exploration parameters
+   - Adaptive difficulty na podstawie win rate
+
+### **LONG TERM - ADVANCED AI:**
+6. **(Faza 9) Machine Learning adaptacja**
+   - Memory system dla skutecznych strategii
+   - Pattern recognition dla typów przeciwników  
+   - Meta-learning między grami
+
+7. **(Integration) AI Coordination**
+   - AI General → strategic orders → AI Commander
+   - Feedback loop przez VP, economic efficiency
+   - Commander specialization (różne style per dowódca)
 
 ## 🗒️ CHANGELOG
-**3.1 (20.08.2025)**
-* Dodano katalog `ai/` z `ai_general.py` (analiza + alokacja ekonomii)
-* Wprowadzono tabelę postępu faz i sekcję ograniczeń
-* Uaktualniono strukturę projektu – moduł AI już istnieje
-* Dodano listę szybkich usprawnień i zaktualizowane priorytety
-* Zmieniono sekcję statystyk – AI nie jest już tylko planem
+**3.2 (24.08.2025)**
+* **MAJOR UPDATE** - Pełna analiza rzeczywistego stanu AI implementation
+* AI General: KOMPLETNY poziom strategiczny z 5 strategiami adaptacyjnymi
+* AI Commander: PODSTAWOWY poziom taktyczny, BRAK resupply/combat/capture
+* Zaktualizowano tabele postępu - rzeczywiste % completion
+* Dodano krytyczne luki: resupply, combat system, key points capture
+* Plan rozwoju: MCTS dla AI General, resupply/combat dla AI Commander
+* Zmieniono priorytety na immediate (resupply) vs long term (MCTS)
 
 **3.0 (15.08.2025)**
 * Konsolidacja dokumentacji kontraktu dla AI (bez implementacji katalogu `ai/`)

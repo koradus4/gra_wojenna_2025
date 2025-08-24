@@ -565,15 +565,59 @@ Po akceptacji: wykonujemy sekcję 26, potem przechodzimy do MVP-1 (ruch do KP).
 5. **Better objective filtering** - eliminate impossible targets early
 6. **Fallback improvements** - lepsze zachowanie gdy brak osiągalnych celów
 
-### **27.3 Nowe wymagania dla MVP-1**
+### **27.3 STAN RZECZYWISTY - ANALIZA KODU (24.08.2025)**
 
-**Zaktualizowane kryterium DONE dla MVP-1:**
+**✅ CO JEST ZAIMPLEMENTOWANE:**
+- ✅ Podstawowy ruch jednostek (find_target, move_towards)
+- ✅ Strategiczne rozkazy z JSON (receive_orders, load_strategic_orders)
+- ✅ Pathfinding z ograniczeniami MP/Fuel
+- ✅ Logowanie akcji do CSV w logs/ai_commander/
+- ✅ Autonomiczny fallback gdy brak rozkazów strategicznych
+
+**❌ KRYTYCZNE LUKI W IMPLEMENTACJI:**
+- ❌ **RESUPPLY/REGENERACJA** - brak implementacji sekcji 22
+  - `pre_resupply()` to tylko placeholder: `pass`
+  - AI Commander nie uzupełnia fuel ani combat_value
+  - Dowódcy nie mają dostępu do punktów ekonomicznych na resupply
+- ❌ **WALKA/COMBAT** - brak CombatAction
+  - Brak analizy wrogów w zasięgu
+  - Brak attack objectives  
+  - Brak oceny stosunku sił (combat ratio)
+- ❌ **ZAAWANSOWANE CELE** - tylko podstawowy ruch
+  - Brak capture key points
+  - Brak retreat objectives
+  - Brak reposition/formation tactics
+
+**PRZYSZŁY PLAN ROZWOJU:**
+
+**FAZA A: RESUPPLY SYSTEM (KRYTYCZNY)**
+1. Implementacja pre_resupply() zgodnie z sekcją 22
+2. Budżetowanie: rezerwa 20% + operacyjny 80%
+3. Priorytetyzacja: paliwo < 30% → combat < 50% → key points
+4. Integracja z player.punkty_ekonomiczne
+
+**FAZA B: COMBAT SYSTEM**  
+5. CombatAction implementation
+6. Analiza wrogów w zasięgu ataku
+7. Combat ratio evaluation (min 1.3 dla ataku)
+
+**FAZA C: TACTICAL OBJECTIVES**
+8. Key Points capture/hold objectives
+9. Retreat dla jednostek < 25% HP
+10. Formation awareness
+
+### **27.4 Zaktualizowane wymagania dla MVP-1**
+
+**PODSTAWOWE (OBECNY STAN):**
 - ✅ Jednostki faktycznie się przemieszczają
-- ✅ **Wszystkie ruchy są legalne (w ramach MP/Fuel)**
-- ✅ **Brak prób niemożliwych ruchów**
-- ✅ **Partial movement działa gdy cel za daleko**
+- ✅ Wszystkie ruchy są legalne (w ramach MP/Fuel)  
+- ✅ Brak prób niemożliwych ruchów
+- ✅ Partial movement działa gdy cel za daleko
 
-### **27.4 Rozszerzone testy**
+**ROZSZERZONE MVP-1 (DO IMPLEMENTACJI):**
+- ❌ **AI Commander ma resupply** - uzupełnia fuel/combat za punkty ekonomiczne
+- ❌ **AI Commander atakuje** - podstawowe CombatAction gdy ratio korzystny
+- ❌ **AI Commander przejmuje key points** - capture objectives
 
 **Dodatkowe testy krytyczne:**
 - `test_pathfinding_mp_consistency` - AI i MoveAction używają tego samego pathfindingu

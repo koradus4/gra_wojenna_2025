@@ -6,12 +6,92 @@ from core.ekonomia import EconomySystem
 from engine.engine import GameEngine, update_all_players_visibility, clear_temp_visibility
 from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
+from utils.game_cleaner import clean_all_for_new_game, quick_clean
+import tkinter as tk
+from tkinter import messagebox
 
-# Funkcja główna
-if __name__ == "__main__":
+def show_clean_options():
+    """Pokazuje opcje czyszczenia przed uruchomieniem gry"""
+    root = tk.Tk()
+    root.title("Gra Wojenna - Opcje")
+    root.geometry("400x250")
+    root.resizable(False, False)
+    
+    # Centrowanie okna
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() // 2) - (400 // 2)
+    y = (root.winfo_screenheight() // 2) - (250 // 2)
+    root.geometry(f"400x250+{x}+{y}")
+    
+    frame = tk.Frame(root, padx=20, pady=20)
+    frame.pack(fill="both", expand=True)
+    
+    tk.Label(frame, text="Gra Wojenna - Alternatywny Launcher", 
+             font=("Arial", 14, "bold")).pack(pady=(0, 20))
+    
+    # Sekcja czyszczenia
+    clean_frame = tk.LabelFrame(frame, text="Opcje czyszczenia", font=("Arial", 10, "bold"))
+    clean_frame.pack(fill="x", pady=(0, 15))
+    
+    def quick_clean_action():
+        try:
+            result = messagebox.askyesno("Potwierdzenie", 
+                                       "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
+                                       "To usunie:\n"
+                                       "• Rozkazy strategiczne AI\n"
+                                       "• Zakupione żetony (nowe_dla_*)")
+            if result:
+                quick_clean()
+                messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas szybkiego czyszczenia: {e}")
+    
+    def full_clean_action():
+        try:
+            result = messagebox.askyesno("Potwierdzenie", 
+                                       "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
+                                       "To usunie:\n"
+                                       "• Rozkazy strategiczne AI\n"
+                                       "• Zakupione żetony (nowe_dla_*)\n"
+                                       "• Logi AI\n"
+                                       "• Logi akcji gry\n\n"
+                                       "UWAGA: Ta operacja jest nieodwracalna!")
+            if result:
+                clean_all_for_new_game()
+                messagebox.showinfo("Sukces", "Pełne czyszczenie zakończone pomyślnie!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
+    
+    def start_game():
+        root.destroy()
+        run_game()
+    
+    clean_btn_frame = tk.Frame(clean_frame)
+    clean_btn_frame.pack(pady=10)
+    
+    tk.Button(clean_btn_frame, text="🧹 Szybkie czyszczenie", command=quick_clean_action).pack(side="left", padx=(0, 10))
+    tk.Button(clean_btn_frame, text="🗑️ Pełne czyszczenie", command=full_clean_action).pack(side="left")
+    
+    tk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi", 
+             font=("Arial", 9), fg="gray").pack()
+    
+    # Główne przyciski
+    main_btn_frame = tk.Frame(frame)
+    main_btn_frame.pack(pady=15)
+    
+    tk.Button(main_btn_frame, text="▶ Start Gry", command=start_game, 
+              font=("Arial", 11, "bold"), bg="#4CAF50", fg="white").pack(side="left", padx=(0, 10))
+    tk.Button(main_btn_frame, text="Wyjście", command=root.quit).pack(side="left")
+    
+    root.mainloop()
+
+def run_game():
+    """Uruchamia właściwą grę"""
     # Automatyczne ustawienia graczy
     miejsca = ["Polska", "Polska", "Polska", "Niemcy", "Niemcy", "Niemcy"]
-    czasy = [5, 5, 5, 5, 5, 5]  # Czas na turę w minutach    # Inicjalizacja silnika gry (GameEngine jako źródło prawdy)
+    czasy = [5, 5, 5, 5, 5, 5]  # Czas na turę w minutach
+    
+    # Inicjalizacja silnika gry (GameEngine jako źródło prawdy)
     game_engine = GameEngine(
         map_path="data/map_data.json",
         tokens_index_path="assets/tokens/index.json",
@@ -204,3 +284,6 @@ if __name__ == "__main__":
         just_loaded_save = False
         clear_temp_visibility(players)
         # --- KONIEC DODATKU ---
+
+if __name__ == "__main__":
+    show_clean_options()

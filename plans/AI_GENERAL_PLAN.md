@@ -330,6 +330,82 @@ AI Generał ma teraz **pełny parytet** z human generałem oraz **inteligentne z
 ## 📊 METRYKI SUKCESU
 
 **PODSTAWOWE:**
+- Win rate przeciw fixed strategy ≥ 60%
+- Ekonomia: żadnej tury z deficytem budżetu
+- Balans: alokacja vs zakupy 30-70% (flexibilność)
+- Logowanie: 100% decyzji zapisanych z uzasadnieniem
+
+**ZAAWANSOWANE:**
+- Adaptacyjność: zmiana strategii gdy VP gap > 30%
+- Efficiency: śr. wykorzystanie budżetu ≥ 90%
+- Predict: AI wybiera właściwą strategię ≥ 75% przypadków
+
+## 🚀 **OBECNY STAN I PRZYSZŁOŚĆ (24.08.2025)**
+
+### ✅ **ZAIMPLEMENTOWANE FUNKCJE:**
+- **Pełny parytet z human generałem** - dostęp do VP, Key Points, fazy gry
+- **5 strategii adaptacyjnych** - ROZWÓJ/KRYZYS_PALIWA/DESPERACJA/OCHRONA/EKSPANSJA  
+- **System 20-40-40** z elastycznym budżetem według sytuacji
+- **Analiza per dowódca** - paliwo, combat value, typy jednostek
+- **Kompletne logowanie** - ekonomia, Key Points, strategia per tura
+- **EconAction.COMBO** - kombinacja alokacji + zakupów
+
+### ❌ **BRAKUJĄCE FUNKCJE (PRZYSZŁOŚĆ):**
+
+**POZIOMY TRUDNOŚCI - MONTE CARLO TREE SEARCH:**
+- **Easy**: Podstawowe heurystyki, szybkie decyzje
+- **Medium**: Lookahead 2-3 tury, podstawowy MCTS  
+- **Hard**: Pełny MCTS z simulacjami 100+ per decyzja
+- **Expert**: Zaawansowany MCTS + machine learning adaptacja
+
+**ALGORYTM MCTS DLA AI GENERAL:**
+```python
+def mcts_decision(self, game_state, time_budget_ms=1000):
+    """
+    Monte Carlo Tree Search dla decyzji ekonomicznych
+    - Simuluj różne kombinacje alokacji/zakupów
+    - Oceń outcome po 3-5 turach
+    - Wybierz najlepszą średnią strategię
+    """
+    # Tree nodes: różne % podziału budżetu
+    # Rollouts: symulacja skutków decyzji  
+    # Selection: UCB1 dla exploration vs exploitation
+    # Backpropagation: aktualizacja wartości węzłów
+```
+
+**MACHINE LEARNING ADAPTACJA:**
+- **Memory system** - zapamiętywanie skutecznych strategii
+- **Pattern recognition** - rozpoznawanie typów przeciwników
+- **Meta-learning** - dostrajanie wag między grami
+- **Opponent modeling** - przewidywanie ruchów human gracza
+
+**ZAAWANSOWANE HEURYSTYKI:**
+- **Multi-turn planning** - planowanie 5+ tur naprzód
+- **Risk assessment** - ocena prawdopodobieństwa różnych scenariuszy  
+- **Economic modeling** - prognozowanie wzrostu vs maintenance cost
+- **Commander specialization** - różne style dla różnych dowódców
+
+### 🎯 **ROADMAPA ROZWOJU:**
+
+**FAZA 1: POZIOMY TRUDNOŚCI**
+- Implementacja parametrów difficulty w konstruktorze
+- 4 poziomy: Easy/Medium/Hard/Expert
+- Różne wagi decyzyjne i time limits
+
+**FAZA 2: MCTS FOUNDATION**  
+- Podstawowy MCTS dla Medium+
+- Tree search dla decyzji budżetowych
+- Simulation engine dla predykcji
+
+**FAZA 3: ADVANCED AI**
+- Machine learning adaptacja
+- Opponent modeling
+- Meta-strategies
+
+**INTEGRATION Z AI COMMANDER:**
+- AI General tworzy strategic orders
+- AI Commander wykonuje tactical moves  
+- Feedback loop przez VP i economic efficiency
 - AI podejmuje sensowne decyzje ekonomiczne
 - Nie ma przewagi nad graczem ludzkim (fairplay)
 - Reaguje adaptacyjnie na zmieniającą się sytuację

@@ -25,7 +25,10 @@ def run_all_ai_tests():
         "test_ai_combo_actions.py",
         "test_ai_integration.py",
         "test_ai_performance.py",
-        "test_ai_edge_cases.py"
+        "test_ai_edge_cases.py",
+        "test_strategic_orders.py",
+        "test_integration_strategic_orders.py",
+        "test_real_game_strategic_orders.py"
     ]
     
     print(f"📂 Test directory: {test_dir}")
