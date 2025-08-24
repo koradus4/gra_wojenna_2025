@@ -1,0 +1,6 @@
+timestamp,nation,commander_id,unit_type,unit_size,cost,supports,points_before,points_after,budget_allocated,reserve,need_supply,need_art,pressure,enemy_has_armor,ratio,global_counts,enemy_counts
+2025-08-24T12:22:02,Polska,2,K,Pluton,18,,64,46,19,14,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 14, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1}",{}
+2025-08-24T12:22:02,Niemcy,5,Z,Pluton,16,,75,59,23,16,True,False,0.0,False,0.6,"{""P"": 15, ""TL"": 4, ""TŚ"": 1, ""K"": 1, ""AL"": 4, ""TS"": 1}",{}
+2025-08-24T12:22:02,Polska,2,K,Pluton,18,,64,46,19,14,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 14, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1}",{}
+2025-08-24T12:22:02,Niemcy,5,Z,Pluton,26,drużyna granatników,92,66,28,20,True,False,0.0,False,0.6,"{""P"": 15, ""TL"": 4, ""TŚ"": 1, ""K"": 1, ""AL"": 4, ""TS"": 1}",{}
+2025-08-24T12:22:03,Polska,2,Z,Pluton,16,,107,91,16,11,True,False,0.0,False,0.6,"{""AL"": 4, ""P"": 14, ""TL"": 4, ""Z"": 1, ""TS"": 1, ""K"": 1}",{}

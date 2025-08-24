@@ -1,2 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-22T21:09:11.305425,<Mock name='mock.turn_number' id='2204605359184'>,Polska,COMBO,strategic_combo_EKSPANSJA,0.2,1.2,200,10,Strategia EKSPANSJA – zbalansowana ekspansja | Faza: BUILD (rozbudowa armii),"{""units"": 200, ""fuel_ratio"": 0.2, ""phase"": ""\u015aREDNIA"", ""vp_situation"": ""WYGRYWAMY""}"

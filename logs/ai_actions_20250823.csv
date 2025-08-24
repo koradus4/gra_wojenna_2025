@@ -1,3 +1,0 @@
-timestamp,nation,action,econ_before,econ_after,allocated_total,units_bought,rule,metrics_json
-2025-08-23T19:01:37,Polska,HOLD,41,41,0,0,insufficient_budget,"{""econ"": 41, ""own_units"": 25, ""low_fuel_ratio"": 0.0, ""strategy_name"": ""ROZWÓJ"", ""budget_ratios"": {""reserve"": 0.2, ""allocate"": 0.4, ""purchase"": 0.4}, ""game_phase"": 0.1, ""vp_status"": 0, ""phase_name"": ""WCZESNA"", ""rule"": ""insufficient_budget""}"
-2025-08-23T19:01:59,Polska,HOLD,3,3,0,0,econ<MIN_BUY,"{""econ"": 3, ""own_units"": 25, ""low_fuel_ratio"": 0.0, ""strategy_name"": ""ROZWÓJ"", ""budget_ratios"": {""reserve"": 0.2, ""allocate"": 0.4, ""purchase"": 0.4}, ""game_phase"": 0.1, ""vp_status"": 0, ""phase_name"": ""WCZESNA"", ""rule"": ""econ<MIN_BUY""}"

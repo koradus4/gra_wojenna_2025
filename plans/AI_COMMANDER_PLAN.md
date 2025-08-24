@@ -51,6 +51,7 @@ state = {
 | capture | Wejście na neutralny / wrogi key point | key_points in range path ≤ N |
 | attack | Atak na wroga z przewagą | enemy_visible + ratio ≥ threshold |
 | approach | Zbliżenie do priorytetowego celu (KP / klaster) | brak bezpośr. dojścia |
+| approach_partial | **NOWY** Częściowy ruch w kierunku celu poza zasięgiem MP | gdy pełny approach niemożliwy |
 | reposition | Lepszy defense_mod / koncentracja | gdy brak innych |
 | retreat | Wycofanie poniżej HP / paliwa | hp/fuel threshold |
 | hold | Brak lepszych opcji | fallback |
@@ -75,8 +76,9 @@ TacticalObjective(
 5. approach (skraca dystans do KP ≤ 2) – 50
 6. scout (early faza) – 45 (po odkryciu KP → 15)
 7. reposition (koncentracja / osłona) – 40
-8. retreat (hp<25%) – 95 (nadpisuje)
-9. hold – 10
+8. **approach_partial** (ruch w kierunku celu poza zasięgiem) – **35**
+9. retreat (hp<25%) – 95 (nadpisuje)
+10. hold – 10
 
 ## 7. Scoring ruchu
 ```
@@ -103,8 +105,117 @@ Odrzucenie jeżeli (our_cv / enemy_cv) < 1.15 (chyba że enemy_hp krytyczne).
 - Token istnieje i MP > 0
 - Fuel > 0
 - Ścieżka wolna / aktualna
+- **KRYTYCZNE: Rzeczywiste sprawdzenie pathfindingu z limitami MP/Fuel**
+- **NOWE: Jeśli cel poza zasięgiem MP, generuj approach_partial**
+- **NOWE: Cache sprawdzonych ścieżek na turę (optymalizacja)**
 - Range / adjacency nadal spełnione
 - Anti-loop: cache odwiedzonych heksów tej jednostki w turze
+
+### 9.1 **POPRAWKA PATHFINDING BUG**
+**Problem:** AI Commander używa `board.find_path(start, target)` bez limitów MP, ale MoveAction używa `find_path(start, target, max_mp=X)` z limitami.
+
+**Rozwiązanie:**
+```python
+# ZAWSZE używaj limitowanego pathfindingu w AI Commander:
+path = board.find_path(
+    unit_pos, target,
+    max_mp=unit.get('currentMovePoints', 0),
+    max_fuel=unit.get('currentFuel', 99)
+)
+
+# Jeśli path == None, sprawdź czy możliwy partial move:
+if not path:
+    unlimited_path = board.find_path(unit_pos, target)
+    if unlimited_path and len(unlimited_path) > 1:
+        max_steps = min(unit.get('currentMovePoints', 0), len(unlimited_path) - 1)
+        if max_steps > 0:
+            # Generuj approach_partial objective
+            partial_target = unlimited_path[max_steps]
+            return create_partial_objective(partial_target)
+```
+
+## 9.2 **PRIORYTETOWE POPRAWKI (CRITICAL)**
+
+### **A. Natychmiastowe (Blokery ruchu jednostek)**
+1. **Fix _score_move_objective()** - używaj rzeczywistego pathfindingu z MP limits
+2. **Fix _generate_capture_objectives()** - filtruj cele nieosiągalne w jednej turze  
+3. **Dodaj partial movement logic** - gdy cel za daleko, idź ile możesz
+
+### **B. Ważne (Stabilność AI)**
+4. **Fix objective filtering** - eliminuj cele poza zasięgiem WSZYSTKICH jednostek
+5. **Dodaj approach_partial generation** - automatycznie dla celów 4+ hexów dalej
+6. **Cache pathfinding results** - unikaj wielokrotnych wywołań tej samej ścieżki
+
+### **C. Długoterminowe (Jakość decyzji)**
+7. **Multi-turn planning** - preferuj cele osiągalne w 2-3 turach
+8. **Dynamic replanning** - gdy partial move ukończony, przegeneruj objectives
+9. **Formation awareness** - grupuj jednostki w marszach
+
+### **D. Kod do natychmiastowego wdrożenia:**
+```python
+# ai/ai_commander.py - line ~346
+def _score_move_objective(self, board, unit, objective):
+    """FIX: Oceń cel z rzeczywistymi limitami MP/Fuel"""
+    target = objective['target_hex']
+    unit_pos = (unit['q'], unit['r'])
+    
+    # KRYTYCZNA POPRAWKA: Sprawdź rzeczywistą dostępność
+    path = board.find_path(
+        unit_pos, target,
+        max_mp=unit.get('currentMovePoints', 0),
+        max_fuel=unit.get('currentFuel', 99)
+    )
+    
+    if not path:
+        # Sprawdź czy możliwy partial move
+        unlimited = board.find_path(unit_pos, target)
+        if unlimited and len(unlimited) > 1:
+            max_steps = min(unit.get('currentMovePoints', 0), len(unlimited) - 1)
+            if max_steps > 0:
+                # Partial move możliwy - niższy score ale wykonalny
+                return objective['priority'] - max_steps * 2 + 10
+        return -1000  # Całkowicie niemożliwe
+    
+    # Pełna ścieżka możliwa
+    distance = len(path) - 1
+    return objective['priority'] - distance * 1.5
+
+# DODAJ NOWĄ METODĘ:
+def _generate_approach_partial_objectives(self, state, board):
+    """Generuj partial movement objectives dla celów poza zasięgiem"""
+    objectives = []
+    
+    for kp in state['key_points']:
+        if kp.get('owner') != self.player.nation:
+            # Sprawdź czy KP jest poza zasięgiem ale partial ruch możliwy
+            for unit in state['units']:
+                unit_pos = (unit['q'], unit['r'])
+                target_pos = (kp['q'], kp['r'])
+                
+                # Sprawdź czy pełna ścieżka niemożliwa
+                full_path = board.find_path(
+                    unit_pos, target_pos,
+                    max_mp=unit.get('currentMovePoints', 0)
+                )
+                
+                if not full_path:
+                    # Sprawdź czy partial możlivy
+                    unlimited = board.find_path(unit_pos, target_pos)
+                    if unlimited and len(unlimited) > unit.get('currentMovePoints', 0):
+                        # Cel za daleko ale można iść częściowo
+                        max_steps = unit.get('currentMovePoints', 0)
+                        if max_steps > 0:
+                            partial_target = unlimited[max_steps]
+                            objectives.append({
+                                'type': 'approach_partial',
+                                'target_hex': partial_target,
+                                'priority': 35,
+                                'reason': f"Partial approach to KP {kp['q']},{kp['r']}"
+                            })
+                            break  # Jeden objective per KP
+    
+    return objectives
+```
 
 ## 10. Struktury i klasy
 ```
@@ -141,6 +252,11 @@ Tryby: OFF / NORMAL / DEBUG.
 | test_scout_generates_when_no_objectives | Scout pojawia się gdy brak innych |
 | test_scout_suppressed_when_capture_available | Scout znika przy pojawieniu capture |
 | test_scout_deterministic_seed | Powtarzalność sektorów |
+| **test_partial_movement_generation** | **approach_partial generuje się dla celów poza zasięgiem** |
+| **test_partial_movement_execution** | **Jednostka porusza się częściowo w kierunku celu** |
+| **test_pathfinding_mp_limits** | **AI używa pathfindingu z limitami MP/Fuel** |
+| **test_objective_filtering_reachable** | **Cele nieosiągalne są odfiltrowane** |
+| **test_partial_vs_full_priority** | **Pełny approach > approach_partial** |
 
 ## 13. Ryzyka / zależności
 - Braki implementacyjne w board / engine / action (blokery)
@@ -414,6 +530,64 @@ Kryterium akceptacji planu do wdrożenia:
 - Sekcje 23–26 odzwierciedlają potrzebną integrację i brak otwartych pytań o podstawy.
 
 Po akceptacji: wykonujemy sekcję 26, potem przechodzimy do MVP-1 (ruch do KP).
+
+---
+
+## 27. **AKTUALIZACJA PLANU - ANALIZA OBECNYCH PROBLEMÓW (v1.7)**
+
+### **27.1 Zidentyfikowane problemy w implementacji**
+
+**A. GŁÓWNY PROBLEM: Pathfinding Discrepancy**
+- AI Commander używa `board.find_path(start, target)` bez limitów MP
+- MoveAction używa `find_path(start, target, max_mp=X)` z limitami  
+- **Skutek:** AI wybiera cele 10+ hexów dalej gdy jednostki mają 6 MP
+- **Status:** BLOKUJE wszystkie ruchy jednostek
+
+**B. Brak filtrowania celów po rzeczywistym zasięgu**
+- Plan przewiduje "key_points in range path ≤ N" ale nie implementuje sprawdzania MP
+- Wszystkie cele są akceptowane niezależnie od możliwości dotarcia
+- **Status:** Powoduje frustrujące zachowanie AI
+
+**C. Brak partial movement logic**
+- Gdy cel za daleko, AI rezygnuje kompletnie
+- Brak mechanizmu "idź ile możesz w kierunku celu"
+- **Status:** Ogranicza użyteczność AI na dużych mapach
+
+### **27.2 Priorytetowe poprawki**
+
+**KRYTYCZNE (natychmiastowe):**
+1. **Fix _score_move_objective()** - zawsze używaj pathfindingu z limitami MP/Fuel
+2. **Fix _generate_capture_objectives()** - filtruj tylko osiągalne cele
+3. **Dodaj approach_partial** - dla celów częściowo osiągalnych
+
+**WAŻNE (stabilność):**
+4. **Cache pathfinding** - unikaj wielokrotnych wywołań
+5. **Better objective filtering** - eliminate impossible targets early
+6. **Fallback improvements** - lepsze zachowanie gdy brak osiągalnych celów
+
+### **27.3 Nowe wymagania dla MVP-1**
+
+**Zaktualizowane kryterium DONE dla MVP-1:**
+- ✅ Jednostki faktycznie się przemieszczają
+- ✅ **Wszystkie ruchy są legalne (w ramach MP/Fuel)**
+- ✅ **Brak prób niemożliwych ruchów**
+- ✅ **Partial movement działa gdy cel za daleko**
+
+### **27.4 Rozszerzone testy**
+
+**Dodatkowe testy krytyczne:**
+- `test_pathfinding_mp_consistency` - AI i MoveAction używają tego samego pathfindingu
+- `test_no_impossible_moves` - AI nie generuje ruchów poza zasięgiem MP
+- `test_partial_progress` - jednostki robią postęp w kierunku dalekich celów
+- `test_mp_exhaustion_handling` - zachowanie gdy MP = 0
+
+---
+
+**Wersja dokumentu: 1.7**  
+**Data aktualizacji: 2025-08-24**  
+**Zmiany:** Dodano analizę problemów implementacji, zaktualizowano wymagania MVP-1, rozszerzono testy o partial movement
+
+```
 
 Aktualizacja wersji: 1.6 (dodano sekcję 26, brak zmian wcześniejszych sekcji).
 

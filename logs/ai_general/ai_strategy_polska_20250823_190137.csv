@@ -1,2 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-23T19:01:37.472555,,Polska,HOLD,insufficient_budget,0.0,0.1,25,2,Niewystarczający budżet na żadną akcję | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

@@ -1,0 +1,8 @@
+timestamp,nation,unit_id,action_type,from_q,from_r,to_q,to_r,reason
+2025-08-24T17:05:24.844954,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-24T17:05:24.897240,Polska,AL_Kompania__2_Dywizjon_Artylerii,move_full,6,9,11,9,"Full path to target (11, 9)"
+2025-08-24T17:05:24.909934,Polska,P_Pluton__2_Batalion_Strzelc_w,move_full,9,-4,6,-1,"Full path to target (6, -1)"
+2025-08-24T17:05:24.920952,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,move_full,16,0,16,5,"Full path to target (16, 5)"
+2025-08-24T17:05:24.933837,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,move_full,18,-2,22,-6,"Full path to target (22, -6)"
+2025-08-24T17:05:24.934956,Polska,P_Kompania__2_Batalion_Strzelc_w,move_full,20,-8,16,-8,"Full path to target (16, -8)"
+2025-08-24T17:05:24.934956,Polska,TURN_END,turn_summary,,,,,Turn completed: 5/5 units moved

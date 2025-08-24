@@ -1,4 +1,0 @@
-timestamp,turn,nation,pe_start,pe_allocated,pe_spent_purchases,pe_total_used,pe_remaining,strategy_used,vp_own,vp_enemy,vp_status
-2025-08-22T21:13:38.930693,,Polska,97,22,20,42,55,COMBO,0,0,0
-2025-08-22T21:19:42.785380,,Polska,170,70,15,85,85,COMBO,0,0,0
-2025-08-22T21:28:08.333628,,Polska,169,70,15,85,84,COMBO,0,-35,35

@@ -1,4 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-22T21:13:38.316319,,Polska,COMBO,strategic_combo_ROZWÓJ,0.0,0.1,25,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
-2025-08-22T21:19:42.689248,,Polska,COMBO,strategic_combo_KRYZYS_PALIWA,0.5769230769230769,0.1,26,2,Strategia KRYZYS PALIWA – priorytet uzupełnień + minimum zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 26, ""fuel_ratio"": 0.5769230769230769, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
-2025-08-22T21:28:08.208682,,Polska,COMBO,strategic_combo_KRYZYS_PALIWA,0.48,0.1,25,2,Strategia KRYZYS PALIWA – priorytet uzupełnień + minimum zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.48, ""phase"": ""WCZESNA"", ""vp_situation"": ""WYGRYWAMY""}"

@@ -297,15 +297,23 @@ class PanelGenerala:
 
     def update_timer(self):
         """Aktualizuje odliczanie czasu."""
-        if self.root.winfo_exists():
-            if self.remaining_time > 0:
-                self.remaining_time -= 1
-                minutes = self.remaining_time // 60
-                seconds = self.remaining_time % 60
-                self.timer_frame.config(text=f"Pozostały czas: {minutes}:{seconds:02d}")
-                self.timer_id = self.root.after(1000, self.update_timer)
-            else:
-                self.end_turn()  # Automatyczne zakończenie tury po upływie czasu
+        try:
+            if hasattr(self, 'root') and self.root and self.root.winfo_exists():
+                if self.remaining_time > 0:
+                    self.remaining_time -= 1
+                    minutes = self.remaining_time // 60
+                    seconds = self.remaining_time % 60
+                    if hasattr(self, 'timer_frame') and self.timer_frame:
+                        self.timer_frame.config(text=f"Pozostały czas: {minutes}:{seconds:02d}")
+                    self.timer_id = self.root.after(1000, self.update_timer)
+                else:
+                    self.end_turn()  # Automatyczne zakończenie tury po upływie czasu
+        except tk.TclError:
+            # Widget został zniszczony - ignoruj błąd
+            pass
+        except Exception as e:
+            print(f"Timer error: {e}")
+            # Nie planuj kolejnego timera jeśli wystąpił błąd
 
     def reset_support_sliders(self):
         """Resetuje suwaki wsparcia dowódców po zakończeniu tury."""

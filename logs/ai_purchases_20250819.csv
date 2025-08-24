@@ -1,4 +1,0 @@
-timestamp,nation,commander_id,unit_type,unit_size,cost,supports,points_before,points_after,budget_allocated,reserve,need_supply,need_art,pressure,enemy_has_armor,ratio,global_counts,enemy_counts
-2025-08-19T22:44:58,Polska,2,Z,Pluton,26,drużyna granatników,57,31,39,18,True,True,0.0,False,0.7,{},{}
-2025-08-19T22:55:12,Polska,2,Z,Pluton,26,drużyna granatników,52,26,36,16,True,True,0.0,False,0.7,{},{}
-2025-08-19T23:06:28,Polska,2,Z,Pluton,26,drużyna granatników,49,23,34,15,True,True,0.0,False,0.7,{},{}

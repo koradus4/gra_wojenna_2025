@@ -1,2 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-22T21:10:33.743370,<Mock name='mock.turn_number' id='2042041934208'>,Polska,COMBO,strategic_combo_ROZWÓJ,0.2,0.06,200,10,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 200, ""fuel_ratio"": 0.2, ""phase"": ""WCZESNA"", ""vp_situation"": ""WYGRYWAMY""}"

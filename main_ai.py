@@ -16,21 +16,55 @@ class GameLauncher:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Gra Wojenna 2025 - Launcher")
-        self.root.geometry("400x300")
+        self.root.geometry("500x500")  # Jeszcze większe okno
         self.ai_polish_general = tk.BooleanVar()
         self.ai_german_general = tk.BooleanVar()
+        # Osobne opcje dla każdego dowódcy
+        self.ai_polish_commander_1 = tk.BooleanVar()
+        self.ai_polish_commander_2 = tk.BooleanVar()
+        self.ai_german_commander_1 = tk.BooleanVar()
+        self.ai_german_commander_2 = tk.BooleanVar()
         self.setup_ui()
 
     def setup_ui(self):
         frame = ttk.Frame(self.root, padding="20")
         frame.grid(row=0, column=0, sticky="nsew")
         ttk.Label(frame, text="Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        lf = ttk.LabelFrame(frame, text="AI", padding="10")
+        
+        # Sekcja AI
+        lf = ttk.LabelFrame(frame, text="Konfiguracja AI", padding="15")
         lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
-        ttk.Checkbutton(lf, text="Polski Generał - AI", variable=self.ai_polish_general).grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(lf, text="Niemiecki Generał - AI", variable=self.ai_german_general).grid(row=1, column=0, sticky="w")
-        ttk.Button(frame, text="Start", command=self.start_game).grid(row=2, column=0, padx=(0, 10))
-        ttk.Button(frame, text="Wyjście", command=self.root.quit).grid(row=2, column=1)
+        
+        # Generałowie
+        ttk.Label(lf, text="Generałowie:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        ttk.Checkbutton(lf, text="Polski Generał (id=1) - AI", variable=self.ai_polish_general).grid(row=1, column=0, sticky="w", padx=(20, 0))
+        ttk.Checkbutton(lf, text="Niemiecki Generał (id=4) - AI", variable=self.ai_german_general).grid(row=2, column=0, sticky="w", padx=(20, 0))
+        
+        # Separator
+        ttk.Separator(lf, orient='horizontal').grid(row=3, column=0, sticky="ew", pady=10)
+        
+        # Dowódcy polscy
+        ttk.Label(lf, text="Dowódcy polscy:", font=("Arial", 11, "bold")).grid(row=4, column=0, sticky="w", pady=(5, 5))
+        ttk.Checkbutton(lf, text="Polski Dowódca 1 (id=2) - AI", variable=self.ai_polish_commander_1).grid(row=5, column=0, sticky="w", padx=(20, 0))
+        ttk.Checkbutton(lf, text="Polski Dowódca 2 (id=3) - AI", variable=self.ai_polish_commander_2).grid(row=6, column=0, sticky="w", padx=(20, 0))
+        
+        # Dowódcy niemieccy
+        ttk.Label(lf, text="Dowódcy niemieccy:", font=("Arial", 11, "bold")).grid(row=7, column=0, sticky="w", pady=(10, 5))
+        ttk.Checkbutton(lf, text="Niemiecki Dowódca 1 (id=5) - AI", variable=self.ai_german_commander_1).grid(row=8, column=0, sticky="w", padx=(20, 0))
+        ttk.Checkbutton(lf, text="Niemiecki Dowódca 2 (id=6) - AI", variable=self.ai_german_commander_2).grid(row=9, column=0, sticky="w", padx=(20, 0))
+        
+        # Przyciski
+        button_frame = ttk.Frame(frame)
+        button_frame.grid(row=2, column=0, columnspan=2, pady=20)
+        ttk.Button(button_frame, text="Start Gry", command=self.start_game).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(button_frame, text="Test AI", command=self.test_ai).grid(row=0, column=1, padx=(0, 10))
+        ttk.Button(button_frame, text="Wyjście", command=self.root.quit).grid(row=0, column=2)
+
+    def test_ai(self):
+        """Szybki test AI bez uruchamiania pełnej gry"""
+        from ai.ai_commander import test_basic_safety
+        result = test_basic_safety()
+        messagebox.showinfo("Test AI", f"Test AI Commander: {'✓ OK' if result else '✗ Błąd'}")
 
     def start_game(self):
         try:
@@ -80,13 +114,31 @@ class GameLauncher:
                 if player.nation == "Polska" and self.ai_polish_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("polish")
+                    print(f"[AI] Generał AI aktywny: {player.nation} (id={player.id})")
                 elif player.nation == "Niemcy" and self.ai_german_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("german")
+                    print(f"[AI] Generał AI aktywny: {player.nation} (id={player.id})")
             elif player.role == "Dowódca":
-                player.is_ai_commander = True  # tymczasowo zawsze AI
-                ai_commanders[player.id] = AICommander(player)
-                print(f"[AI] Dowódca AI stub id={player.id} {player.nation}")
+                # Sprawdź konkretnego dowódcę po ID
+                should_be_ai = False
+                
+                if player.id == 2 and self.ai_polish_commander_1.get():  # Polski Dowódca 1
+                    should_be_ai = True
+                elif player.id == 3 and self.ai_polish_commander_2.get():  # Polski Dowódca 2
+                    should_be_ai = True
+                elif player.id == 5 and self.ai_german_commander_1.get():  # Niemiecki Dowódca 1
+                    should_be_ai = True
+                elif player.id == 6 and self.ai_german_commander_2.get():  # Niemiecki Dowódca 2
+                    should_be_ai = True
+                
+                if should_be_ai:
+                    player.is_ai_commander = True
+                    ai_commanders[player.id] = AICommander(player)
+                    print(f"[AI] Dowódca AI aktywny: {player.nation} Dowódca {player.id} (id={player.id})")
+                else:
+                    player.is_ai_commander = False
+                    print(f"[HUMAN] Dowódca ludzki: {player.nation} Dowódca {player.id} (id={player.id})")
         for p in players:
             if not hasattr(p, 'economy') or p.economy is None:
                 p.economy = EconomySystem()
