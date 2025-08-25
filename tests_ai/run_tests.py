@@ -28,6 +28,11 @@ def run_all_ai_tests():
         "test_ai_edge_cases.py",
         "test_strategic_orders.py",
         "test_integration_strategic_orders.py",
+        # NOWE TESTY - system stabilności i taktyk
+        "test_order_stability.py",
+        "test_integration_stability.py", 
+        "test_ai_tactics.py",
+        "test_commander_orders.py",
         "test_real_game_strategic_orders.py"
     ]
     

@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-08-25_22:39:44",
+  "turn": 6,
+  "strategy_type": "EXPANSION",
+  "orders": {
+    "polska_commander_3": {
+      "mission_type": "SECURE_KEYPOINT",
+      "target_hex": [
+        15,
+        -7
+      ],
+      "priority": "HIGH",
+      "expires_turn": 11,
+      "issued_turn": 6,
+      "status": "ACTIVE",
+      "strategy_context": "EXPANSION",
+      "commander_player_id": 3
+    }
+  }
+}

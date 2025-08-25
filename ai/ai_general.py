@@ -1758,6 +1758,144 @@ class AIGeneral:
         # TODO: Implement economic AI
         pass
 
+    def should_issue_new_order(self, commander, new_target, new_score, current_turn, game_engine):
+        """
+        Sprawdza czy warto wydać nowy rozkaz dowódcy - system stabilności rozkazów.
+        
+        Args:
+            commander: Obiekt dowódcy
+            new_target: Nowy cel [x, y]
+            new_score: Score nowego celu
+            current_turn: Aktualny numer tury
+            game_engine: GameEngine do sprawdzenia wrogów
+            
+        Returns:
+            tuple: (should_issue: bool, reason: str)
+        """
+        commander_id = f"{self.display_nation.lower()}_commander_{commander.id}"
+        
+        # Sprawdź czy istnieje poprzedni rozkaz
+        try:
+            orders_file = Path("data/strategic_orders.json")
+            if orders_file.exists():
+                with open(orders_file, 'r', encoding='utf-8') as f:
+                    old_orders = json.load(f)
+                    
+                old_order = old_orders.get("orders", {}).get(commander_id)
+                if not old_order:
+                    return True, "No previous order"
+            else:
+                return True, "No orders file"
+        except Exception:
+            return True, "Error reading old orders"
+        
+        # 1. COOLING DOWN - 3 tury przerwy 
+        # (Jak wydałeś rozkaz, czekaj 3 tury zanim wydasz nowy - żeby żołnierze nie szaleli)
+        last_order_turn = old_order.get('issued_turn', 0)
+        cooling_down = current_turn - last_order_turn < 3
+        cooling_reason = f"Cooling down ({current_turn - last_order_turn}/3 turns)"
+        
+        # Pobierz pozycję dowódcy (średnia jednostek)
+        commander_pos = [0, 0]  # Default fallback
+        try:
+            all_tokens = getattr(game_engine, 'tokens', [])
+            units_positions = []
+            for token in all_tokens:
+                owner = str(getattr(token, 'owner', ''))
+                if str(commander.id) in owner:
+                    q = getattr(token, 'q', None)
+                    r = getattr(token, 'r', None)
+                    if q is not None and r is not None:
+                        units_positions.append([q, r])
+            
+            if units_positions:
+                avg_x = sum(pos[0] for pos in units_positions) / len(units_positions)
+                avg_y = sum(pos[1] for pos in units_positions) / len(units_positions)
+                commander_pos = [avg_x, avg_y]
+        except Exception:
+            pass  # Użyj fallback [0, 0]
+        
+        # 4. EMERGENCY CHECK FIRST - wróg w pobliżu lub niska HP
+        # (Jeśli zagrożenie, ignoruj wszystko powyżej - natychmiast zmieniaj rozkazy)
+        try:
+            enemy_count = 0
+            low_health_units = 0
+            total_units = 0
+            
+            all_tokens = getattr(game_engine, 'tokens', [])
+            my_nation = self.display_nation
+            
+            for token in all_tokens:
+                owner = str(getattr(token, 'owner', ''))
+                token_q = getattr(token, 'q', 0)
+                token_r = getattr(token, 'r', 0)
+                
+                # Sprawdź wrogów w promieniu 10
+                def hex_distance(pos1, pos2):
+                    x1, y1 = pos1
+                    x2, y2 = pos2
+                    return (abs(x1 - x2) + abs(x1 + y1 - x2 - y2) + abs(y1 - y2)) / 2
+                
+                distance_to_commander = hex_distance(commander_pos, [token_q, token_r])
+                if distance_to_commander <= 10:
+                    # Sprawdź czy to wróg (różna nacja)
+                    if my_nation.lower() not in owner.lower() and owner.strip():
+                        enemy_count += 1
+                
+                # Sprawdź HP naszych jednostek
+                if str(commander.id) in owner:
+                    total_units += 1
+                    combat_value = getattr(token, 'combat_value', 100)
+                    max_combat = getattr(token, 'max_combat_value', combat_value) or 100
+                    health_percent = combat_value / max_combat if max_combat > 0 else 1.0
+                    if health_percent < 0.5:
+                        low_health_units += 1
+            
+            # Emergency conditions
+            enemy_nearby = enemy_count >= 3  # (3+ wrogów w promieniu 10)
+            low_health = (low_health_units / max(total_units, 1)) > 0.5  # (>50% jednostek ma <50% HP)
+            
+            if enemy_nearby or low_health:
+                reason = []
+                if enemy_nearby:
+                    reason.append(f"{enemy_count} enemies nearby")
+                if low_health:
+                    reason.append(f"{low_health_units}/{total_units} units low health")
+                return True, f"EMERGENCY: {', '.join(reason)} - overriding cooling down"
+                
+        except Exception as e:
+            pass  # Ignoruj błędy emergency check
+        
+        # Sprawdź cooling down (jeśli nie emergency)
+        if cooling_down:
+            return False, cooling_reason
+        
+        # 2. MISSION COMPLETION - odległość ≤5 hexów
+        # (Jeśli twoi żołnierze są już blisko celu, pozwól im go zdobyć - nie przerywaj)
+        current_target = old_order.get('target_hex')
+        if current_target:
+            def hex_distance_local(pos1, pos2):
+                x1, y1 = pos1
+                x2, y2 = pos2
+                return (abs(x1 - x2) + abs(x1 + y1 - x2 - y2) + abs(y1 - y2)) / 2
+            
+            distance_to_current = hex_distance_local(commander_pos, current_target)
+            if distance_to_current <= 5:
+                return False, f"Close to completing mission (distance: {distance_to_current:.1f})"
+        
+        # 3. THRESHOLD - nowy cel 40% lepszy
+        # (Nowy cel musi być ZNACZNIE lepszy niż stary - nie zmieniaj dla byle czego)
+        old_target = old_order.get('target_hex')
+        if old_target:
+            # Oblicz score starego celu (może się zmienić przez pozycję)
+            old_distance = hex_distance_local(commander_pos, old_target)
+            old_score = 100 / max(old_distance, 1)  # Simplified scoring dla porównania
+            
+            if new_score < old_score * 1.4:
+                return False, f"New target not significantly better (new: {new_score:.1f}, old: {old_score:.1f}, need: {old_score * 1.4:.1f})"
+        
+        return True, "Order change approved"
+
     def issue_strategic_orders(self, game_engine=None, orders_file_path=None, current_turn=1):
         """
         Wydaje strategiczne rozkazy dla dowódców na podstawie analizy sytuacji.
@@ -2031,9 +2169,22 @@ class AIGeneral:
             if best_target is None and key_points:
                 best_target = key_points[i % len(key_points)]['position']
                 best_kp_info = key_points[i % len(key_points)]
+                best_score = 10.0  # Default score
                 print(f"⚠️ Wszystkie cele przydzielone, używam fallback: {best_target}")
             
-            # Dodaj do listy przydzielonych
+            # NOWE: Sprawdź czy warto wydać nowy rozkaz (system stabilności)
+            if best_target:
+                should_issue, reason = self.should_issue_new_order(
+                    commander, best_target, best_score, current_turn, game_engine
+                )
+                
+                if not should_issue:
+                    print(f"🚫 Dowódca {commander.id}: {reason} - zachowuję stary rozkaz")
+                    continue  # Pomiń tego dowódcy, nie nadpisuj rozkazu
+                else:
+                    print(f"✅ Dowódca {commander.id}: {reason} - wydaję nowy rozkaz")
+            
+            # Dodaj do listy przydzielonych (tylko jeśli wydajemy rozkaz)
             if best_target:
                 assigned_targets.append(best_target)
                 target_hex = best_target

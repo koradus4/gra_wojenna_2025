@@ -1,0 +1,2 @@
+timestamp,nation,unit_id,action_type,from_q,from_r,to_q,to_r,reason
+2025-08-25T22:33:56.363728,Test,TURN_START,turn_begin,,,,,AI Commander turn started for player None

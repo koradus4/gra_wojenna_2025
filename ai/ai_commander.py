@@ -209,6 +209,127 @@ def find_target(unit, game_engine):
     return best_target
 
 
+def execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_index, total_units):
+    """
+    Wykonuje różne taktyki w zależności od typu misji.
+    
+    Args:
+        unit: Słownik z danymi jednostki
+        base_target: Bazowy cel z rozkazu [q, r]
+        mission_type: Typ misji (SECURE_KEYPOINT, INTEL_GATHERING, etc.)
+        game_engine: GameEngine
+        unit_index: Indeks jednostki w liście (0, 1, 2...)
+        total_units: Całkowita liczba jednostek dowódcy
+    
+    Returns:
+        tuple: Docelowe współrzędne (q, r) lub None
+    """
+    if not base_target or len(base_target) < 2:
+        return base_target
+    
+    base_q, base_r = base_target[0], base_target[1]
+    unit_pos = (unit['q'], unit['r'])
+    
+    # Pobierz board dla pathfinding
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        return base_target
+    
+    try:
+        if mission_type == "INTEL_GATHERING":
+            # ROZPOZNANIE: Rozproszone jednostki, różne kierunki
+            spread_directions = [
+                (1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)  # 6 kierunków hex
+            ]
+            direction = spread_directions[unit_index % len(spread_directions)]
+            spread_distance = 3 + (unit_index % 3)  # 3-5 hexów oddalenia
+            
+            spread_target = (
+                base_q + direction[0] * spread_distance,
+                base_r + direction[1] * spread_distance
+            )
+            
+            # Sprawdź czy cel jest osiągalny
+            path = board.find_path(unit_pos, spread_target, max_mp=unit.get('mp', 1))
+            if path and len(path) > 1:
+                print(f"[TACTIC] INTEL: Jednostka {unit.get('id')} -> rozproszenie {spread_target}")
+                return spread_target
+            else:
+                print(f"[TACTIC] INTEL: Fallback do base_target {base_target}")
+                return base_target
+                
+        elif mission_type == "DEFEND_KEYPOINTS":
+            # OBRONA: Pozycje obronne wokół celu
+            defense_positions = [
+                (-2, -1), (-1, -2), (1, -1), (2, 1), (1, 2), (-1, 1)  # Wokół celu
+            ]
+            
+            if unit_index < len(defense_positions):
+                offset = defense_positions[unit_index]
+                defense_target = (base_q + offset[0], base_r + offset[1])
+                
+                # Sprawdź dostępność
+                path = board.find_path(unit_pos, defense_target, max_mp=unit.get('mp', 1))
+                if path and len(path) > 1:
+                    print(f"[TACTIC] DEFEND: Jednostka {unit.get('id')} -> pozycja obronna {defense_target}")
+                    return defense_target
+            
+            print(f"[TACTIC] DEFEND: Fallback do base_target {base_target}")
+            return base_target
+            
+        elif mission_type == "ATTACK_ENEMY_VP":
+            # ATAK: Koncentracja siły, fast units pierwszy
+            unit_speed = unit.get('mp', 1)
+            unit_fuel = unit.get('fuel', 1)
+            mobility = unit_speed + unit_fuel
+            
+            # Fast units (mobilność > 8) idą bezpośrednio do celu
+            # Slow units (mobilność <= 8) formują się 2 hexy za fast units
+            if mobility > 8:
+                print(f"[TACTIC] ATTACK: Fast unit {unit.get('id')} -> bezpośredni atak {base_target}")
+                return base_target
+            else:
+                # Slow units - pozycja wspierająca 2 hexy za celem
+                support_target = (base_q - 2, base_r - 1)
+                
+                path = board.find_path(unit_pos, support_target, max_mp=unit.get('mp', 1))
+                if path and len(path) > 1:
+                    print(f"[TACTIC] ATTACK: Slow unit {unit.get('id')} -> wsparcie {support_target}")
+                    return support_target
+                else:
+                    print(f"[TACTIC] ATTACK: Slow unit fallback {base_target}")
+                    return base_target
+                    
+        elif mission_type == "SECURE_KEYPOINT":
+            # ZABEZPIECZENIE: Agresywny ruch, formation attack
+            # Pierwsza jednostka idzie bezpośrednio, reszta formuje triangle
+            if unit_index == 0:
+                print(f"[TACTIC] SECURE: Lead unit {unit.get('id')} -> bezpośredni {base_target}")
+                return base_target
+            else:
+                # Formation triangle - jednostki 1 hex za liderem
+                formation_offsets = [(-1, 0), (1, 0), (0, -1), (-1, 1), (1, -1)]
+                if unit_index - 1 < len(formation_offsets):
+                    offset = formation_offsets[unit_index - 1]
+                    formation_target = (base_q + offset[0], base_r + offset[1])
+                    
+                    path = board.find_path(unit_pos, formation_target, max_mp=unit.get('mp', 1))
+                    if path and len(path) > 1:
+                        print(f"[TACTIC] SECURE: Formation unit {unit.get('id')} -> {formation_target}")
+                        return formation_target
+                
+                print(f"[TACTIC] SECURE: Formation fallback {base_target}")
+                return base_target
+        else:
+            # UNKNOWN mission type - fallback do base_target
+            print(f"[TACTIC] UNKNOWN: {mission_type} -> fallback {base_target}")
+            return base_target
+            
+    except Exception as e:
+        print(f"[TACTIC] ERROR: {e} -> fallback {base_target}")
+        return base_target
+
+
 def move_towards(unit, target, game_engine):
     """Wykonaj ruch w kierunku celu - PARTIAL JEŚLI TRZEBA"""
     
@@ -468,11 +589,14 @@ def make_tactical_turn(game_engine, player_id=None):
             print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
             
             if can_move_result:
-                # NOWE: Wybierz cel na podstawie rozkazów strategicznych lub fallback
+                # NOWE: Wybierz cel i taktykę na podstawie rozkazów strategicznych
                 if strategic_order and strategic_order.get('target_hex'):
-                    # Cel strategiczny z rozkazu
-                    target = strategic_order['target_hex']
-                    print(f"[AI] {unit_name}: Cel strategiczny {target} (misja: {strategic_order.get('mission_type', 'UNKNOWN')})")
+                    mission_type = strategic_order.get('mission_type', 'UNKNOWN')
+                    base_target = strategic_order['target_hex']
+                    
+                    # RÓŻNICOWANIE TAKTYK PER MISSION TYPE
+                    target = execute_mission_tactics(unit, base_target, mission_type, game_engine, i, len(my_units))
+                    print(f"[AI] {unit_name}: {mission_type} -> {target} (z taktyki)")
                 else:
                     # Fallback - stara logika key_points
                     target = find_target(unit, game_engine)
@@ -482,6 +606,15 @@ def make_tactical_turn(game_engine, player_id=None):
                     success = move_towards(unit, target, game_engine)
                     if success:
                         moved_count += 1
+                        # Log taktyki
+                        log_commander_action(
+                            unit_id=unit_name,
+                            action_type="tactical_move",
+                            from_pos=(unit['q'], unit['r']),
+                            to_pos=target,
+                            reason=f"{strategic_order.get('mission_type', 'AUTONOMOUS')} mission",
+                            player_nation=player_nation
+                        )
                 else:
                     print(f"[AI] {unit_name}: Brak celu")
             else:

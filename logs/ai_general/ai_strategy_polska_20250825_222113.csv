@@ -1,0 +1,5 @@
+timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
+2025-08-25T22:21:13.497426,1,Polska,ORDERS_ISSUED_EXPANSION,phase_1.0_vp_0,0.0,0.0,0,0,Issued SECURE_KEYPOINT orders to all commanders,"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""UNKNOWN"", ""vp_situation"": ""UNKNOWN""}"
+2025-08-25T22:21:13.519264,2,Polska,ORDERS_ISSUED_EXPANSION,phase_1.0_vp_0,0.0,0.0,0,0,Issued SECURE_KEYPOINT orders to all commanders,"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""UNKNOWN"", ""vp_situation"": ""UNKNOWN""}"
+2025-08-25T22:21:13.551382,5,Polska,ORDERS_ISSUED_EXPANSION,phase_1.0_vp_0,0.0,0.0,0,0,Issued SECURE_KEYPOINT orders to all commanders,"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""UNKNOWN"", ""vp_situation"": ""UNKNOWN""}"
+2025-08-25T22:21:13.576315,6,Polska,ORDERS_ISSUED_EXPANSION,phase_1.0_vp_0,0.0,0.0,0,0,Issued SECURE_KEYPOINT orders to all commanders,"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""UNKNOWN"", ""vp_situation"": ""UNKNOWN""}"
