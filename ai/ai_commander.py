@@ -1198,6 +1198,56 @@ def make_tactical_turn(game_engine, player_id=None):
                 if combat_attempted:
                     combat_count += 1
         
+        print(f"[AI] COMBAT PHASE: {combat_count} ataków wykonanych")
+        
+        # 3.5. NOWA FAZA DEFENSYWNA - ocena zagrożeń i planowanie obrony
+        print(f"🛡️ [AI] === FAZA DEFENSYWNA ===")
+        
+        # Oceń zagrożenia defensywne
+        threat_assessment = assess_defensive_threats(my_units, game_engine)
+        
+        # Znajdź jednostki wymagające odwrotu
+        threatened_units = []
+        for unit in my_units:
+            assessment = threat_assessment.get(unit['id'], {})
+            threat_level = assessment.get('threat_level', 0)
+            if threat_level > 5:  # Próg zagrożenia
+                threatened_units.append(unit)
+        
+        if threatened_units:
+            print(f"[DEFENSE] Znaleziono {len(threatened_units)} zagrożonych jednostek")
+            
+            # Planuj kontrolowany odwrót
+            retreat_plan = plan_defensive_retreat(threatened_units, threat_assessment, game_engine)
+            
+            # Wykonaj ruchy defensywne
+            retreat_count = 0
+            for unit in threatened_units:
+                if unit['id'] in retreat_plan:
+                    target_pos = retreat_plan[unit['id']]
+                    current_pos = (unit['q'], unit['r'])
+                    
+                    if target_pos != current_pos:  # Tylko jeśli ruch jest potrzebny
+                        success = move_towards(unit, target_pos, game_engine)
+                        if success:
+                            retreat_count += 1
+                            print(f"[DEFENSE] {unit['id']}: Udany odwrót do {target_pos}")
+            
+            print(f"[DEFENSE] Wykonano {retreat_count} ruchów defensywnych")
+        
+        # Koordynacja obrony wokół punktów kluczowych
+        defensive_groups = defensive_coordination(my_units, threat_assessment, game_engine)
+        print(f"[DEFENSE] Utworzono {len(defensive_groups)} grup defensywnych")
+        
+        # 3.6. DEPLOYMENT NOWYCH JEDNOSTEK
+        print(f"🚀 [AI] === FAZA DEPLOYMENT ===")
+        deployed_count = deploy_purchased_units(game_engine, player_id)
+        
+        if deployed_count > 0:
+            print(f"[DEPLOY] ✅ Wdrożono {deployed_count} nowych jednostek")
+            # Po deployment, odśwież listę jednostek
+            my_units = get_my_units(game_engine, player_id)
+        
         # 4. MOVEMENT PHASE - różne logiki dla różnych trybów
         moved_count = 0
         total_processed = 0
@@ -1551,6 +1601,38 @@ class AICommander:
 
 # ========== STRATEGIA DEFENSYWNA ==========
 
+def calculate_hex_distance(pos1, pos2):
+    """Oblicza dystans hex między dwoma pozycjami"""
+    q1, r1 = pos1
+    q2, r2 = pos2
+    return max(abs(q1 - q2), abs(r1 - r2), abs((q1 + r1) - (q2 + r2)))
+
+
+def get_all_key_points(game_engine):
+    """Pobiera wszystkie punkty kluczowe z mapy"""
+    key_points = {}
+    
+    # Sprawdź czy mamy dane mapy
+    map_data = getattr(game_engine, 'map_data', {})
+    if 'key_points' in map_data:
+        for pos_str, kp_data in map_data['key_points'].items():
+            # Konwertuj string pozycji na tuple
+            q, r = map(int, pos_str.split(','))
+            key_points[(q, r)] = kp_data
+    
+    # Fallback - sprawdź stan punktów kluczowych w grze
+    if not key_points and hasattr(game_engine, 'key_points_state'):
+        kp_state = getattr(game_engine, 'key_points_state', {})
+        for pos_str, state_data in kp_state.items():
+            q, r = map(int, pos_str.split(','))
+            key_points[(q, r)] = {
+                'type': state_data.get('type', 'unknown'),
+                'value': state_data.get('value', 50)
+            }
+    
+    return key_points
+
+
 def assess_defensive_threats(my_units, game_engine):
     """Ocenia zagrożenia defensywne dla każdej jednostki
     
@@ -1779,6 +1861,7 @@ def deploy_purchased_units(game_engine, player_id):
     # Sprawdź pliki z zakupionymi jednostkami
     import glob
     from pathlib import Path
+    import os
     
     pattern = f"nowe_dla_{nation.lower()}_*.json"
     purchased_files = glob.glob(pattern)
