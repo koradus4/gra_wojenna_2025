@@ -47,6 +47,10 @@ def main():
             miejsca = game_data["miejsca"]
             czasy = game_data["czasy"]
             use_ai_general = game_data.get("use_ai_general", False)  # Odczytanie opcji AI
+            max_turns = game_data.get("max_turns", 10)  # Nowe opcje gry
+            victory_mode = game_data.get("victory_mode", "turns")
+            
+            print(f"🎯 Opcje gry: {max_turns} tur, tryb: {victory_mode}")
             
             # Ustawienie konfiguracji AI na podstawie wyboru użytkownika
             set_ai_general_enabled(use_ai_general)
@@ -118,23 +122,24 @@ def main():
         turn_manager = TurnManager(players, game_engine=game_engine)
         
         # Uruchomienie gry Human vs Human (z możliwością AI Generałów)
-        run_human_vs_human_game(game_engine, players, turn_manager)
+        run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victory_mode)
         
     except Exception as e:
         print(f"❌ Błąd w main(): {e}")
         import traceback
         traceback.print_exc()
 
-def run_human_vs_human_game(game_engine, players, turn_manager):
+def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victory_mode):
     """Uruchomienie gry w trybie Human vs Human (z możliwością AI Generałów)"""
     print("🎮 Uruchamianie gry Human vs Human...")
+    print(f"🎯 Opcje: {max_turns} tur, tryb: {victory_mode}")
     print(f"   Utworzono {len(players)} graczy:")
     for p in players:
         ai_status = " [AI]" if is_ai_general(p) else ""
         print(f"   - {p.name} ({p.nation}, {p.role}){ai_status}")
     
-    # --- WARUNKI ZWYCIĘSTWA: 30 rund ---
-    victory_conditions = VictoryConditions(max_turns=30)
+    # --- WARUNKI ZWYCIĘSTWA z nowymi opcjami ---
+    victory_conditions = VictoryConditions(max_turns=max_turns, victory_mode=victory_mode)
     just_loaded_save = False  # flaga informująca pętlę by pominąć reset ruchu
     last_loaded_player_info = None  # dane gracza po wczytaniu save (tymczasowe)
     
@@ -270,13 +275,28 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
         game_engine.update_all_players_visibility(players)
             
         # --- SPRAWDZENIE KOŃCA GRY ---
-        if victory_conditions.check_game_over(turn_manager.current_turn):
+        if victory_conditions.check_game_over(turn_manager.current_turn, players):
             print(victory_conditions.get_victory_message())
-            print("=== PODSUMOWANIE ===")
+            
+            victory_info = victory_conditions.get_victory_info()
+            print("\n" + "="*50)
+            print(f"🏆 WYNIKI GORY - {victory_info['victory_mode'].upper()}")
+            print("="*50)
+            
+            if victory_info['winner_nation']:
+                print(f"🥇 ZWYCIĘZCA: {victory_info['winner_nation']}")
+            
+            print("\n📊 SZCZEGÓŁOWE WYNIKI:")
             for p in players:
                 vp = getattr(p, "victory_points", 0)
-                print(f"{p.nation} {p.role} (id={p.id}): {vp} punktów zwycięstwa")
-            print("====================")
+                emoji = "🥇" if victory_info['winner_nation'] == p.nation else "🥈" if vp > 0 else "🥉"
+                print(f"{emoji} {p.nation} {p.role} (id={p.id}): {vp} VP")
+                
+            print("\n💡 WARUNKI ZWYCIĘSTWA:")
+            print(f"• Tryb: {victory_info['victory_mode']}")
+            print(f"• Limit tur: {victory_info['max_turns']}")
+            print(f"• Powód zakończenia: {victory_info['victory_reason']}")
+            print("="*50)
             break
             
         # Reset blokady trybu ruchu na początku każdej tury, ale NIE po wczytaniu save

@@ -11,23 +11,53 @@ import tkinter as tk
 from tkinter import messagebox
 
 def show_clean_options():
-    """Pokazuje opcje czyszczenia przed uruchomieniem gry"""
+    """Pokazuje opcje czyszczenia i konfiguracji gry przed uruchomieniem"""
     root = tk.Tk()
     root.title("Gra Wojenna - Opcje")
-    root.geometry("400x250")
+    root.geometry("450x400")
     root.resizable(False, False)
     
     # Centrowanie okna
     root.update_idletasks()
-    x = (root.winfo_screenwidth() // 2) - (400 // 2)
-    y = (root.winfo_screenheight() // 2) - (250 // 2)
-    root.geometry(f"400x250+{x}+{y}")
+    x = (root.winfo_screenwidth() // 2) - (450 // 2)
+    y = (root.winfo_screenheight() // 2) - (400 // 2)
+    root.geometry(f"450x400+{x}+{y}")
     
     frame = tk.Frame(root, padx=20, pady=20)
     frame.pack(fill="both", expand=True)
     
     tk.Label(frame, text="Gra Wojenna - Alternatywny Launcher", 
              font=("Arial", 14, "bold")).pack(pady=(0, 20))
+    
+    # Opcje gry
+    game_options = {}
+    
+    # Liczba tur
+    turns_frame = tk.LabelFrame(frame, text="Liczba tur", font=("Arial", 10, "bold"))
+    turns_frame.pack(fill="x", pady=(0, 10))
+    
+    game_options['max_turns'] = tk.StringVar(value="10")
+    
+    tk.Radiobutton(turns_frame, text="10 tur (szybka gra)", 
+                  variable=game_options['max_turns'], value="10").pack(anchor="w", padx=10)
+    tk.Radiobutton(turns_frame, text="20 tur (standardowa)", 
+                  variable=game_options['max_turns'], value="20").pack(anchor="w", padx=10)
+    tk.Radiobutton(turns_frame, text="30 tur (długa kampania)", 
+                  variable=game_options['max_turns'], value="30").pack(anchor="w", padx=10)
+    
+    # Warunki zwycięstwa
+    victory_frame = tk.LabelFrame(frame, text="Warunki zwycięstwa", font=("Arial", 10, "bold"))
+    victory_frame.pack(fill="x", pady=(0, 15))
+    
+    game_options['victory_mode'] = tk.StringVar(value="turns")
+    
+    tk.Radiobutton(victory_frame, text="🏆 Victory Points (porównanie po turach)", 
+                  variable=game_options['victory_mode'], value="turns").pack(anchor="w", padx=10)
+    tk.Radiobutton(victory_frame, text="💀 Eliminacja wroga (koniec przed limitem)", 
+                  variable=game_options['victory_mode'], value="elimination").pack(anchor="w", padx=10)
+    
+    tk.Label(victory_frame, text="• VP: Gra do końca, zwycięzca na podstawie punktów\n• Eliminacja: Koniec gdy jeden naród zostanie",
+             font=("Arial", 8), fg="gray", justify="left").pack(anchor="w", padx=10, pady=(5, 5))
     
     # Sekcja czyszczenia
     clean_frame = tk.LabelFrame(frame, text="Opcje czyszczenia", font=("Arial", 10, "bold"))
@@ -63,8 +93,11 @@ def show_clean_options():
             messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
     
     def start_game():
+        # Zapisz opcje gry
+        max_turns = int(game_options['max_turns'].get())
+        victory_mode = game_options['victory_mode'].get()
         root.destroy()
-        run_game()
+        run_game(max_turns, victory_mode)
     
     clean_btn_frame = tk.Frame(clean_frame)
     clean_btn_frame.pack(pady=10)
@@ -85,8 +118,10 @@ def show_clean_options():
     
     root.mainloop()
 
-def run_game():
-    """Uruchamia właściwą grę"""
+def run_game(max_turns=10, victory_mode="turns"):
+    """Uruchamia właściwą grę z podanymi opcjami"""
+    print(f"🎯 Uruchamianie gry: {max_turns} tur, tryb: {victory_mode}")
+    
     # Automatyczne ustawienia graczy
     miejsca = ["Polska", "Polska", "Polska", "Niemcy", "Niemcy", "Niemcy"]
     czasy = [5, 5, 5, 5, 5, 5]  # Czas na turę w minutach
@@ -147,8 +182,8 @@ def run_game():
 
     # Inicjalizacja menedżera tur
     turn_manager = TurnManager(players, game_engine=game_engine)
-    # --- WARUNKI ZWYCIĘSTWA: 10 pełnych rund, start VP=0 (jak w obecnym stanie) ---
-    victory_conditions = VictoryConditions(max_turns=10)
+    # --- WARUNKI ZWYCIĘSTWA z nowymi opcjami ---
+    victory_conditions = VictoryConditions(max_turns=max_turns, victory_mode=victory_mode)
     just_loaded_save = False  # Flaga: czy właśnie wczytano save
     # Pętla tur
     last_loaded_player_info = None  # Przechowuj info o aktywnym graczu po wczytaniu save
@@ -251,13 +286,28 @@ def run_game():
         game_engine.update_all_players_visibility(players)
             
         # --- SPRAWDZENIE KOŃCA GRY ---
-        if victory_conditions.check_game_over(turn_manager.current_turn):
+        if victory_conditions.check_game_over(turn_manager.current_turn, players):
             print(victory_conditions.get_victory_message())
-            print("=== PODSUMOWANIE ===")
+            
+            victory_info = victory_conditions.get_victory_info()
+            print("\n" + "="*50)
+            print(f"🏆 WYNIKI GORY - {victory_info['victory_mode'].upper()}")
+            print("="*50)
+            
+            if victory_info['winner_nation']:
+                print(f"🥇 ZWYCIĘZCA: {victory_info['winner_nation']}")
+            
+            print("\n📊 SZCZEGÓŁOWE WYNIKI:")
             for p in players:
                 vp = getattr(p, "victory_points", 0)
-                print(f"{p.nation} {p.role} (id={p.id}): {vp} punktów zwycięstwa")
-            print("====================")
+                emoji = "🥇" if victory_info['winner_nation'] == p.nation else "🥈" if vp > 0 else "🥉"
+                print(f"{emoji} {p.nation} {p.role} (id={p.id}): {vp} VP")
+                
+            print("\n💡 WARUNKI ZWYCIĘSTWA:")
+            print(f"• Tryb: {victory_info['victory_mode']}")
+            print(f"• Limit tur: {victory_info['max_turns']}")
+            print(f"• Powód zakończenia: {victory_info['victory_reason']}")
+            print("="*50)
             break
         # Reset blokady trybu ruchu na początku każdej tury, ale NIE po wczytaniu save
         if not just_loaded_save:

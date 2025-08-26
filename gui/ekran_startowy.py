@@ -32,7 +32,7 @@ class EkranStartowy:
         logging.info("Inicjalizacja ekranu startowego.")
         self.root = root
         self.root.title("Ekran Startowy")
-        self.root.geometry("600x600")  # Zwiększenie wysokości okna
+        self.root.geometry("600x750")  # Zwiększenie wysokości okna dla nowych opcji
         self.root.configure(bg="#d3d3d3")
 
         self.nacje = ["Polska", "Niemcy"]
@@ -41,6 +41,10 @@ class EkranStartowy:
         
         # AI GENERAL CONFIGURATION
         self.use_ai_general = tk.BooleanVar(value=False)  # Domyślnie wyłączone
+        
+        # NOWE OPCJE GRY
+        self.max_turns = tk.StringVar(value="10")
+        self.victory_mode = tk.StringVar(value="turns")
 
         self.create_widgets()
 
@@ -145,6 +149,62 @@ class EkranStartowy:
             fg="gray"
         )
         clean_info.pack()
+
+        # --- SEKCJA OPCJI GRY ---
+        game_options_frame = tk.LabelFrame(
+            self.root,
+            text="Opcje gry",
+            bg="#d3d3d3",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=10
+        )
+        game_options_frame.pack(pady=(10, 5), padx=20, fill="x")
+        
+        # Liczba tur
+        turns_frame = tk.Frame(game_options_frame, bg="#d3d3d3")
+        turns_frame.pack(fill="x", pady=5)
+        
+        tk.Label(turns_frame, text="Maksymalna liczba tur:", bg="#d3d3d3", font=("Arial", 10, "bold")).pack(anchor="w")
+        
+        turn_options_frame = tk.Frame(turns_frame, bg="#d3d3d3")
+        turn_options_frame.pack(anchor="w", padx=20)
+        
+        tk.Radiobutton(turn_options_frame, text="10 tur (szybka gra)", variable=self.max_turns, 
+                      value="10", bg="#d3d3d3", font=("Arial", 9)).pack(anchor="w")
+        tk.Radiobutton(turn_options_frame, text="20 tur (standardowa)", variable=self.max_turns, 
+                      value="20", bg="#d3d3d3", font=("Arial", 9)).pack(anchor="w")
+        tk.Radiobutton(turn_options_frame, text="30 tur (długa kampania)", variable=self.max_turns, 
+                      value="30", bg="#d3d3d3", font=("Arial", 9)).pack(anchor="w")
+        
+        # Separator
+        separator = tk.Frame(game_options_frame, height=1, bg="gray")
+        separator.pack(fill="x", pady=10)
+        
+        # Warunki zwycięstwa
+        victory_frame = tk.Frame(game_options_frame, bg="#d3d3d3")
+        victory_frame.pack(fill="x", pady=5)
+        
+        tk.Label(victory_frame, text="Warunki zwycięstwa:", bg="#d3d3d3", font=("Arial", 10, "bold")).pack(anchor="w")
+        
+        victory_options_frame = tk.Frame(victory_frame, bg="#d3d3d3")
+        victory_options_frame.pack(anchor="w", padx=20)
+        
+        tk.Radiobutton(victory_options_frame, text="🏆 Victory Points (porównanie po turach)", 
+                      variable=self.victory_mode, value="turns", bg="#d3d3d3", font=("Arial", 9)).pack(anchor="w")
+        tk.Radiobutton(victory_options_frame, text="💀 Eliminacja wroga (koniec przed limitem)", 
+                      variable=self.victory_mode, value="elimination", bg="#d3d3d3", font=("Arial", 9)).pack(anchor="w")
+        
+        # Opis warunków
+        victory_desc = tk.Label(
+            victory_frame,
+            text="• VP: Gra do końca, zwycięzca na podstawie punktów\n• Eliminacja: Koniec gdy jeden naród zostanie",
+            bg="#d3d3d3",
+            font=("Arial", 8),
+            fg="gray",
+            justify="left"
+        )
+        victory_desc.pack(anchor="w", padx=20, pady=(5, 0))
 
         tk.Button(self.root, text="Rozpocznij grę", command=self.rozpocznij_gre, bg="#4CAF50", fg="white").pack(pady=20)
 
@@ -301,7 +361,9 @@ class EkranStartowy:
         self.game_data = {
             "miejsca": self.miejsca,
             "czasy": [self.get_czas_na_ture(i) for i in range(6)],
-            "use_ai_general": self.use_ai_general.get()  # Dodanie opcji AI
+            "use_ai_general": self.use_ai_general.get(),  # Dodanie opcji AI
+            "max_turns": int(self.max_turns.get()),  # Nowe opcje gry
+            "victory_mode": self.victory_mode.get()
         }
 
         logging.info("Gra się rozpoczyna.")

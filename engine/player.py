@@ -74,6 +74,30 @@ class Player:
         self.victory_points = 0
         self.vp_history = []  # Lista słowników: {'turn': int, 'amount': int, 'reason': str, 'token_id': str, 'enemy': str}
 
+    def has_living_units(self, game_engine=None):
+        """
+        Sprawdza czy gracz ma żywych jednostki (dla trybu eliminacji)
+        :param game_engine: Silnik gry z tokenami (opcjonalny)
+        :return: True jeśli ma żywe jednostki, False w przeciwnym razie
+        """
+        if not game_engine:
+            return True  # Zakładamy że ma jednostki jeśli nie mamy dostępu do silnika
+            
+        # Sprawdź czy gracz ma jakiekolwiek tokeny
+        player_tokens = []
+        for token in game_engine.tokens:
+            token_owner = getattr(token, 'owner', '')
+            if f"{self.id} (" in str(token_owner):  # Sprawdź ID gracza w owner
+                player_tokens.append(token)
+        
+        # Sprawdź czy któryś token ma punkty HP > 0
+        for token in player_tokens:
+            current_hp = getattr(token, 'currentCombatStrength', 0)
+            if current_hp > 0:
+                return True
+                
+        return False
+
     def serialize(self):
         return {
             'id': self.id,
