@@ -1,3 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-08-26T18:32:10.297739,,Polska,COMBO,strategic_combo_ROZWÓJ,0.0,0.1,25,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
-2025-08-26T18:32:11.032233,1,Polska,ORDERS_ISSUED_EXPANSION,phase_0.1_vp_0,0.0,0.1,25,2,Issued SECURE_KEYPOINT orders to all commanders,"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

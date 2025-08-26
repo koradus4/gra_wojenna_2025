@@ -13,8 +13,143 @@ from typing import Any
 import csv
 import datetime
 import json
+import math
 import os
 from pathlib import Path
+
+
+def prioritize_targets(key_points, game_engine):
+    """Priorytetyzuj cele według wartości i dostępności"""
+    priorities = []
+    board = getattr(game_engine, 'board', None)
+    
+    for hex_id, kp_data in key_points.items():
+        value = kp_data.get('current_value', 0)
+        if value <= 0:
+            continue
+            
+        # Parsuj współrzędne
+        try:
+            if ',' in hex_id:
+                q, r = map(int, hex_id.split(','))
+            else:
+                q, r = map(int, hex_id.split('_'))
+            target_pos = (q, r)
+        except (ValueError, IndexError):
+            continue
+        
+        # Oblicz zagrożenie wroga (uproszczone)
+        enemy_distance = 10  # Domyślna odległość
+        if board:
+            # Szukaj najbliższych wrogów (uproszczone)
+            all_tokens = getattr(game_engine, 'tokens', [])
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player:
+                my_nation = getattr(current_player, 'nation', '')
+                for token in all_tokens[:50]:  # Limit sprawdzania
+                    token_owner = getattr(token, 'owner', '')
+                    if my_nation not in token_owner:  # Wróg
+                        enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+                        dist = board.hex_distance(target_pos, enemy_pos)
+                        enemy_distance = min(enemy_distance, dist)
+        
+        # Wyższy priorytet = wyższa wartość / niższa konkurencja
+        priority_score = value * 10 / max(enemy_distance, 1)
+        
+        priorities.append({
+            'target': target_pos,
+            'hex_id': hex_id,
+            'value': value,
+            'enemy_distance': enemy_distance,
+            'priority': priority_score
+        })
+    
+    return sorted(priorities, key=lambda x: x['priority'], reverse=True)
+
+
+def adaptive_grouping(my_units, game_engine):
+    """Grupowanie adaptacyjne - rozmiar grup zależy od sytuacji"""
+    key_points = getattr(game_engine, 'key_points_state', {})
+    key_points_count = len([kp for kp in key_points.values() 
+                           if kp.get('current_value', 0) > 0])
+    
+    # Adaptacyjny rozmiar grup
+    if key_points_count <= 3:
+        group_size = 3  # Małe grupy dla kilku celów
+    elif key_points_count <= 6:
+        group_size = 4  # Średnie grupy
+    else:
+        group_size = 5  # Duże grupy dla wielu celów
+    
+    print(f"🎯 [ADAPTIVE] {key_points_count} celów -> grupy po {group_size}")
+    
+    # Stwórz zbalansowane grupy
+    groups = []
+    for i in range(0, len(my_units), group_size):
+        group = my_units[i:i+group_size]
+        groups.append(group)
+    
+    return groups
+
+
+def assign_targets_with_coordination(groups, prioritized_targets, game_engine):
+    """Przypisz cele grupom z koordynacją - bez duplikatów"""
+    reserved_targets = set()
+    group_assignments = []
+    
+    for group_idx, group in enumerate(groups):
+        print(f"\n🎯 [COORD] Grupa {group_idx+1}: {len(group)} żetonów")
+        
+        # Znajdź lidera grupy (najbliższy najbardziej wartościowemu celowi)
+        best_leader = None
+        best_target = None
+        best_distance = 999
+        best_priority_idx = 999
+        
+        for unit in group:
+            unit_pos = (unit['q'], unit['r'])
+            
+            # Sprawdź każdy cel według priorytetu
+            for priority_idx, target_data in enumerate(prioritized_targets):
+                target_pos = target_data['target']
+                target_key = f"{target_pos[0]},{target_pos[1]}"
+                
+                # Pomiń już zarezerwowane cele
+                if target_key in reserved_targets:
+                    continue
+                
+                # Oblicz odległość
+                board = getattr(game_engine, 'board', None)
+                if board:
+                    distance = board.hex_distance(unit_pos, target_pos)
+                    
+                    # Preferuj wyższy priorytet, potem mniejszą odległość
+                    if (priority_idx < best_priority_idx or 
+                        (priority_idx == best_priority_idx and distance < best_distance)):
+                        best_leader = unit
+                        best_target = target_pos
+                        best_distance = distance
+                        best_priority_idx = priority_idx
+        
+        # Jeśli znaleziono lidera i cel
+        if best_leader and best_target:
+            target_key = f"{best_target[0]},{best_target[1]}"
+            reserved_targets.add(target_key)
+            
+            group_assignments.append({
+                'group': group,
+                'leader': best_leader,
+                'target': best_target,
+                'distance': best_distance,
+                'priority': best_priority_idx
+            })
+            
+            target_value = prioritized_targets[best_priority_idx]['value']
+            print(f"✅ [COORD] Lider: {best_leader['id']}, Cel: {best_target}, Wartość: {target_value}, Dystans: {best_distance}")
+        else:
+            print(f"❌ [COORD] Nie można przypisać celu - wszystkie zajęte")
+    
+    return group_assignments
 
 
 def log_commander_action(unit_id, action_type, from_pos, to_pos, reason, player_nation="Unknown"):
@@ -215,9 +350,12 @@ def execute_ai_combat(unit, enemy, game_engine, player_nation="Unknown"):
         # Import CombatAction
         from engine.action_refactored_clean import CombatAction
         
-        # Wykonaj atak
+        # Pobierz obiekt gracza dla weryfikacji właściciela żetonu
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        
+        # Wykonaj atak z weryfikacją właściciela (tak jak człowiek)
         action = CombatAction(unit_token.id, enemy_token.id)
-        result = game_engine.execute_action(action)
+        result = game_engine.execute_action(action, player=current_player)
         
         if result.success:
             print(f"⚔️ [COMBAT] Sukces: {result.message}")
@@ -273,16 +411,24 @@ def find_target(unit, game_engine):
     best_target = None
     best_distance = 999
     
-    # Sprawdź key points (max 20)
+    # Sprawdź key points (max 20) - TYLKO z wartością > 0
     kp_count = 0
     for hex_id, kp_data in key_points.items():
         if kp_count >= 20:
             break
         kp_count += 1
         
-        # Parsuj hex_id do współrzędnych
+        # NOWE: Pomiń wyczerpane key pointy
+        if kp_data.get('current_value', 0) <= 0:
+            continue
+        
+        # Parsuj hex_id do współrzędnych (obsługa formatów "q,r" i "q_r")
         try:
-            parts = hex_id.split('_')
+            if ',' in hex_id:
+                parts = hex_id.split(',')
+            else:
+                parts = hex_id.split('_')
+            
             if len(parts) >= 2:
                 kp_q = int(parts[0])
                 kp_r = int(parts[1])
@@ -652,20 +798,151 @@ def calculate_progressive_target(unit, final_target, game_engine):
     return unit_pos
 
 
+def advanced_autonomous_mode(my_units, game_engine):
+    """
+    ZAAWANSOWANY TRYB AUTONOMICZNY z TARGET RESERVATION:
+    - Adaptacyjne grupowanie
+    - Priorytetyzacja celów 
+    - Koordynacja bez duplikatów
+    - Inteligentna alokacja sił
+    """
+    print(f"🎯 [ADVANCED AUTO] Rozpoczynam z {len(my_units)} żetonami")
+    
+    # Filtruj tylko dostępne key pointy (current_value > 0)
+    key_points = getattr(game_engine, 'key_points_state', {})
+    available_keypoints = {}
+    
+    for hex_id, kp_data in key_points.items():
+        if kp_data.get('current_value', 0) > 0:
+            available_keypoints[hex_id] = kp_data
+    
+    print(f"🎯 [ADVANCED AUTO] Dostępne key pointy: {len(available_keypoints)}")
+    if not available_keypoints:
+        print("❌ [ADVANCED AUTO] Brak dostępnych key pointów!")
+        return []
+    
+    # NOWY: Priorytetyzacja celów
+    prioritized_targets = prioritize_targets(available_keypoints, game_engine)
+    print(f"🎯 [TARGETS] Priorytetyzowano {len(prioritized_targets)} celów")
+    
+    # NOWY: Adaptacyjne grupowanie
+    groups = adaptive_grouping(my_units, game_engine)
+    print(f"🎯 [GROUPING] Utworzono {len(groups)} adaptacyjnych grup")
+    
+    # NOWY: Koordynacja celów - bez duplikatów
+    group_assignments = assign_targets_with_coordination(groups, prioritized_targets, game_engine)
+    
+    print(f"🎯 [FINAL] Przypisano cele dla {len(group_assignments)} grup")
+    return group_assignments
+
+
+def dynamic_reassignment(group_assignments, game_engine):
+    """Dynamicznie przemieszczaj siły między celami"""
+    for assignment_idx, assignment in enumerate(group_assignments):
+        group_size = len(assignment['group'])
+        target = assignment['target']
+        
+        # Znajdź wartość celu
+        target_value = get_keypoint_value(target, game_engine)
+        
+        print(f"🔄 [REASSIGN] Grupa {assignment_idx+1}: {group_size} jednostek -> cel wartość {target_value}")
+        
+        # Jeśli grupa za duża dla małego celu - podziel
+        if group_size > 3 and target_value < 5:
+            print(f"🔄 [REASSIGN] Grupa {assignment_idx+1}: Za duża dla małego celu - można podzielić")
+            # TODO: Implementacja podziału grup (wymagałaby refaktoryzacji struktur)
+        
+        # Jeśli grupa za mała dla cennego celu - zaznacz do wzmocnienia
+        elif group_size < 4 and target_value > 15:
+            print(f"🔄 [REASSIGN] Grupa {assignment_idx+1}: Za mała dla cennego celu - potrzebuje wzmocnienia")
+            assignment['needs_reinforcement'] = True
+    
+    return group_assignments
+
+
+def get_keypoint_value(target_pos, game_engine):
+    """Pobierz wartość key pointu dla danej pozycji"""
+    key_points = getattr(game_engine, 'key_points_state', {})
+    
+    # Szukaj key pointu o podanych współrzędnych
+    for hex_id, kp_data in key_points.items():
+        try:
+            if ',' in hex_id:
+                q, r = map(int, hex_id.split(','))
+            else:
+                q, r = map(int, hex_id.split('_'))
+            
+            if (q, r) == target_pos:
+                return kp_data.get('current_value', 0)
+        except (ValueError, IndexError):
+            continue
+    
+    return 0  # Nie znaleziono
+
+
+def find_alternative_target(leader, key_points, reserved_targets):
+    """Znajdź alternatywny cel dla lidera gdy główny jest zajęty"""
+    board = getattr(leader.get('token', None), 'board', None)
+    if not board:
+        return None
+    
+    leader_pos = (leader['q'], leader['r'])
+    best_alternative = None
+    best_distance = 999
+    
+    # Sprawdź wszystkie dostępne key pointy
+    for hex_id, kp_data in key_points.items():
+        try:
+            if ',' in hex_id:
+                q, r = map(int, hex_id.split(','))
+            else:
+                q, r = map(int, hex_id.split('_'))
+            
+            target_pos = (q, r)
+            target_key = f"{q},{r}"
+            
+            # Pomiń już zarezerwowane
+            if target_key in reserved_targets:
+                continue
+            
+            # Sprawdź czy cel ma wartość
+            if kp_data.get('current_value', 0) <= 0:
+                continue
+            
+            # Oblicz odległość
+            distance = abs(leader_pos[0] - q) + abs(leader_pos[1] - r)
+            if distance < best_distance:
+                best_alternative = target_pos
+                best_distance = distance
+                
+        except (ValueError, IndexError):
+            continue
+    
+    return best_alternative
+
+
 def group_units_by_proximity(units, max_group_distance=8):
     """
-    Grupuj jednostki według bliskości geograficznej dla lepszego zarządzania formacjami.
-    
-    Args:
-        units: Lista jednostek
-        max_group_distance: Maksymalny dystans dla grupy
-        
-    Returns:
-        list: Lista grup jednostek
+    NOWA WERSJA: Preferuje grupowanie po 5 żetonów dla zaawansowanego trybu autonomicznego
     """
     if not units:
         return []
     
+    # W trybie zaawansowanym - po prostu dziel po 5
+    if len(units) >= 5:
+        print(f"[GROUPING] ADVANCED MODE: Dzielę {len(units)} żetonów na grupy po 5")
+        groups = []
+        for i in range(0, len(units), 5):
+            group = units[i:i+5]
+            groups.append(group)
+            avg_pos = (
+                sum(u['q'] for u in group) // len(group),
+                sum(u['r'] for u in group) // len(group)
+            )
+            print(f"[GROUPING] Grupa {len(groups)}: {len(group)} żetonów wokół {avg_pos}")
+        return groups
+    
+    # Fallback - stary sposób dla małych liczb
     groups = []
     ungrouped = units.copy()
     
@@ -802,8 +1079,11 @@ def move_towards(unit, target, game_engine):
                 token_id = token.id
                 print(f"[AI Move] Wykonuję ruch {token_id}: {unit_pos} -> {target_hex}")
                 
+                # Pobierz obiekt gracza dla weryfikacji właściciela żetonu
+                current_player = getattr(game_engine, 'current_player_obj', None)
+                
                 action = MoveAction(token_id, target_hex[0], target_hex[1])
-                result = game_engine.execute_action(action)
+                result = game_engine.execute_action(action, player=current_player)
                 
                 success = getattr(result, 'success', False) if result else False
                 if success:
@@ -890,9 +1170,22 @@ def make_tactical_turn(game_engine, player_id=None):
             print(f"[AI] Brak jednostek dla gracza {player_id}")
             return
         
-        # 2. GRUPOWANIE JEDNOSTEK według bliskości
-        unit_groups = group_units_by_proximity(my_units, max_group_distance=8)
-        print(f"[AI] Utworzono {len(unit_groups)} grup jednostek")
+        # 2. GRUPOWANIE JEDNOSTEK według bliskości lub zaawansowany autonomiczny
+        if strategic_order:
+            # Standardowe grupowanie dla rozkazów strategicznych
+            unit_groups = group_units_by_proximity(my_units, max_group_distance=8)
+            print(f"[AI] Utworzono {len(unit_groups)} grup jednostek (tryb strategiczny)")
+            advanced_mode = False
+        else:
+            # ZAAWANSOWANY TRYB AUTONOMICZNY
+            print(f"🎯 [AI] ZAAWANSOWANY TRYB AUTONOMICZNY AKTYWOWANY!")
+            group_assignments = advanced_autonomous_mode(my_units, game_engine)
+            
+            # NOWY: Dynamiczne przeprzydzielanie sił
+            group_assignments = dynamic_reassignment(group_assignments, game_engine)
+            
+            advanced_mode = True
+            print(f"[AI] Utworzono {len(group_assignments)} zorganizowanych grup")
         
         # 3. COMBAT PHASE - dla każdej jednostki sprawdź możliwe ataki
         combat_count = 0
@@ -905,75 +1198,115 @@ def make_tactical_turn(game_engine, player_id=None):
                 if combat_attempted:
                     combat_count += 1
         
-        # 4. MOVEMENT PHASE - grupowe zarządzanie ruchem
+        # 4. MOVEMENT PHASE - różne logiki dla różnych trybów
         moved_count = 0
         total_processed = 0
         
-        for group_idx, group in enumerate(unit_groups):
-            print(f"[AI] Przetwarzam grupę {group_idx + 1}/{len(unit_groups)} ({len(group)} jednostek)")
-            
-            # Oblicz średnią pozycję grupy dla lepszego target selection
-            if strategic_order and strategic_order.get('target_hex'):
-                # Wszystkie grupy mają ten sam strategiczny cel
-                base_target = strategic_order['target_hex']
-                mission_type = strategic_order.get('mission_type', 'UNKNOWN')
-            else:
-                # Autonomiczny cel dla grupy - wybierz na podstawie pozycji lidera
-                leader = group[0]
-                base_target = find_target(leader, game_engine)
-                mission_type = 'AUTONOMOUS'
-            
-            # Przetwórz jednostki w grupie
-            for unit_idx, unit in enumerate(group):
-                total_processed += 1
-                unit_name = unit.get('id', f'unit_{total_processed}')
-                can_move_result = can_move(unit)
-                print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
+        if advanced_mode:
+            # ZAAWANSOWANY RUCH - każda grupa ma przypisany cel
+            for assignment_idx, assignment in enumerate(group_assignments):
+                group = assignment['group']
+                leader = assignment['leader'] 
+                target = assignment['target']
                 
-                if can_move_result:
-                    # Wybierz cel i taktykę
-                    if base_target:
-                        if mission_type != 'AUTONOMOUS':
-                            # TAKTYKA STRATEGICZNA
-                            target = execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_idx, len(group))
-                            print(f"[AI] {unit_name}: {mission_type} -> {target} (taktyka)")
-                        else:
-                            # AUTONOMOUS MOVEMENT
-                            target = base_target
-                            print(f"[AI] {unit_name}: Cel autonomiczny {target}")
-                    else:
-                        print(f"[AI] {unit_name}: Brak celu")
-                        continue
+                print(f"🎯 [ADVANCED MOVE] Grupa {assignment_idx + 1}: {len(group)} żetonów -> cel {target}")
+                print(f"🎯 [ADVANCED MOVE] Lider: {leader['id']} (dystans: {assignment['distance']})")
+                
+                # Przetwórz wszystkie jednostki w grupie
+                for unit_idx, unit in enumerate(group):
+                    total_processed += 1
+                    unit_name = unit.get('id', f'unit_{total_processed}')
+                    can_move_result = can_move(unit)
                     
-                    if target:
+                    if can_move_result:
+                        # Wszyscy idą do tego samego celu (target lidera)
                         success = move_towards(unit, target, game_engine)
                         if success:
                             moved_count += 1
-                            # Log taktyki
+                            # Log zaawansowanego ruchu
                             log_commander_action(
                                 unit_id=unit_name,
-                                action_type="tactical_move",
+                                action_type="advanced_autonomous",
                                 from_pos=(unit['q'], unit['r']),
                                 to_pos=target,
-                                reason=f"{mission_type} mission (group {group_idx + 1})",
+                                reason=f"Advanced auto mode: group {assignment_idx + 1} to keypoint",
                                 player_nation=player_nation
                             )
+                            print(f"✅ [ADVANCED MOVE] {unit_name}: Ruch do {target}")
                         else:
-                            print(f"[AI] {unit_name}: Ruch nieudany")
+                            print(f"❌ [ADVANCED MOVE] {unit_name}: Ruch nieudany")
                     else:
-                        print(f"[AI] {unit_name}: Brak celu")
+                        print(f"⚠️ [ADVANCED MOVE] {unit_name}: Nie może się ruszyć (MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)})")
+        
+        else:
+            # STANDARDOWA LOGIKA - dla rozkazów strategicznych
+            for group_idx, group in enumerate(unit_groups):
+                print(f"[AI] Przetwarzam grupę {group_idx + 1}/{len(unit_groups)} ({len(group)} jednostek)")
+                
+                # Oblicz średnią pozycję grupy dla lepszego target selection
+                if strategic_order and strategic_order.get('target_hex'):
+                    # Wszystkie grupy mają ten sam strategiczny cel
+                    base_target = strategic_order['target_hex']
+                    mission_type = strategic_order.get('mission_type', 'UNKNOWN')
                 else:
-                    print(f"[AI] {unit_name}: Nie może się ruszyć")
+                    # Autonomiczny cel dla grupy - wybierz na podstawie pozycji lidera (stara logika)
+                    leader = group[0]
+                    base_target = find_target(leader, game_engine)
+                    mission_type = 'AUTONOMOUS'
+                
+                # Przetwórz jednostki w grupie
+                for unit_idx, unit in enumerate(group):
+                    total_processed += 1
+                    unit_name = unit.get('id', f'unit_{total_processed}')
+                    can_move_result = can_move(unit)
+                    print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
+                    
+                    if can_move_result:
+                        # Wybierz cel i taktykę
+                        if base_target:
+                            if mission_type != 'AUTONOMOUS':
+                                # TAKTYKA STRATEGICZNA
+                                target = execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_idx, len(group))
+                                print(f"[AI] {unit_name}: {mission_type} -> {target} (taktyka)")
+                            else:
+                                # AUTONOMOUS MOVEMENT (stara logika)
+                                target = base_target
+                                print(f"[AI] {unit_name}: Cel autonomiczny {target}")
+                        else:
+                            print(f"[AI] {unit_name}: Brak celu")
+                            continue
+                        
+                        if target:
+                            success = move_towards(unit, target, game_engine)
+                            if success:
+                                moved_count += 1
+                                # Log taktyki
+                                log_commander_action(
+                                    unit_id=unit_name,
+                                    action_type="tactical_move",
+                                    from_pos=(unit['q'], unit['r']),
+                                    to_pos=target,
+                                    reason=f"{mission_type} mission (group {group_idx + 1})",
+                                    player_nation=player_nation
+                                )
+                            else:
+                                print(f"[AI] {unit_name}: Ruch nieudany")
+                        else:
+                            print(f"[AI] {unit_name}: Brak celu")
+                    else:
+                        print(f"[AI] {unit_name}: Nie może się ruszyć")
         
         print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)} (sukces: {moved_count/len(my_units)*100:.1f}%)")
         
         # LOGUJ KONIEC TURY
+        group_count = len(group_assignments) if advanced_mode else len(unit_groups)
+        mode_type = "advanced" if advanced_mode else "standard"
         log_commander_action(
             unit_id="TURN_END",
             action_type="turn_summary",
             from_pos=None,
             to_pos=None,
-            reason=f"Turn completed: {moved_count}/{len(my_units)} units moved, {len(unit_groups)} groups",
+            reason=f"Turn completed: {moved_count}/{len(my_units)} units moved, {group_count} groups ({mode_type})",
             player_nation=player_nation
         )
         
