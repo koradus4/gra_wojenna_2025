@@ -855,9 +855,26 @@ class AIGeneral:
             self._turn_strategy_used = 'PURCHASE'
             
         elif action == EconAction.ALLOCATE:
+            print(f"🔧 [DEBUG ALLOCATE] Rozpoczynam alokację punktów")
             commanders = [p for p in (getattr(game_engine, 'players', []) or []) if p.nation == player.nation and p.role == 'Dowódca']
+            print(f"🔧 [DEBUG ALLOCATE] Znaleziono {len(commanders)} dowódców dla {player.nation}")
+            for cmd in commanders:
+                current_points = 0
+                if hasattr(cmd, 'economy') and hasattr(cmd.economy, 'economic_points'):
+                    current_points = cmd.economy.economic_points
+                print(f"🔧 [DEBUG ALLOCATE] Dowódca {cmd.id}: ma {current_points} punktów przed alokacją")
+            
             state = self._gather_state(game_engine, player, commanders)
+            print(f"🔧 [DEBUG ALLOCATE] Stan zebrany, dostępne PE u generała: {player.economy.get_points().get('economic_points', 0)}")
             allocated_total, cmd_cnt, weights = self.allocate_points(player, game_engine, state=state)
+            print(f"🔧 [DEBUG ALLOCATE] Alokacja zakończona: {allocated_total} PE dla {cmd_cnt} dowódców")
+            
+            for cmd in commanders:
+                current_points = 0
+                if hasattr(cmd, 'economy') and hasattr(cmd.economy, 'economic_points'):
+                    current_points = cmd.economy.economic_points
+                print(f"🔧 [DEBUG ALLOCATE] Dowódca {cmd.id}: ma {current_points} punktów PO alokacji")
+            
             metrics['allocation_weights'] = weights
             self._turn_pe_allocated = allocated_total
             self._turn_strategy_used = 'ALLOCATE'

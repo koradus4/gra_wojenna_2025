@@ -10,15 +10,21 @@ from core.zwyciestwo import VictoryConditions
 from utils.game_cleaner import clean_all_for_new_game, quick_clean
 import tkinter as tk
 
-# AI GENERAŁ IMPORT (odporny na brak modułu ai)
+# AI GENERAŁ I DOWÓDCA IMPORT (odporny na brak modułu ai)
 try:
     from ai import AIGeneral, is_ai_general, set_ai_general_enabled  # type: ignore
+    from ai.ai_commander import AICommander  # Import AI Commander
 except Exception:  # brak modułu lub klasy – degradacja łagodna
     class AIGeneral:  # minimalny stub
         def __init__(self, *_args, **_kwargs):
             pass
         def make_turn_decisions(self):
             print("[AI-STUB] Pomijam decyzje – brak implementacji AI.")
+    class AICommander:  # minimalny stub
+        def __init__(self, *_args, **_kwargs):
+            pass
+        def make_turn(self, engine):
+            print("[AI-STUB] Pomijam turę AI Commander – brak implementacji.")
     def is_ai_general(_p):
         return False
     def set_ai_general_enabled(_flag):
@@ -175,7 +181,14 @@ def run_human_vs_human_game(game_engine, players, turn_manager):
             else:
                 app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
         elif current_player.role == "Dowódca":
-            app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
+            # Sprawdź czy dowódca jest AI
+            if hasattr(current_player, 'is_ai_commander') and current_player.is_ai_commander:
+                print(f"🤖 AI Commander {current_player.id} wykonuje turę...")
+                ai_commander = AICommander(current_player)
+                ai_commander.make_turn(game_engine)
+                app = None
+            else:
+                app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
         
         # Patch dla save/load funkcjonalności - tylko dla paneli graficznych
         if app is not None:

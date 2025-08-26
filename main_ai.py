@@ -117,6 +117,20 @@ class GameLauncher:
 
     def start_game(self):
         try:
+            # Pytaj o automatyczne czyszczenie przed grą
+            result = messagebox.askyesno("Czyszczenie przed grą", 
+                                       "Czy wyczyścić dane z poprzedniej sesji?\n\n"
+                                       "Usuwa:\n"
+                                       "• Stare rozkazy strategiczne AI\n"
+                                       "• Zakupione żetony z poprzedniej gry\n\n"
+                                       "Rekomendowane dla fair start!")
+            if result:
+                print("🧹 Auto-czyszczenie przed nową grą...")
+                from utils.game_cleaner import quick_clean
+                quick_clean()
+            else:
+                print("ℹ️ Pominięto czyszczenie - kontynuacja poprzedniej sesji")
+            
             self.root.destroy()
             self.launch_game_with_settings()
         except Exception as e:
@@ -237,9 +251,19 @@ class GameLauncher:
             else:
                 current_player = turn_manager.get_current_player()
             game_engine.current_player_obj = current_player
+            # DODANE: Debug info o aktualnym graczu
+            print(f"🔍 DEBUG: current_player = {current_player.id} ({current_player.nation} {current_player.role})")
+            print(f"🔍 DEBUG: is_ai = {getattr(current_player, 'is_ai', False)}")
+            print(f"🔍 DEBUG: is_ai_commander = {getattr(current_player, 'is_ai_commander', False)}")
+            print(f"🔍 DEBUG: in ai_generals = {current_player.id in ai_generals}")
+            print(f"🔍 DEBUG: in ai_commanders = {current_player.id in ai_commanders}")
+            
+            # DODANE: Logowanie stanu key pointów na początku tury
+            game_engine.log_key_points_status(current_player)
+            
             update_all_players_visibility(players, game_engine.tokens, game_engine.board)
             if hasattr(current_player, 'is_ai') and current_player.is_ai and current_player.id in ai_generals:
-                print(f"Tura AI: {current_player.nation} {current_player.role}")
+                print(f"🤖 AI GENERAL TURN: {current_player.nation} {current_player.role}")
                 ai_general = ai_generals[current_player.id]
                 if current_player.role == "Generał":
                     current_player.economy.generate_economic_points()
@@ -247,8 +271,15 @@ class GameLauncher:
                 ai_general.make_turn(game_engine)
                 is_full_turn_end = turn_manager.next_turn()
             elif hasattr(current_player, 'is_ai_commander') and current_player.is_ai_commander and current_player.id in ai_commanders:
-                print(f"Tura AI Dowódcy (stub): {current_player.nation} id={current_player.id}")
+                print(f"🤖 AI COMMANDER TURN: {current_player.nation} id={current_player.id}")
                 ai_commander = ai_commanders[current_player.id]
+                
+                # NOWE: Automatyczne uzupełnianie przed turą taktyczną
+                print(f"[AI] Resupply faza dla {current_player.nation}")
+                ai_commander.pre_resupply(game_engine)
+                
+                # Tura taktyczna
+                print(f"[AI] Tactical turn dla {current_player.nation}")
                 ai_commander.make_tactical_turn(game_engine)
                 is_full_turn_end = turn_manager.next_turn()
             else:

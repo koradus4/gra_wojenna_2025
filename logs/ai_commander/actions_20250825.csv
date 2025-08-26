@@ -1,2 +1,802 @@
 timestamp,nation,unit_id,action_type,from_q,from_r,to_q,to_r,reason
 2025-08-25T22:33:56.363728,Test,TURN_START,turn_begin,,,,,AI Commander turn started for player None
+2025-08-25T23:02:55.013880,Niemcy,german_tank,combat,5,5,6,5,Attack enemy polish_infantry
+2025-08-25T23:02:55.013880,Niemcy,german_panzer,combat,5,5,6,5,Attack enemy polish_infantry
+2025-08-25T23:12:34.848338,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:12:34.893098,Polska,PL_CAV_02,combat,7,6,7,7,Attack enemy GE_INF_01
+2025-08-25T23:12:34.897965,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/2 units moved
+2025-08-25T23:12:34.900533,Polska,PL_TANK_01,combat,5,5,6,5,Attack enemy GE_INF_01
+2025-08-25T23:14:11.854593,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:11.895446,Polska,AL_Kompania__2_Dywizjon_Artylerii,move_partial,6,9,7,3,"Partial path to target (16, -7) (MP limited)"
+2025-08-25T23:14:11.895446,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,6,9,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.909984,Polska,P_Pluton__2_Batalion_Strzelc_w,move_partial,9,-4,13,-6,"Partial path to target (16, -7) (MP limited)"
+2025-08-25T23:14:11.911989,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,9,-4,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.921254,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,move_partial,16,0,16,-5,"Partial path to target (16, -7) (MP limited)"
+2025-08-25T23:14:11.922325,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,0,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.935076,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,move_partial,18,-2,16,-4,"Partial path to target (16, -7) (MP limited)"
+2025-08-25T23:14:11.936104,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,tactical_move,18,-2,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.946478,Polska,P_Kompania__2_Batalion_Strzelc_w,move_full,20,-8,16,-7,"Full path to target (16, -7)"
+2025-08-25T23:14:11.947576,Polska,P_Kompania__2_Batalion_Strzelc_w,tactical_move,20,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.956712,Polska,P_Pluton__2_Pu_k_Piechoty,move_partial,21,3,18,2,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:11.957709,Polska,P_Pluton__2_Pu_k_Piechoty,tactical_move,21,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.970358,Polska,AL_Batalion__2_Pu_k_Artylerii,move_partial,8,-3,13,-5,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:11.970358,Polska,AL_Batalion__2_Pu_k_Artylerii,tactical_move,8,-3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.980518,Polska,TL_Pluton__2_Pluton_Tankietek,move_partial,9,-3,12,-6,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:11.981533,Polska,TL_Pluton__2_Pluton_Tankietek,tactical_move,9,-3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:11.987576,Polska,P_Kompania__2_Pu_k_Piechoty,move_partial,11,-1,14,-5,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:11.988589,Polska,P_Kompania__2_Pu_k_Piechoty,tactical_move,11,-1,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.000628,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,move_partial,20,3,16,3,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.000628,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,tactical_move,20,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.012599,Polska,AL_Pluton__2_Bateria_Artylerii,move_partial,17,-1,17,-5,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.013848,Polska,AL_Pluton__2_Bateria_Artylerii,tactical_move,17,-1,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.017283,Polska,P_Batalion__2_Pu_k_Piechoty,move_partial,23,-3,20,-4,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.017283,Polska,P_Batalion__2_Pu_k_Piechoty,tactical_move,23,-3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.031411,Polska,TL_Kompania__2_Pluton_Tankietek,move_partial,23,-7,20,-6,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.032423,Polska,TL_Kompania__2_Pluton_Tankietek,tactical_move,23,-7,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.041605,Polska,P_Batalion__2_Batalion_Strzelc_w,move_partial,24,-8,18,-9,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.046780,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,24,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.051860,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,move_partial,23,-8,20,-9,"Partial path to target (16, -8) (MP limited)"
+2025-08-25T23:14:12.051860,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,tactical_move,23,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.058881,Polska,P_Batalion__2_Kompania_Grenadier_w,move_full,15,-7,16,-8,"Full path to target (16, -8)"
+2025-08-25T23:14:12.060782,Polska,P_Batalion__2_Kompania_Grenadier_w,tactical_move,15,-7,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.064040,Polska,TURN_END,turn_summary,,,,,Turn completed: 16/16 units moved
+2025-08-25T23:14:12.072493,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:12.084130,Polska,P_Batalion__3_Pu_k_Piechoty,move_full,13,15,9,19,"Full path to target (9, 19)"
+2025-08-25T23:14:12.153741,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:12.179743,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,move_partial,38,-17,42,-14,"Partial path to target (44, -14) (MP limited)"
+2025-08-25T23:14:12.180910,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,tactical_move,38,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.187136,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_partial,39,-17,40,-14,"Partial path to target (44, -14) (MP limited)"
+2025-08-25T23:14:12.187136,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,39,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.196143,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_full,43,-15,44,-14,"Full path to target (44, -14)"
+2025-08-25T23:14:12.196143,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,44,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.202174,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_full,43,-14,43,-15,"Full path to target (43, -15)"
+2025-08-25T23:14:12.203211,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.210904,Niemcy,TL_Kompania__5_Panzer_Zug,move_full,44,-15,42,-13,"Full path to target (42, -13)"
+2025-08-25T23:14:12.211257,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.214982,Niemcy,P_Pluton__5_Infanterie_Regiment,move_full,45,-17,44,-15,"Full path to target (44, -15)"
+2025-08-25T23:14:12.214982,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.214982,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_partial,49,-11,47,-11,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:12.214982,Niemcy,P_Kompania__5_Grenadier_Bataillon,tactical_move,49,-11,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.226270,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,move_partial,50,-12,45,-13,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:12.228096,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,tactical_move,50,-12,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.230132,Niemcy,AL_Kompania__5_Artillerie_Abteilung,move_partial,51,-13,50,-14,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:12.231242,Niemcy,AL_Kompania__5_Artillerie_Abteilung,tactical_move,51,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.232253,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:14:12.243225,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:12.253920,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,move_partial,33,3,39,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.255290,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,33,3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.264770,Niemcy,P_Kompania__6_Grenadier_Bataillon,move_partial,33,5,37,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.266088,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,33,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.283366,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,move_partial,33,6,40,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.284739,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,tactical_move,33,6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.295853,Niemcy,TL_Batalion__6_Panzer_Abteilung,move_partial,34,5,38,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.296851,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,34,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.301317,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,move_partial,34,10,36,6,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.301317,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,tactical_move,34,10,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.315555,Niemcy,P_Batalion__6_Grenadier_Bataillon,move_partial,34,11,36,7,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.315555,Niemcy,P_Batalion__6_Grenadier_Bataillon,tactical_move,34,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.322064,Niemcy,TL_Pluton__6_Panzer_Zug,move_partial,35,11,37,6,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.323078,Niemcy,TL_Pluton__6_Panzer_Zug,tactical_move,35,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.340414,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,move_partial,37,12,37,8,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:14:12.341418,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,tactical_move,37,12,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.347062,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,move_full,39,-1,40,0,"Full path to target (40, 0)"
+2025-08-25T23:14:12.347062,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.372761,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,move_full,39,0,40,-1,"Full path to target (40, -1)"
+2025-08-25T23:14:12.373763,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.386878,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,move_partial,39,8,39,4,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.386878,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,tactical_move,39,8,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.399773,Niemcy,P_Pluton__6_Grenadier_Bataillon,move_partial,43,-4,41,-2,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.400794,Niemcy,P_Pluton__6_Grenadier_Bataillon,tactical_move,43,-4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.413619,Niemcy,P_Pluton__6_Sch_tzen_Kompanie,move_partial,43,-3,41,-1,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.414720,Niemcy,P_Pluton__6_Sch_tzen_Kompanie,tactical_move,43,-3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.446660,Niemcy,AL_Pluton__6_Artillerie_Abteilung,move_partial,44,9,39,6,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.448678,Niemcy,AL_Pluton__6_Artillerie_Abteilung,tactical_move,44,9,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.477516,Niemcy,AL_Kompania__6_Artillerie_Abteilung,move_partial,47,2,41,2,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.478512,Niemcy,AL_Kompania__6_Artillerie_Abteilung,tactical_move,47,2,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.516760,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,move_partial,51,-6,44,-5,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.516760,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,tactical_move,51,-6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.554302,Niemcy,AL_Batalion__6_Artillerie_Abteilung,move_partial,54,1,47,0,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:12.554302,Niemcy,AL_Batalion__6_Artillerie_Abteilung,tactical_move,54,1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.560984,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 17/17 units moved
+2025-08-25T23:14:12.626382,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:12.645792,Polska,AL_Kompania__2_Dywizjon_Artylerii,move_partial,7,3,9,-1,"Partial path to target [15, -7] (MP limited)"
+2025-08-25T23:14:12.645792,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,7,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.648841,Polska,P_Pluton__2_Batalion_Strzelc_w,move_full,13,-6,14,-7,"Full path to target (14, -7)"
+2025-08-25T23:14:12.649591,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,13,-6,14,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.649591,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,move_partial,16,-5,15,-7,"Partial path to target [15, -7] (MP limited)"
+2025-08-25T23:14:12.654777,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,-5,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.662641,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,move_partial,16,-4,15,-6,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.662641,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,tactical_move,16,-4,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.749942,Polska,P_Pluton__2_Pu_k_Piechoty,move_partial,18,2,15,1,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.749942,Polska,P_Pluton__2_Pu_k_Piechoty,tactical_move,18,2,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.752821,Polska,AL_Batalion__2_Pu_k_Artylerii,move_partial,13,-5,13,-6,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.753941,Polska,AL_Batalion__2_Pu_k_Artylerii,tactical_move,13,-5,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.824623,Polska,TL_Pluton__2_Pluton_Tankietek,move_failed,12,-6,14,-6,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:12.824623,Polska,P_Kompania__2_Pu_k_Piechoty,move_partial,14,-5,14,-6,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.824623,Polska,P_Kompania__2_Pu_k_Piechoty,tactical_move,14,-5,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.847131,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,move_partial,16,3,15,0,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.847131,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,tactical_move,16,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.851789,Polska,AL_Pluton__2_Bateria_Artylerii,move_partial,17,-5,15,-5,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.852806,Polska,AL_Pluton__2_Bateria_Artylerii,tactical_move,17,-5,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.858783,Polska,P_Batalion__2_Pu_k_Piechoty,move_partial,20,-4,16,-4,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.861424,Polska,P_Batalion__2_Pu_k_Piechoty,tactical_move,20,-4,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.864657,Polska,TL_Kompania__2_Pluton_Tankietek,move_partial,20,-6,17,-5,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.865762,Polska,TL_Kompania__2_Pluton_Tankietek,tactical_move,20,-6,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.869069,Polska,P_Batalion__2_Batalion_Strzelc_w,move_partial,18,-9,17,-8,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.869069,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,18,-9,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.875423,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,move_partial,20,-9,18,-9,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:12.876376,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,tactical_move,20,-9,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.879496,Polska,TURN_END,turn_summary,,,,,Turn completed: 13/16 units moved
+2025-08-25T23:14:12.883825,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:12.896162,Polska,P_Batalion__3_Pu_k_Piechoty,move_partial,9,19,11,17,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:12.896162,Polska,P_Batalion__3_Pu_k_Piechoty,tactical_move,9,19,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.900528,Polska,AL_Batalion__3_Pu_k_Artylerii,move_partial,16,19,14,18,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:12.901682,Polska,AL_Batalion__3_Pu_k_Artylerii,tactical_move,16,19,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.910962,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,move_partial,16,20,15,17,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:12.911715,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,tactical_move,16,20,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:12.914126,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,move_full,19,14,13,14,"Full path to target (13, 14)"
+2025-08-25T23:14:12.915496,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,19,14,13,14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.248498,Polska,P_Batalion__3_Batalion_Strzelc_w,move_partial,20,13,14,14,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:13.248498,Polska,P_Batalion__3_Batalion_Strzelc_w,tactical_move,20,13,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.259227,Polska,P_Kompania__3_Batalion_Strzelc_w,move_partial,20,14,18,14,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:13.260291,Polska,P_Kompania__3_Batalion_Strzelc_w,tactical_move,20,14,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.265367,Polska,K_Batalion__3_Oddzia_Jazdy,move_partial,21,18,17,18,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:13.266432,Polska,K_Batalion__3_Oddzia_Jazdy,tactical_move,21,18,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.273137,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_partial,23,17,18,17,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:13.273654,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,tactical_move,23,17,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.281470,Polska,P_Pluton__3_Pu_k_Piechoty,move_partial,24,16,20,16,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:13.281470,Polska,P_Pluton__3_Pu_k_Piechoty,tactical_move,24,16,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.282591,Polska,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:14:13.331912,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:13.408556,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,move_failed,42,-14,43,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:13.424614,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_partial,40,-14,41,-14,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:13.425618,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,40,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.495232,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,43,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:13.561066,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,43,-15,43,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:13.566600,Niemcy,TL_Kompania__5_Panzer_Zug,move_partial,42,-13,43,-14,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:13.567774,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,42,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.577097,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,44,-15,41,-13,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:13.580389,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_partial,47,-11,47,-13,"Partial path to target (42, -13) (MP limited)"
+2025-08-25T23:14:13.581667,Niemcy,P_Kompania__5_Grenadier_Bataillon,tactical_move,47,-11,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.584902,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,move_partial,45,-13,44,-13,"Partial path to target (42, -13) (MP limited)"
+2025-08-25T23:14:13.584902,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,tactical_move,45,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.589350,Niemcy,AL_Kompania__5_Artillerie_Abteilung,move_partial,50,-14,48,-15,"Partial path to target (42, -13) (MP limited)"
+2025-08-25T23:14:13.589350,Niemcy,AL_Kompania__5_Artillerie_Abteilung,tactical_move,50,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.590664,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 5/9 units moved
+2025-08-25T23:14:13.600554,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:13.603587,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,move_partial,39,1,39,0,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.604593,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,39,1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.608657,Niemcy,P_Kompania__6_Grenadier_Bataillon,move_full,37,1,38,0,"Full path to target (38, 0)"
+2025-08-25T23:14:13.610191,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,37,1,38,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.618451,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,move_partial,40,1,39,1,"Partial path to target (39, -1) (MP limited)"
+2025-08-25T23:14:13.618451,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,tactical_move,40,1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.623274,Niemcy,TL_Batalion__6_Panzer_Abteilung,move_full,38,1,39,-1,"Full path to target (39, -1)"
+2025-08-25T23:14:13.624391,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,38,1,39,-1,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.632003,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,move_partial,36,6,37,2,"Partial path to target (38, 1) (MP limited)"
+2025-08-25T23:14:13.632003,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,tactical_move,36,6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.638852,Niemcy,P_Batalion__6_Grenadier_Bataillon,move_partial,36,7,36,3,"Partial path to target (38, 1) (MP limited)"
+2025-08-25T23:14:13.638852,Niemcy,P_Batalion__6_Grenadier_Bataillon,tactical_move,36,7,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.646443,Niemcy,TL_Pluton__6_Panzer_Zug,move_full,37,6,38,1,"Full path to target (38, 1)"
+2025-08-25T23:14:13.647115,Niemcy,TL_Pluton__6_Panzer_Zug,tactical_move,37,6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.647115,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,move_partial,37,8,37,4,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.647115,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,tactical_move,37,8,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.797865,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,move_partial,39,4,39,2,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.797865,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,tactical_move,39,4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.928485,Niemcy,AL_Pluton__6_Artillerie_Abteilung,move_partial,39,6,39,5,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.928485,Niemcy,AL_Pluton__6_Artillerie_Abteilung,tactical_move,39,6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.936448,Niemcy,AL_Kompania__6_Artillerie_Abteilung,move_partial,41,2,40,1,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.937450,Niemcy,AL_Kompania__6_Artillerie_Abteilung,tactical_move,41,2,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.942332,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,move_partial,44,-5,41,-3,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.945066,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,tactical_move,44,-5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.949431,Niemcy,AL_Batalion__6_Artillerie_Abteilung,move_partial,47,0,46,0,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:14:13.949431,Niemcy,AL_Batalion__6_Artillerie_Abteilung,tactical_move,47,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:14:13.950475,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 13/17 units moved
+2025-08-25T23:14:13.993874,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:14.326932,Polska,TL_Kompania__2_Pluton_Tankietek,move_partial,17,-5,16,-5,"Partial path to target (15, -8) (MP limited)"
+2025-08-25T23:14:14.326932,Polska,TL_Kompania__2_Pluton_Tankietek,tactical_move,17,-5,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.459733,Polska,TURN_END,turn_summary,,,,,Turn completed: 1/16 units moved
+2025-08-25T23:14:14.459733,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:14.480558,Polska,AL_Batalion__3_Pu_k_Artylerii,move_partial,14,18,15,15,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:14.480558,Polska,AL_Batalion__3_Pu_k_Artylerii,tactical_move,14,18,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.488230,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,move_partial,15,17,14,17,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:14.488230,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,tactical_move,15,17,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.493675,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,move_partial,13,14,13,15,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:14.495981,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,13,14,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.497036,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:14.503744,Polska,P_Kompania__3_Batalion_Strzelc_w,move_partial,18,14,16,14,"Partial path to target (14, 15) (MP limited)"
+2025-08-25T23:14:14.503744,Polska,P_Kompania__3_Batalion_Strzelc_w,tactical_move,18,14,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.508212,Polska,K_Batalion__3_Oddzia_Jazdy,move_partial,17,18,15,18,"Partial path to target (14, 15) (MP limited)"
+2025-08-25T23:14:14.508212,Polska,K_Batalion__3_Oddzia_Jazdy,tactical_move,17,18,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.516881,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_partial,18,17,15,16,"Partial path to target (14, 15) (MP limited)"
+2025-08-25T23:14:14.517878,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,tactical_move,18,17,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.521122,Polska,P_Pluton__3_Pu_k_Piechoty,move_partial,20,16,17,16,"Partial path to target (14, 15) (MP limited)"
+2025-08-25T23:14:14.521122,Polska,P_Pluton__3_Pu_k_Piechoty,tactical_move,20,16,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.521122,Polska,TURN_END,turn_summary,,,,,Turn completed: 7/9 units moved
+2025-08-25T23:14:14.560504,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:14.579627,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,move_failed,42,-14,42,-13,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:14.582347,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_partial,41,-14,41,-13,"Partial path to target (42, -13) (MP limited)"
+2025-08-25T23:14:14.582347,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,41,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.588677,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,42,-13,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:14.599449,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_partial,43,-15,41,-14,"Partial path to target (42, -13) (MP limited)"
+2025-08-25T23:14:14.600459,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.600459,Niemcy,TL_Kompania__5_Panzer_Zug,move_full,43,-14,42,-13,"Full path to target (42, -13)"
+2025-08-25T23:14:14.600459,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,43,-14,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.609410,Niemcy,P_Pluton__5_Infanterie_Regiment,move_partial,44,-15,43,-14,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:14:14.612587,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,44,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.615859,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_partial,47,-13,45,-13,"Partial path to target (44, -15) (MP limited)"
+2025-08-25T23:14:14.615859,Niemcy,P_Kompania__5_Grenadier_Bataillon,tactical_move,47,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.618752,Niemcy,AL_Kompania__5_Artillerie_Abteilung,move_partial,48,-15,47,-15,"Partial path to target (44, -15) (MP limited)"
+2025-08-25T23:14:14.620045,Niemcy,AL_Kompania__5_Artillerie_Abteilung,tactical_move,48,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:14.620045,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 6/9 units moved
+2025-08-25T23:14:14.629661,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:15.210927,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:15.276655,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:15.764867,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:15.896331,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:15.912783,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:15.918977,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,move_full,13,15,13,14,"Full path to target (13, 14)"
+2025-08-25T23:14:15.918977,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,13,15,13,14,SECURE_KEYPOINT mission
+2025-08-25T23:14:15.921811,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:15.930428,Polska,P_Kompania__3_Batalion_Strzelc_w,move_partial,16,14,15,14,"Partial path to target [13, 15] (MP limited)"
+2025-08-25T23:14:15.931395,Polska,P_Kompania__3_Batalion_Strzelc_w,tactical_move,16,14,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:14:15.996366,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:15.997504,Polska,TURN_END,turn_summary,,,,,Turn completed: 2/9 units moved
+2025-08-25T23:14:16.036723,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:16.049882,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,move_partial,42,-14,43,-15,"Partial path to target (44, -15) (MP limited)"
+2025-08-25T23:14:16.049882,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,tactical_move,42,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:16.052207,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_full,41,-13,42,-14,"Full path to target (42, -14)"
+2025-08-25T23:14:16.053611,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,41,-13,42,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:16.056068,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:16.063051,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_partial,41,-14,42,-15,"Partial path to target (44, -15) (MP limited)"
+2025-08-25T23:14:16.063051,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,41,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:16.066719,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:16.069005,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:16.070021,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 3/9 units moved
+2025-08-25T23:14:16.081128,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:16.662360,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:16.712030,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:17.130959,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.262445,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:17.280142,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:17.287211,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.345910,Polska,P_Kompania__3_Batalion_Strzelc_w,move_failed,15,14,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.412333,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.412333,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:17.462587,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:17.477576,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_partial,42,-14,43,-16,"Partial path to target (44, -15) (MP limited)"
+2025-08-25T23:14:17.478634,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,42,-14,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:14:17.484873,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.488141,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,42,-15,43,-17,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.491951,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.495574,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:17.498679,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:14:17.505666,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:18.230409,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:18.289775,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:18.707653,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:18.831149,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:18.854493,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:18.854493,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:18.924674,Polska,P_Kompania__3_Batalion_Strzelc_w,move_failed,15,14,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:18.989816,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:18.989816,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:19.033805,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:19.045527,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_failed,43,-16,42,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:19.050119,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:19.055156,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,42,-15,43,-17,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:19.058366,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:19.061432,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:19.062500,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:19.065495,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:19.670787,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:19.726005,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:20.140075,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.265443,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:20.265443,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:20.287175,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.352220,Polska,P_Kompania__3_Batalion_Strzelc_w,move_failed,15,14,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.415680,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.415680,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:20.458816,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:20.474805,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_failed,43,-16,42,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.476801,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.483499,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,42,-15,43,-17,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.487311,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.487311,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:20.492678,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:20.502414,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:21.088072,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:21.127376,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:21.517157,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:21.655189,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:21.655189,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:21.672066,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:21.735668,Polska,P_Kompania__3_Batalion_Strzelc_w,move_failed,15,14,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:21.800442,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:21.800442,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:21.844697,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:21.988632,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_failed,43,-16,42,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:21.993279,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:22.020807,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,42,-15,43,-17,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:22.028409,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:22.037937,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:22.038940,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:22.045917,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:22.634440,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:14:22.673566,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:14:23.068609,Polska,TL_Kompania__2_Pluton_Tankietek,move_failed,16,-5,14,-5,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.202033,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:14:23.224145,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:14:23.225220,Polska,P_Batalion__3_Batalion_Strzelc_w,move_failed,14,14,12,16,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.296100,Polska,P_Kompania__3_Batalion_Strzelc_w,move_failed,15,14,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.360476,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,move_failed,15,16,13,15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.360476,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:23.401447,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:14:23.415155,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_failed,43,-16,42,-14,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.420482,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_failed,44,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.424229,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_failed,42,-15,43,-17,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.424229,Niemcy,P_Pluton__5_Infanterie_Regiment,move_failed,43,-14,44,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.430776,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_failed,45,-13,45,-15,Failed: Brak ścieżki do celu.
+2025-08-25T23:14:23.431808,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:14:23.442212,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:14:24.035998,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:15:34.937281,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:15:35.079106,Polska,AL_Kompania__2_Dywizjon_Artylerii,move_full,6,9,11,9,"Full path to target (11, 9)"
+2025-08-25T23:15:35.124283,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:15:35.235163,Polska,P_Batalion__3_Pu_k_Piechoty,move_full,13,15,9,19,"Full path to target (9, 19)"
+2025-08-25T23:15:44.833830,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:15:44.906204,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,move_partial,38,-17,42,-14,"Partial path to target (44, -14) (MP limited)"
+2025-08-25T23:15:44.906204,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,tactical_move,38,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.063128,Niemcy,TŚ_Pluton__5_Panzer_Brigade,move_partial,39,-17,40,-14,"Partial path to target (44, -14) (MP limited)"
+2025-08-25T23:15:45.069798,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,39,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.163698,Niemcy,K_Batalion__5_Kawaleria_Einheit,move_full,43,-15,44,-14,"Full path to target (44, -14)"
+2025-08-25T23:15:45.167759,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,44,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.290141,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,move_full,43,-14,43,-15,"Full path to target (43, -15)"
+2025-08-25T23:15:45.292145,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.356678,Niemcy,TL_Kompania__5_Panzer_Zug,move_full,44,-15,42,-13,"Full path to target (42, -13)"
+2025-08-25T23:15:45.359049,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.370861,Niemcy,P_Pluton__5_Infanterie_Regiment,move_full,45,-17,44,-15,"Full path to target (44, -15)"
+2025-08-25T23:15:45.370861,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.378705,Niemcy,P_Kompania__5_Grenadier_Bataillon,move_partial,49,-11,47,-11,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:15:45.380038,Niemcy,P_Kompania__5_Grenadier_Bataillon,tactical_move,49,-11,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.392446,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,move_partial,50,-12,45,-13,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:15:45.392446,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,tactical_move,50,-12,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.403399,Niemcy,AL_Kompania__5_Artillerie_Abteilung,move_partial,51,-13,50,-14,"Partial path to target [43, -14] (MP limited)"
+2025-08-25T23:15:45.405405,Niemcy,AL_Kompania__5_Artillerie_Abteilung,tactical_move,51,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.405405,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:15:45.419529,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:15:45.442585,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,move_partial,33,3,39,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.443190,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,33,3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.450519,Niemcy,P_Kompania__6_Grenadier_Bataillon,move_partial,33,5,37,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.454154,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,33,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.474020,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,move_partial,33,6,40,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.474020,Niemcy,P_Kompania__6_Sch_tzen_Kompanie,tactical_move,33,6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.486098,Niemcy,TL_Batalion__6_Panzer_Abteilung,move_partial,34,5,38,1,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.486098,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,34,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.494379,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,move_partial,34,10,36,6,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.495396,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,tactical_move,34,10,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.506656,Niemcy,P_Batalion__6_Grenadier_Bataillon,move_partial,34,11,36,7,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.507821,Niemcy,P_Batalion__6_Grenadier_Bataillon,tactical_move,34,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.521859,Niemcy,TL_Pluton__6_Panzer_Zug,move_partial,35,11,37,6,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.522952,Niemcy,TL_Pluton__6_Panzer_Zug,tactical_move,35,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.526507,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,move_partial,37,12,37,8,"Partial path to target (40, 0) (MP limited)"
+2025-08-25T23:15:45.526507,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,tactical_move,37,12,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.537074,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,move_full,39,-1,40,0,"Full path to target (40, 0)"
+2025-08-25T23:15:45.537074,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.543391,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,move_full,39,0,40,-1,"Full path to target (40, -1)"
+2025-08-25T23:15:45.544395,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.552992,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,move_partial,39,8,39,4,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.552992,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,tactical_move,39,8,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.560777,Niemcy,P_Pluton__6_Grenadier_Bataillon,move_partial,43,-4,41,-2,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.560777,Niemcy,P_Pluton__6_Grenadier_Bataillon,tactical_move,43,-4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.571528,Niemcy,P_Pluton__6_Sch_tzen_Kompanie,move_partial,43,-3,41,-1,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.571528,Niemcy,P_Pluton__6_Sch_tzen_Kompanie,tactical_move,43,-3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.581212,Niemcy,AL_Pluton__6_Artillerie_Abteilung,move_partial,44,9,39,6,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.586201,Niemcy,AL_Pluton__6_Artillerie_Abteilung,tactical_move,44,9,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.594066,Niemcy,AL_Kompania__6_Artillerie_Abteilung,move_partial,47,2,41,2,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.595226,Niemcy,AL_Kompania__6_Artillerie_Abteilung,tactical_move,47,2,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.607211,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,move_partial,51,-6,44,-5,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.607211,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,tactical_move,51,-6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.621013,Niemcy,AL_Batalion__6_Artillerie_Abteilung,move_partial,54,1,47,0,"Partial path to target [39, 0] (MP limited)"
+2025-08-25T23:15:45.621013,Niemcy,AL_Batalion__6_Artillerie_Abteilung,tactical_move,54,1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:15:45.622027,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 17/17 units moved
+2025-08-25T23:20:47.909993,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:20:47.924826,Polska,AL_Kompania__2_Dywizjon_Artylerii,move_full,11,9,11,14,"Full path to target (11, 14)"
+2025-08-25T23:20:47.948909,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:20:48.065115,Polska,P_Batalion__3_Pu_k_Piechoty,move_full,9,19,5,23,"Full path to target (5, 23)"
+2025-08-25T23:22:25.089935,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:25.194973,Polska,AL_Kompania__2_Dywizjon_Artylerii,partial_move,6,9,8,3,"Strategic move to (16, -7)"
+2025-08-25T23:22:25.194973,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,6,9,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.211749,Polska,P_Pluton__2_Batalion_Strzelc_w,partial_move,9,-4,13,-6,"Strategic move to (16, -7)"
+2025-08-25T23:22:25.211749,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,9,-4,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.220574,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,partial_move,16,0,16,-5,"Strategic move to (16, -7)"
+2025-08-25T23:22:25.221890,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,0,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.230754,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,partial_move,18,-2,16,-4,"Strategic move to (16, -7)"
+2025-08-25T23:22:25.230754,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,tactical_move,18,-2,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.234784,Polska,P_Kompania__2_Batalion_Strzelc_w,full_move,20,-8,16,-7,"Strategic move to (16, -7)"
+2025-08-25T23:22:25.234784,Polska,P_Kompania__2_Batalion_Strzelc_w,tactical_move,20,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.264142,Polska,P_Pluton__2_Pu_k_Piechoty,partial_move,21,3,19,1,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.267303,Polska,P_Pluton__2_Pu_k_Piechoty,tactical_move,21,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.292835,Polska,P_Kompania__2_Pu_k_Piechoty,partial_move,11,-1,15,-5,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.293834,Polska,P_Kompania__2_Pu_k_Piechoty,tactical_move,11,-1,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.306252,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,partial_move,20,3,19,0,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.306252,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,tactical_move,20,3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.328454,Polska,P_Batalion__2_Pu_k_Piechoty,partial_move,23,-3,24,-7,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.328454,Polska,P_Batalion__2_Pu_k_Piechoty,tactical_move,23,-3,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.340156,Polska,P_Batalion__2_Batalion_Strzelc_w,partial_move,24,-8,18,-9,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.342159,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,24,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.344164,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,partial_move,23,-8,20,-9,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.344164,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,tactical_move,23,-8,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.353321,Polska,P_Batalion__2_Kompania_Grenadier_w,full_move,15,-7,16,-8,"Strategic move to (16, -8)"
+2025-08-25T23:22:25.353321,Polska,P_Batalion__2_Kompania_Grenadier_w,tactical_move,15,-7,15,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.355254,Polska,TURN_END,turn_summary,,,,,Turn completed: 12/16 units moved
+2025-08-25T23:22:25.364069,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:25.371882,Polska,P_Batalion__3_Pu_k_Piechoty,full_move,13,15,14,15,"Strategic move to (14, 15)"
+2025-08-25T23:22:25.372886,Polska,P_Batalion__3_Pu_k_Piechoty,tactical_move,13,15,13,15,SECURE_KEYPOINT mission
+2025-08-25T23:22:25.537904,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,full_move,19,14,13,14,"Strategic move to (13, 14)"
+2025-08-25T23:22:25.537904,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,19,14,13,14,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.013311,Polska,TURN_END,turn_summary,,,,,Turn completed: 2/9 units moved
+2025-08-25T23:22:26.240689,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:26.262051,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,partial_move,38,-17,44,-16,"Strategic move to (44, -14)"
+2025-08-25T23:22:26.262051,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,tactical_move,38,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.273925,Niemcy,TŚ_Pluton__5_Panzer_Brigade,partial_move,39,-17,43,-17,"Strategic move to (44, -14)"
+2025-08-25T23:22:26.275036,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,39,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.277490,Niemcy,K_Batalion__5_Kawaleria_Einheit,partial_move,43,-15,46,-18,"Strategic move to (44, -14)"
+2025-08-25T23:22:26.277490,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.284771,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,full_move,43,-14,43,-15,"Strategic move to (43, -15)"
+2025-08-25T23:22:26.284771,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.290461,Niemcy,TL_Kompania__5_Panzer_Zug,full_move,44,-15,42,-13,"Strategic move to (42, -13)"
+2025-08-25T23:22:26.291672,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.293867,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,45,-17,44,-15,"Strategic move to (44, -15)"
+2025-08-25T23:22:26.294885,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.518253,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 6/9 units moved
+2025-08-25T23:22:26.532729,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:26.553246,Niemcy,P_Kompania__6_Grenadier_Bataillon,partial_move,33,5,37,1,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.554426,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,33,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.574022,Niemcy,TL_Batalion__6_Panzer_Abteilung,partial_move,34,5,39,1,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.575480,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,34,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.584763,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,partial_move,34,10,36,6,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.587958,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,tactical_move,34,10,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.595109,Niemcy,P_Batalion__6_Grenadier_Bataillon,partial_move,34,11,36,7,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.596111,Niemcy,P_Batalion__6_Grenadier_Bataillon,tactical_move,34,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.603396,Niemcy,TL_Pluton__6_Panzer_Zug,partial_move,35,11,37,6,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.604860,Niemcy,TL_Pluton__6_Panzer_Zug,tactical_move,35,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.608212,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,partial_move,37,12,37,8,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.608212,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,tactical_move,37,12,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.613335,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,full_move,39,-1,40,0,"Strategic move to (40, 0)"
+2025-08-25T23:22:26.614515,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:26.622023,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,39,0,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:22:26.622023,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:27.135480,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 8/17 units moved
+2025-08-25T23:22:27.198423,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:27.288377,Polska,P_Pluton__2_Batalion_Strzelc_w,full_move,13,-6,14,-7,"Strategic move to (14, -7)"
+2025-08-25T23:22:27.288377,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,13,-6,14,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:27.437523,Polska,P_Kompania__2_Batalion_Strzelc_w,full_move,16,-7,14,-6,"Strategic move to (14, -6)"
+2025-08-25T23:22:27.442441,Polska,P_Kompania__2_Batalion_Strzelc_w,tactical_move,16,-7,14,-6,SECURE_KEYPOINT mission
+2025-08-25T23:22:28.221310,Polska,TURN_END,turn_summary,,,,,Turn completed: 2/16 units moved
+2025-08-25T23:22:28.242525,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:29.108050,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:29.198273,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:29.289421,Niemcy,TŚ_Pluton__5_Panzer_Brigade,full_move,43,-17,42,-14,"Strategic move to (42, -14)"
+2025-08-25T23:22:29.289421,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,43,-17,42,-14,SECURE_KEYPOINT mission
+2025-08-25T23:22:29.289421,Niemcy,K_Batalion__5_Kawaleria_Einheit,full_move,46,-18,44,-14,"Strategic move to (44, -14)"
+2025-08-25T23:22:29.289421,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,46,-18,44,-14,SECURE_KEYPOINT mission
+2025-08-25T23:22:29.722558,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 2/9 units moved
+2025-08-25T23:22:29.734668,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:29.806309,Niemcy,P_Kompania__6_Grenadier_Bataillon,full_move,37,1,38,0,"Strategic move to (38, 0)"
+2025-08-25T23:22:29.806309,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,37,1,38,0,SECURE_KEYPOINT mission
+2025-08-25T23:22:29.889560,Niemcy,TL_Batalion__6_Panzer_Abteilung,full_move,39,1,39,-1,"Strategic move to (39, -1)"
+2025-08-25T23:22:29.889560,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,39,1,39,-1,SECURE_KEYPOINT mission
+2025-08-25T23:22:30.806385,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 2/17 units moved
+2025-08-25T23:22:30.865612,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:31.023601,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,full_move,16,-5,16,-7,"Strategic move to (16, -7)"
+2025-08-25T23:22:31.023601,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,-5,16,-7,SECURE_KEYPOINT mission
+2025-08-25T23:22:31.941704,Polska,TURN_END,turn_summary,,,,,Turn completed: 1/16 units moved
+2025-08-25T23:22:31.960276,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:32.609025,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:32.668606,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:33.309161,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:33.317758,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:34.630701,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:34.672510,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:35.979039,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:35.994939,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:36.628074,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:36.707932,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:37.330439,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:37.351713,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:38.831817,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:38.904481,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:40.182656,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:40.203605,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:40.883418,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:40.960837,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:41.601478,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:41.618057,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:42.784938,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:42.846078,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:43.951891,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:43.962115,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:44.587748,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:44.671308,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:45.454918,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:45.464431,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:46.606463,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:46.674067,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:47.917030,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:47.948266,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:48.624908,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:48.696198,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:49.325646,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:49.338645,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:50.667935,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:50.722357,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:51.876356,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:51.888611,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:52.545002,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:52.617749,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:53.252020,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:53.261546,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:54.430904,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:22:54.493542,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:22:55.914340,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/16 units moved
+2025-08-25T23:22:55.926270,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:22:56.582589,Polska,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:56.637673,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:22:57.287197,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/9 units moved
+2025-08-25T23:22:57.295414,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:22:58.451597,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 0/17 units moved
+2025-08-25T23:25:57.871649,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:25:57.948628,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,6,9,11,9,"Strategic move to (11, 9)"
+2025-08-25T23:25:58.050246,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:25:58.101959,Polska,P_Batalion__3_Pu_k_Piechoty,full_move,13,15,9,19,"Strategic move to (9, 19)"
+2025-08-25T23:25:58.351801,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:25:58.362748,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,partial_move,38,-17,44,-16,"Strategic move to (44, -14)"
+2025-08-25T23:25:58.367372,Niemcy,P_Batalion__5_Sch_tzen_Kompanie,tactical_move,38,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.375754,Niemcy,TŚ_Pluton__5_Panzer_Brigade,partial_move,39,-17,43,-17,"Strategic move to (44, -14)"
+2025-08-25T23:25:58.375754,Niemcy,TŚ_Pluton__5_Panzer_Brigade,tactical_move,39,-17,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.384741,Niemcy,K_Batalion__5_Kawaleria_Einheit,partial_move,43,-15,46,-18,"Strategic move to (44, -14)"
+2025-08-25T23:25:58.384741,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.386661,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,full_move,43,-14,43,-15,"Strategic move to (43, -15)"
+2025-08-25T23:25:58.387902,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.389098,Niemcy,TL_Kompania__5_Panzer_Zug,full_move,44,-15,42,-13,"Strategic move to (42, -13)"
+2025-08-25T23:25:58.392087,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.395470,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,45,-17,44,-15,"Strategic move to (44, -15)"
+2025-08-25T23:25:58.395470,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.408730,Niemcy,P_Kompania__5_Grenadier_Bataillon,partial_move,49,-11,47,-11,"Strategic move to [43, -14]"
+2025-08-25T23:25:58.408730,Niemcy,P_Kompania__5_Grenadier_Bataillon,tactical_move,49,-11,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.418382,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,partial_move,50,-12,45,-13,"Strategic move to [43, -14]"
+2025-08-25T23:25:58.419398,Niemcy,TS_Batalion__5_Sam_Pancerny_Einheit,tactical_move,50,-12,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.422734,Niemcy,AL_Kompania__5_Artillerie_Abteilung,partial_move,51,-13,50,-15,"Strategic move to [43, -14]"
+2025-08-25T23:25:58.423734,Niemcy,AL_Kompania__5_Artillerie_Abteilung,tactical_move,51,-13,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.424728,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:25:58.525645,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:25:58.584738,Niemcy,P_Kompania__6_Grenadier_Bataillon,partial_move,33,5,37,1,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.585839,Niemcy,P_Kompania__6_Grenadier_Bataillon,tactical_move,33,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.606409,Niemcy,TL_Batalion__6_Panzer_Abteilung,partial_move,34,5,39,1,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.606409,Niemcy,TL_Batalion__6_Panzer_Abteilung,tactical_move,34,5,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.620566,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,partial_move,34,10,36,6,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.620566,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213838,tactical_move,34,10,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.628213,Niemcy,P_Batalion__6_Grenadier_Bataillon,partial_move,34,11,36,7,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.629226,Niemcy,P_Batalion__6_Grenadier_Bataillon,tactical_move,34,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.638327,Niemcy,TL_Pluton__6_Panzer_Zug,partial_move,35,11,37,6,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.638327,Niemcy,TL_Pluton__6_Panzer_Zug,tactical_move,35,11,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.644652,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,partial_move,37,12,37,8,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.645695,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213834,tactical_move,37,12,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.649696,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,full_move,39,-1,40,0,"Strategic move to (40, 0)"
+2025-08-25T23:25:58.649696,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.654766,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,39,0,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:25:58.655781,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.657839,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,partial_move,39,8,39,4,"Strategic move to [39, 0]"
+2025-08-25T23:25:58.658841,Niemcy,P_Batalion__6_Sch_tzen_Kompanie,tactical_move,39,8,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.672847,Niemcy,AL_Pluton__6_Artillerie_Abteilung,partial_move,44,9,40,5,"Strategic move to [39, 0]"
+2025-08-25T23:25:58.672847,Niemcy,AL_Pluton__6_Artillerie_Abteilung,tactical_move,44,9,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.686921,Niemcy,AL_Kompania__6_Artillerie_Abteilung,partial_move,47,2,41,2,"Strategic move to [39, 0]"
+2025-08-25T23:25:58.686921,Niemcy,AL_Kompania__6_Artillerie_Abteilung,tactical_move,47,2,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.693273,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,partial_move,51,-6,44,-3,"Strategic move to [39, 0]"
+2025-08-25T23:25:58.694299,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213835,tactical_move,51,-6,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.701519,Niemcy,AL_Batalion__6_Artillerie_Abteilung,partial_move,54,1,47,0,"Strategic move to [39, 0]"
+2025-08-25T23:25:58.701519,Niemcy,AL_Batalion__6_Artillerie_Abteilung,tactical_move,54,1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:58.702942,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 13/17 units moved
+2025-08-25T23:25:58.818615,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:25:58.833092,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,11,9,12,9,"Strategic move to (12, 9)"
+2025-08-25T23:25:58.935185,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:25:58.978795,Polska,AL_Batalion__3_Pu_k_Artylerii,full_move,16,19,19,19,"Strategic move to (19, 19)"
+2025-08-25T23:25:59.251809,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:25:59.273603,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,44,-15,43,-14,"Strategic move to [43, -14]"
+2025-08-25T23:25:59.274609,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,44,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:25:59.275955,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:25:59.380259,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:25:59.411239,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,full_move,33,3,39,0,"Strategic move to [39, 0]"
+2025-08-25T23:25:59.414632,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,33,3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:59.451567,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,partial_move,40,0,41,-1,"Strategic move to (39, -1)"
+2025-08-25T23:25:59.452570,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,40,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:59.454969,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,40,-1,40,0,"Strategic move to (40, 0)"
+2025-08-25T23:25:59.454969,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,40,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:59.454969,Niemcy,P_Pluton__6_Grenadier_Bataillon,full_move,43,-4,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:25:59.454969,Niemcy,P_Pluton__6_Grenadier_Bataillon,tactical_move,43,-4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:25:59.462359,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 4/17 units moved
+2025-08-25T23:30:43.918092,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:30:43.955698,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,6,9,11,9,"Strategic move to (11, 9)"
+2025-08-25T23:30:43.955698,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,6,9,11,9,AUTONOMOUS mission
+2025-08-25T23:30:43.961703,Polska,P_Pluton__2_Batalion_Strzelc_w,full_move,9,-4,6,-1,"Strategic move to (6, -1)"
+2025-08-25T23:30:43.963256,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,9,-4,6,-1,AUTONOMOUS mission
+2025-08-25T23:30:43.973621,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,full_move,16,0,16,5,"Strategic move to (16, 5)"
+2025-08-25T23:30:43.973621,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,0,16,5,AUTONOMOUS mission
+2025-08-25T23:30:43.988216,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,full_move,18,-2,22,-6,"Strategic move to (22, -6)"
+2025-08-25T23:30:43.988216,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,tactical_move,18,-2,22,-6,AUTONOMOUS mission
+2025-08-25T23:30:43.994059,Polska,P_Kompania__2_Batalion_Strzelc_w,full_move,20,-8,16,-8,"Strategic move to (16, -8)"
+2025-08-25T23:30:43.995091,Polska,P_Kompania__2_Batalion_Strzelc_w,tactical_move,20,-8,16,-8,AUTONOMOUS mission
+2025-08-25T23:30:44.006440,Polska,P_Pluton__2_Pu_k_Piechoty,full_move,21,3,25,3,"Strategic move to (25, 3)"
+2025-08-25T23:30:44.006440,Polska,P_Pluton__2_Pu_k_Piechoty,tactical_move,21,3,25,3,AUTONOMOUS mission
+2025-08-25T23:30:44.024842,Polska,AL_Batalion__2_Pu_k_Artylerii,full_move,8,-3,13,-3,"Strategic move to (13, -3)"
+2025-08-25T23:30:44.024842,Polska,AL_Batalion__2_Pu_k_Artylerii,tactical_move,8,-3,13,-3,AUTONOMOUS mission
+2025-08-25T23:30:44.043922,Polska,TL_Pluton__2_Pluton_Tankietek,full_move,9,-3,9,1,"Strategic move to (9, 1)"
+2025-08-25T23:30:44.043922,Polska,TL_Pluton__2_Pluton_Tankietek,tactical_move,9,-3,9,1,AUTONOMOUS mission
+2025-08-25T23:30:44.055860,Polska,P_Kompania__2_Pu_k_Piechoty,full_move,11,-1,7,-1,"Strategic move to (7, -1)"
+2025-08-25T23:30:44.055860,Polska,P_Kompania__2_Pu_k_Piechoty,tactical_move,11,-1,7,-1,AUTONOMOUS mission
+2025-08-25T23:30:44.062147,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,full_move,20,3,24,3,"Strategic move to (24, 3)"
+2025-08-25T23:30:44.063893,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,tactical_move,20,3,24,3,AUTONOMOUS mission
+2025-08-25T23:30:44.073962,Polska,AL_Pluton__2_Bateria_Artylerii,full_move,17,-1,22,-1,"Strategic move to (22, -1)"
+2025-08-25T23:30:44.073962,Polska,AL_Pluton__2_Bateria_Artylerii,tactical_move,17,-1,22,-1,AUTONOMOUS mission
+2025-08-25T23:30:44.088482,Polska,P_Batalion__2_Pu_k_Piechoty,full_move,23,-3,27,-3,"Strategic move to (27, -3)"
+2025-08-25T23:30:44.089484,Polska,P_Batalion__2_Pu_k_Piechoty,tactical_move,23,-3,27,-3,AUTONOMOUS mission
+2025-08-25T23:30:44.102347,Polska,TL_Kompania__2_Pluton_Tankietek,full_move,23,-7,23,-2,"Strategic move to (23, -2)"
+2025-08-25T23:30:44.102347,Polska,TL_Kompania__2_Pluton_Tankietek,tactical_move,23,-7,23,-2,AUTONOMOUS mission
+2025-08-25T23:30:44.105870,Polska,P_Batalion__2_Batalion_Strzelc_w,full_move,24,-8,29,-8,"Strategic move to (29, -8)"
+2025-08-25T23:30:44.105870,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,24,-8,29,-8,AUTONOMOUS mission
+2025-08-25T23:30:44.121573,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,full_move,23,-8,23,-4,"Strategic move to (23, -4)"
+2025-08-25T23:30:44.122582,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,tactical_move,23,-8,23,-4,AUTONOMOUS mission
+2025-08-25T23:30:44.128683,Polska,P_Batalion__2_Kompania_Grenadier_w,full_move,15,-7,19,-7,"Strategic move to (19, -7)"
+2025-08-25T23:30:44.130079,Polska,P_Batalion__2_Kompania_Grenadier_w,tactical_move,15,-7,19,-7,AUTONOMOUS mission
+2025-08-25T23:30:44.131686,Polska,TURN_END,turn_summary,,,,,Turn completed: 16/16 units moved
+2025-08-25T23:30:44.135844,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:30:44.144843,Polska,P_Batalion__3_Pu_k_Piechoty,full_move,13,15,9,19,"Strategic move to (9, 19)"
+2025-08-25T23:30:44.144843,Polska,P_Batalion__3_Pu_k_Piechoty,tactical_move,13,15,9,19,AUTONOMOUS mission
+2025-08-25T23:30:44.153570,Polska,AL_Batalion__3_Pu_k_Artylerii,full_move,16,19,19,19,"Strategic move to (19, 19)"
+2025-08-25T23:30:44.153570,Polska,AL_Batalion__3_Pu_k_Artylerii,tactical_move,16,19,19,19,AUTONOMOUS mission
+2025-08-25T23:30:44.162641,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,full_move,16,20,20,20,"Strategic move to (20, 20)"
+2025-08-25T23:30:44.163853,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,tactical_move,16,20,20,20,AUTONOMOUS mission
+2025-08-25T23:30:44.174181,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,full_move,19,14,24,14,"Strategic move to (24, 14)"
+2025-08-25T23:30:44.174181,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,19,14,24,14,AUTONOMOUS mission
+2025-08-25T23:30:44.178336,Polska,P_Batalion__3_Batalion_Strzelc_w,full_move,20,13,25,13,"Strategic move to (25, 13)"
+2025-08-25T23:30:44.179346,Polska,P_Batalion__3_Batalion_Strzelc_w,tactical_move,20,13,25,13,AUTONOMOUS mission
+2025-08-25T23:30:44.186267,Polska,P_Kompania__3_Batalion_Strzelc_w,full_move,20,14,22,14,"Strategic move to (22, 14)"
+2025-08-25T23:30:44.186267,Polska,P_Kompania__3_Batalion_Strzelc_w,tactical_move,20,14,22,14,AUTONOMOUS mission
+2025-08-25T23:30:44.192687,Polska,K_Batalion__3_Oddzia_Jazdy,full_move,21,18,21,22,"Strategic move to (21, 22)"
+2025-08-25T23:30:44.192687,Polska,K_Batalion__3_Oddzia_Jazdy,tactical_move,21,18,21,22,AUTONOMOUS mission
+2025-08-25T23:30:44.207566,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,full_move,23,17,18,17,"Strategic move to (18, 17)"
+2025-08-25T23:30:44.208564,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,tactical_move,23,17,18,17,AUTONOMOUS mission
+2025-08-25T23:30:44.219227,Polska,P_Pluton__3_Pu_k_Piechoty,full_move,24,16,20,16,"Strategic move to (20, 16)"
+2025-08-25T23:30:44.220453,Polska,P_Pluton__3_Pu_k_Piechoty,tactical_move,24,16,20,16,AUTONOMOUS mission
+2025-08-25T23:30:44.221261,Polska,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:30:44.234272,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:30:44.253780,Niemcy,K_Batalion__5_Kawaleria_Einheit,full_move,43,-15,44,-14,"Strategic move to (44, -14)"
+2025-08-25T23:30:44.253780,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,44,-14,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.256141,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,full_move,43,-14,43,-15,"Strategic move to (43, -15)"
+2025-08-25T23:30:44.257151,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.258192,Niemcy,TL_Kompania__5_Panzer_Zug,full_move,44,-15,42,-13,"Strategic move to (42, -13)"
+2025-08-25T23:30:44.261613,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.266228,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,45,-17,44,-15,"Strategic move to (44, -15)"
+2025-08-25T23:30:44.268459,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.274238,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 4/9 units moved
+2025-08-25T23:30:44.276002,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:30:44.336914,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,full_move,39,-1,40,0,"Strategic move to (40, 0)"
+2025-08-25T23:30:44.336914,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.339059,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,39,0,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:30:44.339059,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.378030,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 2/17 units moved
+2025-08-25T23:30:44.390791,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:30:44.392934,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,11,9,12,9,"Strategic move to (12, 9)"
+2025-08-25T23:30:44.393963,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,11,9,12,9,AUTONOMOUS mission
+2025-08-25T23:30:44.402167,Polska,P_Batalion__2_Batalion_Strzelc_w,full_move,29,-8,30,-8,"Strategic move to (30, -8)"
+2025-08-25T23:30:44.403216,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,29,-8,30,-8,AUTONOMOUS mission
+2025-08-25T23:30:44.405090,Polska,TURN_END,turn_summary,,,,,Turn completed: 2/16 units moved
+2025-08-25T23:30:44.406086,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:30:44.414826,Polska,P_Batalion__3_Batalion_Strzelc_w,full_move,25,13,27,13,"Strategic move to (27, 13)"
+2025-08-25T23:30:44.416591,Polska,P_Batalion__3_Batalion_Strzelc_w,tactical_move,25,13,27,13,AUTONOMOUS mission
+2025-08-25T23:30:44.420304,Polska,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:30:44.430356,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:30:44.443750,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,44,-15,43,-14,"Strategic move to [43, -14]"
+2025-08-25T23:30:44.443750,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,44,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.457908,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:30:44.457908,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:30:44.464327,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,full_move,33,3,39,0,"Strategic move to [39, 0]"
+2025-08-25T23:30:44.466759,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,33,3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.514695,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,40,-1,39,-1,"Strategic move to (39, -1)"
+2025-08-25T23:30:44.516497,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,40,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.522633,Niemcy,P_Pluton__6_Grenadier_Bataillon,full_move,43,-4,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:30:44.523671,Niemcy,P_Pluton__6_Grenadier_Bataillon,tactical_move,43,-4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:30:44.556951,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 3/17 units moved
+2025-08-25T23:33:32.571384,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:33:32.616402,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,6,9,11,9,"Strategic move to (11, 9)"
+2025-08-25T23:33:32.616402,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,6,9,11,9,AUTONOMOUS mission
+2025-08-25T23:33:32.797707,Polska,P_Pluton__2_Batalion_Strzelc_w,full_move,9,-4,6,-1,"Strategic move to (6, -1)"
+2025-08-25T23:33:32.798528,Polska,P_Pluton__2_Batalion_Strzelc_w,tactical_move,9,-4,6,-1,AUTONOMOUS mission
+2025-08-25T23:33:32.809744,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,full_move,16,0,16,5,"Strategic move to (16, 5)"
+2025-08-25T23:33:32.810747,Polska,TL_Pluton__2_Pluton_Tankietek_20250703213014,tactical_move,16,0,16,5,AUTONOMOUS mission
+2025-08-25T23:33:32.859311,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,full_move,18,-2,22,-6,"Strategic move to (22, -6)"
+2025-08-25T23:33:32.860404,Polska,P_Pluton__2_Pu_k_Piechoty_20250703213008,tactical_move,18,-2,22,-6,AUTONOMOUS mission
+2025-08-25T23:33:32.868905,Polska,P_Kompania__2_Batalion_Strzelc_w,full_move,20,-8,16,-8,"Strategic move to (16, -8)"
+2025-08-25T23:33:32.868905,Polska,P_Kompania__2_Batalion_Strzelc_w,tactical_move,20,-8,16,-8,AUTONOMOUS mission
+2025-08-25T23:33:32.878925,Polska,P_Pluton__2_Pu_k_Piechoty,full_move,21,3,25,3,"Strategic move to (25, 3)"
+2025-08-25T23:33:32.878925,Polska,P_Pluton__2_Pu_k_Piechoty,tactical_move,21,3,25,3,AUTONOMOUS mission
+2025-08-25T23:33:32.894561,Polska,AL_Batalion__2_Pu_k_Artylerii,full_move,8,-3,13,-3,"Strategic move to (13, -3)"
+2025-08-25T23:33:32.895572,Polska,AL_Batalion__2_Pu_k_Artylerii,tactical_move,8,-3,13,-3,AUTONOMOUS mission
+2025-08-25T23:33:32.911553,Polska,TL_Pluton__2_Pluton_Tankietek,full_move,9,-3,9,1,"Strategic move to (9, 1)"
+2025-08-25T23:33:32.911553,Polska,TL_Pluton__2_Pluton_Tankietek,tactical_move,9,-3,9,1,AUTONOMOUS mission
+2025-08-25T23:33:32.923752,Polska,P_Kompania__2_Pu_k_Piechoty,full_move,11,-1,7,-1,"Strategic move to (7, -1)"
+2025-08-25T23:33:32.924805,Polska,P_Kompania__2_Pu_k_Piechoty,tactical_move,11,-1,7,-1,AUTONOMOUS mission
+2025-08-25T23:33:32.930755,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,full_move,20,3,24,3,"Strategic move to (24, 3)"
+2025-08-25T23:33:32.931768,Polska,P_Batalion__2_Kompania_Grenadier_w_20250703213005,tactical_move,20,3,24,3,AUTONOMOUS mission
+2025-08-25T23:33:32.945305,Polska,AL_Pluton__2_Bateria_Artylerii,full_move,17,-1,22,-1,"Strategic move to (22, -1)"
+2025-08-25T23:33:32.945305,Polska,AL_Pluton__2_Bateria_Artylerii,tactical_move,17,-1,22,-1,AUTONOMOUS mission
+2025-08-25T23:33:32.954130,Polska,P_Batalion__2_Pu_k_Piechoty,full_move,23,-3,27,-3,"Strategic move to (27, -3)"
+2025-08-25T23:33:32.958340,Polska,P_Batalion__2_Pu_k_Piechoty,tactical_move,23,-3,27,-3,AUTONOMOUS mission
+2025-08-25T23:33:32.970492,Polska,TL_Kompania__2_Pluton_Tankietek,full_move,23,-7,23,-2,"Strategic move to (23, -2)"
+2025-08-25T23:33:32.972497,Polska,TL_Kompania__2_Pluton_Tankietek,tactical_move,23,-7,23,-2,AUTONOMOUS mission
+2025-08-25T23:33:32.979191,Polska,P_Batalion__2_Batalion_Strzelc_w,full_move,24,-8,29,-8,"Strategic move to (29, -8)"
+2025-08-25T23:33:32.982041,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,24,-8,29,-8,AUTONOMOUS mission
+2025-08-25T23:33:32.992228,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,full_move,23,-8,23,-4,"Strategic move to (23, -4)"
+2025-08-25T23:33:32.992228,Polska,P_Kompania__2_Batalion_Strzelc_w_20250703213012,tactical_move,23,-8,23,-4,AUTONOMOUS mission
+2025-08-25T23:33:33.003178,Polska,P_Batalion__2_Kompania_Grenadier_w,full_move,15,-7,19,-7,"Strategic move to (19, -7)"
+2025-08-25T23:33:33.004641,Polska,P_Batalion__2_Kompania_Grenadier_w,tactical_move,15,-7,19,-7,AUTONOMOUS mission
+2025-08-25T23:33:33.004641,Polska,TURN_END,turn_summary,,,,,Turn completed: 16/16 units moved
+2025-08-25T23:33:33.006454,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:33:33.019921,Polska,P_Batalion__3_Pu_k_Piechoty,full_move,13,15,9,19,"Strategic move to (9, 19)"
+2025-08-25T23:33:33.019921,Polska,P_Batalion__3_Pu_k_Piechoty,tactical_move,13,15,9,19,AUTONOMOUS mission
+2025-08-25T23:33:33.025633,Polska,AL_Batalion__3_Pu_k_Artylerii,full_move,16,19,19,19,"Strategic move to (19, 19)"
+2025-08-25T23:33:33.025633,Polska,AL_Batalion__3_Pu_k_Artylerii,tactical_move,16,19,19,19,AUTONOMOUS mission
+2025-08-25T23:33:33.038015,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,full_move,16,20,20,20,"Strategic move to (20, 20)"
+2025-08-25T23:33:33.038015,Polska,Z_Pluton__3_Kompania_Zaopatrzeniowa,tactical_move,16,20,20,20,AUTONOMOUS mission
+2025-08-25T23:33:33.044796,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,full_move,19,14,24,14,"Strategic move to (24, 14)"
+2025-08-25T23:33:33.045824,Polska,TS_Kompania__3_Sam_Pancerny_Einheit,tactical_move,19,14,24,14,AUTONOMOUS mission
+2025-08-25T23:33:33.055760,Polska,P_Batalion__3_Batalion_Strzelc_w,full_move,20,13,25,13,"Strategic move to (25, 13)"
+2025-08-25T23:33:33.055760,Polska,P_Batalion__3_Batalion_Strzelc_w,tactical_move,20,13,25,13,AUTONOMOUS mission
+2025-08-25T23:33:33.059762,Polska,P_Kompania__3_Batalion_Strzelc_w,full_move,20,14,22,14,"Strategic move to (22, 14)"
+2025-08-25T23:33:33.061095,Polska,P_Kompania__3_Batalion_Strzelc_w,tactical_move,20,14,22,14,AUTONOMOUS mission
+2025-08-25T23:33:33.068844,Polska,K_Batalion__3_Oddzia_Jazdy,full_move,21,18,21,22,"Strategic move to (21, 22)"
+2025-08-25T23:33:33.070636,Polska,K_Batalion__3_Oddzia_Jazdy,tactical_move,21,18,21,22,AUTONOMOUS mission
+2025-08-25T23:33:33.085646,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,full_move,23,17,18,17,"Strategic move to (18, 17)"
+2025-08-25T23:33:33.085646,Polska,TL_Batalion__3_Kompania_Czo_g_w_Lekkich,tactical_move,23,17,18,17,AUTONOMOUS mission
+2025-08-25T23:33:33.095737,Polska,P_Pluton__3_Pu_k_Piechoty,full_move,24,16,20,16,"Strategic move to (20, 16)"
+2025-08-25T23:33:33.095737,Polska,P_Pluton__3_Pu_k_Piechoty,tactical_move,24,16,20,16,AUTONOMOUS mission
+2025-08-25T23:33:33.096877,Polska,TURN_END,turn_summary,,,,,Turn completed: 9/9 units moved
+2025-08-25T23:33:33.108652,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:33:33.125847,Niemcy,K_Batalion__5_Kawaleria_Einheit,full_move,43,-15,44,-14,"Strategic move to (44, -14)"
+2025-08-25T23:33:33.126889,Niemcy,K_Batalion__5_Kawaleria_Einheit,tactical_move,43,-15,44,-14,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.126889,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,full_move,43,-14,43,-15,"Strategic move to (43, -15)"
+2025-08-25T23:33:33.129773,Niemcy,P_Kompania__5_Sch_tzen_Kompanie,tactical_move,43,-14,43,-15,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.137164,Niemcy,TL_Kompania__5_Panzer_Zug,full_move,44,-15,42,-13,"Strategic move to (42, -13)"
+2025-08-25T23:33:33.137164,Niemcy,TL_Kompania__5_Panzer_Zug,tactical_move,44,-15,42,-13,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.140361,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,45,-17,44,-15,"Strategic move to (44, -15)"
+2025-08-25T23:33:33.140361,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,45,-17,44,-15,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.147241,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 4/9 units moved
+2025-08-25T23:33:33.148239,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:33:33.208539,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,full_move,39,-1,40,0,"Strategic move to (40, 0)"
+2025-08-25T23:33:33.208539,Niemcy,TL_Pluton__6_Panzer_Zug_20250703213840,tactical_move,39,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.217033,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,39,0,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:33:33.219258,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,39,0,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.258224,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 2/17 units moved
+2025-08-25T23:33:33.271385,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 2
+2025-08-25T23:33:33.274464,Polska,AL_Kompania__2_Dywizjon_Artylerii,full_move,11,9,12,9,"Strategic move to (12, 9)"
+2025-08-25T23:33:33.274464,Polska,AL_Kompania__2_Dywizjon_Artylerii,tactical_move,11,9,12,9,AUTONOMOUS mission
+2025-08-25T23:33:33.275479,Polska,P_Batalion__2_Batalion_Strzelc_w,full_move,29,-8,30,-8,"Strategic move to (30, -8)"
+2025-08-25T23:33:33.275479,Polska,P_Batalion__2_Batalion_Strzelc_w,tactical_move,29,-8,30,-8,AUTONOMOUS mission
+2025-08-25T23:33:33.280685,Polska,TURN_END,turn_summary,,,,,Turn completed: 2/16 units moved
+2025-08-25T23:33:33.281010,Polska,TURN_START,turn_begin,,,,,AI Commander turn started for player 3
+2025-08-25T23:33:33.294281,Polska,P_Batalion__3_Batalion_Strzelc_w,full_move,25,13,27,13,"Strategic move to (27, 13)"
+2025-08-25T23:33:33.295296,Polska,P_Batalion__3_Batalion_Strzelc_w,tactical_move,25,13,27,13,AUTONOMOUS mission
+2025-08-25T23:33:33.296299,Polska,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:33:33.312716,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 5
+2025-08-25T23:33:33.331098,Niemcy,P_Pluton__5_Infanterie_Regiment,full_move,44,-15,43,-14,"Strategic move to [43, -14]"
+2025-08-25T23:33:33.331098,Niemcy,P_Pluton__5_Infanterie_Regiment,tactical_move,44,-15,43,-14,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.342892,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 1/9 units moved
+2025-08-25T23:33:33.343891,Niemcy,TURN_START,turn_begin,,,,,AI Commander turn started for player 6
+2025-08-25T23:33:33.347635,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,full_move,33,3,39,0,"Strategic move to [39, 0]"
+2025-08-25T23:33:33.348647,Niemcy,P_Pluton__6_Sch_tzen_Kompanie_20250703213844,tactical_move,33,3,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.400397,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,full_move,40,-1,39,-1,"Strategic move to (39, -1)"
+2025-08-25T23:33:33.402402,Niemcy,P_Kompania__6_Sch_tzen_Kompanie_20250703213836,tactical_move,40,-1,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.407639,Niemcy,P_Pluton__6_Grenadier_Bataillon,full_move,43,-4,40,-1,"Strategic move to (40, -1)"
+2025-08-25T23:33:33.408677,Niemcy,P_Pluton__6_Grenadier_Bataillon,tactical_move,43,-4,39,0,SECURE_KEYPOINT mission
+2025-08-25T23:33:33.441735,Niemcy,TURN_END,turn_summary,,,,,Turn completed: 3/17 units moved

@@ -1,0 +1,2 @@
+timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
+2025-08-25T23:33:33.264421,,Polska,HOLD,econ<MIN_BUY,0.0,0.1,0,0,Za mało punktów – oszczędzam | Faza: BUILD (rozbudowa armii),"{""units"": 0, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

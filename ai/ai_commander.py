@@ -97,6 +97,161 @@ def get_my_units(game_engine, player_id=None):
     return units
 
 
+def ai_attempt_combat(unit, game_engine, player_id, player_nation="Unknown"):
+    """Sprawdź czy jednostka może zaatakować wroga i wykonaj atak"""
+    try:
+        # Znajdź wrogów w zasięgu
+        enemies = find_enemies_in_range(unit, game_engine, player_id)
+        if not enemies:
+            return False
+        
+        # Wybierz najlepszy cel (najwyższy combat ratio)
+        best_enemy = None
+        best_ratio = 0
+        
+        for enemy in enemies:
+            ratio = evaluate_combat_ratio(unit, enemy)
+            if ratio > best_ratio and ratio >= 1.3:  # Minimalne ratio dla ataku
+                best_ratio = ratio
+                best_enemy = enemy
+        
+        if best_enemy:
+            print(f"🎯 [COMBAT] {unit.get('id')} atakuje {best_enemy.get('id')} (ratio: {best_ratio:.2f})")
+            return execute_ai_combat(unit, best_enemy, game_engine, player_nation)
+        
+        return False
+    except Exception as e:
+        print(f"❌ [COMBAT] Błąd podczas sprawdzania ataku: {e}")
+        return False
+
+
+def find_enemies_in_range(unit, game_engine, player_id):
+    """Znajdź wszystkich wrogów w zasięgu ataku jednostki"""
+    try:
+        enemies = []
+        my_owner = f"{player_id} ({get_player_nation(game_engine, player_id)})"
+        
+        # Pobierz zasięg ataku
+        unit_token = unit.get('token')
+        if not unit_token:
+            return enemies
+            
+        attack_range = unit_token.stats.get('attack', {}).get('range', 1)
+        unit_pos = (unit['q'], unit['r'])
+        
+        # Sprawdź wszystkie żetony
+        all_tokens = getattr(game_engine, 'tokens', [])
+        for token in all_tokens:
+            # Pomiń własne żetony
+            if getattr(token, 'owner', '') == my_owner:
+                continue
+            
+            # Sprawdź dystans
+            enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+            board = getattr(game_engine, 'board', None)
+            if board:
+                distance = board.hex_distance(unit_pos, enemy_pos)
+                if distance <= attack_range:
+                    enemies.append({
+                        'token': token,
+                        'id': getattr(token, 'id', 'unknown'),
+                        'q': enemy_pos[0],
+                        'r': enemy_pos[1],
+                        'cv': getattr(token, 'combat_value', 0),
+                        'distance': distance
+                    })
+        
+        return enemies
+    except Exception as e:
+        print(f"❌ [COMBAT] Błąd wyszukiwania wrogów: {e}")
+        return []
+
+
+def evaluate_combat_ratio(unit, enemy):
+    """Oblicz stosunek sił ataku vs obrony"""
+    try:
+        unit_token = unit.get('token')
+        enemy_token = enemy.get('token')
+        
+        if not unit_token or not enemy_token:
+            return 0
+        
+        # Siła ataku
+        attack_value = unit_token.stats.get('attack', {}).get('value', 0)
+        
+        # Siła obrony wroga (defense + terrain)
+        defense_value = enemy_token.stats.get('defense_value', 0)
+        
+        # Modyfikator terenu (uproszczony)
+        board = getattr(unit_token, 'board', None)
+        terrain_mod = 0
+        if hasattr(board, 'get_tile'):
+            tile = board.get_tile(enemy['q'], enemy['r'])
+            terrain_mod = getattr(tile, 'defense_mod', 0) if tile else 0
+        
+        total_defense = defense_value + terrain_mod
+        
+        # Ratio: atak / obrona
+        if total_defense <= 0:
+            return 999  # Wróg bez obrony
+        
+        ratio = attack_value / total_defense
+        return ratio
+        
+    except Exception as e:
+        print(f"❌ [COMBAT] Błąd obliczania ratio: {e}")
+        return 0
+
+
+def execute_ai_combat(unit, enemy, game_engine, player_nation="Unknown"):
+    """Wykonaj atak używając CombatAction"""
+    try:
+        unit_token = unit.get('token')
+        enemy_token = enemy.get('token')
+        
+        if not unit_token or not enemy_token:
+            return False
+        
+        # Import CombatAction
+        from engine.action_refactored_clean import CombatAction
+        
+        # Wykonaj atak
+        action = CombatAction(unit_token.id, enemy_token.id)
+        result = game_engine.execute_action(action)
+        
+        if result.success:
+            print(f"⚔️ [COMBAT] Sukces: {result.message}")
+            
+            # Loguj atak
+            log_commander_action(
+                unit_id=unit.get('id', 'unknown'),
+                action_type="combat",
+                from_pos=(unit['q'], unit['r']),
+                to_pos=(enemy['q'], enemy['r']),
+                reason=f"Attack enemy {enemy.get('id', 'unknown')}",
+                player_nation=player_nation
+            )
+            return True
+        else:
+            print(f"❌ [COMBAT] Błąd: {result.message}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ [COMBAT] Błąd wykonania ataku: {e}")
+        return False
+
+
+def get_player_nation(game_engine, player_id):
+    """Pobierz nazwę narodu gracza"""
+    try:
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        if current_player and getattr(current_player, 'id', None) == player_id:
+            return getattr(current_player, 'nation', 'Unknown')
+        return 'Unknown'
+    except:
+        return 'Unknown'
+
+
 def can_move(unit):
     """Sprawdź czy jednostka może się ruszyć"""
     mp = unit.get('mp', 0)
@@ -209,9 +364,62 @@ def find_target(unit, game_engine):
     return best_target
 
 
+def find_alternative_target_around(unit, base_target, game_engine, search_radius=3):
+    """Znajdź alternatywny cel wokół base_target jeśli ten jest zajęty"""
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        return base_target
+    
+    unit_pos = (unit['q'], unit['r'])
+    base_q, base_r = base_target[0], base_target[1]
+    
+    # Sprawdź czy base_target jest wolny
+    if not board.is_occupied(base_q, base_r):
+        return base_target
+    
+    # Znajdź najbliższy wolny hex w promieniu
+    best_alternative = None
+    best_distance = 999
+    
+    for radius in range(1, search_radius + 1):
+        # Sprawdź heksy w kolejnych pierścieniach
+        for dq in range(-radius, radius + 1):
+            for dr in range(-radius, radius + 1):
+                if abs(dq + dr) > radius:
+                    continue
+                
+                candidate = (base_q + dq, base_r + dr)
+                
+                # Sprawdź czy hex jest wolny
+                if board.is_occupied(candidate[0], candidate[1]):
+                    continue
+                
+                # Sprawdź czy hex jest osiągalny
+                path = board.find_path(unit_pos, candidate, max_mp=unit.get('mp', 1), max_fuel=unit.get('fuel', 1))
+                if not path or len(path) < 2:
+                    continue
+                
+                # Oblicz dystans od base_target
+                distance = abs(candidate[0] - base_q) + abs(candidate[1] - base_r)
+                if distance < best_distance:
+                    best_alternative = candidate
+                    best_distance = distance
+        
+        # Jeśli znaleziono w tym promieniu - użyj (najbliżej base_target)
+        if best_alternative:
+            break
+    
+    if best_alternative:
+        print(f"[FORMATION] {unit.get('id')}: Cel {base_target} zajęty -> alternatywa {best_alternative}")
+        return best_alternative
+    else:
+        print(f"[FORMATION] {unit.get('id')}: Brak wolnych miejsc wokół {base_target}")
+        return base_target
+
+
 def execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_index, total_units):
     """
-    Wykonuje różne taktyki w zależności od typu misji.
+    Wykonuje różne taktyki w zależności od typu misji z ulepszoną formation coordination.
     
     Args:
         unit: Słownik z danymi jednostki
@@ -249,89 +457,247 @@ def execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_i
                 base_r + direction[1] * spread_distance
             )
             
-            # Sprawdź czy cel jest osiągalny
-            path = board.find_path(unit_pos, spread_target, max_mp=unit.get('mp', 1))
-            if path and len(path) > 1:
-                print(f"[TACTIC] INTEL: Jednostka {unit.get('id')} -> rozproszenie {spread_target}")
-                return spread_target
-            else:
-                print(f"[TACTIC] INTEL: Fallback do base_target {base_target}")
-                return base_target
+            # Znajdź alternatywę jeśli cel zajęty
+            final_target = find_alternative_target_around(unit, spread_target, game_engine)
+            print(f"[TACTIC] INTEL: Jednostka {unit.get('id')} -> rozproszenie {final_target}")
+            return final_target
                 
         elif mission_type == "DEFEND_KEYPOINTS":
-            # OBRONA: Pozycje obronne wokół celu
-            defense_positions = [
-                (-2, -1), (-1, -2), (1, -1), (2, 1), (1, 2), (-1, 1)  # Wokół celu
-            ]
+            # OBRONA: Pozycje obronne wokół celu - lepsze rozprowadzenie
+            defense_radius = [2, 3, 2, 3, 2, 3]  # Zmienny promień
+            defense_angles = [0, 60, 120, 180, 240, 300]  # Kąty w stopniach
             
-            if unit_index < len(defense_positions):
-                offset = defense_positions[unit_index]
-                defense_target = (base_q + offset[0], base_r + offset[1])
+            if unit_index < len(defense_angles):
+                radius = defense_radius[unit_index % len(defense_radius)]
+                angle = defense_angles[unit_index]
                 
-                # Sprawdź dostępność
-                path = board.find_path(unit_pos, defense_target, max_mp=unit.get('mp', 1))
-                if path and len(path) > 1:
-                    print(f"[TACTIC] DEFEND: Jednostka {unit.get('id')} -> pozycja obronna {defense_target}")
-                    return defense_target
+                # Konwersja kąt -> hex offset (uproszczona)
+                import math
+                rad = math.radians(angle)
+                offset_q = int(round(radius * math.cos(rad)))
+                offset_r = int(round(radius * math.sin(rad)))
+                
+                defense_target = (base_q + offset_q, base_r + offset_r)
+                
+                # Znajdź alternatywę jeśli zajęty
+                final_target = find_alternative_target_around(unit, defense_target, game_engine)
+                print(f"[TACTIC] DEFEND: Jednostka {unit.get('id')} -> pozycja obronna {final_target}")
+                return final_target
             
-            print(f"[TACTIC] DEFEND: Fallback do base_target {base_target}")
-            return base_target
+            return find_alternative_target_around(unit, base_target, game_engine)
             
         elif mission_type == "ATTACK_ENEMY_VP":
-            # ATAK: Koncentracja siły, fast units pierwszy
+            # ATAK: Skoordynowane natarcie - formacja bojowa
             unit_speed = unit.get('mp', 1)
             unit_fuel = unit.get('fuel', 1)
             mobility = unit_speed + unit_fuel
             
-            # Fast units (mobilność > 8) idą bezpośrednio do celu
-            # Slow units (mobilność <= 8) formują się 2 hexy za fast units
+            # Fast units tworzą spearhead, slow units wspierają
             if mobility > 8:
-                print(f"[TACTIC] ATTACK: Fast unit {unit.get('id')} -> bezpośredni atak {base_target}")
-                return base_target
-            else:
-                # Slow units - pozycja wspierająca 2 hexy za celem
-                support_target = (base_q - 2, base_r - 1)
-                
-                path = board.find_path(unit_pos, support_target, max_mp=unit.get('mp', 1))
-                if path and len(path) > 1:
-                    print(f"[TACTIC] ATTACK: Slow unit {unit.get('id')} -> wsparcie {support_target}")
-                    return support_target
+                # Fast units - 2 pierwsze idą do celu, reszta na flanki
+                if unit_index < 2:
+                    final_target = find_alternative_target_around(unit, base_target, game_engine, search_radius=2)
+                    print(f"[TACTIC] ATTACK: Fast spearhead {unit.get('id')} -> {final_target}")
+                    return final_target
                 else:
-                    print(f"[TACTIC] ATTACK: Slow unit fallback {base_target}")
-                    return base_target
+                    # Fast flankers
+                    flank_offsets = [(-2, 1), (2, 1), (-1, 2), (1, 2)]
+                    offset_idx = (unit_index - 2) % len(flank_offsets)
+                    offset = flank_offsets[offset_idx]
+                    flank_target = (base_q + offset[0], base_r + offset[1])
+                    
+                    final_target = find_alternative_target_around(unit, flank_target, game_engine)
+                    print(f"[TACTIC] ATTACK: Fast flanker {unit.get('id')} -> {final_target}")
+                    return final_target
+            else:
+                # Slow units - wsparcie z tyłu
+                support_offsets = [(-3, 0), (-2, -1), (-3, 1), (-2, 1)]
+                offset_idx = unit_index % len(support_offsets)
+                offset = support_offsets[offset_idx]
+                support_target = (base_q + offset[0], base_r + offset[1])
+                
+                final_target = find_alternative_target_around(unit, support_target, game_engine)
+                print(f"[TACTIC] ATTACK: Slow support {unit.get('id')} -> {final_target}")
+                return final_target
                     
         elif mission_type == "SECURE_KEYPOINT":
-            # ZABEZPIECZENIE: Agresywny ruch, formation attack
-            # Pierwsza jednostka idzie bezpośrednio, reszta formuje triangle
-            if unit_index == 0:
-                print(f"[TACTIC] SECURE: Lead unit {unit.get('id')} -> bezpośredni {base_target}")
-                return base_target
+            # ZABEZPIECZENIE: Ulepszona formacja pierścieniowa
+            if total_units == 1:
+                # Pojedyncza jednostka - bezpośrednio do celu
+                final_target = find_alternative_target_around(unit, base_target, game_engine)
+                print(f"[TACTIC] SECURE: Solo unit {unit.get('id')} -> {final_target}")
+                return final_target
+            
+            # Formacja pierścieniowa - lepsze rozprowadzenie
+            formation_patterns = [
+                # Pierścień 1 (blisko celu)
+                [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1), (-1, 1), (1, -1)],
+                # Pierścień 2 (dalej od celu)
+                [(-2, 0), (2, 0), (-1, -1), (1, 1), (-2, 1), (2, -1), (0, -2), (0, 2)]
+            ]
+            
+            # Wybierz pierścień na podstawie liczby jednostek
+            if total_units <= 7:
+                pattern = formation_patterns[0]
             else:
-                # Formation triangle - jednostki 1 hex za liderem
-                formation_offsets = [(-1, 0), (1, 0), (0, -1), (-1, 1), (1, -1)]
-                if unit_index - 1 < len(formation_offsets):
-                    offset = formation_offsets[unit_index - 1]
-                    formation_target = (base_q + offset[0], base_r + offset[1])
-                    
-                    path = board.find_path(unit_pos, formation_target, max_mp=unit.get('mp', 1))
-                    if path and len(path) > 1:
-                        print(f"[TACTIC] SECURE: Formation unit {unit.get('id')} -> {formation_target}")
-                        return formation_target
+                # Większe siły - użyj obu pierścieni
+                if unit_index < 7:
+                    pattern = formation_patterns[0]
+                else:
+                    pattern = formation_patterns[1]
+                    unit_index -= 7  # Przesun indeks dla drugiego pierścienia
+            
+            if unit_index < len(pattern):
+                offset = pattern[unit_index]
+                formation_target = (base_q + offset[0], base_r + offset[1])
                 
-                print(f"[TACTIC] SECURE: Formation fallback {base_target}")
-                return base_target
+                # Znajdź alternatywę jeśli zajęty
+                final_target = find_alternative_target_around(unit, formation_target, game_engine)
+                print(f"[TACTIC] SECURE: Formation unit {unit.get('id')} -> {final_target}")
+                return final_target
+            
+            # Overflow - znajdź dowolne miejsce wokół celu
+            final_target = find_alternative_target_around(unit, base_target, game_engine, search_radius=4)
+            print(f"[TACTIC] SECURE: Overflow unit {unit.get('id')} -> {final_target}")
+            return final_target
         else:
-            # UNKNOWN mission type - fallback do base_target
-            print(f"[TACTIC] UNKNOWN: {mission_type} -> fallback {base_target}")
-            return base_target
+            # UNKNOWN mission type - fallback z alternatywą
+            final_target = find_alternative_target_around(unit, base_target, game_engine)
+            print(f"[TACTIC] UNKNOWN: {mission_type} -> {final_target}")
+            return final_target
             
     except Exception as e:
         print(f"[TACTIC] ERROR: {e} -> fallback {base_target}")
         return base_target
 
 
+def calculate_progressive_target(unit, final_target, game_engine):
+    """
+    Oblicz optymalny cel pośredni dla jednostki która nie może dotrzeć do końcowego celu w jednej turze.
+    
+    Args:
+        unit: Słownik z danymi jednostki
+        final_target: Końcowy cel [q, r]  
+        game_engine: GameEngine
+        
+    Returns:
+        tuple: Najlepszy cel pośredni (q, r)
+    """
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        return final_target
+    
+    unit_pos = (unit['q'], unit['r'])
+    final_pos = tuple(final_target) if isinstance(final_target, list) else final_target
+    max_reach = min(unit['mp'], unit['fuel'])
+    
+    # Oblicz kierunek do celu
+    direction_q = 1 if final_pos[0] > unit_pos[0] else (-1 if final_pos[0] < unit_pos[0] else 0)
+    direction_r = 1 if final_pos[1] > unit_pos[1] else (-1 if final_pos[1] < unit_pos[1] else 0)
+    
+    # Sprawdź różne dystanse - od maksymalnego do minimalnego
+    for distance in range(max_reach, max(1, max_reach // 2), -1):
+        # Wypróbuj różne wariacje kierunku
+        candidates = [
+            # Bezpośredni kierunek
+            (unit_pos[0] + direction_q * distance, unit_pos[1] + direction_r * distance),
+            # Lekkie odchylenia dla uniknięcia przeszkód
+            (unit_pos[0] + direction_q * distance + 1, unit_pos[1] + direction_r * distance),
+            (unit_pos[0] + direction_q * distance - 1, unit_pos[1] + direction_r * distance),
+            (unit_pos[0] + direction_q * distance, unit_pos[1] + direction_r * distance + 1),
+            (unit_pos[0] + direction_q * distance, unit_pos[1] + direction_r * distance - 1),
+            # Alternatywne kierunki (45 stopni odchylenie)
+            (unit_pos[0] + distance, unit_pos[1]),
+            (unit_pos[0], unit_pos[1] + distance),
+            (unit_pos[0] - distance, unit_pos[1]),
+            (unit_pos[0], unit_pos[1] - distance),
+        ]
+        
+        best_candidate = None
+        best_progress = 0
+        
+        for candidate in candidates:
+            # Sprawdź czy możemy dotrzeć do kandydata
+            path = board.find_path(unit_pos, candidate, max_mp=max_reach, max_fuel=max_reach)
+            if not path or len(path) < 2:
+                continue
+            
+            # Oblicz postęp w kierunku końcowego celu
+            old_distance = board.hex_distance(unit_pos, final_pos)
+            new_distance = board.hex_distance(candidate, final_pos)
+            progress = old_distance - new_distance
+            
+            if progress > best_progress:
+                best_candidate = candidate
+                best_progress = progress
+        
+        if best_candidate:
+            print(f"[PROGRESSIVE] {unit.get('id')}: Postęp {best_progress} hexów w kierunku {final_pos}")
+            return best_candidate
+    
+    # Fallback - znajdź najbliższy osiągalny hex
+    for radius in range(1, max_reach + 1):
+        for dq in range(-radius, radius + 1):
+            for dr in range(-radius, radius + 1):
+                if abs(dq + dr) > radius:
+                    continue
+                
+                candidate = (unit_pos[0] + dq, unit_pos[1] + dr)
+                path = board.find_path(unit_pos, candidate, max_mp=max_reach, max_fuel=max_reach)
+                if path and len(path) > 1:
+                    print(f"[PROGRESSIVE] {unit.get('id')}: Fallback movement {candidate}")
+                    return candidate
+    
+    print(f"[PROGRESSIVE] {unit.get('id')}: Brak możliwości ruchu")
+    return unit_pos
+
+
+def group_units_by_proximity(units, max_group_distance=8):
+    """
+    Grupuj jednostki według bliskości geograficznej dla lepszego zarządzania formacjami.
+    
+    Args:
+        units: Lista jednostek
+        max_group_distance: Maksymalny dystans dla grupy
+        
+    Returns:
+        list: Lista grup jednostek
+    """
+    if not units:
+        return []
+    
+    groups = []
+    ungrouped = units.copy()
+    
+    while ungrouped:
+        # Rozpocznij nową grupę od pierwszej jednostki
+        leader = ungrouped.pop(0)
+        group = [leader]
+        leader_pos = (leader['q'], leader['r'])
+        
+        # Znajdź jednostki w pobliżu
+        remaining = []
+        for unit in ungrouped:
+            unit_pos = (unit['q'], unit['r'])
+            # Uproszczony hex distance
+            distance = abs(unit_pos[0] - leader_pos[0]) + abs(unit_pos[1] - leader_pos[1]) + abs((unit_pos[0] + unit_pos[1]) - (leader_pos[0] + leader_pos[1]))
+            distance = distance // 2
+            
+            if distance <= max_group_distance:
+                group.append(unit)
+            else:
+                remaining.append(unit)
+        
+        ungrouped = remaining
+        groups.append(group)
+        
+        print(f"[GROUPING] Grupa {len(groups)}: {len(group)} jednostek wokół {leader_pos}")
+    
+    return groups
+
+
 def move_towards(unit, target, game_engine):
-    """Wykonaj ruch w kierunku celu - PARTIAL JEŚLI TRZEBA"""
+    """Wykonaj ruch w kierunku celu - ULEPSZONA WERSJA z progressive movement"""
     
     print(f"[AI] Szukam ścieżki {unit['id']}: ({unit['q']},{unit['r']}) -> {target}")
     
@@ -340,33 +706,16 @@ def move_towards(unit, target, game_engine):
         print(f"[AI] Brak board w game_engine")
         return False
 
-    # Sprawdź czy cel nie jest zajęty
-    if board.is_occupied(target[0], target[1]):
-        print(f"[AI] UWAGA: Cel {target} jest zajęty przez inną jednostkę!")
-        # Spróbuj znaleźć sąsiedni hex
-        neighbors = board.neighbors(target[0], target[1])
-        for neighbor in neighbors:
-            if not board.is_occupied(neighbor[0], neighbor[1]):
-                print(f"[AI] Używam sąsiedniego hexu {neighbor} zamiast {target}")
-                target = neighbor
-                break
-        else:
-            print(f"[AI] Wszystkie sąsiednie hexy też zajęte - próbuję dalej z oryginalnym celem")
-
     unit_pos = (unit['q'], unit['r'])
     token = unit.get('token', None)
     
     # DEBUG: sprawdź token
-    print(f"[AI] DEBUG: unit dict keys: {list(unit.keys())}")
-    print(f"[AI] DEBUG: token type: {type(token)}, token value: {token}")
-    
     if token is None:
         print(f"[AI] Brak tokenu w unit dict")
         return False
     
     if isinstance(token, str):
         print(f"[AI] Token jest stringiem: {token} - próbuję znaleźć obiekt")
-        # Spróbuj znaleźć token w game_engine
         all_tokens = getattr(game_engine, 'tokens', [])
         for t in all_tokens:
             if getattr(t, 'id', None) == token:
@@ -375,120 +724,95 @@ def move_towards(unit, target, game_engine):
                 break
         else:
             print(f"[AI] Nie znaleziono obiektu tokenu dla id: {token}")
-            return False    # Znajdź ścieżkę Z LIMITEM MP
-    try:
-        # Pobierz visible_tokens gracza (jeśli dostępne)
-        current_player = getattr(game_engine, 'current_player_obj', None)
-        visible_token_ids = set()
-        if current_player and hasattr(current_player, 'visible_tokens'):
-            print(f"[AI] DEBUG: current_player.visible_tokens type: {type(current_player.visible_tokens)}")
-            
-            # DEBUG: Sprawdzamy typ obiektów w visible_tokens
-            if current_player.visible_tokens:
-                first_token = next(iter(current_player.visible_tokens))
-                print(f"[AI] DEBUG: Pierwszy visible_token type: {type(first_token)}")
-                if hasattr(first_token, 'id'):
-                    print(f"[AI] DEBUG: Ma atrybut 'id': {first_token.id}")
-                else:
-                    print(f"[AI] DEBUG: Brak atrybutu 'id', wartość: {first_token}")
-            
-            # Obsługujemy oba przypadki: stringi (ID) i Token objects
-            try:
-                if current_player.visible_tokens and hasattr(next(iter(current_player.visible_tokens)), 'id'):
-                    # Token objects - wyciągamy ID
-                    visible_token_ids = {t.id for t in current_player.visible_tokens}
-                    print(f"[AI] DEBUG: Converted Token objects to IDs, count: {len(visible_token_ids)}")
-                else:
-                    # String IDs - używamy bezpośrednio
-                    visible_token_ids = set(current_player.visible_tokens)
-                    print(f"[AI] DEBUG: Used string IDs directly, count: {len(visible_token_ids)}")
-            except Exception as e:
-                print(f"[AI] DEBUG: Błąd tworzenia visible_token_ids: {e}")
-                visible_token_ids = set()  # fallback do pustego zbioru
+            return False
+
+    # KONWERSJA TARGET
+    target_tuple = tuple(target) if isinstance(target, list) else target
+    print(f"[AI Pathfinding] Konwersja: {target} -> {target_tuple}")
+    
+    # SPRAWDZENIE REALNOŚCI CELU - hex distance calculation
+    hex_distance = board.hex_distance(unit_pos, target_tuple)
+    max_reach = min(unit['mp'], unit['fuel'])
+    
+    # PROGRESSIVE MOVEMENT - jeśli cel za daleko
+    if hex_distance > max_reach:
+        print(f"[AI Pathfinding] ⚠️ Cel za daleko! Dystans: {hex_distance}, Zasięg: {max_reach}")
+        print(f"[AI Pathfinding] Obliczam cel pośredni...")
+        
+        # Użyj progressive targeting
+        progressive_target = calculate_progressive_target(unit, target_tuple, game_engine)
+        if progressive_target != unit_pos:
+            target_tuple = progressive_target
+            print(f"[AI Pathfinding] ✅ Cel pośredni: {target_tuple}")
         else:
-            print(f"[AI] DEBUG: Brak visible_tokens dla current_player")
-        
-        print(f"[AI] DEBUG: Wywołuję board.find_path z args: unit_pos={unit_pos}, target={target}, max_mp={unit['mp']}, max_fuel={unit['fuel']}")
-        
-        # Próbuj pełną ścieżkę z fallback
-        path = board.find_path(
-            unit_pos, target,
-            max_mp=unit['mp'],
-            max_fuel=unit['fuel'],
-            visible_tokens=visible_token_ids,
-            fallback_to_closest=True
+            print(f"[AI Pathfinding] ❌ Brak możliwości ruchu")
+            return False
+
+    # PATHFINDING
+    try:
+        from engine.action_refactored_clean import PathfindingService
+        path = PathfindingService.find_movement_path(
+            game_engine, token, unit_pos, target_tuple, 
+            game_engine.current_player_obj
         )
+        print(f"[AI Pathfinding] Bazowa ścieżka: {path}")
         
-        print(f"[AI] Ścieżka z limitem (MP:{unit['mp']}, Fuel:{unit['fuel']}): {path}")
+        if not path or len(path) < 2:
+            print(f"[AI Pathfinding] ❌ Brak ścieżki!")
+            return False
         
-        # Sprawdź czy to pełna ścieżka czy częściowa
-        is_partial_path = False
-        if path and len(path) > 1:
-            # Sprawdź czy dotarliśmy do celu czy tylko się zbliżyliśmy
-            final_pos = path[-1]
-            if final_pos != target:
-                is_partial_path = True
-                print(f"[AI] Częściowa ścieżka do {final_pos} (cel: {target})")
+        # Sprawdź zasoby vs długość ścieżki
+        full_distance = len(path) - 1
+        max_steps = min(unit['mp'], unit['fuel'], full_distance)
         
-        # Jeśli nadal brak - spróbuj bez ograniczeń
-        if not path:
-            unlimited_path = board.find_path(
-                unit_pos, target, 
-                visible_tokens=visible_token_ids,
-                fallback_to_closest=True
-            )
-            print(f"[AI] Ścieżka bez limitu: {unlimited_path}")
+        if max_steps <= 0:
+            print(f"[AI Pathfinding] ❌ Brak zasobów (MP={unit['mp']}, Fuel={unit['fuel']})")
+            return False
+        
+        # Przytnij ścieżkę do dostępnych kroków
+        if max_steps < full_distance:
+            path = path[:max_steps + 1]
+            print(f"[AI Pathfinding] ⚠️ Częściowo ({max_steps}/{full_distance}): {path}")
+        else:
+            print(f"[AI Pathfinding] ✅ Pełna ścieżka ({full_distance}): {path}")
+        
+        target_hex = path[-1]
+        is_partial_path = (max_steps < full_distance)
+        
+        # COLLISION AVOIDANCE na końcowym hexie
+        if board.is_occupied(target_hex[0], target_hex[1]):
+            print(f"[AI Pathfinding] ⚠️ Końcowy hex {target_hex} zajęty - szukam sąsiedniego")
+            neighbors = board.neighbors(target_hex[0], target_hex[1])
             
-            if unlimited_path and len(unlimited_path) > 1:
-                # Weź tyle kroków ile masz MP
-                steps = min(unit['mp'], len(unlimited_path) - 1, 10)
-                path = unlimited_path[:steps + 1]
-                is_partial_path = True
-                print(f"[AI] Częściowa ścieżka ({steps} kroków): {path}")
+            for neighbor in neighbors:
+                if not board.is_occupied(neighbor[0], neighbor[1]):
+                    neighbor_distance = len(path) - 1 + 1
+                    if neighbor_distance <= max_steps:
+                        target_hex = neighbor
+                        print(f"[AI Pathfinding] ✅ Używam sąsiedniego hexu: {target_hex}")
+                        break
+            else:
+                print(f"[AI Pathfinding] ⚠️ Wszyscy sąsiedzi zajęci - próbuję oryginalny cel")
         
-        # Wykonaj ruch jeśli mamy ścieżkę
+        # WYKONAJ RUCH
         if path and len(path) > 1:
             from engine.action_refactored_clean import MoveAction
             
-            # MoveAction oczekuje token_id (string) i docelowe współrzędne
-            target_hex = path[-1]  # Ostatni hex w ścieżce
-            
-            # DEBUG: sprawdź typ tokenu
-            print(f"[AI] DEBUG: typ tokenu: {type(token)}, id: {getattr(token, 'id', 'BRAK ID')}")
-            print(f"[AI] DEBUG: hasattr(token, 'id'): {hasattr(token, 'id')}")
-            print(f"[AI] DEBUG: token attributes: {dir(token)}")
-            
-            # Spróbuj różne sposoby pobrania id
             if hasattr(token, 'id'):
                 token_id = token.id
-                print(f"[AI] DEBUG: token.id = {token_id} (typ: {type(token_id)})")
-            else:
-                print(f"[AI] DEBUG: Token nie ma atrybutu 'id', próbuję inne")
-                token_id = str(token)  # Może toString zawiera ID?
-                print(f"[AI] DEBUG: str(token) = {token_id}")
-            
-            if token_id:
+                print(f"[AI Move] Wykonuję ruch {token_id}: {unit_pos} -> {target_hex}")
+                
                 action = MoveAction(token_id, target_hex[0], target_hex[1])
                 result = game_engine.execute_action(action)
                 
-                # ActionResult ma atrybut success, nie metodę get()
                 success = getattr(result, 'success', False) if result else False
                 if success:
-                    print(f"[AI] Ruch {unit['id']}: {unit_pos} -> {target_hex}")
+                    print(f"[AI Move] ✅ Sukces: {getattr(result, 'message', 'OK')}")
                     
-                    # DODAJ LOGOWANIE DO CSV
-                    player_nation = "Unknown"
-                    current_player = getattr(game_engine, 'current_player_obj', None)
-                    if current_player:
-                        player_nation = getattr(current_player, 'nation', 'Unknown')
-                    
-                    # Określ typ ruchu
-                    if is_partial_path:
-                        move_type = "move_partial"
-                        reason = f"Partial path to target {target} (MP limited)"
-                    else:
-                        move_type = "move_full"
-                        reason = f"Full path to target {target}"
+                    # LOGOWANIE
+                    player_nation = getattr(game_engine.current_player_obj, 'nation', 'Unknown')
+                    move_type = "progressive_move" if hex_distance > max_reach else ("partial_move" if is_partial_path else "full_move")
+                    reason = f"Strategic move to {target}"
                     
                     log_commander_action(
                         unit_id=unit['id'],
@@ -499,25 +823,11 @@ def move_towards(unit, target, game_engine):
                         player_nation=player_nation
                     )
                 else:
-                    print(f"[AI] Ruch nieudany {unit['id']}: {getattr(result, 'message', 'Nieznany błąd')}")
+                    print(f"[AI Move] ❌ Błąd: {getattr(result, 'message', 'Nieznany błąd')}")
                     
-                    # LOGUJ TAKŻE NIEUDANE RUCHY
-                    player_nation = "Unknown"
-                    current_player = getattr(game_engine, 'current_player_obj', None)
-                    if current_player:
-                        player_nation = getattr(current_player, 'nation', 'Unknown')
-                    
-                    log_commander_action(
-                        unit_id=unit['id'],
-                        action_type="move_failed",
-                        from_pos=unit_pos,
-                        to_pos=target_hex,
-                        reason=f"Failed: {getattr(result, 'message', 'Unknown error')}",
-                        player_nation=player_nation
-                    )
                 return success
             else:
-                print(f"[AI] Brak ID tokenu dla {unit['id']}")
+                print(f"[AI Move] Brak ID tokenu dla {unit['id']}")
                 return False
             
     except Exception as e:
@@ -527,7 +837,7 @@ def move_towards(unit, target, game_engine):
 
 
 def make_tactical_turn(game_engine, player_id=None):
-    """Główna funkcja AI Commandera - PROSTA I BEZPIECZNA
+    """Główna funkcja AI Commandera - ULEPSZONA z progressive movement i grouping
     
     Args:
         game_engine: GameEngine
@@ -558,10 +868,9 @@ def make_tactical_turn(game_engine, player_id=None):
             player_nation=player_nation
         )
         
-        # NOWE: Sprawdź rozkazy strategiczne od General
+        # STRATEGICZNE ROZKAZY od General
         strategic_order = None
         try:
-            # Utwórz tymczasowy obiekt commander do odczytu rozkazów
             if current_player:
                 temp_commander = type('obj', (), {'player': current_player})()
                 current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
@@ -581,46 +890,82 @@ def make_tactical_turn(game_engine, player_id=None):
             print(f"[AI] Brak jednostek dla gracza {player_id}")
             return
         
-        # 2. Dla każdej jednostki znajdź cel i rusz
-        moved_count = 0
-        for i, unit in enumerate(my_units):  # WSZYSTKIE jednostki dowódcy
+        # 2. GRUPOWANIE JEDNOSTEK według bliskości
+        unit_groups = group_units_by_proximity(my_units, max_group_distance=8)
+        print(f"[AI] Utworzono {len(unit_groups)} grup jednostek")
+        
+        # 3. COMBAT PHASE - dla każdej jednostki sprawdź możliwe ataki
+        combat_count = 0
+        for i, unit in enumerate(my_units):
             unit_name = unit.get('id', f'unit_{i}')
             can_move_result = can_move(unit)
-            print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
             
             if can_move_result:
-                # NOWE: Wybierz cel i taktykę na podstawie rozkazów strategicznych
-                if strategic_order and strategic_order.get('target_hex'):
-                    mission_type = strategic_order.get('mission_type', 'UNKNOWN')
-                    base_target = strategic_order['target_hex']
-                    
-                    # RÓŻNICOWANIE TAKTYK PER MISSION TYPE
-                    target = execute_mission_tactics(unit, base_target, mission_type, game_engine, i, len(my_units))
-                    print(f"[AI] {unit_name}: {mission_type} -> {target} (z taktyki)")
-                else:
-                    # Fallback - stara logika key_points
-                    target = find_target(unit, game_engine)
-                    print(f"[AI] {unit_name}: Cel autonomiczny {target}")
-                
-                if target:
-                    success = move_towards(unit, target, game_engine)
-                    if success:
-                        moved_count += 1
-                        # Log taktyki
-                        log_commander_action(
-                            unit_id=unit_name,
-                            action_type="tactical_move",
-                            from_pos=(unit['q'], unit['r']),
-                            to_pos=target,
-                            reason=f"{strategic_order.get('mission_type', 'AUTONOMOUS')} mission",
-                            player_nation=player_nation
-                        )
-                else:
-                    print(f"[AI] {unit_name}: Brak celu")
-            else:
-                print(f"[AI] {unit_name}: Nie może się ruszyć")
+                combat_attempted = ai_attempt_combat(unit, game_engine, player_id, player_nation)
+                if combat_attempted:
+                    combat_count += 1
         
-        print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)}")
+        # 4. MOVEMENT PHASE - grupowe zarządzanie ruchem
+        moved_count = 0
+        total_processed = 0
+        
+        for group_idx, group in enumerate(unit_groups):
+            print(f"[AI] Przetwarzam grupę {group_idx + 1}/{len(unit_groups)} ({len(group)} jednostek)")
+            
+            # Oblicz średnią pozycję grupy dla lepszego target selection
+            if strategic_order and strategic_order.get('target_hex'):
+                # Wszystkie grupy mają ten sam strategiczny cel
+                base_target = strategic_order['target_hex']
+                mission_type = strategic_order.get('mission_type', 'UNKNOWN')
+            else:
+                # Autonomiczny cel dla grupy - wybierz na podstawie pozycji lidera
+                leader = group[0]
+                base_target = find_target(leader, game_engine)
+                mission_type = 'AUTONOMOUS'
+            
+            # Przetwórz jednostki w grupie
+            for unit_idx, unit in enumerate(group):
+                total_processed += 1
+                unit_name = unit.get('id', f'unit_{total_processed}')
+                can_move_result = can_move(unit)
+                print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
+                
+                if can_move_result:
+                    # Wybierz cel i taktykę
+                    if base_target:
+                        if mission_type != 'AUTONOMOUS':
+                            # TAKTYKA STRATEGICZNA
+                            target = execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_idx, len(group))
+                            print(f"[AI] {unit_name}: {mission_type} -> {target} (taktyka)")
+                        else:
+                            # AUTONOMOUS MOVEMENT
+                            target = base_target
+                            print(f"[AI] {unit_name}: Cel autonomiczny {target}")
+                    else:
+                        print(f"[AI] {unit_name}: Brak celu")
+                        continue
+                    
+                    if target:
+                        success = move_towards(unit, target, game_engine)
+                        if success:
+                            moved_count += 1
+                            # Log taktyki
+                            log_commander_action(
+                                unit_id=unit_name,
+                                action_type="tactical_move",
+                                from_pos=(unit['q'], unit['r']),
+                                to_pos=target,
+                                reason=f"{mission_type} mission (group {group_idx + 1})",
+                                player_nation=player_nation
+                            )
+                        else:
+                            print(f"[AI] {unit_name}: Ruch nieudany")
+                    else:
+                        print(f"[AI] {unit_name}: Brak celu")
+                else:
+                    print(f"[AI] {unit_name}: Nie może się ruszyć")
+        
+        print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)} (sukces: {moved_count/len(my_units)*100:.1f}%)")
         
         # LOGUJ KONIEC TURY
         log_commander_action(
@@ -628,7 +973,7 @@ def make_tactical_turn(game_engine, player_id=None):
             action_type="turn_summary",
             from_pos=None,
             to_pos=None,
-            reason=f"Turn completed: {moved_count}/{len(my_units)} units moved",
+            reason=f"Turn completed: {moved_count}/{len(my_units)} units moved, {len(unit_groups)} groups",
             player_nation=player_nation
         )
         
@@ -643,8 +988,164 @@ class AICommander:
         self.player = player
 
     def pre_resupply(self, game_engine: Any) -> None:
-        """Placeholder dla kompatybilności"""
-        pass
+        """Automatyczne uzupełnianie paliwa i siły bojowej AI"""
+        print(f"🔧 [DEBUG Resupply] START dla {self.player.nation} (id={self.player.id})")
+        
+        # POPRAWKA: Pobierz punkty z economy system + synchronizuj
+        punkty = 0
+        
+        # Spróbuj economy.economic_points (AI General zapisuje tutaj)
+        if hasattr(self.player, 'economy') and self.player.economy is not None:
+            punkty = self.player.economy.economic_points
+            print(f"[AI Resupply] {self.player.nation}: Znaleziono {punkty} pkt w economy.economic_points")
+        
+        # Fallback do punkty_ekonomiczne
+        if punkty <= 0:
+            punkty = getattr(self.player, 'punkty_ekonomiczne', 0)
+            print(f"[AI Resupply] {self.player.nation}: Fallback - {punkty} pkt w punkty_ekonomiczne")
+        
+        # Jeśli nadal zero - sprawdź get_points()
+        if punkty <= 0 and hasattr(self.player, 'economy') and hasattr(self.player.economy, 'get_points'):
+            points_data = self.player.economy.get_points()
+            punkty = points_data.get('economic_points', 0)
+            print(f"[AI Resupply] {self.player.nation}: Fallback2 - {punkty} pkt z get_points()")
+        
+        if punkty <= 0:
+            print(f"[AI Resupply] {self.player.nation}: ❌ BRAK PUNKTÓW - wszystkie źródła puste!")
+            print(f"  - player.economy: {getattr(self.player, 'economy', None)}")
+            print(f"  - player.punkty_ekonomiczne: {getattr(self.player, 'punkty_ekonomiczne', None)}")
+            return
+            
+        print(f"[AI Resupply] {self.player.nation}: ✅ Rozpoczynam z {punkty} punktami")
+        
+        # DEBUG: Sprawdź strukturę game_engine
+        print(f"🔧 [DEBUG] game_engine type: {type(game_engine)}")
+        print(f"🔧 [DEBUG] game_engine.board: {hasattr(game_engine, 'board')}")
+        print(f"🔧 [DEBUG] game_engine.tokens: {hasattr(game_engine, 'tokens')}")
+        
+        # Znajdź wszystkie moje żetony - SPRAWDŹ OBA MIEJSCA
+        my_tokens = []
+        expected_owner = f"{self.player.id} ({self.player.nation})"
+        print(f"🔧 [DEBUG] Szukam tokenów dla owner: '{expected_owner}'")
+        
+        # Opcja 1: game_engine.board.tokens
+        tokens_found_board = 0
+        if hasattr(game_engine, 'board') and hasattr(game_engine.board, 'tokens'):
+            tokens_found_board = len(game_engine.board.tokens)
+            print(f"🔧 [DEBUG] game_engine.board.tokens count: {tokens_found_board}")
+            for i, token in enumerate(game_engine.board.tokens):
+                token_owner = getattr(token, 'owner', 'NO_OWNER')
+                print(f"🔧 [DEBUG] Token[{i}]: owner='{token_owner}', id={getattr(token, 'id', 'NO_ID')}")
+                if token_owner == expected_owner:
+                    my_tokens.append(token)
+        
+        # Opcja 2: game_engine.tokens (fallback)
+        tokens_found_engine = 0
+        if not my_tokens and hasattr(game_engine, 'tokens'):
+            tokens_found_engine = len(game_engine.tokens)
+            print(f"🔧 [DEBUG] game_engine.tokens count: {tokens_found_engine}")
+            for i, token in enumerate(game_engine.tokens):
+                token_owner = getattr(token, 'owner', 'NO_OWNER')
+                print(f"🔧 [DEBUG] EngineToken[{i}]: owner='{token_owner}', id={getattr(token, 'id', 'NO_ID')}")
+                if token_owner == expected_owner:
+                    my_tokens.append(token)
+        
+        print(f"🔧 [DEBUG] Znaleziono {len(my_tokens)} moich tokenów")
+        
+        if not my_tokens:
+            print(f"[AI Resupply] {self.player.nation}: ❌ BRAK ŻETONÓW DO UZUPEŁNIENIA")
+            print(f"🔧 [DEBUG] Expected owner: '{expected_owner}'")
+            print(f"🔧 [DEBUG] Board tokens: {tokens_found_board}, Engine tokens: {tokens_found_engine}")
+            return
+        
+        # Sortuj według priorytetu: najpierw niskie paliwo, potem niska siła bojowa
+        def get_priority(token):
+            current_fuel = getattr(token, 'currentFuel', 0)
+            max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+            fuel_pct = current_fuel / max(max_fuel, 1)
+            
+            current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
+            max_combat = token.stats.get('combat_value', 0)
+            combat_pct = current_combat / max(max_combat, 1)
+            
+            # Priorytet: im niższy procent, tym wyższy priorytet (sortuj rosnąco)
+            return min(fuel_pct, combat_pct)
+        
+        my_tokens.sort(key=get_priority)
+        
+        # Uzupełniaj jednostki
+        resupplied_count = 0
+        for token in my_tokens:
+            if punkty <= 0:
+                break
+                
+            # Oblicz ile potrzebuje uzupełnienia
+            current_fuel = getattr(token, 'currentFuel', 0)
+            max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+            fuel_needed = max(0, max_fuel - current_fuel)
+            
+            current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
+            max_combat = token.stats.get('combat_value', 0)
+            combat_needed = max(0, max_combat - current_combat)
+            
+            total_needed = fuel_needed + combat_needed
+            
+            print(f"🔧 [DEBUG] Token {token.id}: fuel={current_fuel}/{max_fuel} (need {fuel_needed}), combat={current_combat}/{max_combat} (need {combat_needed})")
+            
+            if total_needed <= 0:
+                print(f"🔧 [DEBUG] Token {token.id}: PEŁNY - pomijam")
+                continue  # Jednostka pełna
+            
+            # Ograniczenie do dostępnych punktów
+            can_spend = min(total_needed, punkty)
+            
+            # Priorytetyzacja: paliwo < 50% to najpierw paliwo
+            fuel_pct = current_fuel / max(max_fuel, 1)
+            if fuel_pct < 0.5 and fuel_needed > 0:
+                # Najpierw paliwo
+                fuel_add = min(fuel_needed, can_spend)
+                combat_add = min(combat_needed, can_spend - fuel_add)
+                print(f"🔧 [DEBUG] Token {token.id}: PRIORYTET PALIWO (fuel_pct={fuel_pct:.2f})")
+            else:
+                # Równomierne dzielenie
+                fuel_add = min(fuel_needed, can_spend // 2)
+                combat_add = min(combat_needed, can_spend - fuel_add)
+                print(f"🔧 [DEBUG] Token {token.id}: RÓWNOMIERNE DZIELENIE")
+            
+            print(f"🔧 [DEBUG] Token {token.id}: Planowane +{fuel_add} fuel, +{combat_add} combat (budżet: {can_spend})")
+            
+            # Uzupełnij
+            if fuel_add > 0:
+                old_fuel = token.currentFuel
+                token.currentFuel += fuel_add
+                if token.currentFuel > max_fuel:
+                    token.currentFuel = max_fuel
+                print(f"🔧 [DEBUG] Token {token.id}: Fuel {old_fuel} -> {token.currentFuel}")
+            
+            if combat_add > 0:
+                old_combat = getattr(token, 'combat_value', 0)
+                if hasattr(token, 'combat_value'):
+                    token.combat_value += combat_add
+                else:
+                    token.combat_value = combat_add
+                if token.combat_value > max_combat:
+                    token.combat_value = max_combat
+                print(f"🔧 [DEBUG] Token {token.id}: Combat {old_combat} -> {token.combat_value}")
+            
+            # Odejmij punkty
+            spent = fuel_add + combat_add
+            punkty -= spent
+            self.player.punkty_ekonomiczne = punkty
+            
+            # Synchronizuj z economy jeśli istnieje
+            if hasattr(self.player, 'economy') and self.player.economy is not None:
+                self.player.economy.economic_points = punkty
+            
+            if spent > 0:
+                resupplied_count += 1
+                print(f"[AI Resupply] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> fuel+{fuel_add}, combat+{combat_add} (koszt: {spent})")
+        
+        print(f"[AI Resupply] {self.player.nation}: ✅ Zakończono, uzupełniono {resupplied_count} jednostek, pozostało {punkty} punktów")
 
     def make_tactical_turn(self, game_engine: Any) -> None:
         """Wykonaj turę taktyczną - używa prostych funkcji"""

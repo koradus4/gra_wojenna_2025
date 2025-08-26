@@ -1,0 +1,9 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-08-26T19:50:56;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;6;0
+2025-08-26T19:51:08;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;6;31
+2025-08-26T19:51:22;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;94;41
+2025-08-26T19:51:33;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;38;68
+2025-08-26T19:51:47;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;65;52
+2025-08-26T19:51:57;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;0;68
+2025-08-26T19:52:12;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;20;60
+2025-08-26T19:52:26;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;0;89

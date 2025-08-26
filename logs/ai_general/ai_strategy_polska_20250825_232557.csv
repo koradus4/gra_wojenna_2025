@@ -1,0 +1,3 @@
+timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
+2025-08-25T23:25:57.751220,,Polska,COMBO,strategic_combo_ROZWÓJ,0.0,0.1,25,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
+2025-08-25T23:25:58.709675,,Polska,COMBO,strategic_combo_ROZWÓJ,0.0,0.1,25,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 25, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

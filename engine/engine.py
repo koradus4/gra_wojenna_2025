@@ -175,37 +175,116 @@ class GameEngine:
         except Exception as e:
             pass
 
+    def log_key_points_status(self, current_player):
+        """Loguje stan key pointów na początku tury gracza."""
+        if not hasattr(self, 'key_points_state') or not self.key_points_state:
+            return
+            
+        print(f"\n📍 KEY POINTS STATUS - TURA: {current_player.nation} {current_player.role} (ID: {current_player.id})")
+        print("=" * 80)
+        
+        tokens_by_pos = {(t.q, t.r): t for t in self.tokens}
+        occupied_by_player = []
+        occupied_by_others = []
+        unoccupied = []
+        
+        for hex_id, kp in self.key_points_state.items():
+            try:
+                q, r = map(int, hex_id.split(","))
+                token = tokens_by_pos.get((q, r))
+                
+                kp_info = f"📍 {hex_id}: wartość {kp['current_value']}/{kp['initial_value']} (typ: {kp.get('type', 'unknown')})"
+                
+                if token and hasattr(token, 'owner') and token.owner:
+                    owner_nation = token.owner.split("(")[-1].replace(")", "").strip()
+                    owner_id = token.owner.split("(")[0].strip()
+                    
+                    if owner_nation == current_player.nation:
+                        occupied_by_player.append(f"  ✅ {kp_info} - okupowany przez {owner_id} ({owner_nation})")
+                    else:
+                        occupied_by_others.append(f"  ❌ {kp_info} - okupowany przez {owner_id} ({owner_nation})")
+                else:
+                    unoccupied.append(f"  🔓 {kp_info} - WOLNY")
+            except (ValueError, IndexError) as e:
+                print(f"  ⚠️ Błąd parsowania hex_id '{hex_id}': {e}")
+        
+        # Wyświetl grupami
+        if occupied_by_player:
+            print("🏆 TWOJE KEY POINTS:")
+            for line in occupied_by_player:
+                print(line)
+        
+        if occupied_by_others:
+            print("\n🚫 KEY POINTS PRZECIWNIKÓW:")
+            for line in occupied_by_others:
+                print(line)
+        
+        if unoccupied:
+            print("\n🔓 WOLNE KEY POINTS:")
+            for line in unoccupied:
+                print(line)
+        
+        print("=" * 80)
+
     def process_key_points(self, players):
         """Przetwarza punkty kluczowe: rozdziela punkty ekonomiczne, aktualizuje stan punktów, usuwa wyzerowane."""
+        print(f"\n💰 PROCESSING KEY POINTS - koniec pełnej tury")
         generals = {p.nation: p for p in players if getattr(p, 'role', '').lower() == 'generał'}
         tokens_by_pos = {(t.q, t.r): t for t in self.tokens}
         to_remove = []
         # Debug: zbierz sumy dla każdego generała
         debug_points_per_general = {}
         debug_details_per_general = {}
+        
+        print("🔍 Sprawdzanie okupacji key pointów...")
         for hex_id, kp in self.key_points_state.items():
             q, r = map(int, hex_id.split(","))
             token = tokens_by_pos.get((q, r))
             if token and hasattr(token, 'owner') and token.owner:
                 nation = token.owner.split("(")[-1].replace(")", "").strip()
+                owner_id = token.owner.split("(")[0].strip()
                 general = generals.get(nation)
                 if general and hasattr(general, 'economy'):
                     give = int(0.1 * kp['initial_value'])
                     if give < 1:
                         give = 1  # Minimalnie 1 punkt
                     if kp['current_value'] <= 0:
+                        print(f"  ⚠️ {hex_id}: WYCZERPANY - okupowany przez {owner_id} ({nation})")
                         continue
                     if give > kp['current_value']:
                         give = kp['current_value']
+                    
+                    old_economy = general.economy.economic_points
                     general.economy.economic_points += give
                     kp['current_value'] -= give
+                    
+                    print(f"  💰 {hex_id}: +{give} punktów dla generała {nation}")
+                    print(f"      👤 Okupant: {owner_id} ({nation})")
+                    print(f"      💵 Ekonomia generała: {old_economy} → {general.economy.economic_points}")
+                    print(f"      📍 Key Point: {kp['current_value']}/{kp['initial_value']} pozostało")
+                    
                     # Debug: zapisz szczegóły
                     debug_points_per_general.setdefault(general, 0)
                     debug_points_per_general[general] += give
                     debug_details_per_general.setdefault(general, []).append((hex_id, give, kp['current_value']))
                     if kp['current_value'] <= 0:
                         to_remove.append(hex_id)
+                        print(f"      🚫 Key Point {hex_id} zostanie usunięty (wyczerpany)")
+                else:
+                    print(f"  ❌ {hex_id}: okupowany przez {owner_id} ({nation}) - BRAK GENERAŁA")
+            else:
+                print(f"  🔓 {hex_id}: WOLNY ({kp['current_value']}/{kp['initial_value']})")
+        
+        print(f"\n📊 PODSUMOWANIE PRZYZNANYCH PUNKTÓW:")
+        if debug_points_per_general:
+            for general, total_points in debug_points_per_general.items():
+                print(f"  🏆 {general.nation} Generał: +{total_points} punktów ekonomicznych")
+        else:
+            print("  🚫 Brak przyznanych punktów (żadne key pointy nie są okupowane)")
+            
         # Usuń wyzerowane punkty z key_points_state i z planszy
+        if to_remove:
+            print(f"\n🗑️ Usuwanie wyczerpanych key pointów: {to_remove}")
         for hex_id in to_remove:
             self.key_points_state.pop(hex_id, None)
             if hasattr(self.board, 'key_points'):
