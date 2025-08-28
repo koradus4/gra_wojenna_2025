@@ -18,6 +18,120 @@ import os
 import shutil
 from pathlib import Path
 
+# --- KONFIGURACJA NOWYCH HEURYSTYK ---
+GARRISON_LIMITS = {
+    'miasto': 1,
+    'węzeł komunikacyjny': 1,
+    'wez\u0142 komunikacyjny': 1,  # fallback jezykowy
+    'fortyfikacja': 2,
+    'default': 1,
+}
+
+EARLY_ROTATION_THRESHOLD_RATIO = 0.25  # zwolnij nadwy\u017ckowe jednostki gdy warto\u015b\u0107 spadnie poni\u017cej 25%
+FREE_KEYPOINT_VALUE_DISTANCE_FACTOR = 1.2  # minimalny wsp\u00f3\u0142czynnik (value/distance) dla samotnego rajdu
+FREE_HIGH_VALUE_BONUS_MULTIPLIER = 2.5  # dodatkowy mno\u017cnik do priorytetu wolnego punktu
+FREE_MED_VALUE_BONUS_MULTIPLIER = 1.6
+HEX_MISSING_LOG_PREFIX = "[AI HEX] HEX_MISSING"
+
+def enforce_garrison_limits(game_engine, hex_id, kp, newly_arrived_token, ratio):
+    """Pilnuj limitu garnizonu i wczesnej rotacji.
+    - ratio < EARLY_ROTATION_THRESHOLD_RATIO: utrzymuj max 1 jednostkę
+    - po przekroczeniu limitu: zdejmij hold_position z nadwyżek (poza najstarszą / najsilniejszą)
+    """
+    try:
+        tokens = getattr(game_engine, 'tokens', [])
+        # Parse coords
+        try:
+            q, r = map(int, hex_id.split(','))
+        except Exception:
+            return
+        kp_type = kp.get('type', 'default')
+        limit = GARRISON_LIMITS.get(kp_type, GARRISON_LIMITS['default'])
+        if ratio < EARLY_ROTATION_THRESHOLD_RATIO:
+            limit = max(1, limit - 1)
+        # Zbierz tokeny stojące na punkcie
+        stationed = []
+        for t in tokens:
+            if getattr(t, 'q', None) == q and getattr(t, 'r', None) == r and getattr(t, 'hold_position', False):
+                stationed.append(t)
+        if len(stationed) <= limit:
+            return
+        # Sortuj: trzymaj ten z najwyższą wartością bojową (attack+defense) i/lub ten który właśnie przyszedł
+        def score(t):
+            attack = getattr(t, 'attack', 0)
+            defense = getattr(t, 'defense', 0)
+            freshness = 1 if t is newly_arrived_token else 0
+            return attack + defense + freshness * 1000
+        stationed.sort(key=score, reverse=True)
+        # Zachowaj pierwsze 'limit'
+        keep = set(stationed[:limit])
+        for t in stationed[limit:]:
+            if getattr(t, 'hold_position', False):
+                setattr(t, 'hold_position', False)
+                print(f"[AI GARRISON] ROTATE {getattr(t,'id','?')} z {hex_id} (limit {limit})")
+    except Exception as e:
+        print(f"[AI GARRISON] Błąd limitu: {e}")
+
+def opportunistic_capture_phase(game_engine, my_units, player_id):
+    """Spróbuj natychmiast zająć wolne key pointy w zasięgu MP.
+    Kryterium solo-rajdu: (value / distance) >= FREE_KEYPOINT_VALUE_DISTANCE_FACTOR.
+    """
+    captured = []
+    try:
+        board = getattr(game_engine, 'board', None)
+        kp_state = getattr(game_engine, 'key_points_state', {}) or {}
+        if not board or not kp_state:
+            return captured
+        # Map token id -> unit dict for quick access
+        unit_by_id = {u['id']: u for u in my_units if 'id' in u}
+        # Build lookup of free keypoints
+        free_kps = []
+        for hex_id, kp in kp_state.items():
+            if kp.get('current_value', 0) <= 0:
+                continue
+            try:
+                q, r = map(int, hex_id.split(','))
+            except Exception:
+                continue
+            occupied = False
+            for t in getattr(game_engine, 'tokens', [])[:400]:
+                if getattr(t, 'q', None) == q and getattr(t, 'r', None) == r:
+                    occupied = True
+                    break
+            if not occupied:
+                free_kps.append((hex_id, q, r, kp))
+        if not free_kps:
+            return captured
+        # Dla każdej jednostki zobacz czy może dotrzeć w 1 turze
+        for unit in my_units:
+            if unit.get('mp', 0) <= 0 or unit.get('fuel', 0) <= 0:
+                continue
+            pos = (unit['q'], unit['r'])
+            best_target = None
+            best_score = 0
+            for hex_id, q, r, kp in free_kps:
+                dist = board.hex_distance(pos, (q, r)) if board else 999
+                if dist <= 0:
+                    continue
+                if dist > min(unit['mp'], unit['fuel']):
+                    continue
+                value = kp.get('current_value', 0)
+                score = value / dist
+                if score >= FREE_KEYPOINT_VALUE_DISTANCE_FACTOR and score > best_score:
+                    best_score = score
+                    best_target = (hex_id, q, r, kp)
+            if best_target:
+                hex_id, tq, tr, kp = best_target
+                # Bez pathfindingu – spróbuj ruchu sekwencyjnego w kierunku (fallback prosty)
+                # Użyj istniejącego move_towards aby zachować spójność
+                success = move_towards(unit, (tq, tr), game_engine)
+                if success:
+                    unit['moved_capture'] = True
+                    captured.append(hex_id)
+    except Exception as e:
+        print(f"[OPPORTUNISTIC] Błąd: {e}")
+    return captured
+
 # Importujemy debug_print z głównego modułu
 try:
     from main_ai import debug_print
@@ -28,16 +142,17 @@ except ImportError:
 
 
 def prioritize_targets(key_points, game_engine):
-    """Priorytetyzuj cele według wartości i dostępności"""
+    """Priorytetyzuj cele: wolne wysokowartościowe premiowane mocniej."""
     priorities = []
     board = getattr(game_engine, 'board', None)
-    
+    all_tokens = getattr(game_engine, 'tokens', [])
+    current_player = getattr(game_engine, 'current_player_obj', None)
+    my_nation = getattr(current_player, 'nation', '') if current_player else ''
+
     for hex_id, kp_data in key_points.items():
         value = kp_data.get('current_value', 0)
         if value <= 0:
             continue
-            
-        # Parsuj współrzędne
         try:
             if ',' in hex_id:
                 q, r = map(int, hex_id.split(','))
@@ -46,33 +161,58 @@ def prioritize_targets(key_points, game_engine):
             target_pos = (q, r)
         except (ValueError, IndexError):
             continue
-        
-        # Oblicz zagrożenie wroga (uproszczone)
-        enemy_distance = 10  # Domyślna odległość
+
+        # Czy hex istnieje na planszy
+        if board and hasattr(board, 'get_tile'):
+            tile = board.get_tile(q, r)
+            if tile is None:
+                print(f"{HEX_MISSING_LOG_PREFIX} priorytetyzacja {hex_id}")
+                continue
+
+        # Sprawdzenie czy punkt jest już okupowany przez nas
+        occupied_by_me = False
+        occupied_any = False
+        for t in all_tokens[:200]:  # limit
+            tq, tr = getattr(t, 'q', None), getattr(t, 'r', None)
+            if tq == q and tr == r:
+                occupied_any = True
+                owner = getattr(t, 'owner', '')
+                if my_nation and my_nation in owner:
+                    occupied_by_me = True
+                break
+
+        enemy_distance = 10
         if board:
-            # Szukaj najbliższych wrogów (uproszczone)
-            all_tokens = getattr(game_engine, 'tokens', [])
-            current_player = getattr(game_engine, 'current_player_obj', None)
-            if current_player:
-                my_nation = getattr(current_player, 'nation', '')
-                for token in all_tokens[:50]:  # Limit sprawdzania
-                    token_owner = getattr(token, 'owner', '')
-                    if my_nation not in token_owner:  # Wróg
-                        enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
-                        dist = board.hex_distance(target_pos, enemy_pos)
-                        enemy_distance = min(enemy_distance, dist)
-        
-        # Wyższy priorytet = wyższa wartość / niższa konkurencja
-        priority_score = value * 10 / max(enemy_distance, 1)
-        
+            for token in all_tokens[:80]:
+                token_owner = getattr(token, 'owner', '')
+                if my_nation and my_nation in token_owner:
+                    continue
+                enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+                dist = board.hex_distance(target_pos, enemy_pos)
+                enemy_distance = min(enemy_distance, dist)
+
+        # Bazowy wynik
+        priority_score = (value * 10) / max(enemy_distance, 1)
+
+        # Bonus za wolny (nieokupowany) i wysoka wartość
+        if not occupied_any:
+            if value >= 120:
+                priority_score *= FREE_HIGH_VALUE_BONUS_MULTIPLIER
+            elif value >= 70:
+                priority_score *= FREE_MED_VALUE_BONUS_MULTIPLIER
+        # Lekka redukcja gdy już okupowany przez nas (unikanie prze-garnizonowania)
+        if occupied_by_me:
+            priority_score *= 0.65
+
         priorities.append({
             'target': target_pos,
             'hex_id': hex_id,
             'value': value,
             'enemy_distance': enemy_distance,
-            'priority': priority_score
+            'priority': priority_score,
+            'free': not occupied_any
         })
-    
+
     return sorted(priorities, key=lambda x: x['priority'], reverse=True)
 
 
@@ -161,43 +301,68 @@ def assign_targets_with_coordination(groups, prioritized_targets, game_engine):
     return group_assignments
 
 
-def log_commander_action(unit_id, action_type, from_pos, to_pos, reason, player_nation="Unknown"):
-    """Loguj akcję AI Commander do CSV w dedykowanym folderze"""
+LOG_COLUMNS = [
+    'timestamp','turn','phase','nation','unit_id','unit_type','action_type',
+    'from_q','from_r','to_q','to_r',
+    'target_q','target_r','target_type','target_value_before','target_value_after',
+    'movement_mode','path_len','path_used','progressive_used','adaptive_frac',
+    'mp_before','mp_after','fuel_before','fuel_after',
+    'combat_dmg_dealt','combat_dmg_taken','enemy_adj_before','enemy_adj_after',
+    'threat_level','decision_reason','extra_tags','reason'
+]
+
+def log_commander_action(unit_id, action_type, from_pos, to_pos, reason, player_nation="Unknown", extra=None):
+    """Loguj akcję AI Commander do CSV (rozszerzony zestaw kolumn).
+    extra: dict z dodatkowymi polami zgodnymi z LOG_COLUMNS (poza bazowymi).
+    Nieznane pola są ignorowane.
+    """
     try:
-        # Utwórz katalog logs/ai_commander/ jeśli nie istnieje
         log_dir = "logs/ai_commander"
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
-        
-        # Nazwa pliku z datą w folderze ai_commander
+
         today = datetime.date.today()
         log_file = f"{log_dir}/actions_{today:%Y%m%d}.csv"
-        
-        # Sprawdź czy plik istnieje, jeśli nie - dodaj nagłówek
         file_exists = os.path.exists(log_file)
-        
+
+        # Przygotuj wiersz jako słownik
+        row_dict = {k: None for k in LOG_COLUMNS}
+        row_dict['timestamp'] = datetime.datetime.now().isoformat()
+        row_dict['nation'] = player_nation
+        row_dict['unit_id'] = unit_id
+        row_dict['action_type'] = action_type
+        row_dict['reason'] = reason
+        if from_pos:
+            row_dict['from_q'], row_dict['from_r'] = from_pos
+        if to_pos:
+            row_dict['to_q'], row_dict['to_r'] = to_pos
+        # Merge extra
+        if extra:
+            for k, v in extra.items():
+                if k in row_dict:
+                    row_dict[k] = v
+
+        # Kolejność kolumn
+        values = [row_dict[k] for k in LOG_COLUMNS]
+
         with open(log_file, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            
-            # Dodaj nagłówek jeśli nowy plik
             if not file_exists:
-                writer.writerow([
-                    'timestamp', 'nation', 'unit_id', 'action_type', 
-                    'from_q', 'from_r', 'to_q', 'to_r', 'reason'
-                ])
-            
-            # Dodaj wpis
-            timestamp = datetime.datetime.now().isoformat()
-            from_q, from_r = from_pos if from_pos else (None, None)
-            to_q, to_r = to_pos if to_pos else (None, None)
-            
-            writer.writerow([
-                timestamp, player_nation, unit_id, action_type,
-                from_q, from_r, to_q, to_r, reason
-            ])
-            
+                writer.writerow(LOG_COLUMNS)
+            writer.writerow(values)
     except Exception as e:
         print(f"[AI] Błąd logowania: {e}")
+
+
+def is_unit_holding(unit_dict: dict) -> bool:
+    """Pomocniczo sprawdza czy jednostka ma atrybut token.hold_position == True"""
+    try:
+        token = unit_dict.get('token')
+        if not token:
+            return False
+        return bool(getattr(token, 'hold_position', False))
+    except Exception:
+        return False
 
 
 def get_my_units(game_engine, player_id=None):
@@ -419,6 +584,30 @@ def find_target(unit, game_engine):
     unit_pos = (unit['q'], unit['r'])
     best_target = None
     best_distance = 999
+    best_score = -1
+
+    # Pobierz dynamiczne wagi jeśli istnieje instancja AICommander (current_player_obj może ją mieć jako commander)
+    econ_weight = 1.0
+    vp_weight = 0.5
+    try:
+        commander_obj = getattr(game_engine, 'current_player_commander', None)
+        if commander_obj and hasattr(commander_obj, 'econ_weight'):
+            econ_weight = commander_obj.econ_weight
+            vp_weight = commander_obj.vp_weight
+    except Exception:
+        pass
+
+    def kp_score(kp_dict: dict) -> float:
+        # typ może być 'economy','victory','mixed'
+        ktype = kp_dict.get('type', 'unknown')
+        base_val = kp_dict.get('current_value', kp_dict.get('value', 0))
+        if ktype == 'economy':
+            return base_val * econ_weight
+        if ktype == 'victory':
+            return base_val * vp_weight
+        if ktype == 'mixed':
+            return base_val * (0.5*econ_weight + 0.5*vp_weight)
+        return base_val * 0.3  # niskie jeśli nieznany
     
     # Sprawdź key points (max 20) - TYLKO z wartością > 0
     kp_count = 0
@@ -452,9 +641,12 @@ def find_target(unit, game_engine):
                 
                 if path and len(path) > 1:  # Cel osiągalny w ramach MP/Fuel
                     actual_distance = len(path) - 1
-                    if actual_distance < best_distance:
+                    score = kp_score(kp_data)
+                    # Preferuj wyższy score, przy równym score krótszy dystans
+                    if score > best_score or (score == best_score and actual_distance < best_distance):
                         best_target = kp_pos
                         best_distance = actual_distance
+                        best_score = score
         except (ValueError, IndexError):
             continue
     
@@ -773,6 +965,9 @@ def calculate_progressive_target(unit, final_target, game_engine):
         
         for candidate in candidates:
             # Sprawdź czy możemy dotrzeć do kandydata
+            if hasattr(board, 'get_tile') and board.get_tile(candidate[0], candidate[1]) is None:
+                print(f"{HEX_MISSING_LOG_PREFIX} progressive_target {candidate}")
+                continue
             path = board.find_path(unit_pos, candidate, max_mp=max_reach, max_fuel=max_reach)
             if not path or len(path) < 2:
                 continue
@@ -1120,6 +1315,9 @@ def move_towards(unit, target, game_engine):
         with open("logs/movement_test.log", "a", encoding="utf-8") as f:
             f.write(f"NIE MOZNA ZMIENIC TRYBU: hasattr={hasattr(token, 'movement_mode')}\n")
     # SPRAWDZENIE REALNOŚCI CELU - hex distance calculation
+    # SANITY: istnieje hex docelowy?
+    if hasattr(board, 'get_tile') and board.get_tile(target_tuple[0], target_tuple[1]) is None:
+        print(f"{HEX_MISSING_LOG_PREFIX} target {target_tuple}")
     hex_distance = board.hex_distance(unit_pos, target_tuple)
     max_reach = min(unit['mp'], unit['fuel'])
     
@@ -1137,17 +1335,56 @@ def move_towards(unit, target, game_engine):
             print(f"[AI Pathfinding] ❌ Brak możliwości ruchu")
             return False
 
-    # PATHFINDING
+    # PATHFINDING + ADAPTIVE RETRY
     try:
         from engine.action_refactored_clean import PathfindingService
+        # Wstępny sanity check listy prób kiedy brak ścieżki
         path = PathfindingService.find_movement_path(
-            game_engine, token, unit_pos, target_tuple, 
+            game_engine, token, unit_pos, target_tuple,
             game_engine.current_player_obj
         )
         print(f"[AI Pathfinding] Bazowa ścieżka: {path}")
-        
+        if (not path or len(path) < 2) and unit_pos != target_tuple:
+            # DIAGNOSTYKA – zbierz info o terenie, zajętości i sąsiadach celu
+            try:
+                terrain = None
+                if hasattr(board, 'get_tile'):
+                    tile = board.get_tile(target_tuple[0], target_tuple[1])
+                    if tile:
+                        terrain = getattr(tile, 'terrain', getattr(tile, 'type', 'unknown'))
+                occupied = board.is_occupied(target_tuple[0], target_tuple[1]) if hasattr(board, 'is_occupied') else 'NO_METHOD'
+                neighbors_info = []
+                if hasattr(board, 'neighbors'):
+                    for n in board.neighbors(target_tuple[0], target_tuple[1]):
+                        occ = board.is_occupied(n[0], n[1]) if hasattr(board, 'is_occupied') else '?'
+                        neighbors_info.append(f"{n}{'*' if occ else ''}")
+                print(f"[AI Pathfinding][DIAG] Brak ścieżki bazowej do {target_tuple} | terrain={terrain} occupied={occupied} neighbors={neighbors_info}")
+            except Exception as _e:
+                print(f"[AI Pathfinding][DIAG] Błąd diagnostyki: {_e}")
+        # Jeśli brak ścieżki – adaptacyjnie skracaj wektor celu
+        if (not path or len(path) < 2) and unit_pos != target_tuple:
+            dq = target_tuple[0] - unit_pos[0]
+            dr = target_tuple[1] - unit_pos[1]
+            original = target_tuple
+            for frac in (0.75, 0.5, 0.33, 0.25):
+                test_q = unit_pos[0] + int(round(dq * frac))
+                test_r = unit_pos[1] + int(round(dr * frac))
+                test_target = (test_q, test_r)
+                if test_target == unit_pos:
+                    continue
+                if hasattr(board, 'get_tile') and board.get_tile(test_q, test_r) is None:
+                    print(f"{HEX_MISSING_LOG_PREFIX} adapt {test_target}")
+                    continue
+                test_path = PathfindingService.find_movement_path(
+                    game_engine, token, unit_pos, test_target, game_engine.current_player_obj
+                )
+                if test_path and len(test_path) > 1:
+                    print(f"[AI Pathfinding][ADAPT] Brak ścieżki do {original}, używam krótszego {test_target} (frac={frac})")
+                    path = test_path
+                    target_tuple = test_target
+                    break
         if not path or len(path) < 2:
-            print(f"[AI Pathfinding] ❌ Brak ścieżki!")
+            print(f"[AI Pathfinding] ❌ Brak ścieżki po adaptacji!")
             return False
         
         # Sprawdź zasoby vs długość ścieżki
@@ -1200,19 +1437,63 @@ def move_towards(unit, target, game_engine):
                 success = getattr(result, 'success', False) if result else False
                 if success:
                     print(f"[AI Move] ✅ Sukces: {getattr(result, 'message', 'OK')}")
+                    # Jeśli weszliśmy na key point – natychmiastowy log okupacji
+                    kp_state = getattr(game_engine, 'key_points_state', {}) or {}
+                    hex_id = f"{target_hex[0]},{target_hex[1]}"
+                    if hex_id in kp_state:
+                        kp = kp_state[hex_id]
+                        print(f"[AI OCCUPY] {unit['id']} OBJĄŁ KEY POINT {hex_id} ({kp.get('type','?')}) wart {kp['current_value']}/{kp['initial_value']}")
+                        # Ustaw znacznik hold_position aby jednostka została na punkcie (MVP)
+                        try:
+                            setattr(token, 'hold_position', True)
+                        except Exception:
+                            pass
+                        # ROTACJA: jeśli punkt już wyczerpany (current_value <=0) nie trzymaj jednostki
+                        try:
+                            if kp.get('current_value', 0) <= 0:
+                                if getattr(token, 'hold_position', False):
+                                    print(f"[AI ROTATE] Punkt {hex_id} wyczerpany -> zwalniam {unit['id']}")
+                                setattr(token, 'hold_position', False)
+                            else:
+                                # EARLY ROTATION / LIMIT GARRISON
+                                initial = kp.get('initial_value', kp.get('value', 0)) or kp.get('value', 0)
+                                ratio = kp.get('current_value', 0) / max(initial, 1)
+                                enforce_garrison_limits(game_engine, hex_id, kp, token, ratio)
+                        except Exception:
+                            pass
                     
                     # LOGOWANIE
                     player_nation = getattr(game_engine.current_player_obj, 'nation', 'Unknown')
                     move_type = "progressive_move" if hex_distance > max_reach else ("partial_move" if is_partial_path else "full_move")
                     reason = f"Strategic move to {target}"
                     
+                    # Przygotuj dane rozszerzone
+                    extra_log = {
+                        'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                        'phase': 'movement',
+                        'unit_type': getattr(token, 'unit_type', getattr(token, 'type', None)),
+                        'target_q': target[0] if isinstance(target, (list, tuple)) else None,
+                        'target_r': target[1] if isinstance(target, (list, tuple)) else None,
+                        'movement_mode': getattr(token, 'movement_mode', None),
+                        'path_len': len(path) if path else 0,
+                        'path_used': len(path) - 1 if path else 0,
+                        'progressive_used': hex_distance > max_reach,
+                        'adaptive_frac': None,
+                        'mp_before': unit.get('mp'),
+                        'fuel_before': unit.get('fuel'),
+                        'mp_after': getattr(token, 'currentMovePoints', None),
+                        'fuel_after': getattr(token, 'fuel', None),
+                        'decision_reason': reason,
+                        'extra_tags': 'garrison' if getattr(token, 'hold_position', False) else None
+                    }
                     log_commander_action(
                         unit_id=unit['id'],
                         action_type=move_type,
                         from_pos=unit_pos,
                         to_pos=target_hex,
                         reason=reason,
-                        player_nation=player_nation
+                        player_nation=player_nation,
+                        extra=extra_log
                     )
                 else:
                     print(f"[AI Move] ❌ Błąd: {getattr(result, 'message', 'Nieznany błąd')}")
@@ -1293,6 +1574,9 @@ def make_tactical_turn(game_engine, player_id=None):
         strategic_order = None
         try:
             if current_player:
+                # Zarejestruj referencję do commander aby find_target mógł pobrać wagi
+                if not hasattr(game_engine, 'current_player_commander'):
+                    game_engine.current_player_commander = None
                 temp_commander = type('obj', (), {'player': current_player})()
                 current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
                 strategic_order = AICommander.receive_orders(temp_commander, current_turn=current_turn)
@@ -1310,8 +1594,38 @@ def make_tactical_turn(game_engine, player_id=None):
         if not my_units:
             print(f"[AI] Brak jednostek dla gracza {player_id}")
             return
+
+        # DYNAMICZNA ADAPTACJA WAG (MVP): jeśli przychód ekonomiczny niski przez kilka tur zwiększ wagę ekonomii
+        try:
+            commander_ref = getattr(game_engine, 'current_player_commander', None)
+            if commander_ref is not None and hasattr(current_player, 'economy'):
+                income = 0
+                econ_obj = current_player.economy
+                if hasattr(econ_obj, 'get_points'):
+                    pts = econ_obj.get_points()
+                    income = pts.get('last_turn_income', 0)
+                else:
+                    income = getattr(econ_obj, 'last_turn_income', 0)
+                if income < 5:
+                    commander_ref.turns_on_low_income += 1
+                else:
+                    commander_ref.turns_on_low_income = 0
+                if commander_ref.turns_on_low_income >= 2:
+                    # Podbij wagę ekonomii do max 2.0 i lekko zmniejsz vp
+                    commander_ref.econ_weight = min(2.0, commander_ref.econ_weight + 0.2)
+                    commander_ref.vp_weight = max(0.3, commander_ref.vp_weight - 0.05)
+                    print(f"[AI WEIGHTS] Low income streak={commander_ref.turns_on_low_income}: econ_weight={commander_ref.econ_weight:.2f}, vp_weight={commander_ref.vp_weight:.2f}")
+        except Exception as _e:
+            print(f"[AI WEIGHTS] Błąd adaptacji wag: {_e}")
         
-        # 2. GRUPOWANIE JEDNOSTEK według bliskości lub zaawansowany autonomiczny
+        # 2. Faza OPPORTUNISTIC CAPTURE (przed grupowaniem / walką)
+        opportunistic_captured = opportunistic_capture_phase(game_engine, my_units, player_id)
+        if opportunistic_captured:
+            print(f"[OPPORTUNISTIC] Zajęto błyskawicznie {len(opportunistic_captured)} wolnych punktów")
+        # Odfiltruj jednostki które już ruszyły
+        my_units = [u for u in my_units if not u.get('moved_capture')]
+
+        # 2b. GRUPOWANIE JEDNOSTEK według bliskości lub zaawansowany autonomiczny
         if strategic_order:
             # Standardowe grupowanie dla rozkazów strategicznych
             unit_groups = group_units_by_proximity(my_units, max_group_distance=8)
@@ -1333,20 +1647,19 @@ def make_tactical_turn(game_engine, player_id=None):
         for i, unit in enumerate(my_units):
             unit_name = unit.get('id', f'unit_{i}')
             can_move_result = can_move(unit)
-            
+
             if can_move_result:
                 combat_attempted = ai_attempt_combat(unit, game_engine, player_id, player_nation)
                 if combat_attempted:
                     combat_count += 1
-        
         print(f"[AI] COMBAT PHASE: {combat_count} ataków wykonanych")
-        
+
         # 3.5. NOWA FAZA DEFENSYWNA - ocena zagrożeń i planowanie obrony
         print(f"🛡️ [AI] === FAZA DEFENSYWNA ===")
-        
+
         # Oceń zagrożenia defensywne
         threat_assessment = assess_defensive_threats(my_units, game_engine)
-        
+
         # Znajdź jednostki wymagające odwrotu
         threatened_units = []
         for unit in my_units:
@@ -1354,61 +1667,65 @@ def make_tactical_turn(game_engine, player_id=None):
             threat_level = assessment.get('threat_level', 0)
             if threat_level > 5:  # Próg zagrożenia
                 threatened_units.append(unit)
-        
+
         if threatened_units:
             print(f"[DEFENSE] Znaleziono {len(threatened_units)} zagrożonych jednostek")
-            
+
             # Planuj kontrolowany odwrót
             retreat_plan = plan_defensive_retreat(threatened_units, threat_assessment, game_engine)
-            
+
             # Wykonaj ruchy defensywne
             retreat_count = 0
             for unit in threatened_units:
                 if unit['id'] in retreat_plan:
                     target_pos = retreat_plan[unit['id']]
                     current_pos = (unit['q'], unit['r'])
-                    
+
                     if target_pos != current_pos:  # Tylko jeśli ruch jest potrzebny
                         success = move_towards(unit, target_pos, game_engine)
                         if success:
                             retreat_count += 1
                             print(f"[DEFENSE] {unit['id']}: Udany odwrót do {target_pos}")
-            
+
             print(f"[DEFENSE] Wykonano {retreat_count} ruchów defensywnych")
-        
+
         # Koordynacja obrony wokół punktów kluczowych
         defensive_groups = defensive_coordination(my_units, threat_assessment, game_engine)
         debug_print(f"🛡️  Utworzono {len(defensive_groups)} grup defensywnych", "FULL", "DEFENSE")
-        
+
         # 3.6. DEPLOYMENT NOWYCH JEDNOSTEK
         debug_print(f"🚀 === FAZA DEPLOYMENT ===", "BASIC", "DEPLOY")
         deployed_count = deploy_purchased_units(game_engine, player_id)
-        
+
         if deployed_count > 0:
             debug_print(f"✅ Wdrożono {deployed_count} nowych jednostek", "BASIC", "DEPLOY")
             # Po deployment, odśwież listę jednostek
             my_units = get_my_units(game_engine, player_id)
-        
+
         # 4. MOVEMENT PHASE - różne logiki dla różnych trybów
         moved_count = 0
         total_processed = 0
-        
+
         if advanced_mode:
             # ZAAWANSOWANY RUCH - każda grupa ma przypisany cel
             for assignment_idx, assignment in enumerate(group_assignments):
                 group = assignment['group']
-                leader = assignment['leader'] 
+                leader = assignment['leader']
                 target = assignment['target']
-                
+
                 print(f"🎯 [ADVANCED MOVE] Grupa {assignment_idx + 1}: {len(group)} żetonów -> cel {target}")
                 print(f"🎯 [ADVANCED MOVE] Lider: {leader['id']} (dystans: {assignment['distance']})")
-                
+
                 # Przetwórz wszystkie jednostki w grupie
                 for unit_idx, unit in enumerate(group):
                     total_processed += 1
                     unit_name = unit.get('id', f'unit_{total_processed}')
                     can_move_result = can_move(unit)
-                    
+                    # NOWE: jeśli jednostka utrzymuje pozycję (garnizon) pomijamy ruch
+                    if is_unit_holding(unit):
+                        print(f"🛡️ [ADVANCED MOVE] {unit_name}: UTRZYMUJE POZYCJĘ (garnizon)")
+                        continue
+
                     if can_move_result:
                         # Wszyscy idą do tego samego celu (target lidera)
                         print(f"🚨 [URGENT TEST] ZARAZ WYWOŁUJĘ MOVE_TOWARDS DLA {unit_name}!")
@@ -1429,12 +1746,12 @@ def make_tactical_turn(game_engine, player_id=None):
                             print(f"❌ [ADVANCED MOVE] {unit_name}: Ruch nieudany")
                     else:
                         print(f"⚠️ [ADVANCED MOVE] {unit_name}: Nie może się ruszyć (MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)})")
-        
+
         else:
             # STANDARDOWA LOGIKA - dla rozkazów strategicznych
             for group_idx, group in enumerate(unit_groups):
                 print(f"[AI] Przetwarzam grupę {group_idx + 1}/{len(unit_groups)} ({len(group)} jednostek)")
-                
+
                 # Oblicz średnią pozycję grupy dla lepszego target selection
                 if strategic_order and strategic_order.get('target_hex'):
                     # Wszystkie grupy mają ten sam strategiczny cel
@@ -1445,14 +1762,14 @@ def make_tactical_turn(game_engine, player_id=None):
                     leader = group[0]
                     base_target = find_target(leader, game_engine)
                     mission_type = 'AUTONOMOUS'
-                
+
                 # Przetwórz jednostki w grupie
                 for unit_idx, unit in enumerate(group):
                     total_processed += 1
                     unit_name = unit.get('id', f'unit_{total_processed}')
                     can_move_result = can_move(unit)
                     print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
-                    
+
                     if can_move_result:
                         # Wybierz cel i taktykę
                         if base_target:
@@ -1467,7 +1784,12 @@ def make_tactical_turn(game_engine, player_id=None):
                         else:
                             print(f"[AI] {unit_name}: Brak celu")
                             continue
-                        
+
+                        # NOWE: pomiń ruch jeśli jednostka jest w trybie hold_position
+                        if is_unit_holding(unit):
+                            print(f"🛡️ [MOVE] {unit_name}: UTRZYMUJE POZYCJĘ (garnizon)")
+                            continue
+
                         if target:
                             success = move_towards(unit, target, game_engine)
                             if success:
@@ -1487,9 +1809,9 @@ def make_tactical_turn(game_engine, player_id=None):
                             print(f"[AI] {unit_name}: Brak celu")
                     else:
                         print(f"[AI] {unit_name}: Nie może się ruszyć")
-        
+
         print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)} (sukces: {moved_count/len(my_units)*100:.1f}%)")
-        
+
         # LOGUJ KONIEC TURY
         group_count = len(group_assignments) if advanced_mode else len(unit_groups)
         mode_type = "advanced" if advanced_mode else "standard"
@@ -1510,7 +1832,29 @@ def make_tactical_turn(game_engine, player_id=None):
 class AICommander:
     """Wrapper klasa dla kompatybilności z istniejącym kodem"""
     def __init__(self, player: Any):
+        # Poprawne wcięcia naprawiające wcześniejszy błąd składni
         self.player = player
+        # GARRISONS: hex_id -> {'tokens': set(ids), 'since_turn': int}
+        self.garrisons: dict[str, dict] = {}
+        # Konfiguracja wag strategicznych (docelowo dynamiczne)
+        self.econ_weight: float = 1.0
+        self.vp_weight: float = 0.5
+        self.min_garrison_size: int = 1  # minimalny garnizon na punkt
+        self.max_garrison_fraction: float = 0.3  # max 30% jednostek w garnizonach
+        # Bufor: liczba jednostek trzymanych na każdym zajętym key point
+        self.default_garrison_size: int = 1
+        # Licznik tur do adaptacyjnej zmiany wag
+        self.turns_on_low_income: int = 0
+        self.low_income_threshold: int = 5  # jeśli tura daje < X pkt ekonomicznych
+
+    def should_hold_position(self, unit_dict: dict) -> bool:
+        """Zwraca True jeśli jednostka ma pozostać na zajętym key poincie.
+        Używa atrybutu token.hold_position ustawianego przy wejściu na punkt.
+        """
+        token = unit_dict.get('token')
+        if not token:
+            return False
+        return bool(getattr(token, 'hold_position', False))
 
     def pre_resupply(self, game_engine: Any) -> None:
         """Automatyczne uzupełnianie paliwa i siły bojowej AI"""

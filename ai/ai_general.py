@@ -39,6 +39,9 @@ BUDGET_STRATEGIES = {
     'EKSPANSJA': {'reserve': 0.20, 'allocate': 0.35, 'purchase': 0.45}
 }
 
+# Flaga sterująca generowaniem strategicznych rozkazów (uśpienie systemu rozkazów dla szybkiej gry z AI)
+GENERATE_ORDERS = False
+
 
 class EconAction(Enum):
     PURCHASE = auto()
@@ -84,13 +87,13 @@ class AIGeneral:
         print(f"  🎯 Strategia: {self._strategy_log_file}")
     
     def _init_economy_log(self):
-        """Tworzy plik logu ekonomii z nagłówkami."""
+        """Tworzy plik logu ekonomii z nagłówkami (rozszerzone)."""
         with open(self._economy_log_file, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow([
-                'timestamp', 'turn', 'nation', 'pe_start', 'pe_allocated', 
-                'pe_spent_purchases', 'pe_total_used', 'pe_remaining', 
-                'strategy_used', 'vp_own', 'vp_enemy', 'vp_status'
+                'timestamp','turn','nation','pe_start','pe_allocated','pe_spent_purchases','pe_total_used','pe_remaining',
+                'strategy_used','action','orders_issued','low_fuel_ratio','total_units','allocate_budget','purchase_budget',
+                'econ_after','vp_own','vp_enemy','vp_status'
             ])
     
     def _init_keypoints_log(self):
@@ -112,7 +115,7 @@ class AIGeneral:
                 'reasoning', 'context'
             ])
     
-    def log_economy_turn(self, turn, pe_start, pe_allocated, pe_spent_purchases, strategy_used):
+    def log_economy_turn(self, turn, pe_start, pe_allocated, pe_spent_purchases, strategy_used, orders_issued=False, decision_metrics=None):
         """Loguje stan ekonomiczny na koniec tury."""
         try:
             # Zabezpiecz przed None values
@@ -129,12 +132,22 @@ class AIGeneral:
             
             timestamp = datetime.datetime.now().isoformat()
             
+            # Dodatkowe dane z metryk decyzji
+            dm = decision_metrics or {}
+            low_fuel_ratio = dm.get('low_fuel_ratio', getattr(self, '_low_fuel_ratio', 0.0))
+            total_units = dm.get('own_units', getattr(self, '_unit_analysis', {}).get('total_units', 0))
+            allocate_budget = dm.get('allocate_budget') or dm.get('allocate_budget_calc') or 0
+            purchase_budget = dm.get('purchase_budget') or dm.get('purchase_budget_calc') or 0
+            econ_after = pe_start - pe_total_used
+
             with open(self._economy_log_file, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow([
                     timestamp, turn, self.display_nation, pe_start, pe_allocated,
                     pe_spent_purchases, pe_total_used, pe_remaining,
-                    strategy_used, vp_own, vp_enemy, vp_status
+                    strategy_used, getattr(self, '_turn_strategy_used', 'UNKNOWN'), int(bool(orders_issued)),
+                    low_fuel_ratio, total_units, allocate_budget, purchase_budget, econ_after,
+                    vp_own, vp_enemy, vp_status
                 ])
                 f.flush()  # Wymuszenie zapisu
             
@@ -240,24 +253,37 @@ class AIGeneral:
         # Decyzje strategiczne (purchase/allocate/hold)
         self.make_strategic_decisions(game_engine, current_player)
         
-        # FAZA 2: Loguj ekonomię na końcu tury
+        # Opcjonalne strategiczne rozkazy (uśpione jeśli flaga False)
+        orders_issued = False
+        if GENERATE_ORDERS:
+            try:
+                issued = self.issue_strategic_orders(game_engine=game_engine, current_turn=self._current_turn)
+                orders_issued = bool(issued)
+                if orders_issued:
+                    print(f"📋 Wydano strategiczne rozkazy (tura {self._current_turn})")
+                else:
+                    print("⚠️ Nie udało się wydać rozkazów strategicznych")
+            except Exception as e:
+                print(f"❌ Błąd wydawania rozkazów: {e}")
+        else:
+            print("🛌 Generowanie rozkazów wyłączone (GENERATE_ORDERS=False) – dowódcy autonomiczni")
+
+        # Log ekonomii NA KOŃCU z informacją czy wydano rozkazy
         pe_end = current_player.economy.get_points().get('economic_points', 0) if hasattr(current_player, 'economy') else 0
         pe_allocated = getattr(self, '_turn_pe_allocated', 0)
         pe_spent_purchases = getattr(self, '_turn_pe_spent_purchases', 0)
         strategy_used = getattr(self, '_turn_strategy_used', 'UNKNOWN')
-        
-        self.log_economy_turn(self._current_turn, pe_start, pe_allocated, pe_spent_purchases, strategy_used)
-        
-        # NOWE: Wydaj strategiczne rozkazy dla dowódców
-        try:
-            orders_issued = self.issue_strategic_orders(game_engine=game_engine, current_turn=self._current_turn)
-            if orders_issued:
-                print(f"📋 Wydano strategiczne rozkazy dla dowódców (tura {self._current_turn})")
-            else:
-                print("⚠️ Nie udało się wydać rozkazów strategicznych")
-        except Exception as e:
-            print(f"❌ Błąd wydawania rozkazów: {e}")
-        
+        # Zachowaj metryki decyzji (ostatnie) jeśli były – przechowuj przy decide_action
+        self.log_economy_turn(
+            self._current_turn,
+            pe_start,
+            pe_allocated,
+            pe_spent_purchases,
+            strategy_used,
+            orders_issued=orders_issued,
+            decision_metrics=getattr(self, '_last_decision_metrics', {})
+        )
+
         print(f"✅ AI GENERAŁ {self.display_nation.upper()} - KONIEC TURY\n")
         
     def analyze_economy(self, player):
@@ -1928,6 +1954,9 @@ class AIGeneral:
         import json
         from datetime import datetime
         from pathlib import Path
+        # Szybkie wyłączenie systemu rozkazów
+        if not GENERATE_ORDERS:
+            return None
         
         # Zabezpiecz current_turn przed None
         if current_turn is None:

@@ -10,7 +10,7 @@ from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
-from utils.game_cleaner import clean_all_for_new_game, quick_clean
+from utils.game_cleaner import clean_all_for_new_game, quick_clean, clean_ai_logs, clean_game_logs
 
 # 🎚️ POZIOM DEBUGOWANIA - łatwa kontrola komunikatów
 DEBUG_LEVEL = "BASIC"  # "BASIC" = tylko kupowanie/wystawianie, "FULL" = wszystkie szczegóły
@@ -46,103 +46,73 @@ class GameLauncher:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Gra Wojenna 2025 - Launcher")
-        self.root.geometry("500x650")  # Jeszcze większe okno dla nowych opcji
+        self.root.geometry("900x820")
+        try:
+            self.root.minsize(900, 820)
+        except Exception:
+            pass
+        # Zmienne sterujące
         self.ai_polish_general = tk.BooleanVar()
         self.ai_german_general = tk.BooleanVar()
-        # Osobne opcje dla każdego dowódcy
         self.ai_polish_commander_1 = tk.BooleanVar()
         self.ai_polish_commander_2 = tk.BooleanVar()
         self.ai_german_commander_1 = tk.BooleanVar()
         self.ai_german_commander_2 = tk.BooleanVar()
-        
-        # Nowe opcje gry
         self.max_turns = tk.StringVar(value="10")
         self.victory_mode = tk.StringVar(value="turns")
-        
+        # UI
         self.setup_ui()
+        self.root.bind('<Control-Shift-L>', lambda e: self.clean_logs_only())
 
     def setup_ui(self):
         frame = ttk.Frame(self.root, padding="20")
         frame.grid(row=0, column=0, sticky="nsew")
         ttk.Label(frame, text="Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        
-        # Sekcja AI
+        # Konfiguracja AI
         lf = ttk.LabelFrame(frame, text="Konfiguracja AI", padding="15")
         lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
-        
-        # Generałowie
         ttk.Label(lf, text="Generałowie:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
         ttk.Checkbutton(lf, text="Polski Generał (id=1) - AI", variable=self.ai_polish_general).grid(row=1, column=0, sticky="w", padx=(20, 0))
         ttk.Checkbutton(lf, text="Niemiecki Generał (id=4) - AI", variable=self.ai_german_general).grid(row=2, column=0, sticky="w", padx=(20, 0))
-        
-        # Separator
         ttk.Separator(lf, orient='horizontal').grid(row=3, column=0, sticky="ew", pady=10)
-        
-        # Dowódcy polscy
         ttk.Label(lf, text="Dowódcy polscy:", font=("Arial", 11, "bold")).grid(row=4, column=0, sticky="w", pady=(5, 5))
         ttk.Checkbutton(lf, text="Polski Dowódca 1 (id=2) - AI", variable=self.ai_polish_commander_1).grid(row=5, column=0, sticky="w", padx=(20, 0))
         ttk.Checkbutton(lf, text="Polski Dowódca 2 (id=3) - AI", variable=self.ai_polish_commander_2).grid(row=6, column=0, sticky="w", padx=(20, 0))
-        
-        # Dowódcy niemieccy
         ttk.Label(lf, text="Dowódcy niemieccy:", font=("Arial", 11, "bold")).grid(row=7, column=0, sticky="w", pady=(10, 5))
         ttk.Checkbutton(lf, text="Niemiecki Dowódca 1 (id=5) - AI", variable=self.ai_german_commander_1).grid(row=8, column=0, sticky="w", padx=(20, 0))
         ttk.Checkbutton(lf, text="Niemiecki Dowódca 2 (id=6) - AI", variable=self.ai_german_commander_2).grid(row=9, column=0, sticky="w", padx=(20, 0))
-        
-        # Sekcja opcji gry
+        # Opcje gry
         game_frame = ttk.LabelFrame(frame, text="Opcje gry", padding="15")
         game_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 20))
-        
-        # Liczba tur
         ttk.Label(game_frame, text="Maksymalna liczba tur:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
         turns_frame = ttk.Frame(game_frame)
         turns_frame.grid(row=1, column=0, sticky="w", padx=(20, 0))
-        
         ttk.Radiobutton(turns_frame, text="10 tur (szybka gra)", variable=self.max_turns, value="10").pack(anchor="w")
         ttk.Radiobutton(turns_frame, text="20 tur (standardowa)", variable=self.max_turns, value="20").pack(anchor="w")
         ttk.Radiobutton(turns_frame, text="30 tur (długa kampania)", variable=self.max_turns, value="30").pack(anchor="w")
-        
-        # Separator
         ttk.Separator(game_frame, orient='horizontal').grid(row=2, column=0, sticky="ew", pady=10)
-        
-        # Warunki zwycięstwa
         ttk.Label(game_frame, text="Warunki zwycięstwa:", font=("Arial", 11, "bold")).grid(row=3, column=0, sticky="w", pady=(5, 5))
         victory_frame = ttk.Frame(game_frame)
         victory_frame.grid(row=4, column=0, sticky="w", padx=(20, 0))
-        
-        ttk.Radiobutton(victory_frame, text="🏆 Victory Points (porównanie po turach)", 
-                       variable=self.victory_mode, value="turns").pack(anchor="w")
-        ttk.Radiobutton(victory_frame, text="💀 Eliminacja wroga (koniec przed limitem)", 
-                       variable=self.victory_mode, value="elimination").pack(anchor="w")
-        
-        # Opis warunków
+        ttk.Radiobutton(victory_frame, text="🏆 Victory Points (porównanie po turach)", variable=self.victory_mode, value="turns").pack(anchor="w")
+        ttk.Radiobutton(victory_frame, text="💀 Eliminacja wroga (koniec przed limitem)", variable=self.victory_mode, value="elimination").pack(anchor="w")
         desc_frame = ttk.Frame(game_frame)
         desc_frame.grid(row=5, column=0, sticky="w", padx=(20, 0), pady=(5, 0))
-        
-        ttk.Label(desc_frame, text="• VP: Gra do końca, zwycięzca na podstawie punktów", 
-                 font=("Arial", 9), foreground="gray").pack(anchor="w")
-        ttk.Label(desc_frame, text="• Eliminacja: Koniec gdy jeden naród zostanie", 
-                 font=("Arial", 9), foreground="gray").pack(anchor="w")
-        
-        # Przyciski
-        button_frame = ttk.Frame(frame)
-        button_frame.grid(row=3, column=0, columnspan=2, pady=20)
-        
-        # Sekcja czyszczenia
+        ttk.Label(desc_frame, text="• VP: Gra do końca, zwycięzca na podstawie punktów", font=("Arial", 9), foreground="gray").pack(anchor="w")
+        ttk.Label(desc_frame, text="• Eliminacja: Koniec gdy jeden naród zostanie", font=("Arial", 9), foreground="gray").pack(anchor="w")
+        # Czyszczenie
         clean_frame = ttk.LabelFrame(frame, text="Czyszczenie danych", padding="15")
-        clean_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(0, 20))
-        
-        clean_button_frame = ttk.Frame(clean_frame)
-        clean_button_frame.grid(row=0, column=0, columnspan=2)
-        
-        ttk.Button(clean_button_frame, text="🧹 Szybkie czyszczenie", command=self.quick_clean).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(clean_button_frame, text="🗑️ Pełne czyszczenie", command=self.full_clean).grid(row=0, column=1)
-        
-        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi", 
-                 font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=2, pady=(5, 0))
-        
+        clean_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+        btns = ttk.Frame(clean_frame)
+        btns.grid(row=0, column=0, columnspan=3, sticky="w")
+        ttk.Button(btns, text="🧹 Szybkie czyszczenie", command=self.quick_clean).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(btns, text="🗑️ Pełne czyszczenie", command=self.full_clean).grid(row=0, column=1, padx=(0, 10))
+        ttk.Button(btns, text="🧾 Czyść logi CSV", command=self.clean_logs_only).grid(row=0, column=2)
+        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi | Logi CSV: tylko pliki", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
+        ttk.Label(clean_frame, text="Skrót: Ctrl+Shift+L (czyści logi AI + actions_*.csv)", font=("Arial", 8), foreground="gray").grid(row=2, column=0, columnspan=3)
         # Główne przyciski
         main_button_frame = ttk.Frame(frame)
-        main_button_frame.grid(row=5, column=0, columnspan=2, pady=20)
+        main_button_frame.grid(row=4, column=0, columnspan=2, pady=20)
         ttk.Button(main_button_frame, text="Start Gry", command=self.start_game).grid(row=0, column=0, padx=(0, 10))
         ttk.Button(main_button_frame, text="Test AI", command=self.test_ai).grid(row=0, column=1, padx=(0, 10))
         ttk.Button(main_button_frame, text="Wyjście", command=self.root.quit).grid(row=0, column=2)
@@ -183,6 +153,19 @@ class GameLauncher:
                 messagebox.showinfo("Sukces", "Pełne czyszczenie zakończone pomyślnie!")
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
+
+    def clean_logs_only(self):
+        """Czyści tylko logi CSV (AI + actions) bez ruszania rozkazów i zakupionych żetonów"""
+        try:
+            result = messagebox.askyesno(
+                "Potwierdzenie",
+                "Wyczyścić TYLKO logi CSV?\n\nUsuwa:\n• Logi AI (foldery ai_*)\n• actions_*.csv\n\nNie usuwa rozkazów ani nowych żetonów.")
+            if result:
+                clean_ai_logs()
+                clean_game_logs()
+                messagebox.showinfo("Sukces", "Logi CSV wyczyszczone!")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Błąd czyszczenia logów: {e}")
 
     def start_game(self):
         try:
