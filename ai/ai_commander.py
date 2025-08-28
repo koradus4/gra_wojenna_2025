@@ -982,10 +982,83 @@ def group_units_by_proximity(units, max_group_distance=8):
     return groups
 
 
+def scan_for_enemies(unit_pos, game_engine, range=3):
+    """Sprawdź czy są widoczni wrogowie w pobliżu"""
+    current_player = getattr(game_engine, 'current_player_obj', None)
+    if not current_player:
+        return []
+    
+    my_nation = getattr(current_player, 'nation', '')
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        return []
+    
+    # Sprawdź tylko widoczne żetony dla tego gracza
+    visible_tokens = getattr(current_player, 'visible_tokens', set())
+    enemies = []
+    
+    for token in visible_tokens:
+        token_owner = getattr(token, 'owner', '')
+        if my_nation not in token_owner:  # To wróg
+            enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+            distance = board.hex_distance(unit_pos, enemy_pos)
+            if distance <= range:
+                enemies.append((token, distance))
+    
+    return enemies
+
+
+def choose_movement_mode(unit, target, game_engine):
+    """RYZYKOWNY wybór trybu ruchu dla AI"""
+    print(f"🧠 [AI TEST] CHOOSE_MOVEMENT_MODE wywołane dla {unit.get('id', 'UNKNOWN')}")
+    unit_pos = (unit['q'], unit['r'])
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        print(f"🧠 [AI TEST] BRAK BOARD - zwracam combat")
+        return 'combat'
+    
+    # Sprawdź wrogów w pobliżu
+    enemies_nearby = scan_for_enemies(unit_pos, game_engine, range=6)
+    print(f"🧠 [AI TEST] Wrogów w pobliżu: {len(enemies_nearby)}")
+    
+    if enemies_nearby:
+        # SCENARIUSZ 2: AI podąża do WIDOCZNEGO WROGA
+        closest_enemy_distance = min(enemy[1] for enemy in enemies_nearby)
+        print(f"🧠 [AI TEST] Najbliższy wróg: {closest_enemy_distance} pól")
+        
+        if closest_enemy_distance > 6:
+            print(f"🧠 [AI TEST] Daleki wróg -> MARCH")
+            return 'march'    # Szybko do kontaktu! (agresywnie)
+        elif closest_enemy_distance > 3:
+            print(f"🧠 [AI TEST] Średni dystans -> COMBAT")
+            return 'combat'   # Normalny tryb przy średnim dystansie
+        else:
+            print(f"🧠 [AI TEST] Blisko wroga -> RECON")
+            return 'recon'    # Ostrożnie przy bezpośrednim kontakcie (+25% obrony)
+    else:
+        # SCENARIUSZ 1: AI podąża do KEY POINTU (bez wrogów)
+        distance_to_target = board.hex_distance(unit_pos, target)
+        print(f"🧠 [AI TEST] Brak wrogów, dystans do celu: {distance_to_target}")
+        
+        if distance_to_target > 10:
+            print(f"🧠 [AI TEST] Daleki cel -> MARCH")
+            return 'march'    # Szybko do celu (+50% ruchu, -50% obrony)
+        elif distance_to_target > 5:
+            print(f"🧠 [AI TEST] Średni cel -> MARCH (ryzykownie)")
+            return 'march'    # NADAL march! (ryzykownie ale szybko)
+        else:
+            print(f"🧠 [AI TEST] Blisko celu -> COMBAT")
+            return 'combat'   # Tylko przy samym celu bezpiecznie
+
+
 def move_towards(unit, target, game_engine):
     """Wykonaj ruch w kierunku celu - ULEPSZONA WERSJA z progressive movement"""
     
-    print(f"[AI] Szukam ścieżki {unit['id']}: ({unit['q']},{unit['r']}) -> {target}")
+    print(f"🚀 [AI TEST] MOVE_TOWARDS WYWOŁANE! {unit['id']}: ({unit['q']},{unit['r']}) -> {target}")
+    
+    # DODATKOWY TEST - sprawdź czy dojdziemy do kodu trybów ruchu
+    with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+        f.write(f"MOVE_TOWARDS START: {unit['id']} -> {target}\n")
     
     board = getattr(game_engine, 'board', None)
     if not board:
@@ -1016,6 +1089,36 @@ def move_towards(unit, target, game_engine):
     target_tuple = tuple(target) if isinstance(target, list) else target
     print(f"[AI Pathfinding] Konwersja: {target} -> {target_tuple}")
     
+    # NOWE: RYZYKOWNY WYBÓR TRYBU RUCHU
+    print(f"🔍 [AI TEST] Sprawdzam token: {type(token)}, hasattr movement_mode: {hasattr(token, 'movement_mode')}")
+    
+    # DODATKOWY LOG DO PLIKU
+    with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+        f.write(f"WYBOR TRYBU START: {unit['id']}, token_type: {type(token)}\n")
+    
+    optimal_mode = choose_movement_mode(unit, target_tuple, game_engine)
+    print(f"🎯 [AI TEST] Wybrany tryb: {optimal_mode}")
+    
+    with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+        f.write(f"WYBRANY TRYB: {optimal_mode}\n")
+    
+    if hasattr(token, 'movement_mode') and not getattr(token, 'movement_mode_locked', False):
+        if token.movement_mode != optimal_mode:
+            token.movement_mode = optimal_mode
+            token.apply_movement_mode()  # Przelicz statystyki
+            print(f"✅ [AI Movement] Zmieniono tryb ruchu na: {optimal_mode}")
+            with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+                f.write(f"ZMIENIONO TRYB: {token.movement_mode} -> {optimal_mode}\n")
+            # Aktualizuj unit stats po zmianie trybu
+            unit['mp'] = getattr(token, 'currentMovePoints', token.maxMovePoints)
+        else:
+            print(f"🔄 [AI Movement] Tryb ruchu już ustawiony: {optimal_mode}")
+            with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+                f.write(f"TRYB JUZ USTAWIONY: {optimal_mode}\n")
+    else:
+        print(f"❌ [AI TEST] NIE MOGĘ ZMIENIĆ TRYBU - hasattr: {hasattr(token, 'movement_mode')}, locked: {getattr(token, 'movement_mode_locked', 'BRAK')}")
+        with open("logs/movement_test.log", "a", encoding="utf-8") as f:
+            f.write(f"NIE MOZNA ZMIENIC TRYBU: hasattr={hasattr(token, 'movement_mode')}\n")
     # SPRAWDZENIE REALNOŚCI CELU - hex distance calculation
     hex_distance = board.hex_distance(unit_pos, target_tuple)
     max_reach = min(unit['mp'], unit['fuel'])
@@ -1156,6 +1259,35 @@ def make_tactical_turn(game_engine, player_id=None):
             reason=f"AI Commander turn started for player {player_id}",
             player_nation=player_nation
         )
+
+        # --- AUTO INIT KEY POINTS (jeśli brak current_value) ---
+        try:
+            kp_state = getattr(game_engine, 'key_points_state', None)
+            map_data = getattr(game_engine, 'map_data', {}) or {}
+            map_kp = map_data.get('key_points', {})
+            if kp_state is None:
+                game_engine.key_points_state = {}
+                kp_state = game_engine.key_points_state
+            changed = False
+            # Dodaj brakujące z mapy
+            for pos_str, kp in map_kp.items():
+                if pos_str not in kp_state:
+                    val = kp.get('value', 0)
+                    kp_state[pos_str] = {
+                        'type': kp.get('type', 'unknown'),
+                        'value': kp.get('value', val),
+                        'current_value': kp.get('current_value', val)
+                    }
+                    changed = True
+                else:
+                    # Uzupełnij current_value jeśli brak
+                    if 'current_value' not in kp_state[pos_str]:
+                        kp_state[pos_str]['current_value'] = kp_state[pos_str].get('value', 0)
+                        changed = True
+            if changed:
+                print(f"[AI KP INIT] Zainicjalizowano/uzupełniono key pointy: {len(kp_state)}")
+        except Exception as _e:
+            print(f"[AI KP INIT] Błąd inicjalizacji key pointów: {_e}")
         
         # STRATEGICZNE ROZKAZY od General
         strategic_order = None
@@ -1279,6 +1411,7 @@ def make_tactical_turn(game_engine, player_id=None):
                     
                     if can_move_result:
                         # Wszyscy idą do tego samego celu (target lidera)
+                        print(f"🚨 [URGENT TEST] ZARAZ WYWOŁUJĘ MOVE_TOWARDS DLA {unit_name}!")
                         success = move_towards(unit, target, game_engine)
                         if success:
                             moved_count += 1
