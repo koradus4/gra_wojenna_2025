@@ -12,6 +12,35 @@ from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
 from utils.game_cleaner import clean_all_for_new_game, quick_clean
 
+# 🎚️ POZIOM DEBUGOWANIA - łatwa kontrola komunikatów
+DEBUG_LEVEL = "BASIC"  # "BASIC" = tylko kupowanie/wystawianie, "FULL" = wszystkie szczegóły
+
+def debug_print(message, level="BASIC", category="INFO"):
+    """Drukuje komunikaty tylko gdy poziom debugowania pozwala"""
+    if DEBUG_LEVEL == "FULL":
+        print(f"[{category}] {message}")
+    elif DEBUG_LEVEL == "BASIC" and level == "BASIC":
+        print(f"🎯 {message}")
+
+print("🚀 GRA WOJENNA - GŁÓWNY LAUNCHER Z AI")
+print(f"🎚️ Poziom debugowania: {DEBUG_LEVEL}")
+print("💡 Zmiana debug: w konsoli wpisz 'BASIC' lub 'FULL'")
+print("-" * 50)
+
+def change_debug_level():
+    """Funkcja do zmiany poziomu debugowania przez konsole"""
+    global DEBUG_LEVEL
+    try:
+        import sys
+        import select
+        if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+            line = input().strip().upper()
+            if line in ["BASIC", "FULL"]:
+                DEBUG_LEVEL = line
+                print(f"🎚️ Zmieniono poziom debug na: {DEBUG_LEVEL}")
+    except:
+        pass  # Ignoruj błędy input w GUI
+
 
 class GameLauncher:
     def __init__(self):
@@ -177,10 +206,11 @@ class GameLauncher:
             messagebox.showerror("Błąd", f"Uruchomienie gry nieudane: {e}")
 
     def launch_game_with_settings(self):
-        print("🚀 ROZPOCZYNANIE DIAGNOSTYKI MAIN_AI.PY")
+        debug_print("🚀 ROZPOCZYNANIE DIAGNOSTYKI MAIN_AI.PY", "BASIC", "STARTUP")
+        
         miejsca = ["Polska", "Polska", "Polska", "Niemcy", "Niemcy", "Niemcy"]
         czasy = [5, 5, 5, 5, 5, 5]
-        print("🔧 TWORZENIE GAMEENGINE...")
+        debug_print("🔧 TWORZENIE GAMEENGINE...", "BASIC", "STARTUP")
         game_engine = GameEngine(
             map_path="data/map_data.json",
             tokens_index_path="assets/tokens/index.json",
@@ -188,8 +218,8 @@ class GameLauncher:
             seed=42,
             read_only=True
         )
-        print("✅ GAMEENGINE UTWORZONY")
-        print("🔥 NATYCHMIASTOWA DIAGNOSTYKA PALIWA:")
+        debug_print("✅ GAMEENGINE UTWORZONY", "BASIC", "STARTUP")
+        debug_print("🔥 NATYCHMIASTOWA DIAGNOSTYKA PALIWA:", "FULL", "DIAGNOSTICS")
         niepelne_baki = 0
         polskie_tokeny = 0
         for token in game_engine.tokens:
@@ -200,9 +230,9 @@ class GameLauncher:
                 max_fuel = getattr(token, 'maxFuel', -1)
                 if current_fuel < max_fuel:
                     niepelne_baki += 1
-                    print(f"❌ {token.id}: {current_fuel}/{max_fuel}")
-        print(f"🔥 POLSKICH TOKENÓW: {polskie_tokeny}, NIEPEŁNE BAKI: {niepelne_baki}")
-        print("🔥 KONIEC DIAGNOSTYKI")
+                    debug_print(f"❌ {token.id}: {current_fuel}/{max_fuel}", "FULL", "DIAGNOSTICS")
+        debug_print(f"🔥 POLSKICH TOKENÓW: {polskie_tokeny}, NIEPEŁNE BAKI: {niepelne_baki}", "FULL", "DIAGNOSTICS")
+        debug_print("🔥 KONIEC DIAGNOSTYKI", "FULL", "DIAGNOSTICS")
         polska_gen = miejsca.index("Polska")
         polska_dow1 = miejsca.index("Polska", polska_gen + 1)
         polska_dow2 = miejsca.index("Polska", polska_dow1 + 1)
@@ -234,11 +264,11 @@ class GameLauncher:
                 if player.nation == "Polska" and self.ai_polish_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("polish")
-                    print(f"[AI] Generał AI aktywny: {player.nation} (id={player.id})")
+                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id})", "BASIC", "AI_SETUP")
                 elif player.nation == "Niemcy" and self.ai_german_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("german")
-                    print(f"[AI] Generał AI aktywny: {player.nation} (id={player.id})")
+                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id})", "BASIC", "AI_SETUP")
             elif player.role == "Dowódca":
                 # Sprawdź konkretnego dowódcę po ID
                 should_be_ai = False
@@ -255,10 +285,10 @@ class GameLauncher:
                 if should_be_ai:
                     player.is_ai_commander = True
                     ai_commanders[player.id] = AICommander(player)
-                    print(f"[AI] Dowódca AI aktywny: {player.nation} Dowódca {player.id} (id={player.id})")
+                    debug_print(f"🎯 DOWÓDCA AI aktywny: {player.nation} Dowódca {player.id} (id={player.id})", "BASIC", "AI_SETUP")
                 else:
                     player.is_ai_commander = False
-                    print(f"[HUMAN] Dowódca ludzki: {player.nation} Dowódca {player.id} (id={player.id})")
+                    debug_print(f"👤 Dowódca ludzki: {player.nation} Dowódca {player.id} (id={player.id})", "FULL", "AI_SETUP")
         for p in players:
             if not hasattr(p, 'economy') or p.economy is None:
                 p.economy = EconomySystem()

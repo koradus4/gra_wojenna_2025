@@ -15,7 +15,16 @@ import datetime
 import json
 import math
 import os
+import shutil
 from pathlib import Path
+
+# Importujemy debug_print z głównego modułu
+try:
+    from main_ai import debug_print
+except ImportError:
+    # Fallback gdyby nie udało się zaimportować
+    def debug_print(message, level="BASIC", category="INFO"):
+        print(f"[AI_COMMANDER] {message}")
 
 
 def prioritize_targets(key_points, game_engine):
@@ -1237,14 +1246,14 @@ def make_tactical_turn(game_engine, player_id=None):
         
         # Koordynacja obrony wokół punktów kluczowych
         defensive_groups = defensive_coordination(my_units, threat_assessment, game_engine)
-        print(f"[DEFENSE] Utworzono {len(defensive_groups)} grup defensywnych")
+        debug_print(f"🛡️  Utworzono {len(defensive_groups)} grup defensywnych", "FULL", "DEFENSE")
         
         # 3.6. DEPLOYMENT NOWYCH JEDNOSTEK
-        print(f"🚀 [AI] === FAZA DEPLOYMENT ===")
+        debug_print(f"🚀 === FAZA DEPLOYMENT ===", "BASIC", "DEPLOY")
         deployed_count = deploy_purchased_units(game_engine, player_id)
         
         if deployed_count > 0:
-            print(f"[DEPLOY] ✅ Wdrożono {deployed_count} nowych jednostek")
+            debug_print(f"✅ Wdrożono {deployed_count} nowych jednostek", "BASIC", "DEPLOY")
             # Po deployment, odśwież listę jednostek
             my_units = get_my_units(game_engine, player_id)
         
@@ -1849,59 +1858,94 @@ def deploy_purchased_units(game_engine, player_id):
     Returns:
         int: Liczba wdrożonych jednostek
     """
-    print(f"[DEPLOY] Sprawdzam zakupione jednostki dla gracza {player_id}")
+    debug_print(f"🚢 SPRAWDZAM ZAKUPIONE JEDNOSTKI dla gracza {player_id}", "BASIC", "DEPLOY")
     
     current_player = getattr(game_engine, 'current_player_obj', None)
     if not current_player:
-        print(f"[DEPLOY] Brak obiektu gracza")
+        debug_print(f"❌ Brak obiektu gracza", "BASIC", "DEPLOY")
         return 0
     
     nation = getattr(current_player, 'nation', 'Unknown')
     
-    # Sprawdź pliki z zakupionymi jednostkami
+    # Sprawdź foldery z zakupionymi jednostkami (nowa implementacja)
     import glob
     from pathlib import Path
     import os
     
-    pattern = f"nowe_dla_{nation.lower()}_*.json"
-    purchased_files = glob.glob(pattern)
+    # Szukaj w assets/tokens/nowe_dla_{player_id}/*/token.json
+    assets_path = Path("assets/tokens")
+    commander_folder = assets_path / f"nowe_dla_{player_id}"
+    
+    purchased_files = []
+    if commander_folder.exists():
+        # Znajdź wszystkie foldery z tokenami
+        for token_folder in commander_folder.glob("*/"):
+            token_json = token_folder / "token.json"
+            if token_json.exists():
+                purchased_files.append(str(token_json))
     
     deployed_count = 0
+    
+    debug_print(f"📁 Sprawdzam folder: {commander_folder}", "FULL", "DEPLOY")
+    debug_print(f"📦 Znaleziono {len(purchased_files)} plików token.json", "BASIC", "DEPLOY")
     
     for file_path in purchased_files:
         try:
             import json
             with open(file_path, 'r', encoding='utf-8') as f:
-                purchased_units = json.load(f)
+                unit_data = json.load(f)
             
-            print(f"[DEPLOY] Znaleziono {len(purchased_units)} jednostek w {file_path}")
+            debug_print(f"⚙️  Przetwarzam jednostkę z {file_path}", "FULL", "DEPLOY")
             
-            # Znajdź najlepsze pozycje deployment dla każdej jednostki
-            for unit_data in purchased_units:
-                deployment_pos = find_deployment_position(unit_data, game_engine, player_id)
+            # Każdy plik token.json zawiera dane jednej jednostki
+            deployment_pos = find_deployment_position(unit_data, game_engine, player_id)
+            
+            if deployment_pos:
+                # Znajdź folder tokena (parent folder of file_path)
+                token_folder = os.path.dirname(file_path)
                 
-                if deployment_pos:
-                    # Stwórz token i umieść na mapie
-                    success = create_and_deploy_token(unit_data, deployment_pos, game_engine, player_id)
-                    if success:
-                        deployed_count += 1
-                        print(f"[DEPLOY] Wdrożono {unit_data.get('label', 'jednostka')} na {deployment_pos}")
+                # Stwórz token i umieść na mapie
+                success = create_and_deploy_token(unit_data, deployment_pos, game_engine, player_id, token_folder)
+                if success:
+                    deployed_count += 1
+                    debug_print(f"🎯 WYSTAWIONO {unit_data.get('label', 'jednostka')} na {deployment_pos}", "BASIC", "DEPLOY")
                     
-            # Po wdrożeniu usuń plik
-            os.remove(file_path)
-            print(f"[DEPLOY] Usunięto plik {file_path}")
-            
+                    # Usuń folder po deployment
+                    token_folder = Path(file_path).parent
+                    shutil.rmtree(token_folder)
+                    debug_print(f"🗑️  Usunięto folder {token_folder}", "FULL", "DEPLOY")
+                
         except Exception as e:
-            print(f"[DEPLOY] Błąd wdrażania z {file_path}: {e}")
+            debug_print(f"❌ Błąd wdrażania z {file_path}: {e}", "BASIC", "ERROR")
     
     if deployed_count > 0:
-        print(f"[DEPLOY] ✅ Wdrożono łącznie {deployed_count} nowych jednostek")
+        debug_print(f"✅ WDROŻONO ŁĄCZNIE {deployed_count} nowych jednostek", "BASIC", "DEPLOY")
     
     return deployed_count
 
 
 def find_deployment_position(unit_data, game_engine, player_id):
-    """Znajduje najlepszą pozycję do wdrożenia nowej jednostki"""
+    """Znajduje najlepszą pozycję do wdrożenia nowej jednostki - INTELIGENTNY SYSTEM"""
+    try:
+        # Import inteligentnego systemu spawnowania
+        import sys
+        import os
+        sys.path.append(os.path.dirname(__file__))
+        from smart_deployment import find_optimal_spawn_position
+        
+        print(f"[DEPLOY] Używam inteligentnego systemu spawnowania...")
+        optimal_position = find_optimal_spawn_position(unit_data, game_engine, player_id)
+        
+        if optimal_position:
+            print(f"[DEPLOY] Inteligentny system wybrał pozycję: {optimal_position}")
+            return optimal_position
+        else:
+            print(f"[DEPLOY] Inteligentny system nie znalazł pozycji, używam fallback...")
+            
+    except Exception as e:
+        print(f"[DEPLOY] Błąd w inteligentnym systemie: {e}, używam fallback...")
+    
+    # FALLBACK - prosty system (dla zgodności wstecznej)
     board = getattr(game_engine, 'board', None)
     if not board:
         return None
@@ -1913,42 +1957,30 @@ def find_deployment_position(unit_data, game_engine, player_id):
     map_data = getattr(game_engine, 'map_data', {})
     spawn_points = map_data.get('spawn_points', {}).get(nation, [])
     
-    # Znajdź pozycje moich jednostek dla koordynacji
-    my_units = get_my_units(game_engine, player_id)
-    
-    # Strategia deployment:
-    # 1. Priorytet: blisko spawn points
-    # 2. Blisko istniejących jednostek (wsparcie)
-    # 3. Przy punktach kluczowych
-    # 4. Z dala od głównych sił wroga
-    
-    best_position = None
-    best_score = -1000
-    
-    # Sprawdź spawn points
+    # Prosty wybór pierwszego dostępnego spawnu
     for spawn_str in spawn_points:
-        spawn_pos = tuple(map(int, spawn_str.split(',')))
-        
-        if not board.is_occupied(spawn_pos[0], spawn_pos[1]):
-            score = evaluate_deployment_position(spawn_pos, my_units, game_engine)
-            if score > best_score:
-                best_score = score
-                best_position = spawn_pos
+        try:
+            spawn_pos = tuple(map(int, spawn_str.split(',')))
+            if not board.is_occupied(spawn_pos[0], spawn_pos[1]):
+                print(f"[DEPLOY] Fallback wybrał pozycję: {spawn_pos}")
+                return spawn_pos
+        except (ValueError, IndexError):
+            continue
     
-    # Jeśli wszystkie spawn points zajęte, sprawdź sąsiednie
-    if not best_position:
-        for spawn_str in spawn_points:
+    # Sprawdź sąsiednie pozycje
+    for spawn_str in spawn_points:
+        try:
             spawn_pos = tuple(map(int, spawn_str.split(',')))
             neighbors = board.neighbors(spawn_pos[0], spawn_pos[1])
             
             for neighbor in neighbors:
                 if not board.is_occupied(neighbor[0], neighbor[1]):
-                    score = evaluate_deployment_position(neighbor, my_units, game_engine)
-                    if score > best_score:
-                        best_score = score
-                        best_position = neighbor
+                    print(f"[DEPLOY] Fallback wybrał sąsiada spawnu: {neighbor}")
+                    return neighbor
+        except (ValueError, IndexError):
+            continue
     
-    return best_position
+    return None
 
 
 def evaluate_deployment_position(position, my_units, game_engine):
@@ -1978,39 +2010,73 @@ def evaluate_deployment_position(position, my_units, game_engine):
     return score
 
 
-def create_and_deploy_token(unit_data, position, game_engine, player_id):
-    """Tworzy token i umieszcza go na mapie"""
+def create_and_deploy_token(unit_data, position, game_engine, player_id, token_folder):
+    """Tworzy token i umieszcza go na mapie - DOKŁADNIE JAK CZŁOWIEK"""
     try:
         from engine.token import Token
+        import os
         
-        # Przygotuj dane tokena
+        # Przygotuj dane tokena DOKŁADNIE jak w panel_mapa.py
         current_player = getattr(game_engine, 'current_player_obj', None)
         nation = getattr(current_player, 'nation', 'Unknown')
-        owner = f"{player_id} ({nation})"
+        token_owner = f"{player_id} ({nation})"
         
-        # Stwórz token
-        token = Token(
-            token_id=unit_data.get('id', f"deployed_{len(game_engine.board.tokens)}"),
-            stats=unit_data.get('stats', {}),
-            owner=owner,
-            q=position[0],
-            r=position[1]
-        )
+        # Ustaw owner w danych żetonu (jak w panel_mapa.py)
+        unit_data["owner"] = token_owner
         
-        # Ustaw pozycję
-        token.q = position[0]
-        token.r = position[1]
+        # Utwórz obiekt Token DOKŁADNIE jak człowiek - używając Token.from_json()
+        new_token = Token.from_json(unit_data)
+        new_token.set_position(position[0], position[1])
+        new_token.owner = token_owner
         
-        # Dodaj do gry
-        game_engine.board.tokens.append(token)
+        # Resetuj punkty ruchu i paliwa po wystawieniu (jak w panel_mapa.py)
+        new_token.apply_movement_mode(reset_mp=True)
+        new_token.currentFuel = new_token.maxFuel
         
-        # Zaznacz hex jako zajęty
-        game_engine.board.occupied_hexes.add(position)
+        # KLUCZOWE: Skopiuj pliki do aktualne/ JAK ROBI CZŁOWIEK!
+        png_src = os.path.join(token_folder, "token.png")
+        json_src = os.path.join(token_folder, "token.json")
+        if os.path.exists(png_src):
+            dest_dir = os.path.join("assets", "tokens", "aktualne")
+            os.makedirs(dest_dir, exist_ok=True)
+            base_name = os.path.basename(token_folder)
+            png_dst = os.path.join(dest_dir, base_name + ".png")
+            shutil.copy2(png_src, png_dst)
+            # KLUCZOWE: Ustaw ścieżkę obrazka JAK ROBI CZŁOWIEK!
+            new_token.stats['image'] = png_dst.replace('\\', '/')
+            debug_print(f"📁 Skopiowano PNG do: {png_dst}", "FULL", "DEPLOY")
         
+        # Skopiuj również token.json do katalogu aktualne (jak robi człowiek)
+        if os.path.exists(json_src):
+            json_dst = os.path.join(dest_dir, base_name + ".json")
+            shutil.copy2(json_src, json_dst)
+            debug_print(f"📁 Skopiowano JSON do: {json_dst}", "FULL", "DEPLOY")
+        
+        # KLUCZOWE: Dodaj żeton do game_engine.tokens (nie board.tokens!)
+        game_engine.tokens.append(new_token)
+        
+        # KLUCZOWE: Synchronizuj board z tokens
+        game_engine.board.set_tokens(game_engine.tokens)
+        
+        # KLUCZOWE: Aktualizuj widoczność wszystkich graczy
+        from engine.engine import update_all_players_visibility
+        update_all_players_visibility(game_engine.players, game_engine.tokens, game_engine.board)
+        
+        # SAVE STATE - zapisz żeby żeton nie zniknął po restarcie
+        try:
+            os.makedirs("saves", exist_ok=True)
+            game_engine.save_state(os.path.join("saves", "after_deployment.json"))
+            debug_print(f"💾 Zapisano stan gry z nowym żetonem", "FULL", "SAVE")
+        except Exception as save_err:
+            debug_print(f"⚠️ Błąd zapisu stanu: {save_err}", "BASIC", "ERROR")
+        
+        debug_print(f"✅ Token {new_token.id} wdrożony na ({position[0]}, {position[1]}) jak człowiek", "BASIC", "DEPLOY")
         return True
         
     except Exception as e:
         print(f"[DEPLOY] Błąd tworzenia tokena: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

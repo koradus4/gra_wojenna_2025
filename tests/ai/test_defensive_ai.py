@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Dodaj ścieżkę projektu do sys.path
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from ai.ai_commander import (

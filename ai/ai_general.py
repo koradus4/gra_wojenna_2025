@@ -13,6 +13,14 @@ from pathlib import Path
 from enum import Enum, auto
 import datetime, csv, json
 
+# Importujemy debug_print z głównego modułu
+try:
+    from main_ai import debug_print
+except ImportError:
+    # Fallback gdyby nie udało się zaimportować
+    def debug_print(message, level="BASIC", category="INFO"):
+        print(f"[AI_GENERAL] {message}")
+
 # Proste stałe progowe ekonomii (można później przenieść do config)
 MIN_BUY = 30          # Poniżej – HOLD
 MIN_ALLOCATE = 60     # Od tej wartości (i gdy mamy już trochę armii) rozważ ALLOCATE
@@ -1372,7 +1380,7 @@ class AIGeneral:
         
     def purchase_unit_programmatically(self, player, purchase_plan):
         """Programowo kupuje jednostkę jak TokenShop"""
-        print(f"\n� Kupuję jednostkę: {purchase_plan['name']}")
+        debug_print(f"💰 KUPUJĘ JEDNOSTKĘ: {purchase_plan['name']}", "BASIC", "PURCHASE")
         
         try:
             from pathlib import Path
@@ -1385,10 +1393,10 @@ class AIGeneral:
             current_points = player.economy.get_points()['economic_points']
             cost = purchase_plan['cost']
             
-            print(f"💳 Sprawdzam finanse: {current_points} pkt (koszt: {cost} pkt)")
+            debug_print(f"💳 Sprawdzam finanse: {current_points} pkt (koszt: {cost} pkt)", "BASIC", "PURCHASE")
             
             if current_points < cost:
-                print(f"❌ Niewystarczające środki: {current_points} < {cost}")
+                debug_print(f"❌ Niewystarczające środki: {current_points} < {cost}", "BASIC", "PURCHASE")
                 return False
             
             # Utwórz folder dla żetonu w strukturze kreatora
@@ -1397,7 +1405,7 @@ class AIGeneral:
             target_dir = tokens_dir / folder_name
             target_dir.mkdir(parents=True, exist_ok=True)
             
-            print(f"📁 Tworzę folder: {target_dir}")
+            debug_print(f"📁 Tworzę folder: {target_dir}", "FULL", "PURCHASE")
             
             # Generuj unikalne ID jak w kreatora
             now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -1419,7 +1427,7 @@ class AIGeneral:
             token_folder = target_dir / token_id
             token_folder.mkdir(exist_ok=True)
             
-            print(f"🏷️  ID żetonu: {token_id}")
+            debug_print(f"🏷️  ID żetonu: {token_id}", "FULL", "PURCHASE")
             
             # Przygotuj dane żetonu
             unit_data = self.prepare_unit_data(purchase_plan, commander_id, token_id, nation_name)
@@ -1429,13 +1437,13 @@ class AIGeneral:
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(unit_data, f, indent=2, ensure_ascii=False)
             
-            print(f"💾 Zapisano JSON: {json_path}")
+            debug_print(f"💾 Zapisano JSON: {json_path}", "FULL", "PURCHASE")
             
             # Utwórz obrazek żetonu
             img_path = token_folder / "token.png"
             self.create_token_image(purchase_plan, nation_name, img_path)
             
-            print(f"🖼️  Utworzono obrazek: {img_path}")
+            debug_print(f"🖼️  Utworzono obrazek: {img_path}", "FULL", "PURCHASE")
             
             # Odejmij punkty
             player.economy.subtract_points(cost)
@@ -1445,10 +1453,10 @@ class AIGeneral:
             try:
                 self._log_purchase_decision(player, purchase_plan, current_points, remaining_points)
             except Exception as log_err:
-                print(f"⚠️ Logger AI purchase błąd: {log_err}")
+                debug_print(f"⚠️ Logger AI purchase błąd: {log_err}", "FULL", "ERROR")
             
-            print(f"💰 Płatność: -{cost} pkt (pozostało: {remaining_points} pkt)")
-            print(f"✅ Żeton {purchase_plan['name']} utworzony pomyślnie!")
+            debug_print(f"💰 Płatność: -{cost} pkt (pozostało: {remaining_points} pkt)", "BASIC", "PURCHASE")
+            debug_print(f"✅ Żeton {purchase_plan['name']} utworzony pomyślnie!", "BASIC", "PURCHASE")
             
             return True
             
