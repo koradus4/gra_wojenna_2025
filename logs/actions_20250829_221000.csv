@@ -1,0 +1,17 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-08-29T22:10:00;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;42;0
+2025-08-29T22:10:06;1;2;Polska;Dowódca;move;P_Batalion__2_Batalion_Strzelc_w;;24;-8;29;-10;OK;0;0;42;0
+2025-08-29T22:10:08;1;2;Polska;Dowódca;move;TL_Kompania__2_Pluton_Tankietek;;23;-7;28;-9;;0;0;42;0
+2025-08-29T22:10:10;1;2;Polska;Dowódca;move;P_Kompania__2_Batalion_Strzelc_w_20250703213012;;23;-8;27;-9;;0;0;42;0
+2025-08-29T22:10:13;1;2;Polska;Dowódca;move;P_Batalion__2_Pu_k_Piechoty;;23;-3;27;-4;;0;0;42;0
+2025-08-29T22:10:16;1;2;Polska;Dowódca;move;P_Pluton__2_Pu_k_Piechoty;;21;3;25;2;;0;0;42;0
+2025-08-29T22:10:19;1;2;Polska;Dowódca;move;P_Batalion__2_Kompania_Grenadier_w_20250703213005;;20;3;24;3;OK;0;0;42;0
+2025-08-29T22:10:22;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;42;0
+2025-08-29T22:10:28;1;3;Polska;Dowódca;move;P_Batalion__3_Batalion_Strzelc_w;;20;13;25;6;;0;0;42;0
+2025-08-29T22:10:32;1;3;Polska;Dowódca;move;P_Kompania__3_Batalion_Strzelc_w;;20;14;21;11;;0;0;42;0
+2025-08-29T22:10:36;1;3;Polska;Dowódca;move;TS_Kompania__3_Sam_Pancerny_Einheit;;19;14;26;6;;0;0;42;0
+2025-08-29T22:10:40;1;3;Polska;Dowódca;move;P_Pluton__3_Pu_k_Piechoty;;24;16;30;10;;0;0;42;0
+2025-08-29T22:10:42;1;3;Polska;Dowódca;move;TL_Batalion__3_Kompania_Czo_g_w_Lekkich;;23;17;27;12;;0;0;42;0
+2025-08-29T22:10:45;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;42;0
+2025-08-29T22:15:50;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;134;42
+2025-08-29T22:20:52;1;2;Polska;Dowódca;end_turn;;;;;;;timeout;0;0;134;42

@@ -1,0 +1,23 @@
+{
+  "id": "nowy_K_Pluton__5_Pluton_N_20250829204841",
+  "nation": "Niemcy",
+  "unitType": "K",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_K_Pluton",
+  "unit_full_name": "Niemcy Kawaleria Pluton ***",
+  "move": 3,
+  "attack": {
+    "range": 2,
+    "value": 4
+  },
+  "combat_value": 6,
+  "defense_value": 4,
+  "maintenance": 5,
+  "price": 28,
+  "sight": 3,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_K_Pluton__5_Pluton_N_20250829204841/token.png",
+  "w": 240,
+  "h": 240
+}

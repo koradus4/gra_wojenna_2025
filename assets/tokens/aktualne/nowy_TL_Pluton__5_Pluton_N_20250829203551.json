@@ -1,0 +1,23 @@
+{
+  "id": "nowy_TL_Pluton__5_Pluton_N_20250829203551",
+  "nation": "Niemcy",
+  "unitType": "TL",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_TL_Pluton",
+  "unit_full_name": "Niemcy Czołg lekki Pluton ***",
+  "move": 4,
+  "attack": {
+    "range": 1,
+    "value": 4
+  },
+  "combat_value": 8,
+  "defense_value": 4,
+  "maintenance": 4,
+  "price": 25,
+  "sight": 2,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_TL_Pluton__5_Pluton_N_20250829203551/token.png",
+  "w": 240,
+  "h": 240
+}

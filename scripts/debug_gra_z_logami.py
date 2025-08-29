@@ -18,8 +18,7 @@ def main():
     # Krok 1: Zastosuj monkey patches
     print("🐵 [STEP 1] Aplikowanie monkey patches...")
     try:
-        from utils.ai_monkey_patch import apply_all_ai_patches
-        apply_all_ai_patches()
+    # usunięto moduł ai_monkey_patch (nieużywany szkic logowania)
         print("✅ [STEP 1] Monkey patches zastosowane pomyślnie!")
     except Exception as e:
         print(f"❌ [STEP 1] Błąd monkey patch: {e}")

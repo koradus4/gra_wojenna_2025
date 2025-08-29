@@ -120,9 +120,15 @@ def analyze_tactical_situation(game_engine, player_id):
     return analysis
 
 
-def evaluate_spawn_position(spawn_pos: Tuple[int, int], tactical_analysis: Dict, 
-                           game_engine, nation: str) -> float:
-    """Ocenia jakość pozycji spawn według sytuacji taktycznej"""
+def evaluate_spawn_position(spawn_pos: Tuple[int, int], tactical_analysis: Dict,
+                           game_engine, nation: str) -> Tuple[float, Dict[str, float]]:
+    """Ocenia jakość pozycji spawn według sytuacji taktycznej.
+
+    Zwraca:
+        (final_score, breakdown_dict)
+    breakdown_dict zawiera komponenty: threat_bonus, kp_bonus, cluster_bonus,
+        strategic_bonus, danger_malus, overcrowding_malus
+    """
     score = 100.0  # Bazowy wynik
     
     # 1. BONUS ZA REAGOWANIE NA ZAGROŻENIA (WYSOKIE PRIORYTETY)
@@ -170,25 +176,32 @@ def evaluate_spawn_position(spawn_pos: Tuple[int, int], tactical_analysis: Dict,
     
     score += cluster_bonus
     
-    # 4. MALUS ZA NIEBEZPIECZEŃSTWO (KRYTYCZNY CZYNNIK)
+    # 4. MALUS ZA NIEBEZPIECZEŃSTWO (KRYTYCZNY CZYNNIK) + artyleria przeciwnika
     danger_malus = 0
+    artillery_threat_malus = 0
     all_tokens = getattr(game_engine, 'tokens', [])
     current_player = getattr(game_engine, 'current_player_obj', None)
     player_id = getattr(current_player, 'player_id', '') if current_player else ''
     
-    for token in all_tokens[:50]:  # Limit dla wydajności
+    for token in all_tokens[:80]:  # Limit dla wydajności
         token_owner = getattr(token, 'owner', '')
         if token_owner and token_owner != player_id:
             enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
             distance = calculate_hex_distance(spawn_pos, enemy_pos)
             enemy_strength = getattr(token, 'current_strength', 1)
+            utype = token.stats.get('unitType', '')
             
             if distance <= 1:
-                danger_malus += 300 + (enemy_strength * 10)  # Bardzo niebezpieczne
+                danger_malus += 300 + (enemy_strength * 10)
             elif distance <= 2:
-                danger_malus += 150 + (enemy_strength * 5)   # Niebezpieczne
+                danger_malus += 150 + (enemy_strength * 5)
             elif distance <= 3:
-                danger_malus += 50 + enemy_strength          # Ryzykowne
+                danger_malus += 50 + enemy_strength
+            # Specjalny malus jeżeli przeciwnik to artyleria i jesteśmy w jej zasięgu ognia
+            if utype in {"AC","AL","AP"}:
+                ar_range = token.stats.get('attack', {}).get('range', 1)
+                if distance <= ar_range:
+                    artillery_threat_malus += 40 + 10 * max(0, ar_range - distance)
     
     score -= danger_malus
     
@@ -210,11 +223,19 @@ def evaluate_spawn_position(spawn_pos: Tuple[int, int], tactical_analysis: Dict,
                 friendly_count += 1
     
     if friendly_count >= 4:
-        overcrowding_malus = friendly_count * 30  # Malus za przeludnienie
+        overcrowding_malus = min(400, friendly_count * 30)  # ogranicz maksymalny wpływ
     
     score -= overcrowding_malus
-    
-    return score
+
+    breakdown = {
+        'threat_bonus': float(threat_bonus),
+        'kp_bonus': float(kp_bonus),
+        'cluster_bonus': float(cluster_bonus),
+        'strategic_bonus': float(strategic_bonus),
+    'danger_malus': float(danger_malus + artillery_threat_malus),
+        'overcrowding_malus': float(overcrowding_malus)
+    }
+    return score, breakdown
 
 
 def get_strategic_spawn_bonus(spawn_pos: Tuple[int, int], nation: str) -> float:
@@ -244,8 +265,14 @@ def get_strategic_spawn_bonus(spawn_pos: Tuple[int, int], nation: str) -> float:
     return spawn_info['bonus']
 
 
+LAST_DEPLOY_CHOICE: Optional[Dict[str, Any]] = None  # Przechowuje ostatni wybór dla logów
+
+
 def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[Tuple[int, int]]:
-    """Znajduje optymalną pozycję spawn na podstawie analizy taktycznej"""
+    """Znajduje optymalną pozycję spawn na podstawie analizy taktycznej.
+
+    Efekt uboczny: zapisuje szczegóły wyboru w globalu LAST_DEPLOY_CHOICE.
+    """
     board = getattr(game_engine, 'board', None)
     if not board:
         return None
@@ -253,16 +280,20 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
     current_player = getattr(game_engine, 'current_player_obj', None)
     nation = getattr(current_player, 'nation', 'Unknown')
     
-    # Pobierz spawn points dla tej nacji - ładuj bezpośrednio z pliku
-    try:
-        map_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'map_data.json')
-        with open(map_data_path, 'r', encoding='utf-8') as f:
-            map_data = json.load(f)
-    except Exception as e:
-        print(f"[SMART_DEPLOY] Błąd ładowania map_data.json: {e}")
-        return None
-    
-    spawn_points = map_data.get('spawn_points', {}).get(nation, [])
+    # 1. Spróbuj dynamicznych danych z engine (umożliwia testy / reorganizację w locie)
+    engine_map = getattr(game_engine, 'map_data', {}) or {}
+    spawn_points = engine_map.get('spawn_points', {}).get(nation)
+
+    # 2. Jeśli brak lub pusta lista – fallback do pliku map_data.json
+    if not spawn_points:
+        try:
+            map_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'map_data.json')
+            with open(map_data_path, 'r', encoding='utf-8') as f:
+                file_map = json.load(f)
+            spawn_points = file_map.get('spawn_points', {}).get(nation, [])
+        except Exception as e:
+            print(f"[SMART_DEPLOY] Błąd ładowania map_data.json: {e}")
+            return None
     
     if not spawn_points:
         print(f"[SMART_DEPLOY] Brak spawn points dla nacji {nation}")
@@ -274,7 +305,7 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
     tactical_analysis = analyze_tactical_situation(game_engine, player_id)
     
     # Oceń wszystkie dostępne spawn points
-    spawn_candidates = []
+    spawn_candidates: List[Dict[str, Any]] = []
     
     for spawn_str in spawn_points:
         try:
@@ -282,11 +313,16 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
             
             # Sprawdź czy pozycja jest wolna
             if not board.is_occupied(spawn_pos[0], spawn_pos[1]):
-                score = evaluate_spawn_position(spawn_pos, tactical_analysis, game_engine, nation)
+                score, breakdown = evaluate_spawn_position(spawn_pos, tactical_analysis, game_engine, nation)
+                # Konstruujemy krótki opis najważniejszego komponentu dodatniego
+                positive_components = {k: v for k, v in breakdown.items() if not k.endswith('malus') and v > 0}
+                top_component = max(positive_components.items(), key=lambda x: x[1])[0] if positive_components else 'baseline'
+                reason = f"score={score:.1f} top={top_component} tb={breakdown['threat_bonus']:.0f} kp={breakdown['kp_bonus']:.0f} cl={breakdown['cluster_bonus']:.0f} strat={breakdown['strategic_bonus']:.0f} dm={breakdown['danger_malus']:.0f} oc={breakdown['overcrowding_malus']:.0f}"
                 spawn_candidates.append({
                     'position': spawn_pos,
                     'score': score,
-                    'reason': f"Wynik: {score:.1f}"
+                    'reason': reason,
+                    'breakdown': breakdown
                 })
         except (ValueError, IndexError):
             continue
@@ -302,13 +338,18 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
                 
                 for neighbor in neighbors:
                     if not board.is_occupied(neighbor[0], neighbor[1]):
-                        score = evaluate_spawn_position(neighbor, tactical_analysis, game_engine, nation)
+                        score, breakdown = evaluate_spawn_position(neighbor, tactical_analysis, game_engine, nation)
                         # Malus za nie bycie dokładnie na spawn point
-                        score -= 20
+                        score_adj = score - 20
+                        breakdown = dict(breakdown)
+                        breakdown['overcrowding_malus'] = float(breakdown.get('overcrowding_malus', 0))  # pewność typu
+                        reason = f"adjacent score={score_adj:.1f} (raw {score:.1f}-20)"
                         spawn_candidates.append({
                             'position': neighbor,
-                            'score': score,
-                            'reason': f"Sąsiad spawnu, wynik: {score:.1f}"
+                            'score': score_adj,
+                            'reason': reason,
+                            'breakdown': breakdown,
+                            'adjacent': True
                         })
             except (ValueError, IndexError):
                 continue
@@ -319,10 +360,24 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
     
     # Wybierz najlepszy spawn
     best_spawn = max(spawn_candidates, key=lambda x: x['score'])
-    
+
+    # Zapamiętaj wybór do późniejszego wykorzystania (logi w ai_commander)
+    global LAST_DEPLOY_CHOICE
+    LAST_DEPLOY_CHOICE = {
+        'position': best_spawn['position'],
+        'score': best_spawn['score'],
+        'reason': best_spawn['reason'],
+        'breakdown': best_spawn.get('breakdown', {}),
+        'candidates_considered': len(spawn_candidates)
+    }
+
     print(f"[SMART_DEPLOY] Wybrano spawn: {best_spawn['position']}")
     print(f"[SMART_DEPLOY] Powód: {best_spawn['reason']}")
-    
+
+    # Dodatkowe szczegóły breakdown dla debug
+    bd = best_spawn.get('breakdown', {})
+    print(f"[SMART_DEPLOY] Breakdown: tb={bd.get('threat_bonus',0):.1f} kp={bd.get('kp_bonus',0):.1f} cl={bd.get('cluster_bonus',0):.1f} strat={bd.get('strategic_bonus',0):.1f} dm={bd.get('danger_malus',0):.1f} oc={bd.get('overcrowding_malus',0):.1f}")
+
     return best_spawn['position']
 
 

@@ -51,8 +51,7 @@ def quick_launch_with_ai():
     # Uruchom grę z pełnym logowaniem
     print("🐵 Aplikowanie monkey patches...")
     try:
-        from utils.ai_monkey_patch import apply_ai_patches
-        apply_ai_patches()
+    # usunięto moduł ai_monkey_patch (nieużywany szkic logowania)
         print("✅ Monkey patches aktywne!")
     except Exception as e:
         print(f"⚠️ Błąd monkey patches: {e}")

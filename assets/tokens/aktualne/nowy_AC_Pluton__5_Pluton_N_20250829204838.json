@@ -1,0 +1,23 @@
+{
+  "id": "nowy_AC_Pluton__5_Pluton_N_20250829204838",
+  "nation": "Niemcy",
+  "unitType": "AC",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_AC_Pluton",
+  "unit_full_name": "Niemcy Artyleria ciężka Pluton ***",
+  "move": 1,
+  "attack": {
+    "range": 6,
+    "value": 12
+  },
+  "combat_value": 8,
+  "defense_value": 2,
+  "maintenance": 4,
+  "price": 35,
+  "sight": 2,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_AC_Pluton__5_Pluton_N_20250829204838/token.png",
+  "w": 240,
+  "h": 240
+}

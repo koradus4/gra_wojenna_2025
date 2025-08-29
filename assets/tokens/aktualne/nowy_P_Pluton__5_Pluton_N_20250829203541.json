@@ -1,0 +1,23 @@
+{
+  "id": "nowy_P_Pluton__5_Pluton_N_20250829203541",
+  "nation": "Niemcy",
+  "unitType": "P",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_P_Pluton",
+  "unit_full_name": "Niemcy Piechota Pluton ***",
+  "move": 2,
+  "attack": {
+    "range": 1,
+    "value": 2
+  },
+  "combat_value": 8,
+  "defense_value": 4,
+  "maintenance": 2,
+  "price": 15,
+  "sight": 1,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_P_Pluton__5_Pluton_N_20250829203541/token.png",
+  "w": 240,
+  "h": 240
+}

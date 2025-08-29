@@ -1,0 +1,23 @@
+{
+  "id": "nowy_AC_Pluton__2_Pluton_PL_20250829203549",
+  "nation": "Polska",
+  "unitType": "AC",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_2_PL_AC_Pluton",
+  "unit_full_name": "Polska Artyleria ciężka Pluton ***",
+  "move": 1,
+  "attack": {
+    "range": 6,
+    "value": 12
+  },
+  "combat_value": 8,
+  "defense_value": 2,
+  "maintenance": 4,
+  "price": 35,
+  "sight": 2,
+  "owner": "2",
+  "image": "assets/tokens/nowe_dla_2/nowy_AC_Pluton__2_Pluton_PL_20250829203549/token.png",
+  "w": 240,
+  "h": 240
+}

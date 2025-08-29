@@ -1,0 +1,23 @@
+{
+  "id": "nowy_AP_Pluton__2_Pluton_PL_20250829204823",
+  "nation": "Polska",
+  "unitType": "AP",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_2_PL_AP_Pluton",
+  "unit_full_name": "Polska Artyleria plot Pluton ***",
+  "move": 2,
+  "attack": {
+    "range": 3,
+    "value": 6
+  },
+  "combat_value": 6,
+  "defense_value": 3,
+  "maintenance": 3,
+  "price": 20,
+  "sight": 2,
+  "owner": "2",
+  "image": "assets/tokens/nowe_dla_2/nowy_AP_Pluton__2_Pluton_PL_20250829204823/token.png",
+  "w": 240,
+  "h": 240
+}

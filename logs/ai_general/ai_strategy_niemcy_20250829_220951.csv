@@ -1,0 +1,2 @@
+timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
+2025-08-29T22:10:45.320029,,Niemcy,PURCHASE,strategic_purchase_ROZWÓJ,0.0,0.1,26,2,Strategia ROZWÓJ – standardowe zakupy | Faza: BUILD (rozbudowa armii),"{""units"": 26, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"

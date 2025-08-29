@@ -1,0 +1,23 @@
+{
+  "id": "nowy_Z_Pluton__5_Pluton_N_20250829203521",
+  "nation": "Niemcy",
+  "unitType": "Z",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_Z_Pluton",
+  "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+  "move": 2,
+  "attack": {
+    "range": 2,
+    "value": 3
+  },
+  "combat_value": 4,
+  "defense_value": 3,
+  "maintenance": 3,
+  "price": 26,
+  "sight": 2,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_Z_Pluton__5_Pluton_N_20250829203521/token.png",
+  "w": 240,
+  "h": 240
+}

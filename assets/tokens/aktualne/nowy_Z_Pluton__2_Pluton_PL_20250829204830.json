@@ -1,0 +1,23 @@
+{
+  "id": "nowy_Z_Pluton__2_Pluton_PL_20250829204830",
+  "nation": "Polska",
+  "unitType": "Z",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_2_PL_Z_Pluton",
+  "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+  "move": 3,
+  "attack": {
+    "range": 1,
+    "value": 1
+  },
+  "combat_value": 4,
+  "defense_value": 2,
+  "maintenance": 2,
+  "price": 16,
+  "sight": 2,
+  "owner": "2",
+  "image": "assets/tokens/nowe_dla_2/nowy_Z_Pluton__2_Pluton_PL_20250829204830/token.png",
+  "w": 240,
+  "h": 240
+}

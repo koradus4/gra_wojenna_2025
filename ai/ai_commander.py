@@ -409,6 +409,13 @@ def get_my_units(game_engine, player_id=None):
 def ai_attempt_combat(unit, game_engine, player_id, player_nation="Unknown"):
     """Sprawdź czy jednostka może zaatakować wroga i wykonaj atak"""
     try:
+        # 1. Jeśli jednostka ma krytycznie niskie CV spróbuj odwrotu zanim rozważysz atak
+        if _attempt_retreat_low_cv(unit, game_engine):
+            return False
+        # 2. Blokada: brak punktów ruchu => nie inicjuj nowego ataku
+        utok = unit.get('token')
+        if utok and getattr(utok, 'currentMovePoints', 0) <= 0:
+            return False
         # Znajdź wrogów w zasięgu
         enemies = find_enemies_in_range(unit, game_engine, player_id)
         if not enemies:
@@ -420,12 +427,14 @@ def ai_attempt_combat(unit, game_engine, player_id, player_nation="Unknown"):
         
         for enemy in enemies:
             ratio = evaluate_combat_ratio(unit, enemy)
-            if ratio > best_ratio and ratio >= 1.3:  # Minimalne ratio dla ataku
+            if ratio > best_ratio and ratio >= 1.2:  # lekko niższy próg po uwzględnieniu kar kontrataku
                 best_ratio = ratio
                 best_enemy = enemy
         
         if best_enemy:
-            print(f"🎯 [COMBAT] {unit.get('id')} atakuje {best_enemy.get('id')} (ratio: {best_ratio:.2f})")
+            # 3. Spróbuj manewru flankującego aby uniknąć kontrataku
+            _try_flank_before_attack(unit, best_enemy, game_engine)
+            print(f"🎯 [COMBAT] {unit.get('id')} atakuje {best_enemy.get('id')} (ratio_adj: {best_ratio:.2f})")
             return execute_ai_combat(unit, best_enemy, game_engine, player_nation)
         
         return False
@@ -435,29 +444,31 @@ def ai_attempt_combat(unit, game_engine, player_id, player_nation="Unknown"):
 
 
 def find_enemies_in_range(unit, game_engine, player_id):
-    """Znajdź wszystkich wrogów w zasięgu ataku jednostki"""
+    """Znajdź wrogów w zasięgu ataku I WIDOCZNYCH (fog-of-war dla AI)."""
     try:
         enemies = []
         my_owner = f"{player_id} ({get_player_nation(game_engine, player_id)})"
-        
-        # Pobierz zasięg ataku
         unit_token = unit.get('token')
         if not unit_token:
             return enemies
-            
+        board = getattr(game_engine, 'board', None)
         attack_range = unit_token.stats.get('attack', {}).get('range', 1)
+        sight = unit_token.stats.get('sight', 0)
         unit_pos = (unit['q'], unit['r'])
-        
-        # Sprawdź wszystkie żetony
+        visible_hexes = set()
+        if board and sight > 0:
+            try:
+                from engine.action_refactored_clean import VisionService
+                visible_hexes = VisionService.calculate_visible_hexes(board, unit_pos, sight)
+            except Exception:
+                visible_hexes = set()
         all_tokens = getattr(game_engine, 'tokens', [])
         for token in all_tokens:
-            # Pomiń własne żetony
             if getattr(token, 'owner', '') == my_owner:
                 continue
-            
-            # Sprawdź dystans
             enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
-            board = getattr(game_engine, 'board', None)
+            if visible_hexes and enemy_pos not in visible_hexes:
+                continue  # niewidoczny -> ignoruj
             if board:
                 distance = board.hex_distance(unit_pos, enemy_pos)
                 if distance <= attack_range:
@@ -469,7 +480,6 @@ def find_enemies_in_range(unit, game_engine, player_id):
                         'cv': getattr(token, 'combat_value', 0),
                         'distance': distance
                     })
-        
         return enemies
     except Exception as e:
         print(f"❌ [COMBAT] Błąd wyszukiwania wrogów: {e}")
@@ -477,39 +487,124 @@ def find_enemies_in_range(unit, game_engine, player_id):
 
 
 def evaluate_combat_ratio(unit, enemy):
-    """Oblicz stosunek sił ataku vs obrony"""
+    """Atak/obrona + penalizacja za spodziewany kontratak (jeśli wróg ma zasięg)."""
     try:
         unit_token = unit.get('token')
         enemy_token = enemy.get('token')
-        
         if not unit_token or not enemy_token:
-            return 0
-        
-        # Siła ataku
+            return 0.0
         attack_value = unit_token.stats.get('attack', {}).get('value', 0)
-        
-        # Siła obrony wroga (defense + terrain)
         defense_value = enemy_token.stats.get('defense_value', 0)
-        
-        # Modyfikator terenu (uproszczony)
         board = getattr(unit_token, 'board', None)
         terrain_mod = 0
         if hasattr(board, 'get_tile'):
             tile = board.get_tile(enemy['q'], enemy['r'])
             terrain_mod = getattr(tile, 'defense_mod', 0) if tile else 0
-        
-        total_defense = defense_value + terrain_mod
-        
-        # Ratio: atak / obrona
-        if total_defense <= 0:
-            return 999  # Wróg bez obrony
-        
-        ratio = attack_value / total_defense
-        return ratio
-        
+        total_defense = max(1, defense_value + terrain_mod)
+        base_ratio = attack_value / total_defense
+        # Ryzyko kontrataku
+        defender_attack_val = enemy_token.stats.get('attack', {}).get('value', 0)
+        defender_range = enemy_token.stats.get('attack', {}).get('range', 1)
+        attacker_defense = unit_token.stats.get('defense_value', 0)
+        attacker_pos = (unit.get('q'), unit.get('r'))
+        enemy_pos = (enemy.get('q'), enemy.get('r'))
+        distance = board.hex_distance(attacker_pos, enemy_pos) if board else 99
+        if distance <= defender_range and attacker_defense > 0:
+            counter_factor = (defender_attack_val / max(1, attacker_defense))
+            # Skala tłumienia: im wyższy potencjalny counter tym mocniej obniż wynik (logistycznie ograniczone)
+            penalty = min(0.6, 0.25 * counter_factor)
+            return base_ratio * (1 - penalty)
+        return base_ratio
     except Exception as e:
         print(f"❌ [COMBAT] Błąd obliczania ratio: {e}")
-        return 0
+        return 0.0
+
+def _attempt_retreat_low_cv(unit, game_engine):
+    """Prosta ucieczka gdy combat_value bardzo niskie (<25% startowej) i wróg blisko."""
+    try:
+        utok = unit.get('token')
+        if not utok:
+            return False
+        cv = getattr(utok, 'combat_value', 0)
+        base_cv = utok.stats.get('combat_value', 1)
+        if base_cv <= 0 or cv / base_cv >= 0.25:
+            return False
+        board = getattr(game_engine, 'board', None)
+        if not board:
+            return False
+        # znajdź najbliższego wroga
+        closest = None; closest_d = 999
+        for t in getattr(game_engine, 'tokens', [])[:120]:
+            if t is utok: continue
+            if getattr(t, 'owner', '') == getattr(utok, 'owner', ''): continue
+            d = board.hex_distance((utok.q, utok.r), (t.q, t.r))
+            if d < closest_d:
+                closest_d = d; closest = t
+        if not closest or closest_d > 3:
+            return False
+        # spróbuj znaleźć sąsiada dalej od wroga
+        best_hex = None; best_gain = 0
+        for nq, nr in board.neighbors(utok.q, utok.r):
+            tile = board.get_tile(nq, nr)
+            if not tile or board.is_occupied(nq, nr):
+                continue
+            dist_new = board.hex_distance((nq, nr), (closest.q, closest.r))
+            gain = dist_new - closest_d
+            if gain > best_gain:
+                best_gain = gain; best_hex = (nq, nr)
+        if best_hex and best_gain > 0:
+            try:
+                from engine.action_refactored_clean import MoveAction
+                action = MoveAction(utok.id, best_hex[0], best_hex[1])
+                game_engine.execute_action(action, player=getattr(game_engine, 'current_player_obj', None))
+                print(f"[RETREAT] {utok.id} wycofuje się na {best_hex} (cv {cv}/{base_cv})")
+                return True
+            except Exception:
+                return False
+        return False
+    except Exception:
+        return False
+
+def _try_flank_before_attack(unit, enemy, game_engine):
+    """Spróbuj ustawić się tak, by być w zasięgu ataku i poza zasięgiem kontrataku."""
+    try:
+        utok = unit.get('token'); etok = enemy.get('token')
+        if not utok or not etok: return
+        board = getattr(game_engine, 'board', None)
+        if not board: return
+        atk_range = utok.stats.get('attack', {}).get('range', 1)
+        def_range = etok.stats.get('attack', {}).get('range', 1)
+        # już poza kontratakiem?
+        if board.hex_distance((utok.q, utok.r), (etok.q, etok.r)) > def_range:
+            return
+        # wygeneruj potencjalne heksy
+        candidates = []
+        for dq in range(-atk_range, atk_range+1):
+            for dr in range(-atk_range, atk_range+1):
+                tq = etok.q + dq; tr = etok.r + dr
+                if board.hex_distance((etok.q, etok.r), (tq, tr)) > atk_range:
+                    continue
+                if board.get_tile(tq, tr) is None: continue
+                if board.is_occupied(tq, tr): continue
+                if board.hex_distance((etok.q, etok.r), (tq, tr)) <= def_range:
+                    continue
+                candidates.append((tq, tr))
+        if not candidates: return
+        # ocena: minimalny dystans ruchu od obecnej pozycji
+        best = None; best_len = 999
+        for cand in candidates[:80]:
+            path = board.find_path((utok.q, utok.r), cand, max_mp=getattr(utok,'currentMovePoints',0), max_fuel=getattr(utok,'currentFuel',0))
+            if path and len(path) < best_len:
+                best_len = len(path)
+                best = (cand, path)
+        if best:
+            from engine.action_refactored_clean import MoveAction
+            mv = MoveAction(utok.id, best[0][0], best[0][1])
+            res = game_engine.execute_action(mv, player=getattr(game_engine,'current_player_obj',None))
+            if res.success:
+                print(f"[FLANK] {utok.id} manewr na {best[0]} przed atakiem")
+    except Exception:
+        return
 
 
 def execute_ai_combat(unit, enemy, game_engine, player_nation="Unknown"):
@@ -2408,13 +2503,19 @@ def find_deployment_position(unit_data, game_engine, player_id):
         import sys
         import os
         sys.path.append(os.path.dirname(__file__))
-        from smart_deployment import find_optimal_spawn_position
+        from smart_deployment import find_optimal_spawn_position, LAST_DEPLOY_CHOICE
         
         print(f"[DEPLOY] Używam inteligentnego systemu spawnowania...")
         optimal_position = find_optimal_spawn_position(unit_data, game_engine, player_id)
         
         if optimal_position:
-            print(f"[DEPLOY] Inteligentny system wybrał pozycję: {optimal_position}")
+            # Jeśli global LAST_DEPLOY_CHOICE zawiera breakdown – pokaż krótki powód
+            try:
+                from smart_deployment import LAST_DEPLOY_CHOICE as _LDC
+                if _LDC and _LDC.get('position') == optimal_position:
+                    print(f"[DEPLOY] Inteligentny system wybrał pozycję: {optimal_position} | { _LDC.get('reason','') }")
+            except Exception:
+                print(f"[DEPLOY] Inteligentny system wybrał pozycję: {optimal_position}")
             return optimal_position
         else:
             print(f"[DEPLOY] Inteligentny system nie znalazł pozycji, używam fallback...")
