@@ -64,26 +64,35 @@ def clean_ai_logs():
     """Usuń logi AI z poprzedniej gry"""
     try:
         logs_dir = Path("logs")
-        deleted_count = 0
-        
-        # Usuń pliki AI
-        for log_file in logs_dir.glob("ai_*.csv"):
-            log_file.unlink()
-            deleted_count += 1
-            print(f"✅ Usunięto log AI: {log_file.name}")
-        
-        # Usuń foldery AI
+        deleted_files = 0
+        deleted_dirs = 0
+
+        if not logs_dir.exists():
+            print("ℹ️ Brak katalogu logs – pomijam logi AI")
+            return
+
+        # Rekurencyjne usuwanie plików ai_*.csv w całym drzewie logs
+        for f in logs_dir.rglob("ai_*.csv"):
+            try:
+                f.unlink()
+                deleted_files += 1
+            except Exception as e:
+                print(f"⚠️ Nie mogę usunąć {f}: {e}")
+
+        # Usuń katalogi z logami AI (całe drzewa)
         for ai_folder in ["ai_commander", "ai_general"]:
             ai_path = logs_dir / ai_folder
             if ai_path.exists() and ai_path.is_dir():
-                shutil.rmtree(ai_path)
-                deleted_count += 1
-                print(f"✅ Usunięto folder logów: {ai_folder}")
-        
-        if deleted_count > 0:
-            print(f"✅ Usunięto {deleted_count} plików/folderów logów AI")
+                try:
+                    shutil.rmtree(ai_path)
+                    deleted_dirs += 1
+                except Exception as e:
+                    print(f"⚠️ Nie mogę usunąć katalogu {ai_path}: {e}")
+
+        if deleted_files or deleted_dirs:
+            print(f"✅ Usunięto logi AI: pliki={deleted_files}, katalogi={deleted_dirs}")
         else:
-            print("ℹ️ Brak logów AI do usunięcia")
+            print("ℹ️ Brak logów AI do usunięcia (ai_*.csv i katalogi ai_*)")
             
     except Exception as e:
         print(f"⚠️ Błąd usuwania logów AI: {e}")
@@ -93,18 +102,34 @@ def clean_game_logs():
     """Usuń logi akcji gracza z poprzedniej gry"""
     try:
         logs_dir = Path("logs")
-        deleted_count = 0
-        
-        # Usuń pliki actions_*.csv
-        for log_file in logs_dir.glob("actions_*.csv"):
-            log_file.unlink()
-            deleted_count += 1
-            print(f"✅ Usunięto log akcji: {log_file.name}")
-        
-        if deleted_count > 0:
-            print(f"✅ Usunięto {deleted_count} logów akcji gracza")
+        deleted_files = 0
+        deleted_dirs = 0
+
+        if not logs_dir.exists():
+            print("ℹ️ Brak katalogu logs – pomijam logi akcji")
+            return
+
+        # Rekurencyjne usuwanie plików actions_*.csv
+        for f in logs_dir.rglob("actions_*.csv"):
+            try:
+                f.unlink()
+                deleted_files += 1
+            except Exception as e:
+                print(f"⚠️ Nie mogę usunąć {f}: {e}")
+
+        # Usuń dodatkowy folder game_actions jeśli istnieje
+        ga = logs_dir / "game_actions"
+        if ga.exists() and ga.is_dir():
+            try:
+                shutil.rmtree(ga)
+                deleted_dirs += 1
+            except Exception as e:
+                print(f"⚠️ Nie mogę usunąć katalogu {ga}: {e}")
+
+        if deleted_files or deleted_dirs:
+            print(f"✅ Usunięto logi akcji: pliki={deleted_files}, katalogi={deleted_dirs}")
         else:
-            print("ℹ️ Brak logów akcji do usunięcia")
+            print("ℹ️ Brak logów akcji do usunięcia (actions_*.csv / game_actions)")
             
     except Exception as e:
         print(f"⚠️ Błąd usuwania logów akcji: {e}")

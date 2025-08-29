@@ -1226,6 +1226,43 @@ class AIGeneral:
             commander_rotation = [c.id for c in commanders]
         rot_len = len(commander_rotation)
         rot_index = 0
+        # ================= ANTI-SPAM KONFIG =================
+        anti_spam = {
+            "groups": {
+                # base_allow – ile sztuk można mieć zanim policzymy ratio
+                # max_ratio – maksymalny udział (po dodaniu kandydata) w ogólnej liczbie zakupionych jednostek
+                "artillery": {"types": {"AL","AC","AP"}, "base_allow": 2, "max_ratio": 0.45},
+                "heavy_armor": {"types": {"TC"}, "base_allow": 1, "max_ratio": 0.30},
+            },
+            # współczynnik wzrostu kosztu = base_cost * (1 + factor * już_posiadane_tego_typu)
+            "dynamic_cost_factor": {"AL": 0.20, "AC": 0.25, "AP": 0.20, "TC": 0.25},
+        }
+
+        def count_type(t):
+            return sum(1 for p in purchases if p['type'] == t)
+
+        def effective_cost(tpl):
+            base = tpl['cost']
+            f = anti_spam["dynamic_cost_factor"].get(tpl['type'], 0.0)
+            mult = 1 + f * count_type(tpl['type'])
+            # lekkie zaokrąglenie do int
+            return int(round(base * mult))
+
+        def violates_group_limits(tpl):
+            total_planned = len(purchases)
+            # dopiero sensownie liczymy gdy mamy już coś w planach
+            for gname, cfg in anti_spam['groups'].items():
+                if tpl['type'] in cfg['types']:
+                    current_group = sum(1 for p in purchases if p['type'] in cfg['types'])
+                    # jeśli jeszcze poniżej base_allow – zawsze przepuść
+                    if current_group < cfg['base_allow']:
+                        return None
+                    # sprawdzamy ratio po dodaniu
+                    future_ratio = (current_group + 1) / (total_planned + 1)
+                    if future_ratio > cfg['max_ratio']:
+                        return f"limit grupy {gname} ({future_ratio:.2f} > {cfg['max_ratio']})"
+            return None
+
         while budget >= 15 and len(purchases) < max_purchases_per_turn and purchase_attempts < 300:
             if state:
                 template = self._select_template(unit_templates, purchases, budget, state)
@@ -1240,7 +1277,28 @@ class AIGeneral:
                 template_index += 1
                 purchase_attempts += 1
                 continue
-            if budget >= template['cost']:
+            # --- Anti-spam dynamiczny koszt / limity ---
+            eff_cost = effective_cost(template)
+            group_violation = violates_group_limits(template)
+            # blok 3 artylerii pod rząd
+            last_two = [p['type'] for p in purchases[-2:]]
+            is_artillery_type = template['type'] in {'AL','AC','AP'}
+            # Jeżeli danej kombinacji (typ+rozmiar) jeszcze nie ma w purchases -> whitelist
+            combo_missing = not any(p['type']==template['type'] and p['size']==template['size'] for p in purchases)
+            three_in_row_block = False
+            if not combo_missing and is_artillery_type and len(last_two) == 2 and all(t in {'AL','AC','AP'} for t in last_two):
+                three_in_row_block = True
+            if group_violation:
+                print(f"🛑 Anti-spam: odrzucam {template['name']} – {group_violation}")
+                template_index += 1
+                purchase_attempts += 1
+                continue
+            if three_in_row_block:
+                print(f"🛑 Anti-spam: odrzucam {template['name']} – 3 artylerie z rzędu")
+                template_index += 1
+                purchase_attempts += 1
+                continue
+            if budget >= eff_cost:
                 if priorities:
                     commander_id = commander_rotation[rot_index % rot_len]
                     rot_index += 1
@@ -1248,12 +1306,17 @@ class AIGeneral:
                     commander_id = commanders[len(purchases) % len(commanders)].id
                 purchase = template.copy()
                 purchase['commander_id'] = commander_id
-                supports, added_cost = self.select_supports_for_unit(template, budget - template['cost'])
+                supports, added_cost = self.select_supports_for_unit(template, budget - eff_cost)
                 purchase['supports'] = supports
-                purchase['cost'] = template['cost'] + added_cost
+                purchase['base_cost'] = template['cost']
+                purchase['effective_cost'] = eff_cost
+                purchase['cost'] = eff_cost + added_cost
                 purchases.append(purchase)
                 budget -= purchase['cost']
-                print(f"📦 Zaplanowano: {template['name']} dla dowódcy {commander_id} ({purchase['cost']} pkt) wsparcia={supports}")
+                if eff_cost != template['cost']:
+                    print(f"📦 Zaplanowano: {template['name']} (bazowy {template['cost']} → efektywny {eff_cost}, łącznie {purchase['cost']}) dla dowódcy {commander_id} wsparcia={supports}")
+                else:
+                    print(f"📦 Zaplanowano: {template['name']} dla dowódcy {commander_id} ({purchase['cost']} pkt) wsparcia={supports}")
             template_index += 1
             purchase_attempts += 1
 
@@ -1493,17 +1556,25 @@ class AIGeneral:
             return False
     
     def prepare_unit_data(self, purchase_plan, commander_id, token_id, nation_name):
-        """Przygotowuje dane JSON dla żetonu wykorzystując wspólną fabrykę (pełna parytet z TokenShop)."""
-        print("📝 Przygotowuję dane żetonu (fabryka)...")
-        from core.unit_factory import compute_unit_stats, build_label_and_full_name
+        """Przygotowuje dane JSON dla żetonu używając centralnego balansu (balance.model)."""
+        print("📝 Przygotowuję dane żetonu (balance.model)...")
+        from balance.model import compute_token
 
         unit_type = purchase_plan["type"]
         unit_size = purchase_plan["size"]
+        supports = purchase_plan.get("supports", [])  # lista upgradów
 
-        # TODO: w przyszłości AI będzie wybierało wsparcia; na razie brak wsparć (parytet bazowy)
-        supports = purchase_plan.get("supports", [])  # spodziewana lista nazw wsparć
-        stats = compute_unit_stats(unit_type, unit_size, supports)
-        name_parts = build_label_and_full_name(nation_name, unit_type, unit_size, str(commander_id))
+        # Centralne generowanie nazw
+        try:
+            from balance.model import build_unit_names
+            nm = build_unit_names(nation_name, unit_type, unit_size)
+            label = nm["label"]
+            full_name = nm["unit_full_name"]
+        except Exception:
+            label = f"{unit_size} {unit_type}"
+            full_name = f"{nation_name} {unit_type} {unit_size}"
+
+        comp = compute_token(unit_type, unit_size, nation_name, supports, quality='standard')
 
         rel_img_path = f"assets/tokens/nowe_dla_{commander_id}/{token_id}/token.png"
         unit_data = {
@@ -1512,21 +1583,22 @@ class AIGeneral:
             "unitType": unit_type,
             "unitSize": unit_size,
             "shape": "prostokąt",
-            "label": name_parts["label"],
-            "unit_full_name": name_parts["unit_full_name"],
-            "move": stats.move,
-            "attack": {"range": stats.attack_range, "value": stats.attack_value},
-            "combat_value": stats.combat_value,
-            "defense_value": stats.defense_value,
-            "maintenance": stats.maintenance,
-            "price": stats.price,
-            "sight": stats.sight,
+            "label": label,
+            "unit_full_name": full_name,
+            "move": comp.movement,
+            "attack": {"range": comp.attack_range, "value": comp.attack_value},
+            "combat_value": comp.combat_value,
+            "defense_value": comp.defense_value,
+            "maintenance": comp.maintenance,
+            "price": comp.total_cost,
+            "sight": comp.sight,
             "owner": str(commander_id),
+            "support_upgrades": supports,
             "image": rel_img_path,
             "w": 240,
             "h": 240
         }
-        print(f"📊 Statystyki: ruch={stats.move}, atak={stats.attack_value}, obrona={stats.defense_value}, combat={stats.combat_value}, cena={stats.price}")
+        print(f"📊 Statystyki: ruch={comp.movement}, atak={comp.attack_value}, obrona={comp.defense_value}, combat={comp.combat_value}, cena={comp.total_cost}")
         return unit_data
     
     def create_token_image(self, purchase_plan, nation, img_path):

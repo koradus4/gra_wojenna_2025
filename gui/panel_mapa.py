@@ -325,7 +325,11 @@ class PanelMapa(tk.Frame):
                         continue
                 try:
                     img = Image.open(img_path)
-                    hex_size = 40  # Ustaw stały rozmiar 40x40
+                    # POWIĘKSZENIE ŻETONÓW: pierwotnie stałe 40x40; zwiększamy o ~30%.
+                    # Jeśli chcesz inny rozmiar – zmień TOKEN_SIZE_FACTOR albo BASE_TOKEN_SIZE.
+                    BASE_TOKEN_SIZE = 40
+                    TOKEN_SIZE_FACTOR = 1.3  # 30% większe
+                    hex_size = int(round(BASE_TOKEN_SIZE * TOKEN_SIZE_FACTOR))
                     img = img.resize((hex_size, hex_size), Image.LANCZOS)
                     
                     # Zastosuj przezroczystość dla nieaktywnych żetonów

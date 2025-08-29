@@ -1,2 +1,0 @@
-timestamp,nation,action,econ_before,econ_after,allocated_total,units_bought,rule,metrics_json
-2025-08-29T22:10:45,Niemcy,PURCHASE,58,32,0,1,strategic_purchase_ROZWÓJ,"{""econ"": 58, ""own_units"": 26, ""low_fuel_ratio"": 0.0, ""strategy_name"": ""ROZWÓJ"", ""budget_ratios"": {""reserve"": 0.2, ""allocate"": 0.4, ""purchase"": 0.4}, ""game_phase"": 0.1, ""vp_status"": 0, ""phase_name"": ""WCZESNA"", ""rule"": ""strategic_purchase_ROZWÓJ""}"

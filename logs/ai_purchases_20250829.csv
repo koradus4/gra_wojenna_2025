@@ -1,2 +1,0 @@
-timestamp,nation,commander_id,unit_type,unit_size,cost,supports,points_before,points_after,budget_allocated,reserve,need_supply,need_art,pressure,enemy_has_armor,ratio,global_counts,enemy_counts
-2025-08-29T22:10:45,Niemcy,5,Z,Pluton,26,drużyna granatników,58,32,34,24,True,False,0.0,False,0.6,"{""P"": 15, ""TL"": 4, ""TŚ"": 1, ""K"": 1, ""AL"": 4, ""TS"": 1}",{}

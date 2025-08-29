@@ -1,2 +1,0 @@
-timestamp,turn,nation,pe_start,pe_allocated,pe_spent_purchases,pe_total_used,pe_remaining,strategy_used,action,orders_issued,low_fuel_ratio,total_units,allocate_budget,purchase_budget,econ_after,vp_own,vp_enemy,vp_status
-2025-08-29T22:10:45.703997,,Niemcy,58,0,26,26,32,PURCHASE,PURCHASE,0,0.0,26,0,0,32,0,0,0

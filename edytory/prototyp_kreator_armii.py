@@ -11,6 +11,13 @@ import json
 import random
 import threading
 import time
+try:
+    from balance.model import compute_token
+except ImportError:
+    compute_token = None  # fallback jeśli brak modułu
+
+# Deterministyczny seed dla powtarzalnych podglądów
+random.seed(42)
 
 # Dodaj ścieżkę do edytorów (z głównego folderu projektu)
 project_root = Path(__file__).parent
@@ -815,120 +822,54 @@ class ArmyCreatorStudio:
         names_list = unit_names.get(unit_type, [f"{commander_num}. {preview_unit['type']} Einheit"])
         unit_name = random.choice(names_list)
         
-        # Generuj statystyki na podstawie kosztu i typu
-        cost = preview_unit.get('base_cost', preview_unit['cost'])  # Użyj base_cost lub cost jako fallback
-        base_stats = self.generate_unit_stats(unit_type, preview_unit['size'], cost)
-        
-        # Zastosuj modyfikatory z upgradów
-        final_stats = self.apply_upgrade_modifiers(base_stats, preview_unit.get('upgrades', []))
+        # Nowy zunifikowany system balansu
+        upgrades_list = preview_unit.get('upgrades', [])
+        quality = 'standard'  # miejsce na przyszłe quality per unit
+        if compute_token:
+            computed = compute_token(unit_type, preview_unit['size'], nation, upgrades_list, quality=quality)
+            movement = computed.movement
+            attack_range = computed.attack_range
+            attack_value = computed.attack_value
+            combat_value = computed.combat_value
+            defense_value = computed.defense_value
+            maintenance = computed.maintenance
+            total_cost = computed.total_cost
+        else:
+            # fallback stary mechanizm
+            cost = preview_unit.get('base_cost', preview_unit['cost'])
+            base_stats = self.generate_unit_stats(unit_type, preview_unit['size'], cost)
+            final_stats = self.apply_upgrade_modifiers(base_stats, upgrades_list)
+            movement = final_stats['movement']
+            attack_range = final_stats['attack_range']
+            attack_value = final_stats['attack_value']
+            combat_value = final_stats['combat_value']
+            defense_value = final_stats['defense_value']
+            maintenance = final_stats['maintenance']
+            total_cost = preview_unit['cost']
         
         return {
             "name": unit_name,
             "nation": nation,
             "unit_type": unit_type,
             "unit_size": preview_unit['size'],
-            "movement_points": str(final_stats['movement']),
-            "attack_range": str(final_stats['attack_range']),
-            "attack_value": str(final_stats['attack_value']),
-            "combat_value": str(final_stats['combat_value']),
-            "defense_value": str(final_stats['defense_value']),
-            "unit_maintenance": str(final_stats['maintenance']),
-            "purchase_value": str(preview_unit['cost']),  # Koszt całkowity z upgradami
-            "sight_range": str(final_stats['sight']),
-            "support": ", ".join(preview_unit.get('upgrades', []))
+            "movement_points": str(movement),
+            "attack_range": str(attack_range),
+            "attack_value": str(attack_value),
+            "combat_value": str(combat_value),
+            "defense_value": str(defense_value),
+            "unit_maintenance": str(maintenance),
+            "purchase_value": str(total_cost),
+            "sight_range": str(computed.sight if compute_token else final_stats['sight']),
+            "support": ", ".join(upgrades_list)
         }
     
     def generate_unit_stats(self, unit_type, unit_size, cost):
-        """Generuje statystyki jednostki na podstawie typu, rozmiaru i kosztu."""
-        
-        # Bazowe statystyki dla typów jednostek
-        base_stats = {
-            "P": {"movement": 3, "attack_range": 1, "attack_value": 8, "combat_value": 8, "defense_value": 10, "sight": 3},
-            "K": {"movement": 6, "attack_range": 1, "attack_value": 6, "combat_value": 6, "defense_value": 8, "sight": 5},
-            "TL": {"movement": 5, "attack_range": 1, "attack_value": 10, "combat_value": 10, "defense_value": 12, "sight": 3},
-            "TŚ": {"movement": 4, "attack_range": 2, "attack_value": 14, "combat_value": 14, "defense_value": 16, "sight": 3},
-            "TC": {"movement": 3, "attack_range": 2, "attack_value": 18, "combat_value": 18, "defense_value": 22, "sight": 3},
-            "TS": {"movement": 5, "attack_range": 1, "attack_value": 8, "combat_value": 8, "defense_value": 10, "sight": 4},
-            "AL": {"movement": 3, "attack_range": 3, "attack_value": 12, "combat_value": 6, "defense_value": 6, "sight": 4},
-            "AC": {"movement": 2, "attack_range": 4, "attack_value": 18, "combat_value": 8, "defense_value": 8, "sight": 5},
-            "AP": {"movement": 2, "attack_range": 2, "attack_value": 10, "combat_value": 6, "defense_value": 8, "sight": 4},
-            "Z": {"movement": 6, "attack_range": 1, "attack_value": 4, "combat_value": 4, "defense_value": 6, "sight": 6},
-            "D": {"movement": 4, "attack_range": 1, "attack_value": 6, "combat_value": 8, "defense_value": 12, "sight": 5}
-        }
-        
-        stats = base_stats.get(unit_type, base_stats["P"]).copy()
-        
-        # Modyfikatory na podstawie rozmiaru jednostki
-        size_multipliers = {
-            "Pluton": 1.0,
-            "Kompania": 1.4,
-            "Batalion": 1.8
-        }
-        
-        multiplier = size_multipliers.get(unit_size, 1.0)
-          # Skaluj statystyki bojowe
-        stats["attack_value"] = int(stats["attack_value"] * multiplier)
-        stats["combat_value"] = int(stats["combat_value"] * multiplier)
-        stats["defense_value"] = int(stats["defense_value"] * multiplier)
-        
-        # Utrzymanie na podstawie kosztu
-        stats["maintenance"] = max(1, cost // 15)
-        
-        # Dodaj losową wariację ±15%
-        for key in ["attack_value", "combat_value", "defense_value"]:
-            variation = random.uniform(0.85, 1.15)
-            stats[key] = max(1, int(stats[key] * variation))
-        
-        return stats
-    
+        """Stub – zachowany dla kompatybilności, gdy brak balance.model."""
+        return {"movement": 0, "attack_range": 0, "attack_value": 0, "combat_value": 0, "defense_value": 0, "sight": 0, "maintenance": 0}
+
     def apply_upgrade_modifiers(self, base_stats, upgrades):
-        """Aplikuje modyfikatory z upgradów do bazowych statystyk."""
-        if not upgrades:
-            return base_stats
-        
-        final_stats = base_stats.copy()
-        
-        # Zmienne do śledzenia specjalnych reguł
-        movement_penalty_applied = False
-        max_range_bonus = 0
-        
-        # Znajdź najwyższy bonus zasięgu
-        for upgrade in upgrades:
-            if upgrade in self.support_upgrades:
-                range_bonus = self.support_upgrades[upgrade].get("range", 0)
-                max_range_bonus = max(max_range_bonus, range_bonus)
-        
-        # Zastosuj modyfikatory
-        for upgrade in upgrades:
-            if upgrade not in self.support_upgrades:
-                continue
-                
-            mods = self.support_upgrades[upgrade]
-            
-            # Ruch: tylko jedna kara -1, nawet jeśli kilka upgradów ma karę
-            movement_mod = mods.get("movement", 0)
-            if movement_mod < 0 and not movement_penalty_applied:
-                final_stats["movement"] = max(1, final_stats["movement"] - 1)
-                movement_penalty_applied = True
-            elif movement_mod > 0:  # Bonusy do ruchu się kumulują
-                final_stats["movement"] += movement_mod
-            
-            # Pozostałe modyfikatory się kumulują
-            final_stats["attack_value"] += mods.get("attack", 0)
-            final_stats["combat_value"] += mods.get("combat", 0)
-            final_stats["defense_value"] += mods.get("defense", 0)
-            final_stats["maintenance"] += mods.get("unit_maintenance", 0)
-        
-        # Zastosuj najwyższy bonus zasięgu
-        if max_range_bonus > 0:
-            final_stats["attack_range"] += max_range_bonus
-        
-        # Upewnij się, że wartości są dodatnie
-        for key in final_stats:
-            if isinstance(final_stats[key], (int, float)):
-                final_stats[key] = max(1, final_stats[key])
-        
-        return final_stats
+        """Stub – bez modyfikacji."""
+        return base_stats  # stub
     
     def initialize_token_editor(self):
         """Inicjalizuje Token Editor w głównym oknie (bez dodatkowego okna)."""

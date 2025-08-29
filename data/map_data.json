@@ -1060,11 +1060,7 @@
     "6,9": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "AL_Kompania__2_Dywizjon_Artylerii",
-        "image": "tokens/Polska/AL_Kompania__2_Dywizjon_Artylerii/token.png"
-      }
+      "defense_mod": 2
     },
     "6,10": {
       "terrain_key": "teren_płaski",
@@ -1504,11 +1500,7 @@
     "9,-4": {
       "terrain_key": "most",
       "move_mod": 0,
-      "defense_mod": -1,
-      "token": {
-        "unit": "P_Pluton__2_Batalion_Strzelc_w",
-        "image": "tokens/Polska/P_Pluton__2_Batalion_Strzelc_w/token.png"
-      }
+      "defense_mod": -1
     },
     "9,-2": {
       "terrain_key": "las",
@@ -2268,11 +2260,7 @@
     "13,15": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__3_Pu_k_Piechoty",
-        "image": "tokens/Polska/P_Batalion__3_Pu_k_Piechoty/token.png"
-      }
+      "defense_mod": 2
     },
     "13,16": {
       "terrain_key": "teren_płaski",
@@ -2702,11 +2690,7 @@
     "16,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TL_Pluton__2_Pluton_Tankietek_20250703213014",
-        "image": "tokens/Polska/TL_Pluton__2_Pluton_Tankietek_20250703213014/token.png"
-      }
+      "defense_mod": 0
     },
     "16,1": {
       "terrain_key": "teren_płaski",
@@ -2801,20 +2785,12 @@
     "16,19": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "AL_Batalion__3_Pu_k_Artylerii",
-        "image": "tokens/Polska/AL_Batalion__3_Pu_k_Artylerii/token.png"
-      }
+      "defense_mod": 2
     },
     "16,20": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "Z_Pluton__3_Kompania_Zaopatrzeniowa",
-        "image": "tokens/Polska/Z_Pluton__3_Kompania_Zaopatrzeniowa/token.png"
-      }
+      "defense_mod": 2
     },
     "16,21": {
       "terrain_key": "mała miejscowość",
@@ -3039,11 +3015,7 @@
     "18,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Pluton__2_Pu_k_Piechoty_20250703213008",
-        "image": "tokens/Polska/P_Pluton__2_Pu_k_Piechoty_20250703213008/token.png"
-      }
+      "defense_mod": 0
     },
     "18,-1": {
       "terrain_key": "teren_płaski",
@@ -3283,11 +3255,7 @@
     "19,14": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TS_Kompania__3_Sam_Pancerny_Einheit",
-        "image": "tokens/Polska/TS_Kompania__3_Sam_Pancerny_Einheit/token.png"
-      }
+      "defense_mod": 0
     },
     "19,15": {
       "terrain_key": "teren_płaski",
@@ -3342,11 +3310,7 @@
     "20,-8": {
       "terrain_key": "las",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Kompania__2_Batalion_Strzelc_w",
-        "image": "tokens/Polska/P_Kompania__2_Batalion_Strzelc_w/token.png"
-      }
+      "defense_mod": 2
     },
     "20,-7": {
       "terrain_key": "duża rzeka",
@@ -3446,20 +3410,12 @@
     "20,13": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__3_Batalion_Strzelc_w",
-        "image": "tokens/Polska/P_Batalion__3_Batalion_Strzelc_w/token.png"
-      }
+      "defense_mod": 2
     },
     "20,14": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__3_Batalion_Strzelc_w",
-        "image": "tokens/Polska/P_Kompania__3_Batalion_Strzelc_w/token.png"
-      }
+      "defense_mod": 0
     },
     "20,15": {
       "terrain_key": "teren_płaski",
@@ -3559,11 +3515,7 @@
     "21,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Pluton__2_Pu_k_Piechoty",
-        "image": "tokens/Polska/P_Pluton__2_Pu_k_Piechoty/token.png"
-      }
+      "defense_mod": 0
     },
     "21,4": {
       "terrain_key": "teren_płaski",
@@ -3638,11 +3590,7 @@
     "21,18": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "K_Batalion__3_Oddzia_Jazdy",
-        "image": "tokens/Polska/K_Batalion__3_Oddzia_Jazdy/token.png"
-      }
+      "defense_mod": 0
     },
     "21,19": {
       "terrain_key": "teren_płaski",
@@ -3957,11 +3905,7 @@
     "23,17": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "TL_Batalion__3_Kompania_Czo_g_w_Lekkich",
-        "image": "tokens/Polska/TL_Batalion__3_Kompania_Czo_g_w_Lekkich/token.png"
-      }
+      "defense_mod": 2
     },
     "23,18": {
       "terrain_key": "teren_płaski",
@@ -4121,11 +4065,7 @@
     "24,16": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Pluton__3_Pu_k_Piechoty",
-        "image": "tokens/Polska/P_Pluton__3_Pu_k_Piechoty/token.png"
-      }
+      "defense_mod": 2
     },
     "24,17": {
       "terrain_key": "mała miejscowość",
@@ -5590,11 +5530,7 @@
     "33,3": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Pluton__6_Sch_tzen_Kompanie_20250703213844",
-        "image": "tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie_20250703213844/token.png"
-      }
+      "defense_mod": 2
     },
     "33,4": {
       "terrain_key": "teren_płaski",
@@ -5604,20 +5540,12 @@
     "33,5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__6_Grenadier_Bataillon",
-        "image": "tokens/Niemcy/P_Kompania__6_Grenadier_Bataillon/token.png"
-      }
+      "defense_mod": 0
     },
     "33,6": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__6_Sch_tzen_Kompanie",
-        "image": "tokens/Niemcy/P_Kompania__6_Sch_tzen_Kompanie/token.png"
-      }
+      "defense_mod": 0
     },
     "33,7": {
       "terrain_key": "teren_płaski",
@@ -5782,11 +5710,7 @@
     "34,5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TL_Batalion__6_Panzer_Abteilung",
-        "image": "tokens/Niemcy/TL_Batalion__6_Panzer_Abteilung/token.png"
-      }
+      "defense_mod": 0
     },
     "34,6": {
       "terrain_key": "teren_płaski",
@@ -5811,20 +5735,12 @@
     "34,10": {
       "terrain_key": "mała rzeka",
       "move_mod": 2,
-      "defense_mod": 1,
-      "token": {
-        "unit": "P_Pluton__6_Sch_tzen_Kompanie_20250703213838",
-        "image": "tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie_20250703213838/token.png"
-      }
+      "defense_mod": 1
     },
     "34,11": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__6_Grenadier_Bataillon",
-        "image": "tokens/Niemcy/P_Batalion__6_Grenadier_Bataillon/token.png"
-      }
+      "defense_mod": 2
     },
     "34,12": {
       "terrain_key": "teren_płaski",
@@ -5994,11 +5910,7 @@
     "35,11": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TL_Pluton__6_Panzer_Zug",
-        "image": "tokens/Niemcy/TL_Pluton__6_Panzer_Zug/token.png"
-      }
+      "defense_mod": 0
     },
     "35,12": {
       "terrain_key": "teren_płaski",
@@ -6343,11 +6255,7 @@
     "37,12": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__6_Sch_tzen_Kompanie_20250703213834",
-        "image": "tokens/Niemcy/P_Kompania__6_Sch_tzen_Kompanie_20250703213834/token.png"
-      }
+      "defense_mod": 0
     },
     "37,13": {
       "terrain_key": "teren_płaski",
@@ -6372,11 +6280,7 @@
     "38,-17": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__5_Sch_tzen_Kompanie",
-        "image": "tokens/Niemcy/P_Batalion__5_Sch_tzen_Kompanie/token.png"
-      }
+      "defense_mod": 2
     },
     "38,-16": {
       "terrain_key": "teren_płaski",
@@ -6546,11 +6450,7 @@
     "39,-17": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TŚ_Pluton__5_Panzer_Brigade",
-        "image": "tokens/Niemcy/TŚ_Pluton__5_Panzer_Brigade/token.png"
-      }
+      "defense_mod": 0
     },
     "39,-16": {
       "terrain_key": "teren_płaski",
@@ -6630,20 +6530,12 @@
     "39,-1": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "TL_Pluton__6_Panzer_Zug_20250703213840",
-        "image": "tokens/Niemcy/TL_Pluton__6_Panzer_Zug_20250703213840/token.png"
-      }
+      "defense_mod": 2
     },
     "39,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__6_Sch_tzen_Kompanie_20250703213836",
-        "image": "tokens/Niemcy/P_Kompania__6_Sch_tzen_Kompanie_20250703213836/token.png"
-      }
+      "defense_mod": 0
     },
     "39,1": {
       "terrain_key": "teren_płaski",
@@ -6683,11 +6575,7 @@
     "39,8": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__6_Sch_tzen_Kompanie",
-        "image": "tokens/Niemcy/P_Batalion__6_Sch_tzen_Kompanie/token.png"
-      }
+      "defense_mod": 2
     },
     "39,9": {
       "terrain_key": "teren_płaski",
@@ -7247,20 +7135,12 @@
     "43,-15": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "K_Batalion__5_Kawaleria_Einheit",
-        "image": "tokens/Niemcy/K_Batalion__5_Kawaleria_Einheit/token.png"
-      }
+      "defense_mod": 0
     },
     "43,-14": {
       "terrain_key": "miasto",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Kompania__5_Sch_tzen_Kompanie",
-        "image": "tokens/Niemcy/P_Kompania__5_Sch_tzen_Kompanie/token.png"
-      }
+      "defense_mod": 2
     },
     "43,-13": {
       "terrain_key": "miasto",
@@ -7310,20 +7190,12 @@
     "43,-4": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Pluton__6_Grenadier_Bataillon",
-        "image": "tokens/Niemcy/P_Pluton__6_Grenadier_Bataillon/token.png"
-      }
+      "defense_mod": 2
     },
     "43,-3": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Pluton__6_Sch_tzen_Kompanie",
-        "image": "tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie/token.png"
-      }
+      "defense_mod": 2
     },
     "43,-2": {
       "terrain_key": "teren_płaski",
@@ -7433,11 +7305,7 @@
     "44,-15": {
       "terrain_key": "miasto",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "TL_Kompania__5_Panzer_Zug",
-        "image": "tokens/Niemcy/TL_Kompania__5_Panzer_Zug/token.png"
-      }
+      "defense_mod": 2
     },
     "44,-14": {
       "terrain_key": "most",
@@ -7557,11 +7425,7 @@
     "44,9": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "AL_Pluton__6_Artillerie_Abteilung",
-        "image": "tokens/Niemcy/AL_Pluton__6_Artillerie_Abteilung/token.png"
-      }
+      "defense_mod": 2
     },
     "44,10": {
       "terrain_key": "duża rzeka",
@@ -7601,11 +7465,7 @@
     "45,-17": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Pluton__5_Infanterie_Regiment",
-        "image": "tokens/Niemcy/P_Pluton__5_Infanterie_Regiment/token.png"
-      }
+      "defense_mod": 0
     },
     "45,-16": {
       "terrain_key": "teren_płaski",
@@ -8040,11 +7900,7 @@
     "47,2": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "AL_Kompania__6_Artillerie_Abteilung",
-        "image": "tokens/Niemcy/AL_Kompania__6_Artillerie_Abteilung/token.png"
-      }
+      "defense_mod": 2
     },
     "47,3": {
       "terrain_key": "teren_płaski",
@@ -8319,11 +8175,7 @@
     "49,-11": {
       "terrain_key": "miasto",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Kompania__5_Grenadier_Bataillon",
-        "image": "tokens/Niemcy/P_Kompania__5_Grenadier_Bataillon/token.png"
-      }
+      "defense_mod": 2
     },
     "49,-10": {
       "terrain_key": "teren_płaski",
@@ -8488,11 +8340,7 @@
     "50,-12": {
       "terrain_key": "miasto",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "TS_Batalion__5_Sam_Pancerny_Einheit",
-        "image": "tokens/Niemcy/TS_Batalion__5_Sam_Pancerny_Einheit/token.png"
-      }
+      "defense_mod": 2
     },
     "50,-11": {
       "terrain_key": "miasto",
@@ -8657,11 +8505,7 @@
     "51,-13": {
       "terrain_key": "most",
       "move_mod": 0,
-      "defense_mod": -1,
-      "token": {
-        "unit": "AL_Kompania__5_Artillerie_Abteilung",
-        "image": "tokens/Niemcy/AL_Kompania__5_Artillerie_Abteilung/token.png"
-      }
+      "defense_mod": -1
     },
     "51,-12": {
       "terrain_key": "most",
@@ -8696,11 +8540,7 @@
     "51,-6": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Pluton__6_Sch_tzen_Kompanie_20250703213835",
-        "image": "tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie_20250703213835/token.png"
-      }
+      "defense_mod": 2
     },
     "51,-5": {
       "terrain_key": "teren_płaski",
@@ -9245,11 +9085,7 @@
     "54,1": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2,
-      "token": {
-        "unit": "AL_Batalion__6_Artillerie_Abteilung",
-        "image": "tokens/Niemcy/AL_Batalion__6_Artillerie_Abteilung/token.png"
-      }
+      "defense_mod": 2
     },
     "54,2": {
       "terrain_key": "las",
@@ -9459,20 +9295,12 @@
     "8,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "AL_Batalion__2_Pu_k_Artylerii",
-        "image": "tokens/Polska/AL_Batalion__2_Pu_k_Artylerii/token.png"
-      }
+      "defense_mod": 0
     },
     "9,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "TL_Pluton__2_Pluton_Tankietek",
-        "image": "tokens/Polska/TL_Pluton__2_Pluton_Tankietek/token.png"
-      }
+      "defense_mod": 0
     },
     "10,-3": {
       "terrain_key": "teren_płaski",
@@ -9482,29 +9310,17 @@
     "11,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__2_Pu_k_Piechoty",
-        "image": "tokens/Polska/P_Kompania__2_Pu_k_Piechoty/token.png"
-      }
+      "defense_mod": 0
     },
     "20,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Batalion__2_Kompania_Grenadier_w_20250703213005",
-        "image": "tokens/Polska/P_Batalion__2_Kompania_Grenadier_w_20250703213005/token.png"
-      }
+      "defense_mod": 0
     },
     "17,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "AL_Pluton__2_Bateria_Artylerii",
-        "image": "tokens/Polska/AL_Pluton__2_Bateria_Artylerii/token.png"
-      }
+      "defense_mod": 0
     },
     "19,1": {
       "terrain_key": "teren_płaski",
@@ -9519,11 +9335,7 @@
     "23,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Batalion__2_Pu_k_Piechoty",
-        "image": "tokens/Polska/P_Batalion__2_Pu_k_Piechoty/token.png"
-      }
+      "defense_mod": 0
     },
     "21,-4": {
       "terrain_key": "teren_płaski",
@@ -9538,29 +9350,17 @@
     "23,-7": {
       "terrain_key": "most",
       "move_mod": 0,
-      "defense_mod": -1,
-      "token": {
-        "unit": "TL_Kompania__2_Pluton_Tankietek",
-        "image": "tokens/Polska/TL_Kompania__2_Pluton_Tankietek/token.png"
-      }
+      "defense_mod": -1
     },
     "24,-8": {
       "terrain_key": "miasto",
       "move_mod": 2,
-      "defense_mod": 2,
-      "token": {
-        "unit": "P_Batalion__2_Batalion_Strzelc_w",
-        "image": "tokens/Polska/P_Batalion__2_Batalion_Strzelc_w/token.png"
-      }
+      "defense_mod": 2
     },
     "23,-8": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Kompania__2_Batalion_Strzelc_w_20250703213012",
-        "image": "tokens/Polska/P_Kompania__2_Batalion_Strzelc_w_20250703213012/token.png"
-      }
+      "defense_mod": 0
     },
     "20,-9": {
       "terrain_key": "teren_płaski",
@@ -9575,11 +9375,7 @@
     "15,-7": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Batalion__2_Kompania_Grenadier_w",
-        "image": "tokens/Polska/P_Batalion__2_Kompania_Grenadier_w/token.png"
-      }
+      "defense_mod": 0
     },
     "21,2": {
       "terrain_key": "teren_płaski",

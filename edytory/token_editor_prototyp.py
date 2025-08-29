@@ -1182,29 +1182,76 @@ class TokenEditor:
             "G": "Generał"
         }.get(unit_type, unit_type)
         unit_symbol = {"Pluton": "***", "Kompania": "I", "Batalion": "II"}.get(unit_size, "")
-        unit_full_name = f"{nation} {unit_type_full} {unit_size} {unit_symbol}".strip()
+        # Zastąpione centralną funkcją build_unit_names z balance.model
+        try:
+            from balance.model import build_unit_names
+            _names = build_unit_names(nation, unit_type, unit_size)
+            unit_full_name = _names["unit_full_name"]
+            # Jeśli użytkownik nie podał własnej etykiety (user_label == default) synchronizujemy label
+            if user_label == default_label:
+                user_label = _names["label"]
+        except Exception:
+            unit_full_name = f"{nation} {unit_type_full} {unit_size} {unit_symbol}".strip()
 
         # ---- JSON ----
+        # ============= INTEGRACJA BALANSU =============
+        try:
+            from balance.model import compute_token
+            # Zbierz upgrady z GUI
+            upgrades = list(self.selected_supports)
+            if getattr(self, 'selected_transport', None) and self.selected_transport.get():
+                upgrades.append(self.selected_transport.get())
+            computed = compute_token(unit_type, unit_size, nation, upgrades, quality='standard')
+            # Nadpisz widoczne pola formularza (spójność UI)
+            self.movement_points.set(str(computed.movement))
+            self.attack_range.set(str(computed.attack_range))
+            self.attack_value.set(str(computed.attack_value))
+            self.combat_value.set(str(computed.combat_value))
+            self.defense_value.set(str(computed.defense_value))
+            self.unit_maintenance.set(str(computed.maintenance))
+            self.purchase_value.set(str(computed.total_cost))
+            self.sight_range.set(str(computed.sight))
+            price_val = computed.total_cost
+            maintenance_val = computed.maintenance
+            move_val = computed.movement
+            attack_range_val = computed.attack_range
+            attack_val = computed.attack_value
+            combat_val = computed.combat_value
+            defense_val = computed.defense_value
+            sight_val = computed.sight
+        except Exception:
+            # fallback do wartości GUI jeśli coś poszło źle
+            upgrades = list(self.selected_supports)
+            if getattr(self, 'selected_transport', None) and self.selected_transport.get():
+                upgrades.append(self.selected_transport.get())
+            price_val = int(self.purchase_value.get() or 0)
+            maintenance_val = int(self.unit_maintenance.get() or 0)
+            move_val = int(self.movement_points.get() or 0)
+            attack_range_val = int(self.attack_range.get() or 0)
+            attack_val = int(self.attack_value.get() or 0)
+            combat_val = int(self.combat_value.get() or 0)
+            defense_val = int(self.defense_value.get() or 0)
+            sight_val = int(self.sight_range.get() or 0)
+
         meta = {
-            "id":   token_id,                      # unikalny klucz
+            "id":   token_id,
             "nation":    nation,
             "unitType":  unit_type,
             "unitSize":  unit_size,
-            "shape":     self.shape.get().lower(),   # "heks" lub "prostokąt"
-            "label":     user_label,            # ← nowe pole
-            "unit_full_name": unit_full_name,   # ← NOWE POLE
-            "move":      int(self.movement_points.get() or 0),
-            "attack":    { "range": int(self.attack_range.get() or 0),
-                           "value": int(self.attack_value.get() or 0) },
-            "combat_value": int(self.combat_value.get() or 0),  # Dodane pole
-            "defense_value": int(self.defense_value.get() or 0),  # NOWE POLE
-            "maintenance": int(self.unit_maintenance.get() or 0),
-            "price":       int(self.purchase_value.get() or 0),
-            "sight":       int(self.sight_range.get() or 0),
+            "shape":     self.shape.get().lower(),
+            "label":     user_label,
+            "unit_full_name": unit_full_name,
+            "move":      move_val,
+            "attack":    { "range": attack_range_val, "value": attack_val },
+            "combat_value": combat_val,
+            "defense_value": defense_val,
+            "maintenance": maintenance_val,
+            "price":       price_val,
+            "sight":       sight_val,
             "owner":       owner,
-            # względna ścieżka do stałej nazwy pliku
-            "image": str((Path('assets') / 'tokens' / nation / token_id / 'token.png')
-                         .as_posix()),            "w": FINAL_SIZE, "h": FINAL_SIZE
+            "support_upgrades": upgrades,
+            "image": str((Path('assets') / 'tokens' / nation / token_id / 'token.png').as_posix()),
+            "w": FINAL_SIZE, "h": FINAL_SIZE
         }
         
         with open(token_dir / "token.json", "w", encoding="utf-8") as fh:
