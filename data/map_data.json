@@ -9436,6 +9436,10 @@
     "15,-7": {
       "type": "miasto",
       "value": 100
+    },
+    "9,-3": {
+      "type": "miasto",
+      "value": 100
     }
   },
   "spawn_points": {
