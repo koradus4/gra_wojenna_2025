@@ -114,21 +114,20 @@ class MapEditor:
         self.root.configure(bg="darkolivegreen")
         self.config = config["map_settings"]
         self.map_image_path = self.get_last_modified_map()  # Automatyczne otwieranie ostatniej mapy
-        self.map_image_path = self.get_last_modified_map()
-        
+
+        # Ustawienia heksów
         self.hex_size = self.config.get("hex_size", 30)
         self.hex_defaults = {"defense_mod": 0, "move_mod": 0}
         self.current_working_file = DATA_FILENAME_WORKING
-        
-        # Słownik z danymi terenu dla niestandardowych heksów
+        # Dane mapy
         self.hex_data = {}
         self.key_points = {}
         self.spawn_points = {}
-        
-        # Inicjalizacja aktualnie wybranego heksu
-        self.selected_hex = None  # Dodano inicjalizację atrybutu
 
-        # Lista dostępnych typów kluczowych punktów i ich wartości
+        # Selekcja
+        self.selected_hex = None
+
+        # Konfiguracja typów punktów kluczowych
         self.available_key_point_types = {
             "most": 50,
             "miasto": 100,
@@ -137,12 +136,12 @@ class MapEditor:
         }
 
         # Lista dostępnych nacji
-        self.available_nations = ["Polska", "Niemcy"]        # Atrybut do przechowywania mapowania hex_id → nazwa/obiekt żetonu
-        self.hex_tokens = {}  # mapuje hex_id → ścieżka do pliku PNG z żetonem
+        self.available_nations = ["Polska", "Niemcy"]  # Lista dostępnych nacji
+        self.hex_tokens = {}  # hex_id -> ścieżka obrazka
 
         # Przechowuje referencje do obrazków żetonów
-        self.token_images = {}  # Przechowuje referencje do obrazków żetonów
-        
+        self.token_images = {}  # cache obrazków
+
         # Aktualnie wybrany żeton do wystawienia (dla systemu click-and-click)
         self.selected_token_for_deployment = None
         self.selected_token_button = None
@@ -413,37 +412,8 @@ class MapEditor:
 
         # nakładka mgiełki dla punktów zrzutu
         for nation, hex_list in self.spawn_points.items():
-            if nation == "Polska":
-                for hex_id in hex_list:
-                    if hex_id in self.hex_centers:
-                        cx, cy = self.hex_centers[hex_id]
-                        verts = get_hex_vertices(cx, cy, self.hex_size)
-                        self.canvas.create_polygon(
-                            verts,
-                            fill="white",  # Górna część biała
-                            outline="",
-                            stipple="gray25",
-                            tags=f"spawn_{nation}_{hex_id}"
-                        )
-                        self.canvas.create_polygon(
-                            verts,
-                            fill="red",  # Dolna część czerwona
-                            outline="",
-                            stipple="gray25",
-                            tags=f"spawn_{nation}_{hex_id}"
-                        )
-            else:
-                for hex_id in hex_list:
-                    if hex_id in self.hex_centers:
-                        cx, cy = self.hex_centers[hex_id]
-                        verts = get_hex_vertices(cx, cy, self.hex_size)
-                        self.canvas.create_polygon(
-                            verts,
-                            fill=SPAWN_OVERLAY.get(nation, "#ffffff"),
-                            outline="",
-                            stipple="gray25",
-                            tags=f"spawn_{nation}_{hex_id}"
-                        )
+            for hex_id in hex_list:
+                self.draw_spawn_marker(nation, hex_id)
 
         # rysowanie etykiet kluczowych punktów
         for hex_id, kp in self.key_points.items():
@@ -480,6 +450,26 @@ class MapEditor:
                 anchor="center",
                 tags=f"tekst_{hex_id}"
             )
+
+    def draw_spawn_marker(self, nation, hex_id):
+        """Rysuje prosty, wyraźny znacznik punktu wystawienia (kolorowa obwódka + litera nacji)."""
+        if hex_id not in self.hex_centers:
+            return
+        cx, cy = self.hex_centers[hex_id]
+        color_map = {"Polska": ("#ff5555", "P"), "Niemcy": ("#5555ff", "N")}
+        outline, letter = color_map.get(nation, ("#ffffff", nation[:1].upper()))
+        r_c = int(self.hex_size * 0.55)
+        self.canvas.create_oval(
+            cx - r_c, cy - r_c, cx + r_c, cy + r_c,
+            outline=outline, width=3, tags=f"spawn_{nation}_{hex_id}"
+        )
+        self.canvas.create_text(
+            cx, cy + self.hex_size * 0.60,
+            text=letter,
+            fill=outline,
+            font=("Arial", 10, "bold"),
+            tags=f"spawn_{nation}_{hex_id}"
+        )
 
     def get_clicked_hex(self, x, y):
         for hex_id, (cx, cy) in self.hex_centers.items():
