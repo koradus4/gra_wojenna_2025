@@ -98,6 +98,57 @@ def clean_ai_logs():
         print(f"⚠️ Błąd usuwania logów AI: {e}")
 
 
+def clean_csv_logs():
+    """Usuń wszystkie pliki CSV z folderu logs"""
+    try:
+        logs_dir = Path("logs")
+        if not logs_dir.exists():
+            print("ℹ️ Brak katalogu logs – pomijam czyszczenie CSV")
+            return
+
+        deleted_count = 0
+        total_size = 0
+        
+        # Wzorce plików CSV do usunięcia
+        csv_patterns = [
+            "actions_*.csv",
+            "ai_actions_*.csv", 
+            "ai_purchases_*.csv"
+        ]
+        
+        # Usuń pliki CSV z głównego katalogu
+        for pattern in csv_patterns:
+            for csv_file in logs_dir.glob(pattern):
+                try:
+                    size = csv_file.stat().st_size
+                    csv_file.unlink()
+                    deleted_count += 1
+                    total_size += size
+                except Exception as e:
+                    print(f"⚠️ Nie mogę usunąć {csv_file.name}: {e}")
+        
+        # Usuń CSV z podfolderów
+        for subfolder in ["ai_general", "ai_commander", "ai_flow"]:
+            subfolder_path = logs_dir / subfolder
+            if subfolder_path.exists():
+                for csv_file in subfolder_path.glob("*.csv"):
+                    try:
+                        size = csv_file.stat().st_size
+                        csv_file.unlink()
+                        deleted_count += 1
+                        total_size += size
+                    except Exception as e:
+                        print(f"⚠️ Nie mogę usunąć {csv_file}: {e}")
+
+        if deleted_count > 0:
+            print(f"✅ Usunięto {deleted_count} plików CSV ({total_size/1024:.1f} KB)")
+        else:
+            print("ℹ️ Brak plików CSV do usunięcia")
+            
+    except Exception as e:
+        print(f"⚠️ Błąd usuwania plików CSV: {e}")
+
+
 def clean_game_logs():
     """Usuń logi akcji gracza z poprzedniej gry"""
     try:
@@ -160,6 +211,18 @@ def quick_clean():
     
     print("-" * 30)
     print("✅ SZYBKIE CZYSZCZENIE ZAKOŃCZONE!")
+    print("")
+
+
+def csv_only_clean():
+    """Czyszczenie TYLKO plików CSV z logs"""
+    print("🧹 CZYSZCZENIE CSV...")
+    print("-" * 30)
+    
+    clean_csv_logs()
+    
+    print("-" * 30)
+    print("✅ CZYSZCZENIE CSV ZAKOŃCZONE!")
     print("")
 
 
@@ -277,7 +340,7 @@ def tokens_hard(no_backup: bool = False, confirm: bool = False):
 
 def parse_args():
     p = argparse.ArgumentParser(description='Narzędzia czyszczenia projektu')
-    p.add_argument('--mode', choices=['quick', 'new_game', 'tokens_soft', 'tokens_hard'], default='quick')
+    p.add_argument('--mode', choices=['quick', 'new_game', 'csv', 'tokens_soft', 'tokens_hard'], default='quick')
     p.add_argument('--no-backup', action='store_true', help='Pomiń tworzenie backupu (tylko tryby tokens_*)')
     p.add_argument('--confirm', action='store_true', help='Wymagane do trybu tokens_hard')
     return p.parse_args()
@@ -290,6 +353,8 @@ def main_cli():
         quick_clean()
     elif mode == 'new_game':
         clean_all_for_new_game()
+    elif mode == 'csv':
+        csv_only_clean()
     elif mode == 'tokens_soft':
         tokens_soft(no_backup=args.no_backup)
     elif mode == 'tokens_hard':

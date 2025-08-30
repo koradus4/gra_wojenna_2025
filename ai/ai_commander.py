@@ -13,6 +13,8 @@ from typing import Any
 import csv
 import datetime
 import json
+import shutil
+import os
 import math
 import os
 import shutil
@@ -1686,6 +1688,673 @@ def move_towards(unit, target, game_engine):
     return False
 
 
+# ========== ADAPTACYJNY SYSTEM AI COMMANDER ==========
+
+class AdaptiveAICommander:
+    """Kompletny adaptacyjny system AI Commander z VP-based strategic switching"""
+    
+    def __init__(self, ai_commander_instance):
+        self.commander = ai_commander_instance
+        self.player = ai_commander_instance.player
+        self.strategic_state = "TIED"  # WINNING, LOSING, TIED
+        self.last_vp_check = 0
+        self.consecutive_losing_turns = 0
+        self.budget_allocation = {"allocate": 0.6, "purchase": 0.3, "reserve": 0.1}
+        self.keypoint_priorities = {}
+        self.reconnaissance_data = {}
+        self.adaptive_purchase_queue = []
+        self.aggression_level = 0.5  # 0.0 = defensive, 1.0 = full aggression
+        
+        print(f"🧠 [ADAPTIVE AI] Zainicjalizowano dla {self.player.nation}")
+
+    def analyze_strategic_state(self, game_engine):
+        """STRATEGIC_STATE_ANALYZER - Ocena sytuacji VP i strategiczna adaptacja"""
+        try:
+            # Pobierz dane VP wszystkich graczy
+            all_players = getattr(game_engine, 'players', [])
+            current_player_id = self.player.id
+            
+            vp_data = {}
+            for player in all_players:
+                player_id = getattr(player, 'id', None)
+                if player_id is not None:
+                    vp_points = getattr(player, 'victory_points', 0)
+                    vp_data[player_id] = vp_points
+            
+            my_vp = vp_data.get(current_player_id, 0)
+            other_vps = [vp for pid, vp in vp_data.items() if pid != current_player_id]
+            
+            if not other_vps:
+                self.strategic_state = "TIED"
+                return self.strategic_state
+            
+            max_enemy_vp = max(other_vps)
+            avg_enemy_vp = sum(other_vps) / len(other_vps)
+            
+            # Logika strategicznej adaptacji
+            vp_difference = my_vp - max_enemy_vp
+            
+            if vp_difference >= 10:
+                new_state = "WINNING"
+            elif vp_difference <= -10:
+                new_state = "LOSING"
+                self.consecutive_losing_turns += 1
+            else:
+                new_state = "TIED"
+                self.consecutive_losing_turns = 0
+            
+            # Adaptacja strategii na podstawie stanu
+            if new_state != self.strategic_state:
+                print(f"🎯 [STRATEGIC] Zmiana stanu: {self.strategic_state} -> {new_state} (VP: {my_vp} vs max {max_enemy_vp})")
+                self.strategic_state = new_state
+                self._adapt_strategy_to_state()
+            
+            return self.strategic_state
+            
+        except Exception as e:
+            print(f"❌ [STRATEGIC] Błąd analizy: {e}")
+            return "TIED"
+
+    def _adapt_strategy_to_state(self):
+        """Adaptuje strategię na podstawie aktualnego stanu gry"""
+        if self.strategic_state == "WINNING":
+            # Tryb defensywny - broń przewagi
+            self.aggression_level = 0.3
+            self.budget_allocation = {"allocate": 0.7, "purchase": 0.2, "reserve": 0.1}
+            print(f"🛡️ [STRATEGY] WINNING MODE: Defensywnie, focus na utrzymanie pozycji")
+            
+        elif self.strategic_state == "LOSING":
+            # Tryb agresywny - wszystko albo nic
+            self.aggression_level = 0.9
+            self.budget_allocation = {"allocate": 0.4, "purchase": 0.5, "reserve": 0.1}
+            print(f"⚔️ [STRATEGY] LOSING MODE: Agresywnie, focus na nowe jednostki")
+            
+        else:  # TIED
+            # Tryb zbalansowany
+            self.aggression_level = 0.6
+            self.budget_allocation = {"allocate": 0.5, "purchase": 0.4, "reserve": 0.1}
+            print(f"⚖️ [STRATEGY] TIED MODE: Zbalansowany approach")
+
+    def optimize_budget(self, game_engine):
+        """BUDGET_OPTIMIZER - Dynamiczna alokacja budżetu na podstawie sytuacji"""
+        try:
+            # Pobierz dostępne punkty ekonomiczne
+            if hasattr(self.player, 'economy') and self.player.economy:
+                current_budget = self.player.economy.economic_points
+            else:
+                current_budget = getattr(self.player, 'punkty_ekonomiczne', 0)
+            
+            # Analiza sytuacji jednostek
+            my_units = get_my_units(game_engine, self.player.id)
+            total_units = len(my_units)
+            
+            # Sprawdź stan jednostek (ile potrzebuje resupply)
+            units_needing_resupply = 0
+            total_resupply_cost = 0
+            
+            for unit in my_units:
+                token = unit.get('token')
+                if token:
+                    # Fuel check
+                    current_fuel = getattr(token, 'currentFuel', 0)
+                    max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+                    fuel_needed = max(0, max_fuel - current_fuel)
+                    
+                    # Combat value check
+                    current_combat = getattr(token, 'combat_value', 0)
+                    max_combat = token.stats.get('combat_value', 0)
+                    combat_needed = max(0, max_combat - current_combat)
+                    
+                    unit_cost = fuel_needed + combat_needed
+                    if unit_cost > 0:
+                        units_needing_resupply += 1
+                        total_resupply_cost += unit_cost
+            
+            # Dynamiczna alokacja budżetu
+            if total_units < 5:  # Mało jednostek - priorytet zakupy
+                allocation = {"allocate": 0.3, "purchase": 0.6, "reserve": 0.1}
+                reason = "Mała armia - priorytet nowe jednostki"
+            elif units_needing_resupply > total_units * 0.7:  # Większość potrzebuje resupply
+                allocation = {"allocate": 0.8, "purchase": 0.1, "reserve": 0.1}
+                reason = "Masowe potrzeby resupply"
+            elif self.consecutive_losing_turns >= 3:  # Długo przegrywa
+                allocation = {"allocate": 0.2, "purchase": 0.7, "reserve": 0.1}
+                reason = "Desperacka sytuacja - wszystko w nowe jednostki"
+            else:
+                # Użyj alokacji z strategic state
+                allocation = self.budget_allocation.copy()
+                reason = f"Strategia {self.strategic_state}"
+            
+            # Oblicz konkretne kwoty
+            allocate_amount = int(current_budget * allocation["allocate"])
+            purchase_amount = int(current_budget * allocation["purchase"])
+            reserve_amount = current_budget - allocate_amount - purchase_amount
+            
+            budget_plan = {
+                "total": current_budget,
+                "allocate": allocate_amount,
+                "purchase": purchase_amount,
+                "reserve": reserve_amount,
+                "allocation_ratios": allocation,
+                "reason": reason,
+                "units_count": total_units,
+                "resupply_needed": units_needing_resupply,
+                "estimated_resupply_cost": total_resupply_cost
+            }
+            
+            print(f"💰 [BUDGET] {reason}: {allocate_amount}zł resupply, {purchase_amount}zł zakupy, {reserve_amount}zł rezerwa")
+            return budget_plan
+            
+        except Exception as e:
+            print(f"❌ [BUDGET] Błąd optymalizacji: {e}")
+            return {"total": 0, "allocate": 0, "purchase": 0, "reserve": 0, "reason": "ERROR"}
+
+    def prioritize_keypoints(self, game_engine):
+        """KEYPOINT_PRIORITIZER - Inteligentne priorytetyzowanie celów"""
+        try:
+            key_points = getattr(game_engine, 'key_points_state', {})
+            my_units = get_my_units(game_engine, self.player.id)
+            
+            # Resetuj priorytety
+            self.keypoint_priorities = {}
+            
+            for hex_id, kp_data in key_points.items():
+                if kp_data.get('current_value', 0) <= 0:
+                    continue  # Pomiń wyczerpane
+                
+                try:
+                    q, r = map(int, hex_id.split(','))
+                    kp_pos = (q, r)
+                except:
+                    continue
+                
+                # Podstawowe dane punktu
+                current_value = kp_data.get('current_value', 0)
+                kp_type = kp_data.get('type', 'unknown')
+                
+                # Oblicz bazowy priorytet
+                base_priority = current_value
+                
+                # Modyfikatory strategiczne
+                if self.strategic_state == "LOSING":
+                    if kp_type == 'victory':
+                        base_priority *= 2.0  # Desperacko potrzebujemy VP
+                    elif kp_type == 'economy':
+                        base_priority *= 1.2  # Również ważne dla recovery
+                elif self.strategic_state == "WINNING":
+                    if kp_type == 'economy':
+                        base_priority *= 1.5  # Utrzymuj ekonomię
+                    elif kp_type == 'victory':
+                        base_priority *= 0.8  # Mniej ważne gdy już wygrywamy
+                else:  # TIED
+                    if kp_type == 'economy':
+                        base_priority *= 1.3  # Zbalansowany focus na ekonomię
+                
+                # Modyfikator odległości od moich jednostek
+                if my_units:
+                    min_distance = float('inf')
+                    for unit in my_units:
+                        unit_pos = (unit['q'], unit['r'])
+                        distance = calculate_hex_distance(kp_pos, unit_pos)
+                        min_distance = min(min_distance, distance)
+                    
+                    # Im bliżej, tym wyższy priorytet
+                    distance_modifier = 1.0 / max(1, min_distance * 0.1)
+                    base_priority *= distance_modifier
+                
+                # Sprawdź czy punkt jest okupowany
+                board = getattr(game_engine, 'board', None)
+                occupied_by_enemy = False
+                if board and hasattr(board, 'is_occupied'):
+                    if board.is_occupied(q, r):
+                        # Sprawdź przez kogo
+                        for token in getattr(game_engine, 'tokens', []):
+                            if getattr(token, 'q', -1) == q and getattr(token, 'r', -1) == r:
+                                token_owner = getattr(token, 'owner', '')
+                                my_owner = f"{self.player.id} ({self.player.nation})"
+                                if token_owner != my_owner:
+                                    occupied_by_enemy = True
+                                    base_priority *= 1.5  # Wyższy priorytet dla wrogich punktów
+                                break
+                
+                final_priority = base_priority
+                
+                self.keypoint_priorities[hex_id] = {
+                    'position': kp_pos,
+                    'priority': final_priority,
+                    'value': current_value,
+                    'type': kp_type,
+                    'occupied_by_enemy': occupied_by_enemy,
+                    'strategic_modifier': self.strategic_state
+                }
+            
+            # Sortuj według priorytetu
+            sorted_priorities = sorted(
+                self.keypoint_priorities.items(),
+                key=lambda x: x[1]['priority'],
+                reverse=True
+            )
+            
+            print(f"🎯 [PRIORITIES] Top 3 cele dla {self.strategic_state}:")
+            for i, (hex_id, data) in enumerate(sorted_priorities[:3]):
+                print(f"  {i+1}. {hex_id} ({data['type']}) - priorytet {data['priority']:.1f}, wartość {data['value']}")
+            
+            return sorted_priorities
+            
+        except Exception as e:
+            print(f"❌ [PRIORITIES] Błąd priorytetyzacji: {e}")
+            return []
+
+    def gather_reconnaissance(self, game_engine):
+        """RECONNAISSANCE_SYSTEM - Zbieranie danych zwiadowczych"""
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if not current_player:
+                return {}
+            
+            # Zbierz dane o widocznych wrogach
+            visible_enemies = []
+            if hasattr(current_player, 'visible_tokens'):
+                for token in current_player.visible_tokens:
+                    token_owner = getattr(token, 'owner', '')
+                    my_owner = f"{self.player.id} ({self.player.nation})"
+                    
+                    if token_owner != my_owner and token_owner:
+                        enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+                        combat_value = getattr(token, 'combat_value', 0)
+                        
+                        # Sprawdź detection level jeśli dostępny
+                        detection_level = 1.0
+                        if hasattr(current_player, 'visible_token_data'):
+                            token_data = current_player.visible_token_data.get(token.id, {})
+                            detection_level = token_data.get('detection_level', 1.0)
+                        
+                        visible_enemies.append({
+                            'id': getattr(token, 'id', 'unknown'),
+                            'position': enemy_pos,
+                            'combat_value': combat_value,
+                            'detection_level': detection_level,
+                            'owner': token_owner
+                        })
+            
+            # Analiza rozmieszczenia wrogów
+            enemy_clusters = self._analyze_enemy_clusters(visible_enemies)
+            
+            # Sprawdź zagrożenia dla kluczowych punktów
+            keypoint_threats = self._assess_keypoint_threats(visible_enemies, game_engine)
+            
+            self.reconnaissance_data = {
+                'visible_enemies': visible_enemies,
+                'enemy_count': len(visible_enemies),
+                'enemy_clusters': enemy_clusters,
+                'keypoint_threats': keypoint_threats,
+                'last_update': getattr(game_engine, 'turn_number', 1)
+            }
+            
+            print(f"🔍 [RECON] Wykryto {len(visible_enemies)} wrogów w {len(enemy_clusters)} klastrach")
+            if keypoint_threats:
+                print(f"🚨 [RECON] {len(keypoint_threats)} punktów kluczowych zagrożonych")
+            
+            return self.reconnaissance_data
+            
+        except Exception as e:
+            print(f"❌ [RECON] Błąd rozpoznania: {e}")
+            return {}
+
+    def _analyze_enemy_clusters(self, enemies):
+        """Analizuje klastry wrogów dla lepszego planowania"""
+        if not enemies:
+            return []
+        
+        clusters = []
+        processed = set()
+        
+        for i, enemy in enumerate(enemies):
+            if i in processed:
+                continue
+                
+            cluster = [enemy]
+            processed.add(i)
+            
+            # Znajdź pobliskich wrogów (w promieniu 4 hexów)
+            for j, other_enemy in enumerate(enemies):
+                if j in processed:
+                    continue
+                    
+                distance = calculate_hex_distance(enemy['position'], other_enemy['position'])
+                if distance <= 4:
+                    cluster.append(other_enemy)
+                    processed.add(j)
+            
+            clusters.append({
+                'size': len(cluster),
+                'enemies': cluster,
+                'center': self._calculate_cluster_center(cluster),
+                'threat_level': sum(e['combat_value'] for e in cluster)
+            })
+        
+        return clusters
+
+    def _calculate_cluster_center(self, cluster):
+        """Oblicza środek klastra wrogów"""
+        if not cluster:
+            return (0, 0)
+        
+        avg_q = sum(e['position'][0] for e in cluster) // len(cluster)
+        avg_r = sum(e['position'][1] for e in cluster) // len(cluster)
+        return (avg_q, avg_r)
+
+    def _assess_keypoint_threats(self, enemies, game_engine):
+        """Ocenia zagrożenia dla punktów kluczowych"""
+        key_points = getattr(game_engine, 'key_points_state', {})
+        threats = {}
+        
+        for hex_id, kp_data in key_points.items():
+            if kp_data.get('current_value', 0) <= 0:
+                continue
+                
+            try:
+                q, r = map(int, hex_id.split(','))
+                kp_pos = (q, r)
+            except:
+                continue
+            
+            # Znajdź wrogów w promieniu 6 hexów od punktu
+            nearby_enemies = []
+            for enemy in enemies:
+                distance = calculate_hex_distance(kp_pos, enemy['position'])
+                if distance <= 6:
+                    nearby_enemies.append({
+                        'enemy': enemy,
+                        'distance': distance,
+                        'threat_score': enemy['combat_value'] / max(1, distance)
+                    })
+            
+            if nearby_enemies:
+                total_threat = sum(e['threat_score'] for e in nearby_enemies)
+                threats[hex_id] = {
+                    'position': kp_pos,
+                    'threat_level': total_threat,
+                    'enemy_count': len(nearby_enemies),
+                    'closest_enemy_distance': min(e['distance'] for e in nearby_enemies)
+                }
+        
+        return threats
+
+    def adaptive_purchase_ai(self, game_engine, budget_plan):
+        """ADAPTIVE_PURCHASE_AI - Inteligentne zakupy jednostek"""
+        try:
+            purchase_budget = budget_plan.get('purchase', 0)
+            if purchase_budget <= 0:
+                print(f"💸 [PURCHASE] Brak budżetu na zakupy")
+                return []
+            
+            # Analiza potrzeb
+            my_units = get_my_units(game_engine, self.player.id)
+            current_army_size = len(my_units)
+            
+            # Analiza składu armii
+            unit_types = {}
+            total_combat_value = 0
+            for unit in my_units:
+                token = unit.get('token')
+                if token:
+                    unit_type = getattr(token, 'unit_type', getattr(token, 'type', 'unknown'))
+                    unit_types[unit_type] = unit_types.get(unit_type, 0) + 1
+                    total_combat_value += unit.get('cv', 0)
+            
+            # Strategiczna analiza zakupów
+            purchase_priority = self._determine_purchase_priority()
+            
+            # Symuluj dostępne opcje zakupu
+            available_units = self._get_available_purchase_options(game_engine)
+            
+            # Wybierz optymalne jednostki
+            selected_purchases = self._select_optimal_purchases(
+                available_units, purchase_budget, purchase_priority, current_army_size
+            )
+            
+            print(f"🛒 [PURCHASE] Strategia {self.strategic_state}: {len(selected_purchases)} jednostek za {sum(u['cost'] for u in selected_purchases)}zł")
+            
+            return selected_purchases
+            
+        except Exception as e:
+            print(f"❌ [PURCHASE] Błąd adaptacyjnych zakupów: {e}")
+            return []
+
+    def _determine_purchase_priority(self):
+        """Określa priorytety zakupów na podstawie sytuacji strategicznej"""
+        if self.strategic_state == "LOSING":
+            return {
+                'fast_attack': 0.4,  # Szybkie jednostki atakujące
+                'heavy_combat': 0.3,  # Ciężkie jednostki bojowe
+                'support': 0.2,      # Wsparcie
+                'economic': 0.1      # Jednostki ekonomiczne
+            }
+        elif self.strategic_state == "WINNING":
+            return {
+                'heavy_combat': 0.4,  # Ciężkie jednostki do obrony
+                'support': 0.3,       # Wsparcie i utrzymanie
+                'economic': 0.2,      # Jednostki ekonomiczne
+                'fast_attack': 0.1    # Mniej ataku
+            }
+        else:  # TIED
+            return {
+                'heavy_combat': 0.3,
+                'fast_attack': 0.3,
+                'support': 0.2,
+                'economic': 0.2
+            }
+
+    def _get_available_purchase_options(self, game_engine):
+        """Pobiera dostępne opcje zakupu jednostek"""
+        # Symulacja dostępnych jednostek (w rzeczywistej grze to by było z tokenshopa)
+        available_units = [
+            {'type': 'infantry', 'category': 'heavy_combat', 'cost': 15, 'combat_value': 8, 'mobility': 2},
+            {'type': 'tank', 'category': 'heavy_combat', 'cost': 25, 'combat_value': 12, 'mobility': 3},
+            {'type': 'recon', 'category': 'fast_attack', 'cost': 12, 'combat_value': 5, 'mobility': 4},
+            {'type': 'artillery', 'category': 'support', 'cost': 20, 'combat_value': 10, 'mobility': 1},
+            {'type': 'engineer', 'category': 'support', 'cost': 18, 'combat_value': 6, 'mobility': 2},
+            {'type': 'supply', 'category': 'economic', 'cost': 10, 'combat_value': 2, 'mobility': 2}
+        ]
+        
+        return available_units
+
+    def _select_optimal_purchases(self, available_units, budget, priorities, current_army_size):
+        """Wybiera optymalne jednostki do zakupu"""
+        selected = []
+        remaining_budget = budget
+        
+        # Sortuj według priorytetu strategicznego
+        weighted_units = []
+        for unit in available_units:
+            category = unit['category']
+            priority_weight = priorities.get(category, 0.1)
+            efficiency = unit['combat_value'] / max(1, unit['cost'])  # Combat value per cost
+            
+            score = priority_weight * efficiency
+            weighted_units.append((score, unit))
+        
+        weighted_units.sort(key=lambda x: x[0], reverse=True)
+        
+        # Wybierz jednostki dopóki starczy budżetu
+        for score, unit in weighted_units:
+            if remaining_budget >= unit['cost'] and len(selected) < 5:  # Max 5 jednostek na raz
+                selected.append(unit)
+                remaining_budget -= unit['cost']
+                print(f"  🎯 Wybrano {unit['type']} ({unit['category']}) za {unit['cost']}zł, score: {score:.2f}")
+        
+        return selected
+
+    def adaptive_strategic_behavior(self, game_engine):
+        """GŁÓWNA FUNKCJA - Koordynuje wszystkie adaptacyjne systemy"""
+        try:
+            print(f"\n🧠 [ADAPTIVE AI] === ANALIZA STRATEGICZNA ===")
+            
+            # 1. Analiza stanu strategicznego
+            strategic_state = self.analyze_strategic_state(game_engine)
+            
+            # 2. Optymalizacja budżetu
+            budget_plan = self.optimize_budget(game_engine)
+            
+            # 3. Priorytetyzacja celów
+            prioritized_keypoints = self.prioritize_keypoints(game_engine)
+            
+            # 4. Rozpoznanie
+            recon_data = self.gather_reconnaissance(game_engine)
+            
+            # 5. Adaptacyjne zakupy
+            purchase_recommendations = self.adaptive_purchase_ai(game_engine, budget_plan)
+            
+            # 6. Kompilacja strategii
+            strategic_plan = {
+                'state': strategic_state,
+                'aggression_level': self.aggression_level,
+                'budget': budget_plan,
+                'target_priorities': prioritized_keypoints[:5],  # Top 5 celów
+                'reconnaissance': recon_data,
+                'purchase_plan': purchase_recommendations,
+                'recommended_actions': self._generate_action_recommendations()
+            }
+            
+            print(f"📋 [ADAPTIVE AI] Strategia gotowa: {strategic_state}, agresja {self.aggression_level:.1f}")
+            
+            # 7. Wykonaj automatyczne akcje jeśli włączone
+            if getattr(self.commander, 'auto_execute', True):
+                self._execute_strategic_plan(strategic_plan, game_engine)
+            
+            return strategic_plan
+            
+        except Exception as e:
+            print(f"❌ [ADAPTIVE AI] Błąd systemu adaptacyjnego: {e}")
+            return None
+
+    def _generate_action_recommendations(self):
+        """Generuje rekomendacje działań na podstawie analizy"""
+        recommendations = []
+        
+        if self.strategic_state == "LOSING":
+            recommendations.extend([
+                "PRIORYTET: Skupić wszystkie siły na wysokowartościowych VP",
+                "TAKTYKA: Agresywne ataki na słabe punkty wroga",
+                "ZAKUPY: Szybkie jednostki atakujące",
+                "BUDŻET: Maksymalnie w nowe jednostki"
+            ])
+        elif self.strategic_state == "WINNING":
+            recommendations.extend([
+                "PRIORYTET: Utrzymać kontrolę nad ekonomicznymi punktami",
+                "TAKTYKA: Defensywne pozycje, unikać ryzyka",
+                "ZAKUPY: Ciężkie jednostki obronne",
+                "BUDŻET: Focus na resupply istniejących sił"
+            ])
+        else:  # TIED
+            recommendations.extend([
+                "PRIORYTET: Zbalansowany rozwój ekonomiczny i militarny",
+                "TAKTYKA: Oportunistyczne zajmowanie wolnych punktów",
+                "ZAKUPY: Uniwersalne jednostki",
+                "BUDŻET: Zrównoważona alokacja"
+            ])
+        
+        # Dodaj rekomendacje na podstawie rozpoznania
+        if self.reconnaissance_data.get('enemy_count', 0) > len(get_my_units(None, self.player.id)):
+            recommendations.append("UWAGA: Wróg ma przewagę liczebną - unikaj otwartej walki")
+        
+        return recommendations
+
+    def _execute_strategic_plan(self, strategic_plan, game_engine):
+        """Wykonuje automatyczne akcje strategiczne (opcjonalne)"""
+        try:
+            print(f"🤖 [AUTO EXEC] Wykonuję strategiczny plan...")
+            
+            # Tutaj można dodać automatyczną egzekucję:
+            # - Automatyczne zakupy jednostek
+            # - Automatyczne deployment
+            # - Automatyczne ustawienie priorytetów
+            
+            # Na razie tylko logowanie
+            print(f"📋 [AUTO EXEC] Plan przygotowany do manualnej egzekucji")
+            
+        except Exception as e:
+            print(f"❌ [AUTO EXEC] Błąd wykonania planu: {e}")
+
+    def _adaptive_movement_tactics(self, unit, base_target, strategic_plan, game_engine):
+        """Adaptacyjne taktyki ruchu na podstawie planu strategicznego"""
+        try:
+            aggression_level = strategic_plan.get('aggression_level', 0.5)
+            strategic_state = strategic_plan.get('state', 'TIED')
+            
+            # Podstawowy cel
+            final_target = base_target
+            
+            # Modyfikacje na podstawie strategii
+            if strategic_state == "LOSING" and aggression_level > 0.7:
+                # Agresywny mode - cel bezpośrednio na punkt
+                print(f"⚔️ [ADAPTIVE] {unit['id']}: Agresywny atak na {base_target}")
+                final_target = base_target
+                
+            elif strategic_state == "WINNING" and aggression_level < 0.4:
+                # Defensywny mode - pozycje defensywne wokół celu
+                defensive_pos = self._find_defensive_position_near(base_target, unit, game_engine)
+                if defensive_pos != base_target:
+                    print(f"🛡️ [ADAPTIVE] {unit['id']}: Pozycja defensywna {defensive_pos} zamiast {base_target}")
+                    final_target = defensive_pos
+                    
+            else:
+                # Zbalansowany mode - standardowy ruch
+                print(f"⚖️ [ADAPTIVE] {unit['id']}: Zbalansowany ruch do {base_target}")
+                final_target = base_target
+            
+            return final_target
+            
+        except Exception as e:
+            print(f"❌ [ADAPTIVE] Błąd taktyki ruchu: {e}")
+            return base_target
+
+    def _find_defensive_position_near(self, target, unit, game_engine):
+        """Znajduje defensywną pozycję w pobliżu celu"""
+        try:
+            board = getattr(game_engine, 'board', None)
+            if not board:
+                return target
+            
+            # Sprawdź pozycje w promieniu 2 hexów od celu
+            for distance in [1, 2]:
+                for direction in [(1,0), (0,1), (-1,1), (-1,0), (0,-1), (1,-1)]:
+                    candidate = (
+                        target[0] + direction[0] * distance,
+                        target[1] + direction[1] * distance
+                    )
+                    
+                    # Sprawdź czy pozycja jest dostępna i bezpieczna
+                    if not board.is_occupied(candidate[0], candidate[1]):
+                        # Dodatkowa logika oceny bezpieczeństwa
+                        if self._is_position_safe(candidate, game_engine):
+                            return candidate
+            
+            return target  # Fallback
+            
+        except Exception:
+            return target
+
+    def _is_position_safe(self, position, game_engine):
+        """Sprawdza czy pozycja jest bezpieczna (brak wrogów w pobliżu)"""
+        try:
+            recon_data = self.reconnaissance_data
+            if not recon_data or 'visible_enemies' not in recon_data:
+                return True  # Brak danych = zakładamy bezpieczeństwo
+            
+            for enemy in recon_data['visible_enemies']:
+                enemy_pos = enemy['position']
+                distance = calculate_hex_distance(position, enemy_pos)
+                if distance <= 3:  # Wróg w promieniu 3 hexów
+                    return False
+            
+            return True
+            
+        except Exception:
+            return True  # Default safe
+
+
 def make_tactical_turn(game_engine, player_id=None):
     """Główna funkcja AI Commandera - ULEPSZONA z progressive movement i grouping
     
@@ -1764,6 +2433,30 @@ def make_tactical_turn(game_engine, player_id=None):
                     print(f"🔄 [AI] Brak rozkazów strategicznych - tryb autonomiczny")
         except Exception as e:
             print(f"⚠️ [AI] Błąd odczytu rozkazów strategicznych: {e}")
+
+        # ===== NOWY: ADAPTACYJNY SYSTEM AI =====
+        adaptive_ai = None
+        strategic_plan = None
+        try:
+            # Stwórz tymczasową instancję AICommander dla AdaptiveAI
+            temp_ai_commander = AICommander(current_player)
+            adaptive_ai = AdaptiveAICommander(temp_ai_commander)
+            
+            # Wykonaj pełną analizę strategiczną
+            strategic_plan = adaptive_ai.adaptive_strategic_behavior(game_engine)
+            
+            if strategic_plan:
+                print(f"🧠 [ADAPTIVE] Plan strategiczny gotowy: {strategic_plan['state']}")
+                # Ustaw priorytetyzację dla reszty tury
+                if hasattr(game_engine, 'current_player_commander'):
+                    game_engine.current_player_commander = temp_ai_commander
+                    # Przekaż dane adaptacyjne
+                    temp_ai_commander.adaptive_plan = strategic_plan
+                    temp_ai_commander.adaptive_ai = adaptive_ai
+            
+        except Exception as e:
+            print(f"⚠️ [ADAPTIVE] Błąd systemu adaptacyjnego: {e}")
+            strategic_plan = None
         
         # 1. Zbierz dane
         my_units = get_my_units(game_engine, player_id)
@@ -1893,6 +2586,16 @@ def make_tactical_turn(game_engine, player_id=None):
                 print(f"🎯 [ADVANCED MOVE] Grupa {assignment_idx + 1}: {len(group)} żetonów -> cel {target}")
                 print(f"🎯 [ADVANCED MOVE] Lider: {leader['id']} (dystans: {assignment['distance']})")
 
+                # NOWE: Użyj priorytetów z adaptacyjnego systemu jeśli dostępne
+                if strategic_plan and 'target_priorities' in strategic_plan:
+                    # Sprawdź czy cel grupy pasuje do top priorytetów
+                    target_str = f"{target[0]},{target[1]}"
+                    for priority_hex, priority_data in strategic_plan['target_priorities']:
+                        if priority_hex == target_str:
+                            priority_level = priority_data['priority']
+                            print(f"🎯 [ADAPTIVE] Cel {target} ma priorytet {priority_level:.1f} ({priority_data['type']})")
+                            break
+
                 # Przetwórz wszystkie jednostki w grupie
                 for unit_idx, unit in enumerate(group):
                     total_processed += 1
@@ -1904,21 +2607,31 @@ def make_tactical_turn(game_engine, player_id=None):
                         continue
 
                     if can_move_result:
-                        # Wszyscy idą do tego samego celu (target lidera)
+                        # NOWE: Adaptacyjna taktyka na podstawie stanu strategicznego
+                        final_target = target
+                        if strategic_plan:
+                            final_target = adaptive_ai._adaptive_movement_tactics(
+                                unit, target, strategic_plan, game_engine
+                            ) if adaptive_ai else target
+
                         print(f"🚨 [URGENT TEST] ZARAZ WYWOŁUJĘ MOVE_TOWARDS DLA {unit_name}!")
-                        success = move_towards(unit, target, game_engine)
+                        success = move_towards(unit, final_target, game_engine)
                         if success:
                             moved_count += 1
-                            # Log zaawansowanego ruchu
+                            # Log zaawansowanego ruchu z adaptacyjnymi danymi
+                            move_reason = f"Advanced auto mode: group {assignment_idx + 1}"
+                            if strategic_plan:
+                                move_reason += f" (strategy: {strategic_plan['state']}, aggr: {strategic_plan['aggression_level']:.1f})"
+                            
                             log_commander_action(
                                 unit_id=unit_name,
-                                action_type="advanced_autonomous",
+                                action_type="adaptive_autonomous",
                                 from_pos=(unit['q'], unit['r']),
-                                to_pos=target,
-                                reason=f"Advanced auto mode: group {assignment_idx + 1} to keypoint",
+                                to_pos=final_target,
+                                reason=move_reason,
                                 player_nation=player_nation
                             )
-                            print(f"✅ [ADVANCED MOVE] {unit_name}: Ruch do {target}")
+                            print(f"✅ [ADVANCED MOVE] {unit_name}: Ruch do {final_target}")
                         else:
                             print(f"❌ [ADVANCED MOVE] {unit_name}: Ruch nieudany")
                     else:
@@ -2834,10 +3547,59 @@ if __name__ == "__main__":
     # Uruchom test bezpieczeństwa
     test_basic_safety()
 
+
+def enforce_garrison_limits(game_engine, hex_id, kp_data, token, current_ratio):
+    """Enforce garrison limits with early rotation based on key point depletion"""
+    try:
+        # Parametry rotacji
+        EARLY_ROTATION_THRESHOLD = 0.7  # Rotuj gdy punkt ma <70% wartości
+        MAX_GARRISON_TIME = 3  # Max 3 tury na jednym punkcie
+        
+        garrison_tracker = getattr(game_engine, 'garrison_tracker', {})
+        if not hasattr(game_engine, 'garrison_tracker'):
+            game_engine.garrison_tracker = {}
+            garrison_tracker = game_engine.garrison_tracker
+        
+        current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
+        
+        # Sprawdź jak długo jednostka jest na tym punkcie
+        token_id = getattr(token, 'id', 'unknown')
+        if hex_id not in garrison_tracker:
+            garrison_tracker[hex_id] = {}
+        
+        if token_id not in garrison_tracker[hex_id]:
+            garrison_tracker[hex_id][token_id] = current_turn
+        
+        turns_stationed = current_turn - garrison_tracker[hex_id][token_id]
+        
+        # Logika rotacji
+        should_rotate = False
+        reason = ""
+        
+        if current_ratio < EARLY_ROTATION_THRESHOLD:
+            should_rotate = True
+            reason = f"punkt wyczerpany ({current_ratio:.1%})"
+        elif turns_stationed >= MAX_GARRISON_TIME:
+            should_rotate = True
+            reason = f"długi garnizon ({turns_stationed} tur)"
+        
+        if should_rotate:
+            setattr(token, 'hold_position', False)
+            # Usuń z trackera
+            if token_id in garrison_tracker[hex_id]:
+                del garrison_tracker[hex_id][token_id]
+            print(f"[ROTATION] {token_id} zwolniony z {hex_id}: {reason}")
+        else:
+            print(f"[GARRISON] {token_id} pozostaje na {hex_id} (tura {turns_stationed+1}, wartość {current_ratio:.1%})")
+    
+    except Exception as e:
+        print(f"[GARRISON] Błąd rotacji: {e}")
+
+
 # Eksport kluczowych funkcji dla użycia zewnętrznego
 __all__ = [
-    'AICommander', 'make_tactical_turn', 'check_ai_reaction_attacks', 
+    'AICommander', 'AdaptiveAICommander', 'make_tactical_turn', 'check_ai_reaction_attacks', 
     'ai_attempt_combat', 'evaluate_combat_ratio', 'execute_ai_combat',
-    'test_basic_safety', 'log_commander_action'
+    'test_basic_safety', 'log_commander_action', 'enforce_garrison_limits'
 ]
 

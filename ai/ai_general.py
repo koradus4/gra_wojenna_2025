@@ -33,7 +33,7 @@ UNSPENT_CAP = 80  # Skala do kar za niewydane punkty dowódcy
 # FAZA 3: Strategiczne budżety zgodnie z planem (20-40-40 bazowo)
 BUDGET_STRATEGIES = {
     'ROZWÓJ': {'reserve': 0.20, 'allocate': 0.40, 'purchase': 0.40},
-    'KRYZYS_PALIWA': {'reserve': 0.15, 'allocate': 0.70, 'purchase': 0.15},
+    'KRYZYS_PALIWA': {'reserve': 0.15, 'allocate': 0.50, 'purchase': 0.35},  # POPRAWIONE: więcej na zakupy!
     'DESPERACJA': {'reserve': 0.10, 'allocate': 0.25, 'purchase': 0.65},
     'OCHRONA': {'reserve': 0.30, 'allocate': 0.55, 'purchase': 0.15},
     'EKSPANSJA': {'reserve': 0.20, 'allocate': 0.35, 'purchase': 0.45}
