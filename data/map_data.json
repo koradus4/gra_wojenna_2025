@@ -165,7 +165,11 @@
     "0,33": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "AL_Pluton__3_Dywizjon_Artylerii",
+        "image": "assets/tokens/Polska/AL_Pluton__3_Dywizjon_Artylerii/token.png"
+      }
     },
     "1,1": {
       "terrain_key": "teren_płaski",
@@ -9115,7 +9119,11 @@
     "55,-27": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__5_Grenadier_Bataillon",
+        "image": "assets/tokens/Niemcy/P_Batalion__5_Grenadier_Bataillon/token.png"
+      }
     },
     "55,-26": {
       "terrain_key": "teren_płaski",
@@ -9270,12 +9278,20 @@
     "55,5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__6_Sch_tzen_Kompanie",
+        "image": "assets/tokens/Niemcy/P_Batalion__6_Sch_tzen_Kompanie/token.png"
+      }
     },
     "0,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__2_Batalion_Strzelc_w",
+        "image": "assets/tokens/Polska/P_Batalion__2_Batalion_Strzelc_w/token.png"
+      }
     },
     "0,1": {
       "terrain_key": "teren_płaski",

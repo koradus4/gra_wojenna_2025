@@ -240,10 +240,10 @@ def main():
     if expected and expected not in (remotes.stdout or ''):
         print(f"⚠️ Ostrzeżenie: remote nie zawiera ciągu '{expected}'")
 
-    # Tryb interaktywny - pytaj o nazwę/komunikat
-    if args.interactive and not args.message and not args.name and not args.watch:
+    # ZAWSZE pytaj o nazwę/komunikat jeśli nie podano i nie jest watch mode
+    if not args.message and not args.name and not args.watch:
         try:
-            print("💬 Tryb interaktywny:")
+            print("💬 Podaj informacje o backupie:")
             user_message = input("   Komunikat commita (Enter dla auto): ").strip()
             if user_message:
                 args.message = user_message

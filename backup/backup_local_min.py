@@ -55,8 +55,8 @@ def parse_args():
 def main():
     args = parse_args()
     
-    # Tryb interaktywny - pytaj o nazwę
-    if args.interactive and not args.name:
+    # ZAWSZE pytaj o nazwę jeśli nie została podana przez argument
+    if not args.name:
         try:
             user_name = input("💬 Podaj nazwę backupu (lub Enter dla domyślnej): ").strip()
             if user_name:
