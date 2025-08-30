@@ -17,11 +17,12 @@ NOWE (watch mode):
 - Retry push (3 próby) przy chwilowych błędach sieci (--retry / --retry-delay)
 
 Przykłady:
-    python backup/backup_push_github.py                      # jednorazowy push
-    python backup/backup_push_github.py -m "Fix ruch"        # własny komunikat
-    python backup/backup_push_github.py -b main              # wymuszenie gałęzi
-    python backup/backup_push_github.py --watch              # ciągłe monitorowanie
-    python backup/backup_push_github.py --watch --interval 30 --min-gap 90
+    python backup/backup_push_github.py                         # jednorazowy push
+    python backup/backup_push_github.py -m "Fix ruch"           # własny komunikat
+    python backup/backup_push_github.py -n "map_editor_fix"     # własna nazwa (doda do komunikatu)
+    python backup/backup_push_github.py -b main                 # wymuszenie gałęzi
+    python backup/backup_push_github.py --watch                 # ciągłe monitorowanie
+    python backup/backup_push_github.py --watch --interval 30 --min-gap 90 -n "dev_session"
 """
 import subprocess, sys, datetime, os, time, argparse, shlex, hashlib, traceback
 from pathlib import Path
@@ -52,6 +53,7 @@ def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument('-b','--branch', help='Gałąź do push (domyślnie aktualna)')
     ap.add_argument('-m','--message', help='Własny komunikat commita')
+    ap.add_argument('-n','--name', help='Nazwa backupu (doda się do komunikatu)')
     ap.add_argument('--force', action='store_true', help='Wymuś push (git push --force-with-lease)')
     ap.add_argument('--force-push', action='store_true', help='Wymuś push nawet bez zmian')
     ap.add_argument('--watch', action='store_true', help='Tryb ciągłego monitorowania i automatycznych pushy')
@@ -115,6 +117,8 @@ def do_single_push(args, min_age_override=None):
     if staged:
         print("➡️ Wykryto zmiany w staging area - robię commit...")
         auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        if args.name:
+            auto_msg = f"Auto backup: {args.name} ({datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')})"
         commit_msg = args.message or auto_msg
         print(f"➡️ Gałąź: {branch}")
         print(f"➡️ Tworzę commit: {commit_msg}")
@@ -125,6 +129,8 @@ def do_single_push(args, min_age_override=None):
     elif dirty:
         print("➡️ Wykryto zmiany w working directory...")
         auto_msg = f"Auto backup {datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+        if args.name:
+            auto_msg = f"Auto backup: {args.name} ({datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')})"
         commit_msg = args.message or auto_msg
         print(f"➡️ Gałąź: {branch}")
         print("➡️ Dodaję zmiany (git add -A)...")

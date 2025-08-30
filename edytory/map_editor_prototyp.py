@@ -8,6 +8,19 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
+
+def fix_image_path(relative_path):
+    """Naprawia ścieżki obrazów, usuwając podwójne assets/"""
+    if isinstance(relative_path, str):
+        # Usuń assets/ z początku, jeśli występuje
+        if relative_path.startswith("assets/"):
+            relative_path = relative_path[7:]  # usuń "assets/"
+        elif relative_path.startswith("assets\\"):
+            relative_path = relative_path[8:]  # usuń "assets\"
+    
+    # Tworzymy pełną ścieżkę
+    full_path = ASSET_ROOT / relative_path
+    return full_path
 ASSET_ROOT.mkdir(exist_ok=True)
 
 # Dodajemy folder data na potrzeby silnika i testów
@@ -110,24 +123,26 @@ def offset_to_axial(col: int, row: int) -> tuple[int, int]:
 
 class MapEditor:
     def __init__(self, root, config):
+        # --- Podstawy ---
         self.root = root
         self.root.configure(bg="darkolivegreen")
         self.config = config["map_settings"]
         self.map_image_path = self.get_last_modified_map()  # Automatyczne otwieranie ostatniej mapy
 
-        # Ustawienia heksów
+        # --- Ustawienia heksów ---
         self.hex_size = self.config.get("hex_size", 30)
         self.hex_defaults = {"defense_mod": 0, "move_mod": 0}
         self.current_working_file = DATA_FILENAME_WORKING
-        # Dane mapy
-        self.hex_data = {}
-        self.key_points = {}
-        self.spawn_points = {}
 
-        # Selekcja
-        self.selected_hex = None
+        # --- Dane mapy ---
+        self.hex_data: dict[str, dict] = {}
+        self.key_points: dict[str, dict] = {}
+        self.spawn_points: dict[str, list[str]] = {}
 
-        # Konfiguracja typów punktów kluczowych
+        # --- Selekcja ---
+        self.selected_hex: str | None = None
+
+        # --- Typy punktów kluczowych ---
         self.available_key_point_types = {
             "most": 50,
             "miasto": 100,
@@ -135,29 +150,125 @@ class MapEditor:
             "fortyfikacja": 150
         }
 
-        # Lista dostępnych nacji
-        self.available_nations = ["Polska", "Niemcy"]  # Lista dostępnych nacji
-        self.hex_tokens = {}  # hex_id -> ścieżka obrazka
+        # --- Nacje / żetony ---
+        self.available_nations = ["Polska", "Niemcy"]
+        self.hex_tokens: dict[str, str] = {}
+        self.token_images: dict[str, ImageTk.PhotoImage] = {}
 
-        # Przechowuje referencje do obrazków żetonów
-        self.token_images = {}  # cache obrazków
+        # --- Nowy system palety żetonów ---
+        self.token_index: list[dict] = []  # Lista wszystkich żetonów z index.json
+        self.filtered_tokens: list[dict] = []  # Przefiltrowana lista żetonów
+        self.selected_token = None  # Aktualnie wybrany żeton do wstawiania
+        self.selected_token_button = None  # Przycisk zaznaczonego żetonu
+        self.uniqueness_mode = True  # Tryb unikalności żetonów
+        self.multi_placement_mode = False  # Tryb wielokrotnego wstawiania (Shift)
+        
+        # Filtry - tylko konkretny dowódca
+        self.filter_commander = tk.StringVar(value="Wszystkie")
+        self.commander_var = tk.StringVar(value="Wszyscy dowódcy")  # dla dropdown
+        self.commander_filter = None  # aktualny filtr dowódcy
+        
+        # Auto-save debounce
+        self._auto_save_after = None
+        self.auto_save_enabled = True  # domyślnie włączony auto-save
 
-        # Aktualnie wybrany żeton do wystawienia (dla systemu click-and-click)
-        self.selected_token_for_deployment = None
-        self.selected_token_button = None
+        # --- Cache dla ghost (półprzezroczyste obrazy) ---
+        self._ghost_cache: dict[tuple[Path, int], ImageTk.PhotoImage] = {}
 
-        # Zbuduj GUI
+        # --- Inicjalizacja GUI i danych ---
+        self.load_token_index()
         self.build_gui()
-        # Wczytaj mapę i dane
         self.load_map_image()
         self.load_data()
+        
+        # Wymuś odświeżenie palety po inicjalizacji
+        self.root.after(100, self.force_refresh_palette)
+
+    def load_token_index(self):
+        """Ładuje index żetonów z assets/tokens/index.json"""
+        index_path = ASSET_ROOT / "tokens" / "index.json"
+        try:
+            with open(index_path, "r", encoding="utf-8") as f:
+                self.token_index = json.load(f)
+            # Konwertuj ścieżki obrazów na względne jeśli są absolutne
+            for token in self.token_index:
+                if "image" in token:
+                    token["image"] = token["image"].replace("\\", "/")
+                    if token["image"].startswith("assets/"):
+                        # Już względna ścieżka
+                        pass
+                    else:
+                        # Konwertuj do względnej
+                        token["image"] = to_rel(token["image"])
+            print(f"Załadowano {len(self.token_index)} żetonów z indeksu")
+        except Exception as e:
+            print(f"Błąd ładowania indeksu żetonów: {e}")
+            self.token_index = []
+        self.update_filtered_tokens()
+
+    def update_filtered_tokens(self):
+        """Aktualizuje listę przefiltrowanych żetonów według aktualnych filtrów"""
+        self.filtered_tokens = []
+        
+        # Debug info
+        print(f"🔍 Filtrowanie żetonów: total={len(self.token_index)}")
+        
+        # Pobierz używane żetony jeśli unikalność włączona
+        used_tokens = set()
+        if self.uniqueness_mode:
+            for terrain in self.hex_data.values():
+                token = terrain.get("token")
+                if token and "unit" in token:
+                    used_tokens.add(token["unit"])
+            print(f"🔒 Użyte żetony (unikalność ON): {len(used_tokens)}")
+        
+        for token in self.token_index:
+            # Filtr unikalności
+            if self.uniqueness_mode and token["id"] in used_tokens:
+                continue
+                
+            # Filtr dowódcy - obsługa formatu dropdown "Dow. X (Nacja)"
+            commander_filter = self.filter_commander.get()
+            if commander_filter != "Wszystkie":
+                # Wyciągnij numer dowódcy z "Dow. 2 (Polska)" -> "2"
+                if commander_filter.startswith("Dow. "):
+                    commander_num = commander_filter.split()[1]
+                    token_owner = token.get("owner", "")
+                    # Sprawdź czy owner zaczyna się od numeru dowódcy
+                    if not token_owner.startswith(commander_num + " "):
+                        continue
+                    
+            self.filtered_tokens.append(token)
+        
+        print(f"✅ Przefiltrowane żetony: {len(self.filtered_tokens)}")
+        
+        # Odśwież paletę żetonów
+        if hasattr(self, 'token_palette_frame'):
+            self.refresh_token_palette()
+
+    def force_refresh_palette(self):
+        """Wymusza odświeżenie palety żetonów po inicjalizacji"""
+        print("🔄 Wymuszenie odświeżenia palety...")
+        print(f"📊 Stan: {len(self.token_index)} żetonów w indeksie")
+        print(f"🔒 Unikalność: {self.uniqueness_mode}")
+        print(f"�️  Filtr dowódcy: {self.filter_commander.get()}")
+        
+        # Wymuś reset filtra na domyślny
+        self.filter_commander.set("Wszystkie")
+        
+        # Wymuś aktualizację
+        self.update_filtered_tokens()
+        
+        # Dodatkowo odśwież canvas
+        if hasattr(self, 'tokens_canvas'):
+            self.tokens_canvas.update_idletasks()
 
     def get_last_modified_map(self):
         # zawsze używamy predefiniowanej mapy
         if os.path.exists(DEFAULT_MAP_FILE):
             return DEFAULT_MAP_FILE
         # jeśli nie ma pliku, pozwalamy wybrać ręcznie
-        messagebox.showinfo("Informacja", "Nie znaleziono pliku domyślnej mapy. Wybierz ręcznie.")
+        print("⚠️  Nie znaleziono pliku domyślnej mapy. Użytkownik może wybrać ręcznie.")
         return filedialog.askopenfilename(
             title="Wybierz mapę",
             initialdir=os.path.dirname(DEFAULT_MAP_FILE),
@@ -166,11 +277,11 @@ class MapEditor:
 
     def build_gui(self):
         'Tworzy interfejs użytkownika.'
-        # Panel boczny z przyciskami
+        # Panel boczny z przyciskami i paletą żetonów
         self.panel_frame = tk.Frame(self.root, bg="darkolivegreen", relief=tk.RIDGE, bd=5)
         self.panel_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=5, pady=5)
         
-        # Sekcja przycisków operacji
+        # === SEKCJA OPERACJI (na górze) ===
         buttons_frame = tk.Frame(self.panel_frame, bg="darkolivegreen")
         buttons_frame.pack(side=tk.TOP, fill=tk.X)
 
@@ -179,27 +290,38 @@ class MapEditor:
             buttons_frame, text="Otwórz Mapę + Dane", command=self.open_map_and_data,
             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
         )
-        self.open_map_and_data_button.pack(padx=5, pady=5, fill=tk.X)
+        self.open_map_and_data_button.pack(padx=5, pady=2, fill=tk.X)
 
         # Przycisk "Zapisz dane mapy"
         self.save_map_and_data_button = tk.Button(
             buttons_frame, text="Zapisz dane mapy", command=self.save_map_and_data,
             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
         )
-        self.save_map_and_data_button.pack(padx=5, pady=5, fill=tk.X)
+        self.save_map_and_data_button.pack(padx=5, pady=2, fill=tk.X)
 
-        # Przycisk "Reset danych" (nieaktywny)
-        self.reset_data_button = tk.Button(
-            buttons_frame, text="Reset danych", command=self.clear_variables,
-            bg="saddlebrown", fg="white", state="disabled",  # Ustawiono stan na disabled
-            activebackground="saddlebrown", activeforeground="white"
-        )
-        self.reset_data_button.pack(padx=5, pady=5, fill=tk.X)
+        # === CHECKBOX AUTO-SAVE ===
+        self.auto_save_var = tk.BooleanVar(value=True)
+        auto_save_cb = tk.Checkbutton(buttons_frame, text="🔄 Auto-save", variable=self.auto_save_var,
+                                     bg="darkolivegreen", fg="white", selectcolor="darkolivegreen",
+                                     command=self.toggle_auto_save)
+        auto_save_cb.pack(padx=5, pady=2, anchor="w")
 
-        # Dodanie sekcji "Rodzaje terenu"
-        terrain_frame = tk.LabelFrame(self.panel_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
-                                      font=("Arial", 10, "bold"))
-        terrain_frame.pack(fill=tk.X, padx=5, pady=5)
+        # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
+        # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
+        self.main_paned = tk.PanedWindow(self.panel_frame, orient=tk.VERTICAL, bg="darkolivegreen")
+        self.main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # === GÓRNA CZĘŚĆ: Paleta żetonów i inne sekcje ===
+        self.upper_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
+        self.main_paned.add(self.upper_frame, minsize=200)
+        
+        # === PALETA ŻETONÓW ===
+        self.build_token_palette_in_frame(self.upper_frame)
+
+        # === SEKCJA TERENU ===
+        terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
+                                      font=("Arial", 9, "bold"))
+        terrain_frame.pack(fill=tk.X, padx=5, pady=2)
         
         self.current_brush = None
         self.terrain_buttons = {}
@@ -209,94 +331,170 @@ class MapEditor:
                 terrain_frame,
                 text=terrain_key.replace("_", " ").title(),
                 width=16,
-                bg="saddlebrown",         # stały kolor tła
-                fg="white",               # kolor tekstu
+                bg="saddlebrown",
+                fg="white",
                 activebackground="saddlebrown",
                 activeforeground="white",
                 command=lambda k=terrain_key: self.toggle_brush(k)
             )
-            btn.pack(padx=5, pady=2, fill=tk.X)
+            btn.pack(padx=2, pady=1, fill=tk.X)
             self.terrain_buttons[terrain_key] = btn
 
-        # Przerwa między sekcjami
-        tk.Label(self.panel_frame, text="", bg="darkolivegreen").pack(pady=10)
-
-        # Dodanie sekcji "Punkty kluczowe"
-        key_points_frame = tk.LabelFrame(self.panel_frame, text="Punkty kluczowe", bg="darkolivegreen", fg="white",
-                                         font=("Arial", 10, "bold"))
-        key_points_frame.pack(fill=tk.X, padx=5, pady=5)
+        # === SEKCJA PUNKTÓW KLUCZOWYCH ===
+        key_points_frame = tk.LabelFrame(self.upper_frame, text="Punkty kluczowe", bg="darkolivegreen", fg="white",
+                                         font=("Arial", 9, "bold"))
+        key_points_frame.pack(fill=tk.X, padx=5, pady=2)
         self.add_key_point_button = tk.Button(key_points_frame, text="Dodaj kluczowy punkt", command=self.add_key_point_dialog,
                                               bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.add_key_point_button.pack(padx=5, pady=5, fill=tk.X)
+        self.add_key_point_button.pack(padx=5, pady=2, fill=tk.X)
 
-        # Dodanie sekcji "Punkty zrzutu"
-        spawn_points_frame = tk.LabelFrame(self.panel_frame, text="Punkty zrzutu", bg="darkolivegreen", fg="white",
-                                           font=("Arial", 10, "bold"))
-        spawn_points_frame.pack(fill=tk.X, padx=5, pady=5)
+        # === SEKCJA PUNKTÓW ZRZUTU ===
+        spawn_points_frame = tk.LabelFrame(self.upper_frame, text="Punkty zrzutu", bg="darkolivegreen", fg="white",
+                                           font=("Arial", 9, "bold"))
+        spawn_points_frame.pack(fill=tk.X, padx=5, pady=2)
         self.add_spawn_point_button = tk.Button(spawn_points_frame, text="Dodaj punkt wystawienia", command=self.add_spawn_point_dialog,
                                                 bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.add_spawn_point_button.pack(padx=5, pady=5, fill=tk.X)
+        self.add_spawn_point_button.pack(padx=5, pady=2, fill=tk.X)
         
-        # Dodanie sekcji "Reset wybranego heksu"
-        reset_hex_frame = tk.LabelFrame(self.panel_frame, text="Reset wybranego heksu", bg="darkolivegreen", fg="white",
-                                        font=("Arial", 10, "bold"))
-        reset_hex_frame.pack(fill=tk.X, padx=5, pady=5)
+        # === RESET HEKSU ===
+        reset_hex_frame = tk.LabelFrame(self.upper_frame, text="Reset wybranego heksu", bg="darkolivegreen", fg="white",
+                                        font=("Arial", 9, "bold"))
+        reset_hex_frame.pack(fill=tk.X, padx=5, pady=2)
         self.reset_hex_button = tk.Button(reset_hex_frame, text="Resetuj wybrany heks", command=self.reset_selected_hex,
                                           bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.reset_hex_button.pack(padx=5, pady=5, fill=tk.X)
+        self.reset_hex_button.pack(padx=5, pady=2, fill=tk.X)
 
-        # Dodanie sekcji "Wystaw żeton"
-        deploy_token_frame = tk.LabelFrame(self.panel_frame, text="Wystaw żeton", bg="darkolivegreen", fg="white",
-                                          font=("Arial", 10, "bold"))
-        deploy_token_frame.pack(fill=tk.X, padx=5, pady=5)
-        self.deploy_token_button = tk.Button(deploy_token_frame, text="Wystaw żeton", command=self.deploy_token_dialog,
-                                             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.deploy_token_button.pack(padx=5, pady=5, fill=tk.X)
-
-        # Dodanie przycisku eksportu rozmieszczenia żetonów
+        # === EKSPORT ŻETONÓW ===
         self.export_tokens_button = tk.Button(
-            self.panel_frame,
+            self.upper_frame,
             text="Eksportuj rozmieszczenie żetonów",
             command=self.export_start_tokens,
             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
         )
-        self.export_tokens_button.pack(padx=5, pady=5, fill=tk.X)
+        self.export_tokens_button.pack(padx=5, pady=2, fill=tk.X)
 
-        # Sekcja informacyjna o wybranym heksie
-        self.control_panel_frame = tk.Frame(self.panel_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=5)
-        self.control_panel_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, padx=5, pady=5, expand=True)
-        self.control_canvas = tk.Canvas(self.control_panel_frame, bg="darkolivegreen", highlightthickness=0)
-        self.control_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar = tk.Scrollbar(self.control_panel_frame, orient=tk.VERTICAL, command=self.control_canvas.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.control_canvas.configure(yscrollcommand=scrollbar.set)
-        self.control_canvas.bind('<Configure>', lambda e: self.control_canvas.configure(scrollregion=self.control_canvas.bbox("all")))
-        self.control_content = tk.Frame(self.control_canvas, bg="darkolivegreen")
-        self.control_canvas.create_window((0, 0), window=self.control_content, anchor="nw")
+        # === DOLNA CZĘŚĆ: Panel informacyjny ===
+        self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
+        self.main_paned.add(self.lower_frame, minsize=150)
+        
+        # === PANEL INFORMACYJNY ===
+        self.build_info_panel_in_frame(self.lower_frame)
+        
+        # === CANVAS MAPY ===
+        self.build_map_canvas()
 
-        tk.Label(self.control_content, text="Informacje o heksie", 
-                 bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack()
-        self.hex_info_label = tk.Label(self.control_content, text="Heks: brak", bg="darkolivegreen", fg="white",
-                                       font=("Arial", 10))
-        self.hex_info_label.pack(anchor="w")
-        self.terrain_info_label = tk.Label(self.control_content, text="Teren: brak", bg="darkolivegreen", fg="white",
-                                           font=("Arial", 10))
-        self.terrain_info_label.pack(anchor="w")
-        self.modifiers_info_label = tk.Label(self.control_content, text="Modyfikatory: brak", bg="darkolivegreen", fg="white",
-                                            font=("Arial", 10))
-        self.modifiers_info_label.pack(anchor="w")
-        self.key_point_info_label = tk.Label(self.control_content, text="Kluczowy punkt: brak", bg="darkolivegreen", fg="white",
-                                             font=("Arial", 10))
-        self.key_point_info_label.pack(anchor="w")
-        self.spawn_info_label = tk.Label(self.control_content, text="Punkt wystawiania: brak", bg="darkolivegreen", fg="white",
-                                         font=("Arial", 10))
-        self.spawn_info_label.pack(anchor="w")
-        # Dodanie informacji o żetonie
-        self.token_info_label = tk.Label(self.control_content, text="Żeton: brak", bg="darkolivegreen", fg="white",
-                                         font=("Arial", 10))
-        self.token_info_label.pack(anchor="w")
+    def build_token_palette_in_frame(self, parent_frame):
+        """Buduje paletę żetonów z filtrami w podanym frame"""
+        palette_frame = tk.LabelFrame(parent_frame, text="Paleta żetonów", bg="darkolivegreen", fg="white",
+                                     font=("Arial", 10, "bold"))
+        # Kompaktowa paleta - nie zajmuje całej przestrzeni
+        palette_frame.pack(fill=tk.X, padx=2, pady=2)
+        
+        # === FILTRY ===
+        filters_frame = tk.Frame(palette_frame, bg="darkolivegreen")
+        filters_frame.pack(fill=tk.X, padx=2, pady=2)
+        
+        # Checkbox unikalności
+        self.uniqueness_var = tk.BooleanVar(value=True)
+        uniqueness_cb = tk.Checkbutton(filters_frame, text="Unikalność", variable=self.uniqueness_var,
+                                      bg="darkolivegreen", fg="white", selectcolor="darkolivegreen",
+                                      command=self.toggle_uniqueness)
+        uniqueness_cb.pack(side=tk.LEFT)
+        
+        # Filtry dowódcy (dropdown) - skalowalne rozwiązanie
+        commanders_container = tk.Frame(palette_frame, bg="darkolivegreen", relief="sunken", bd=2)
+        commanders_container.pack(fill=tk.X, padx=2, pady=3)
+        
+        tk.Label(commanders_container, text="🎖️ WYBÓR DOWÓDCY:", bg="darkolivegreen", fg="yellow", 
+                font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=(5,10))
+        
+        # Pobierz wszystkich dowódców z indeksu dynamicznie
+        commanders_list = ["Wszystkie"]
+        if self.token_index:
+            unique_commanders = set()
+            for token in self.token_index:
+                owner = token.get("owner", "")
+                if owner:
+                    # Wyciągnij numer dowódcy z formatu "5 (Niemcy)" -> "5"
+                    commander_num = owner.split()[0] if owner else ""
+                    if commander_num.isdigit():
+                        unique_commanders.add(commander_num)
+            
+            # Sortuj dowódców i dodaj z opisem nacji
+            for commander_num in sorted(unique_commanders):
+                # Znajdź nację dla tego dowódcy
+                nation = ""
+                for token in self.token_index:
+                    if token.get("owner", "").startswith(commander_num + " "):
+                        nation = token.get("nation", "")
+                        break
+                commanders_list.append(f"Dow. {commander_num} ({nation})")
+        
+        # Dropdown dowódców
+        self.commander_dropdown = ttk.Combobox(commanders_container, 
+                                             textvariable=self.filter_commander, 
+                                             values=commanders_list, 
+                                             state="readonly", 
+                                             width=20)
+        self.commander_dropdown.pack(side=tk.LEFT, padx=5)
+        self.commander_dropdown.bind("<<ComboboxSelected>>", self.on_commander_selected)
+        
+        # Ustaw domyślny wybór
+        self.filter_commander.set("Wszystkie")
+        
+        # === LISTA ŻETONÓW ===
+        # Kontener z przewijaniem - KOMPAKTOWA WYSOKOŚĆ
+        tokens_container = tk.Frame(palette_frame, bg="darkolivegreen")
+        tokens_container.pack(fill=tk.X, padx=2, pady=2)
+        
+        # Ustaw mniejszą wysokość dla kontenera żetonów (około 200px)
+        self.tokens_canvas = tk.Canvas(tokens_container, bg="darkolivegreen", highlightthickness=0, height=200)
+        tokens_scrollbar = tk.Scrollbar(tokens_container, orient="vertical", command=self.tokens_canvas.yview)
+        self.token_palette_frame = tk.Frame(self.tokens_canvas, bg="darkolivegreen")
+        
+        self.tokens_canvas.create_window((0, 0), window=self.token_palette_frame, anchor="nw")
+        self.tokens_canvas.configure(yscrollcommand=tokens_scrollbar.set)
+        
+        self.tokens_canvas.pack(side="left", fill="x")
+        tokens_scrollbar.pack(side="right", fill="y")
+        
+        # Bind scroll
+        self.token_palette_frame.bind('<Configure>', lambda e: self.tokens_canvas.configure(scrollregion=self.tokens_canvas.bbox("all")))
+        
+        # Mouse wheel scrolling dla palety żetonów
+        def on_mouse_wheel(event):
+            self.tokens_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        self.tokens_canvas.bind("<MouseWheel>", on_mouse_wheel)
+        self.token_palette_frame.bind("<MouseWheel>", on_mouse_wheel)
+        
+        # Wypełnij paletę
+        self.refresh_token_palette()
 
-        # Pole rysowania mapy z przewijaniem
+    def build_info_panel_in_frame(self, parent_frame):
+        """Buduje panel informacyjny o wybranym heksie w podanym frame"""
+        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3)
+        # Panel informacyjny zajmuje całą dostępną przestrzeń w dolnej części
+        self.control_panel_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        tk.Label(self.control_panel_frame, text="Informacje o heksie", 
+                 bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
+        
+        # Kontener na informacje podstawowe
+        basic_info_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
+        basic_info_frame.pack(fill=tk.X, padx=5, pady=2)
+        
+        self.hex_info_label = tk.Label(basic_info_frame, text="Heks: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.hex_info_label.pack(anchor="w", pady=1)
+        
+        self.terrain_info_label = tk.Label(basic_info_frame, text="Teren: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.terrain_info_label.pack(anchor="w", pady=1)
+        
+        self.token_info_label = tk.Label(basic_info_frame, text="Żeton: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.token_info_label.pack(anchor="w", pady=1)
+
+    def build_map_canvas(self):
+        """Buduje canvas mapy z przewijaniem"""
         self.canvas_frame = tk.Frame(self.root)
         self.canvas_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -312,11 +510,191 @@ class MapEditor:
         self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
 
+        # Bindowanie eventów
         self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<Button-3>", self.on_canvas_right_click)  # PPM - usuń żeton
+        self.canvas.bind("<B1-Motion>", self.on_canvas_drag)  # Przeciąganie żetonów
+        self.canvas.bind("<ButtonRelease-1>", self.on_canvas_release)  # Koniec przeciągania
         self.canvas.bind("<B2-Motion>", self.do_pan)
         self.canvas.bind("<ButtonPress-2>", self.start_pan)
-        self.canvas.bind("<ButtonPress-3>", self.start_pan)
         self.canvas.bind("<Motion>", self.on_canvas_hover)
+        
+        # Bind klawiatury
+        self.root.bind("<Delete>", self.delete_token_from_selected_hex)
+        self.root.bind("<KeyPress-Shift_L>", self.enable_multi_placement)
+        self.root.bind("<KeyRelease-Shift_L>", self.disable_multi_placement)
+        self.root.focus_set()  # Aby klawiatura działała
+        
+        # Zmienne dla drag & drop
+        self.drag_start_hex = None
+        self.drag_token_data = None
+
+    def refresh_token_palette(self):
+        """Odświeża paletę żetonów według aktualnych filtrów"""
+        print(f"🎨 Odświeżanie palety żetonów: {len(self.filtered_tokens)} do wyświetlenia")
+        
+        # Wyczyść poprzednie przyciski
+        for widget in self.token_palette_frame.winfo_children():
+            widget.destroy()
+            
+        if not self.filtered_tokens:
+            # Pokaż komunikat jeśli brak żetonów
+            no_tokens_label = tk.Label(self.token_palette_frame, 
+                                     text="Brak żetonów\ndo wyświetlenia", 
+                                     bg="darkolivegreen", fg="yellow", 
+                                     font=("Arial", 10, "bold"))
+            no_tokens_label.pack(pady=20)
+            print("⚠️  Brak żetonów do wyświetlenia - dodano komunikat")
+        else:
+            # Utwórz przyciski dla przefiltrowanych żetonów
+            created_buttons = 0
+            for i, token in enumerate(self.filtered_tokens):
+                try:
+                    btn_frame = tk.Frame(self.token_palette_frame, bg="darkolivegreen")
+                    btn_frame.pack(fill=tk.X, padx=2, pady=1)
+                    
+                    # Miniatura żetonu - napraw podwójną ścieżkę assets
+                    img_path = fix_image_path(token["image"])
+                    
+                    if img_path.exists():
+                        try:
+                            img = Image.open(img_path).resize((32, 32))
+                            img_tk = ImageTk.PhotoImage(img)
+                            
+                            # Skróć tekst przycisku
+                            btn_text = token.get("label", token["id"])
+                            if len(btn_text) > 20:
+                                btn_text = btn_text[:17] + "..."
+                            
+                            btn = tk.Button(btn_frame, image=img_tk, text=btn_text,
+                                           compound="left", anchor="w", 
+                                           bg="saddlebrown", fg="white", relief="raised",
+                                           command=lambda t=token: self.select_token_for_placement(t))
+                            btn.image = img_tk  # Zachowaj referencję
+                            btn.pack(fill=tk.X)
+                            
+                            # Dodaj tooltip z pełnymi informacjami
+                            tooltip_text = f"ID: {token['id']}\nNacja: {token.get('nation', 'N/A')}\nTyp: {token.get('unitType', 'N/A')}\nRozmiar: {token.get('unitSize', 'N/A')}"
+                            if 'combat_value' in token:
+                                tooltip_text += f"\nWalka: {token['combat_value']}"
+                            if 'price' in token:
+                                tooltip_text += f"\nCena: {token['price']}"
+                            
+                            self.create_tooltip(btn, tooltip_text)
+                            
+                            # Zapamiętaj przycisk w tokenie dla późniejszego podświetlenia
+                            token['_button'] = btn
+                            created_buttons += 1
+                            
+                        except Exception as e:
+                            print(f"❌ Błąd obrazu dla {token['id']}: {e}")
+                            # Fallback dla uszkodzonych obrazów
+                            btn = tk.Button(btn_frame, text=token.get("label", token["id"])[:20],
+                                           bg="saddlebrown", fg="white", relief="raised",
+                                           command=lambda t=token: self.select_token_for_placement(t))
+                            btn.pack(fill=tk.X)
+                            token['_button'] = btn
+                            created_buttons += 1
+                    else:
+                        print(f"❌ Brak obrazu: {img_path}")
+                        # Fallback dla brakujących obrazów
+                        btn = tk.Button(btn_frame, text=f"❌ {token.get('label', token['id'])[:15]}",
+                                       bg="red", fg="white", relief="raised",
+                                       command=lambda t=token: self.select_token_for_placement(t))
+                        btn.pack(fill=tk.X)
+                        token['_button'] = btn
+                        created_buttons += 1
+                        
+                except Exception as e:
+                    print(f"❌ Błąd tworzenia przycisku dla {token.get('id', 'UNKNOWN')}: {e}")
+            
+            print(f"✅ Utworzono {created_buttons} przycisków żetonów")
+        
+        # Aktualizuj scroll region
+        self.token_palette_frame.update_idletasks()
+        self.tokens_canvas.configure(scrollregion=self.tokens_canvas.bbox("all"))
+        print("📐 Zaktualizowano scroll region")
+
+    def create_tooltip(self, widget, text):
+        """Tworzy tooltip dla widgetu"""
+        def show_tooltip(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            label = tk.Label(tooltip, text=text, background="lightyellow", 
+                           relief="solid", borderwidth=1, font=("Arial", 8))
+            label.pack()
+            widget.tooltip = tooltip
+            
+        def hide_tooltip(event):
+            if hasattr(widget, 'tooltip'):
+                widget.tooltip.destroy()
+                del widget.tooltip
+                
+        widget.bind("<Enter>", show_tooltip)
+        widget.bind("<Leave>", hide_tooltip)
+
+    def select_token_for_placement(self, token):
+        """Wybiera żeton do wstawiania"""
+        # Wyczyść poprzedni wybór
+        if self.selected_token and '_button' in self.selected_token:
+            try:
+                self.selected_token['_button'].config(relief="raised", bg="saddlebrown")
+            except tk.TclError:
+                # Przycisk został usunięty podczas odświeżania palety, ignoruj błąd
+                pass
+            
+        # Ustaw nowy wybór
+        self.selected_token = token
+        if '_button' in token:
+            try:
+                token['_button'].config(relief="sunken", bg="orange")
+            except tk.TclError:
+                # Przycisk został usunięty podczas odświeżania palety, ignoruj błąd
+                pass
+            
+        print(f"🎯 Wybrano żeton: {token['id']} ({token.get('nation', 'N/A')})")
+
+    def toggle_uniqueness(self):
+        """Przełącza tryb unikalności żetonów"""
+        self.uniqueness_mode = self.uniqueness_var.get()
+        self.update_filtered_tokens()
+        print(f"🔒 Tryb unikalności: {'ON' if self.uniqueness_mode else 'OFF'}")
+
+    def set_commander_filter(self, commander):
+        """Ustawia filtr konkretnego dowódcy"""
+        self.filter_commander.set(commander)
+        self.update_filtered_tokens()
+        
+        # Zaktualizuj przyciski dowódców
+        for commander_name, btn in self.commander_buttons.items():
+            if commander_name == commander:
+                btn.config(relief="sunken", bg="orange")
+            else:
+                btn.config(relief="raised", bg="saddlebrown")
+        
+        print(f"�️  Ustawiono filtr dowódcy: {commander}")
+
+    def enable_multi_placement(self, event):
+        """Włącza tryb wielokrotnego wstawiania (Shift)"""
+        self.multi_placement_mode = True
+        print("⚡ Tryb wielokrotnego wstawiania: ON (Shift)")
+
+    def disable_multi_placement(self, event):
+        """Wyłącza tryb wielokrotnego wstawiania"""
+        self.multi_placement_mode = False
+        print("⚡ Tryb wielokrotnego wstawiania: OFF")
+
+    def delete_token_from_selected_hex(self, event):
+        """Usuwa żeton z zaznaczonego heksu (klawisz Delete)"""
+        if self.selected_hex and self.selected_hex in self.hex_data:
+            terrain = self.hex_data[self.selected_hex]
+            if "token" in terrain:
+                del terrain["token"]
+                self.draw_grid()
+                self.auto_save_and_export("usunięto żeton")
+                print(f"Usunięto żeton z heksu {self.selected_hex}")
+                self.update_filtered_tokens()  # Odśwież listę dostępnych żetonów
 
     def select_default_map_path(self):
         'Pozwala użytkownikowi wybrać nowe tło mapy.'
@@ -337,7 +715,7 @@ class MapEditor:
             self.bg_image = Image.open(self.map_image_path).convert("RGB")
         except Exception as e:
             # jeśli nie udało się wczytać domyślnej mapy, poproś użytkownika o wybranie pliku
-            messagebox.showwarning("Uwaga", "Nie udało się załadować domyślnej mapy. Wskaż plik ręcznie.")
+            print(f"⚠️  Nie udało się załadować domyślnej mapy: {e}")
             file = filedialog.askopenfilename(
                 title="Wybierz mapę",
                 filetypes=[("Obrazy", "*.jpg *.png *.bmp"), ("Wszystkie pliki", "*.*")]
@@ -386,7 +764,7 @@ class MapEditor:
                 if hex_id not in self.hex_data:
                     self.hex_data[hex_id] = {
                         "terrain_key": "teren_płaski",
-                        "move_mod": 0,  # domyślnie teren przejezdny
+                        "move_mod": 0,
                         "defense_mod": 0
                     }
 
@@ -400,7 +778,8 @@ class MapEditor:
             if token and "image" in token and hex_id in self.hex_centers:
                 # normalizuj slashy na wszelki wypadek
                 token["image"] = token["image"].replace("\\", "/")
-                img_path = ASSET_ROOT / token["image"]
+                img_path = fix_image_path(token["image"])
+                
                 if not img_path.exists():
                     print(f"[WARN] Missing token image: {img_path}")
                     continue          # pomijamy brakujący plik
@@ -415,18 +794,9 @@ class MapEditor:
             for hex_id in hex_list:
                 self.draw_spawn_marker(nation, hex_id)
 
-        # rysowanie etykiet kluczowych punktów
+        # rysowanie znaczników kluczowych punktów
         for hex_id, kp in self.key_points.items():
-            if hex_id in self.hex_centers:
-                cx, cy = self.hex_centers[hex_id]
-                label = f"{kp['type']} ({kp['value']})"
-                self.canvas.create_text(
-                    cx, cy - self.hex_size * 0.6,
-                    text=label,
-                    fill="yellow",
-                    font=("Arial", 10, "bold"),
-                    tags=f"key_point_label_{hex_id}"
-                )
+            self.draw_key_point_marker(kp['type'], kp['value'], hex_id)
 
         # Podświetlenie wybranego heksu
         if self.selected_hex is not None:
@@ -471,6 +841,48 @@ class MapEditor:
             tags=f"spawn_{nation}_{hex_id}"
         )
 
+    def draw_key_point_marker(self, key_type, value, hex_id):
+        """Rysuje kolorowy znacznik punktu kluczowego (kółko + skrót typu)."""
+        if hex_id not in self.hex_centers:
+            return
+        cx, cy = self.hex_centers[hex_id]
+        
+        # Mapowanie typów na kolory i skróty (max 2 znaki)
+        color_map = {
+            "most": ("#FFD700", "Mo"),          # Złoty
+            "miasto": ("#FF6B35", "Mi"),        # Pomarańczowy
+            "węzeł komunikacyjny": ("#4ECDC4", "WK"),  # Turkusowy
+            "fortyfikacja": ("#45B7D1", "Fo")   # Niebieski
+        }
+        
+        outline, letter = color_map.get(key_type, ("#FFFF00", key_type[:2].upper()))
+        
+        # Rysuj kółko (mniejsze niż spawn points)
+        r_c = int(self.hex_size * 0.45)
+        self.canvas.create_oval(
+            cx - r_c, cy - r_c, cx + r_c, cy + r_c,
+            outline=outline, width=3, fill="",  # Bez wypełnienia, tylko obramowanie
+            tags=f"key_point_{key_type}_{hex_id}"
+        )
+        
+        # Rysuj skrót typu
+        self.canvas.create_text(
+            cx, cy,
+            text=letter,
+            fill="black",
+            font=("Arial", 9, "bold"),
+            tags=f"key_point_{key_type}_{hex_id}"
+        )
+        
+        # Rysuj wartość pod kółkiem
+        self.canvas.create_text(
+            cx, cy + self.hex_size * 0.65,
+            text=str(value),
+            fill=outline,
+            font=("Arial", 8, "bold"),
+            tags=f"key_point_{key_type}_{hex_id}"
+        )
+
     def get_clicked_hex(self, x, y):
         for hex_id, (cx, cy) in self.hex_centers.items():
             vertices = get_hex_vertices(cx, cy, self.hex_size)
@@ -479,42 +891,239 @@ class MapEditor:
         return None
 
     def on_canvas_click(self, event):
-        'Obsługuje kliknięcie myszką na canvasie - zaznacza heks i wyświetla jego dane lub stawia żeton.'
+        """Obsługuje LPM na canvasie - wstawia żeton lub wybiera heks"""
+        # Wyczyść stan przeciągania na wszelki wypadek
+        self.drag_start_hex = None
+        self.drag_token_data = None
+        
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
+        
         if hex_id:
-            # Jeśli mamy wybrany żeton do wystawienia, postaw go na heksie
-            if self.selected_token_for_deployment:
+            # Jeśli mamy wybrany żeton do wstawienia
+            if self.selected_token:
+                self.place_token_on_hex_new(self.selected_token, hex_id)
+                
+                # Jeśli nie jest tryb wielokrotnego wstawiania, wyczyść wybór
+                if not self.multi_placement_mode:
+                    self.clear_token_selection_new()
+                return
+                
+            # Kompatybilność z starym systemem
+            if hasattr(self, 'selected_token_for_deployment') and self.selected_token_for_deployment:
                 self.place_token_on_hex(self.selected_token_for_deployment, hex_id)
-                # Wyczyść wybór żetonu
                 self.clear_token_selection()
                 return
                 
+            # Jeśli jest aktywny pędzel terenu
             if self.current_brush:
                 q, r = map(int, hex_id.split(","))
                 self.paint_hex((q, r), self.current_brush)
                 return
+                
+            # Standardowe zaznaczenie heksu
             self.selected_hex = hex_id
             self.highlight_hex(hex_id)
-            terrain = self.hex_data.get(hex_id, self.hex_defaults)
-            move_mod = terrain.get('move_mod', self.hex_defaults.get('move_mod', 0))
-            defense_mod = terrain.get('defense_mod', self.hex_defaults.get('defense_mod', 0))
-            token_data = terrain.get("token", {})
-            if token_data:
-                token_png = token_data.get("image", "brak")
-                self.token_info_label.config(text=f"Żeton: {token_png}")
-            else:
-                self.token_info_label.config(text="Żeton: brak")
-            messagebox.showinfo("Informacja o heksie",
-                                f"Heks: {hex_id}\nModyfikator ruchu: {move_mod}\nModyfikator obrony: {defense_mod}")
+            self.update_hex_info_display(hex_id)
         else:
-            # Jeśli kliknięcie w pustą przestrzeń, wyczyść wybór żetonu
-            if self.selected_token_for_deployment:
+            # Kliknięcie w pustą przestrzeń - wyczyść wybór żetonu
+            if self.selected_token:
+                self.clear_token_selection_new()
+            elif hasattr(self, 'selected_token_for_deployment') and self.selected_token_for_deployment:
                 self.clear_token_selection()
-                messagebox.showinfo("Anulowano", "Wybór żetonu został anulowany.")
-            else:
-                messagebox.showinfo("Informacja", "Kliknij wewnątrz heksagonu.")
+
+    def on_canvas_right_click(self, event):
+        """Obsługuje PPM na canvasie - usuwa żeton z heksu"""
+        x = self.canvas.canvasx(event.x)
+        y = self.canvas.canvasy(event.y)
+        hex_id = self.get_clicked_hex(x, y)
+        
+        if hex_id and hex_id in self.hex_data:
+            terrain = self.hex_data[hex_id]
+            if "token" in terrain:
+                del terrain["token"]
+                self.draw_grid()
+                self.auto_save_and_export("usunięto żeton PPM")
+                print(f"Usunięto żeton z heksu {hex_id}")
+                self.update_filtered_tokens()  # Odśwież listę dostępnych żetonów
+
+    def on_canvas_drag(self, event):
+        """Obsługuje przeciąganie żetonów między heksami"""
+        if not self.drag_start_hex:
+            # Rozpocznij przeciąganie jeśli kliknięto na heks z żetonem
+            x = self.canvas.canvasx(event.x)
+            y = self.canvas.canvasy(event.y)
+            hex_id = self.get_clicked_hex(x, y)
+            
+            if hex_id and hex_id in self.hex_data:
+                terrain = self.hex_data[hex_id]
+                if "token" in terrain and not self.selected_token:  # Tylko jeśli nie ma wybranego żetonu do wstawienia
+                    self.drag_start_hex = hex_id
+                    self.drag_token_data = terrain["token"].copy()
+                    print(f"Rozpoczęto przeciąganie żetonu z {hex_id}")
+
+    def on_canvas_release(self, event):
+        """Obsługuje zakończenie przeciągania żetonu"""
+        if self.drag_start_hex and self.drag_token_data:
+            x = self.canvas.canvasx(event.x)
+            y = self.canvas.canvasy(event.y)
+            target_hex = self.get_clicked_hex(x, y)
+            
+            if target_hex and target_hex != self.drag_start_hex:
+                # Sprawdź czy docelowy heks jest pusty
+                if target_hex not in self.hex_data or "token" not in self.hex_data[target_hex]:
+                    # Przenieś żeton
+                    if target_hex not in self.hex_data:
+                        self.hex_data[target_hex] = {
+                            "terrain_key": "teren_płaski",
+                            "move_mod": 0,
+                            "defense_mod": 0
+                        }
+                    
+                    # Dodaj żeton do docelowego heksu
+                    self.hex_data[target_hex]["token"] = self.drag_token_data
+                    
+                    # Usuń żeton ze źródłowego heksu
+                    del self.hex_data[self.drag_start_hex]["token"]
+                    
+                    # Odśwież mapę
+                    self.draw_grid()
+                    self.auto_save_and_export("przeniesiono żeton")
+                    print(f"Przeniesiono żeton z {self.drag_start_hex} do {target_hex}")
+                else:
+                    print(f"Docelowy heks {target_hex} już ma żeton")
+            
+        # Wyczyść stan przeciągania
+        self.drag_start_hex = None
+        self.drag_token_data = None
+
+    def place_token_on_hex_new(self, token, hex_id):
+        """Umieszcza żeton na heksie (nowa wersja)"""
+        # Sprawdź czy heks już ma żeton
+        if hex_id in self.hex_data and "token" in self.hex_data[hex_id]:
+            print(f"Heks {hex_id} już ma żeton")
+            return
+            
+        # Sprawdź unikalność
+        if self.uniqueness_mode:
+            for terrain in self.hex_data.values():
+                existing_token = terrain.get("token")
+                if existing_token and existing_token.get("unit") == token["id"]:
+                    print(f"Żeton {token['id']} już jest na mapie (tryb unikalności)")
+                    return
+        
+        # Jeśli brak wpisu dla heksu, utwórz domyślny
+        if hex_id not in self.hex_data:
+            self.hex_data[hex_id] = {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0
+            }
+        
+        # Dodaj żeton
+        rel_path = token["image"].replace("\\", "/")
+        self.hex_data[hex_id]["token"] = {
+            "unit": token["id"],
+            "image": rel_path
+        }
+        
+        # Odśwież mapę i zapisz
+        self.draw_grid()
+        self.auto_save_and_export("wstawiono żeton")
+        print(f"Wstawiono żeton {token['id']} na heks {hex_id}")
+        
+        # Odśwież listę dostępnych żetonów
+        self.update_filtered_tokens()
+
+    def clear_token_selection_new(self):
+        """Czyści wybór żetonu (nowa wersja)"""
+        if self.selected_token and '_button' in self.selected_token:
+            try:
+                # Sprawdź czy przycisk nadal istnieje w interfejsie
+                self.selected_token['_button'].config(relief="raised", bg="saddlebrown")
+            except tk.TclError:
+                # Przycisk został usunięty podczas odświeżania palety, ignoruj błąd
+                pass
+        self.selected_token = None
+        print("Wyczyszczono wybór żetonu")
+
+    def update_hex_info_display(self, hex_id):
+        """Aktualizuje wyświetlane informacje o heksie"""
+        terrain = self.hex_data.get(hex_id, self.hex_defaults)
+        
+        # Podstawowe info
+        self.hex_info_label.config(text=f"Heks: {hex_id}")
+        
+        # Teren
+        terrain_key = terrain.get('terrain_key', 'teren_płaski')
+        move_mod = terrain.get('move_mod', 0)
+        defense_mod = terrain.get('defense_mod', 0)
+        self.terrain_info_label.config(text=f"Teren: {terrain_key} (M:{move_mod} D:{defense_mod})")
+        
+        # Żeton
+        token = terrain.get("token")
+        if token:
+            token_info = f"Żeton: {token.get('unit', 'nieznany')}"
+        else:
+            token_info = "Żeton: brak"
+        self.token_info_label.config(text=token_info)
+        
+        # Sprawdź czy to Key Point
+        key_point_info = ""
+        if hex_id in self.key_points:
+            key_data = self.key_points[hex_id]
+            key_type = key_data.get('type', 'nieznany')
+            key_value = key_data.get('value', 0)
+            key_point_info = f"🔑 Key Point: {key_type} (wartość: {key_value})"
+        
+        # Sprawdź czy to Spawn Point
+        spawn_point_info = ""
+        for nation, spawn_list in self.spawn_points.items():
+            if hex_id in spawn_list:
+                spawn_point_info = f"🚀 Spawn Point: {nation}"
+                break
+        
+        # Aktualizuj etykiety - dodaj nowe jeśli nie istnieją
+        if not hasattr(self, 'key_point_info_label'):
+            # Dodaj nowe etykiety do basic_info_frame
+            basic_info_frame = self.hex_info_label.master
+            self.key_point_info_label = tk.Label(basic_info_frame, text="", bg="darkolivegreen", fg="yellow", font=("Arial", 9))
+            self.key_point_info_label.pack(anchor="w", pady=1)
+            
+            self.spawn_point_info_label = tk.Label(basic_info_frame, text="", bg="darkolivegreen", fg="lightblue", font=("Arial", 9))
+            self.spawn_point_info_label.pack(anchor="w", pady=1)
+        
+        # Zaktualizuj informacje o key point i spawn point
+        self.key_point_info_label.config(text=key_point_info)
+        self.spawn_point_info_label.config(text=spawn_point_info)
+
+    def auto_save_and_export(self, reason):
+        """Automatyczny zapis danych mapy i eksport żetonów z debounce"""
+        # Sprawdź czy auto-save jest włączony
+        if not self.auto_save_enabled:
+            return
+            
+        # Natychmiastowy zapis map_data.json
+        try:
+            self.save_data()
+        except Exception as e:
+            print(f"Błąd zapisu danych: {e}")
+            
+        # Debounce eksportu start_tokens.json
+        if self._auto_save_after:
+            self.root.after_cancel(self._auto_save_after)
+        self._auto_save_after = self.root.after(500, self.export_start_tokens_delayed)
+        
+        print(f"Auto-save: {reason}")
+
+    def export_start_tokens_delayed(self):
+        """Opóźniony eksport start_tokens.json"""
+        try:
+            count = self.export_start_tokens(show_message=False)
+            print(f"Auto-export start_tokens.json ({count} żetonów)")
+        except Exception as e:
+            print(f"Błąd eksportu żetonów: {e}")
 
     def highlight_hex(self, hex_id):
         'Oznacza wybrany heks żółtą obwódką.'
@@ -525,71 +1134,154 @@ class MapEditor:
             self.canvas.create_oval(cx - s, cy - s, cx + s, cy + s,
                                     outline="yellow", width=3, tags="highlight")
 
+    # --- STATUS / AUTO SAVE ---
+    def set_status(self, msg: str):
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text=msg)
+        # opcjonalnie print
+        # print('[STATUS]', msg)
+
+    def auto_save(self, reason: str):
+        if not getattr(self, 'auto_save_enabled', None):
+            return
+        if not self.auto_save_enabled.get():
+            return
+        # debounce
+        if hasattr(self, '_auto_save_after') and self._auto_save_after:
+            self.root.after_cancel(self._auto_save_after)
+        self._auto_save_after = self.root.after(500, lambda: self._perform_auto_save(reason))
+
+    def _perform_auto_save(self, reason: str):
+        try:
+            self.save_data()
+            self.set_status(f'Auto-save: {reason}')
+        except Exception as e:
+            self.set_status(f'Auto-save błąd: {e}')
+
     def on_canvas_hover(self, event):
-        'Wyświetla informacje o heksie przy najechaniu myszką oraz powiększa heks z żetonem.'
+        """Obsługuje hover nad canvasem - ghost preview i zoom żetonów"""
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
-        self.canvas.delete("hover_zoom")  # Usuwa poprzedni powiększony heks
-        if hex_id:
-            terrain = self.hex_data.get(hex_id, self.hex_defaults)
-            move_mod = terrain.get('move_mod', self.hex_defaults.get('move_mod', 0))
-            defense_mod = terrain.get('defense_mod', self.hex_defaults.get('defense_mod', 0))
-            key_point = self.key_points.get(hex_id, None)
-            spawn_nations = [n for n, hexes in self.spawn_points.items() if hex_id in hexes]
-            token = terrain.get("token", {})
-            key = terrain.get("terrain_key", "płaski")
-            self.terrain_info_label.config(text=f"Teren: {key}")
-            token_png = token.get("image", "brak")
-            self.token_info_label.config(text=f"Żeton: {token_png}")
-            self.hex_info_label.config(text=f"Heks: {hex_id}")
-            self.modifiers_info_label.config(text=f"Modyfikatory: Ruch: {move_mod}, Obrona: {defense_mod}")
-            if key_point:
-                self.key_point_info_label.config(text=f"Kluczowy punkt: {key_point['type']} ({key_point['value']})")
-            else:
-                self.key_point_info_label.config(text="Kluczowy punkt: brak")
-            if spawn_nations:
-                self.spawn_info_label.config(text=f"Punkt wystawiania: {', '.join(spawn_nations)}")
-            else:
-                self.spawn_info_label.config(text="Punkt wystawienia: brak")
-
-            # --- POWIĘKSZENIE HEKSA Z ŻETONEM ---
-            if token and "image" in token and hex_id in self.hex_centers:
-                cx, cy = self.hex_centers[hex_id]
-                s_zoom = int(self.hex_size * 1.5)
-                points = get_hex_vertices(cx, cy, s_zoom)
-                self.canvas.create_polygon(
-                    points, outline="orange", fill="#ffffcc", width=3, tags="hover_zoom"
-                )
-                label = f"M:{move_mod} D:{defense_mod}"
-                if token.get('unit'):
-                    label += f"\n{token.get('unit')}"
-                self.canvas.create_text(
-                    cx, cy, text=label, fill="black", font=("Arial", 14, "bold"), tags="hover_zoom"
-                )
-                # Wyświetl powiększony żeton
-                img_path = ASSET_ROOT / token["image"]
-                if img_path.exists():
+        self.canvas.delete("hover_zoom")
+        
+        if not hex_id:
+            if hasattr(self, '_hover_zoom_images'):
+                self._hover_zoom_images.clear()
+            return
+            
+        terrain = self.hex_data.get(hex_id, self.hex_defaults)
+        token_existing = terrain.get('token')
+        
+        # 1. Ghost preview dla nowego systemu żetonów
+        if self.selected_token and not token_existing and hex_id in self.hex_centers:
+            cx, cy = self.hex_centers[hex_id]
+            s_zoom = int(self.hex_size * 1.2)
+            
+            # Sprawdź czy można postawić żeton (unikalność)
+            can_place = True
+            color = "#00ffaa"  # zielony
+            
+            if self.uniqueness_mode:
+                for terrain_check in self.hex_data.values():
+                    existing_token = terrain_check.get("token")
+                    if existing_token and existing_token.get("unit") == self.selected_token["id"]:
+                        can_place = False
+                        color = "#ff0000"  # czerwony
+                        break
+            
+            # Rysuj obwódkę
+            points = get_hex_vertices(cx, cy, s_zoom)
+            self.canvas.create_polygon(points, outline=color, width=2, dash=(4,2), fill="", tags="hover_zoom")
+            
+            # Rysuj ghost image
+            img_path = fix_image_path(self.selected_token["image"])
+            
+            if img_path.exists():
+                key_cache = (img_path, s_zoom)
+                tk_img = self._ghost_cache.get(key_cache)
+                if tk_img is None:
                     try:
-                        img = Image.open(img_path).resize((s_zoom, s_zoom))
-                        tk_img = ImageTk.PhotoImage(img)
-                        self.canvas.create_image(cx, cy, image=tk_img, tags="hover_zoom")
-                        # Przechowuj referencję, by nie znikł z pamięci
-                        if not hasattr(self, '_hover_zoom_images'):
-                            self._hover_zoom_images = []
-                        self._hover_zoom_images.append(tk_img)
+                        base = Image.open(img_path).convert('RGBA').resize((s_zoom, s_zoom))
+                        r,g,b,a = base.split()
+                        # Przezroczystość w zależności od możliwości postawienia
+                        alpha = 0.55 if can_place else 0.3
+                        a = a.point(lambda v: int(v*alpha))
+                        base = Image.merge('RGBA', (r,g,b,a))
+                        tk_img = ImageTk.PhotoImage(base)
+                        self._ghost_cache[key_cache] = tk_img
                     except Exception:
-                        pass
-        else:
-            self.hex_info_label.config(text="Heks: brak")
-            self.terrain_info_label.config(text="Teren: brak")
-            self.modifiers_info_label.config(text="Modyfikatory: brak")
-            self.key_point_info_label.config(text="Kluczowy punkt: brak")
-            self.spawn_info_label.config(text="Punkt wystawiania: brak")
-            self.token_info_label.config(text="Żeton: brak")
-        # Czyść referencje do obrazków, jeśli nie ma powiększenia
-        if not hex_id and hasattr(self, '_hover_zoom_images'):
-            self._hover_zoom_images.clear()
+                        tk_img = None
+                        
+                if tk_img:
+                    self.canvas.create_image(cx, cy, image=tk_img, tags='hover_zoom')
+                    if not hasattr(self, '_hover_zoom_images'):
+                        self._hover_zoom_images = []
+                    self._hover_zoom_images.append(tk_img)
+                    
+            # Czerwony X jeśli nie można postawić
+            if not can_place:
+                self.canvas.create_text(cx, cy, text="✗", fill="red", font=("Arial", 20, "bold"), tags="hover_zoom")
+            
+            return
+            
+        # 2. Kompatybilność ze starym systemem
+        if hasattr(self, 'selected_token_for_deployment') and self.selected_token_for_deployment and not token_existing and hex_id in self.hex_centers:
+            cx, cy = self.hex_centers[hex_id]
+            s_zoom = int(self.hex_size * 1.2)
+            points = get_hex_vertices(cx, cy, s_zoom)
+            self.canvas.create_polygon(points, outline="#00ffaa", width=2, dash=(4,2), fill="", tags="hover_zoom")
+            img_path = None
+            sel = self.selected_token_for_deployment
+            if sel:
+                if sel.get('image_path'):
+                    img_path = Path(sel['image_path'])
+                elif sel.get('image'):
+                    img_path = fix_image_path(sel['image'])
+            if img_path and img_path.exists():
+                key_cache = (img_path, s_zoom)
+                tk_img = self._ghost_cache.get(key_cache)
+                if tk_img is None:
+                    try:
+                        base = Image.open(img_path).convert('RGBA').resize((s_zoom, s_zoom))
+                        r,g,b,a = base.split()
+                        a = a.point(lambda v: int(v*0.55))
+                        base = Image.merge('RGBA', (r,g,b,a))
+                        tk_img = ImageTk.PhotoImage(base)
+                        self._ghost_cache[key_cache] = tk_img
+                    except Exception:
+                        tk_img = None
+                if tk_img:
+                    self.canvas.create_image(cx, cy, image=tk_img, tags='hover_zoom')
+                    if not hasattr(self, '_hover_zoom_images'):
+                        self._hover_zoom_images = []
+                    self._hover_zoom_images.append(tk_img)
+            return
+            
+        # 3. Powiększenie istniejącego żetonu
+        if token_existing and 'image' in token_existing and hex_id in self.hex_centers:
+            cx, cy = self.hex_centers[hex_id]
+            move_mod = terrain.get('move_mod',0)
+            defense_mod = terrain.get('defense_mod',0)
+            s_zoom = int(self.hex_size * 1.5)
+            points = get_hex_vertices(cx, cy, s_zoom)
+            self.canvas.create_polygon(points, outline='orange', fill='#ffffcc', width=3, tags='hover_zoom')
+            label = f"M:{move_mod} D:{defense_mod}"
+            if token_existing.get('unit'):
+                label += f"\n{token_existing['unit']}"
+            self.canvas.create_text(cx, cy, text=label, fill='black', font=('Arial', 14, 'bold'), tags='hover_zoom')
+            img_path = fix_image_path(token_existing['image'])
+            
+            if img_path.exists():
+                try:
+                    img = Image.open(img_path).resize((s_zoom, s_zoom))
+                    tk_img = ImageTk.PhotoImage(img)
+                    self.canvas.create_image(cx, cy, image=tk_img, tags='hover_zoom')
+                    if not hasattr(self, '_hover_zoom_images'):
+                        self._hover_zoom_images = []
+                    self._hover_zoom_images.append(tk_img)
+                except Exception:
+                    pass
 
     def save_data(self):
         'Zapisuje aktualne dane (teren, kluczowe punkty, spawn_points) do pliku JSON.'
@@ -597,7 +1289,7 @@ class MapEditor:
         for hex_id, terrain in list(self.hex_data.items()):
             token = terrain.get("token")
             if token and "image" in token:
-                img_path = ASSET_ROOT / token["image"]
+                img_path = fix_image_path(token["image"])
                 if not img_path.exists():
                     terrain.pop("token", None)
         # --- KONIEC USUWANIA ---
@@ -665,11 +1357,16 @@ class MapEditor:
 
             # i dopiero potem rysuj grid
             self.draw_grid()
-            messagebox.showinfo("Wczytano", f"Dane mapy zostały wczytane z:\n{self.current_working_file}\n"
-                                           f"Liczba kluczowych punktów: {len(self.key_points)}\n"
-                                           f"Liczba punktów wystawienia: {sum(len(v) for v in self.spawn_points.values())}")
+            
+            # Odśwież paletę żetonów
+            self.update_filtered_tokens()
+            
+            # Nie pokazuj popup przy starcie - tylko loguj do konsoli
+            print(f"✅ Wczytano dane mapy z: {self.current_working_file}")
+            print(f"📍 Kluczowe punkty: {len(self.key_points)}")
+            print(f"🚀 Punkty wystawienia: {sum(len(v) for v in self.spawn_points.values())}")
         else:
-            messagebox.showinfo("Informacja", f"Brak danych do wczytania lub plik nie istnieje.")
+            print("⚠️  Brak danych do wczytania lub plik nie istnieje")
 
     def clear_variables(self):
         'Kasuje wszystkie niestandardowe ustawienia mapy (reset do płaskiego terenu).'
@@ -683,12 +1380,19 @@ class MapEditor:
             messagebox.showinfo("Zresetowano", "Mapa została zresetowana do domyślnego terenu płaskiego.")
 
     def save_map_and_data(self):
-        """Zapisuje tylko dane JSON mapy."""
+        """Zapisuje dane JSON mapy i eksportuje żetony."""
         try:
             self.save_data()  # Zapisuje dane JSON
-            messagebox.showinfo("Sukces", "Dane mapy zostały zapisane pomyślnie.")
+            count = self.export_start_tokens(show_message=False)  # Eksportuje żetony
+            messagebox.showinfo("Sukces", f"Dane mapy zostały zapisane pomyślnie.\nWyeksportowano {count} żetonów.")
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się zapisać danych mapy: {e}")
+
+    def toggle_auto_save(self):
+        """Zmienia stan auto-save"""
+        self.auto_save_enabled = self.auto_save_var.get()
+        status = "włączony" if self.auto_save_enabled else "wyłączony"
+        print(f"Auto-save {status}")
 
     def open_map_and_data(self):
         """Otwiera mapę i wczytuje dane."""
@@ -733,6 +1437,8 @@ class MapEditor:
             dialog.destroy()
         tk.Button(dialog, text="Zapisz", command=save_key_point, bg="green", fg="white").pack(pady=10)
         tk.Button(dialog, text="Anuluj", command=dialog.destroy, bg="red", fg="white").pack(pady=5)
+        # po sukcesie dodania key point
+        self.auto_save('key point')
 
     def add_spawn_point_dialog(self):
         'Okno dialogowe do dodawania punktu wystawienia dla nacji.'
@@ -756,6 +1462,8 @@ class MapEditor:
             dialog.destroy()
         tk.Button(dialog, text="Zapisz", command=save_spawn_point, bg="green", fg="white").pack(pady=10)
         tk.Button(dialog, text="Anuluj", command=dialog.destroy, bg="red", fg="white").pack(pady=5)
+        # po sukcesie dodania spawn
+        self.auto_save('spawn point')
 
     def draw_key_point(self, hex_id, point_type, value):
         'Rysuje na canvasie etykietę kluczowego punktu.'
@@ -823,7 +1531,7 @@ class MapEditor:
         for hex_id, terrain in list(self.hex_data.items()):
             token = terrain.get("token")
             if token and "image" in token:
-                img_path = ASSET_ROOT / token["image"]
+                img_path = fix_image_path(token["image"])
                 if not img_path.exists():
                     terrain.pop("token", None)
 
@@ -887,6 +1595,9 @@ class MapEditor:
         return tokens
 
     def deploy_token_dialog(self):
+        """PRZESTARZAŁA METODA - używa nowej palety żetonów"""
+        print("Metoda deploy_token_dialog jest przestarzała. Używaj nowej palety żetonów.")
+        # Stara implementacja została zastąpiona przez paletę żetonów w panelu bocznym
         """Wyświetla okno dialogowe z wszystkimi dostępnymi żetonami w folderze tokeny (unikalność: żeton znika po wystawieniu)."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Wybierz żeton")
@@ -958,22 +1669,24 @@ class MapEditor:
         """Wybiera żeton do wystawienia (system click-and-click)."""
         # Wyczyść poprzedni wybór
         self.clear_token_selection()
-        
+
         # Ustaw nowy wybór
         self.selected_token_for_deployment = token
         self.selected_token_button = button
-        
+
         # Podświetl wybrany przycisk
-        button.config(relief="sunken", bg="orange")
-        
+        if button is not None:
+            button.config(relief="sunken", bg="orange")
+
         # Zamknij dialog po wyborze żetonu
-        if dialog:
-            dialog.destroy()
-        
+        if dialog is not None:
+            try:
+                dialog.destroy()
+            except Exception:
+                pass
+
         # Informuj użytkownika
-        messagebox.showinfo("Żeton wybrany", 
-                           f"Wybrano żeton: {token['name']}\n"
-                           f"Kliknij na heks na mapie, aby go umieścić.")
+        self.set_status(f"Wybrano żeton: {token['name']} (kliknij heks aby postawić)")
 
     def _get_token_id_from_json(self, json_path):
         try:
@@ -984,11 +1697,17 @@ class MapEditor:
             return None
 
     def place_token_on_hex(self, token, clicked_hex):
-        # clicked_hex to hex_id jako string "q,r"
-        q, r = map(int, clicked_hex.split(","))
+        """Umieszcza wybrany żeton na wskazanym heksie (string 'q,r')."""
+        if not token or not clicked_hex:
+            return
+
+        try:
+            q, r = map(int, clicked_hex.split(","))
+        except ValueError:
+            return
         hex_id = f"{q},{r}"
 
-        # Jeśli wpisu brak – utwórz z domyślnym terenem
+        # Jeśli brak wpisu – utwórz z domyślnym terenem
         if hex_id not in self.hex_data:
             self.hex_data[hex_id] = {
                 "terrain_key": "płaski",
@@ -1000,19 +1719,17 @@ class MapEditor:
         try:
             with open(token["json_path"], "r", encoding="utf-8") as f:
                 token_json = json.load(f)
-            token_id = token_json["id"]
+            token_id = token_json.get("id", Path(token["json_path"]).stem)
         except Exception:
-            token_id = Path(token["json_path"]).stem
+            token_id = Path(token.get("json_path", "UNKNOWN.json")).stem
 
         rel_path = to_rel(token["image_path"]).replace("\\", "/")
-        self.hex_data[hex_id]["token"] = {
-            "unit": token_id,
-            "image": rel_path
-        }
+        self.hex_data[hex_id]["token"] = {"unit": token_id, "image": rel_path}
 
-        self.draw_grid()   # odśwież mapę
-        self.save_data()   # zapisz dane
-        messagebox.showinfo("Sukces", f"Żeton '{token['name']}' został umieszczony na heksie {hex_id}")
+        # Odśwież mapę i zapisz
+        self.draw_grid()
+        self.set_status(f"Postawiono żeton '{token['name']}' na {hex_id}")
+        self.auto_save('postawiono żeton')
 
     def toggle_brush(self, key):
         if self.current_brush == key:           # drugi klik → wyłącz
@@ -1046,8 +1763,9 @@ class MapEditor:
             self.draw_hex(hex_id, cx, cy, self.hex_size, terrain)
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
+        self.auto_save('malowanie terenu')
 
-    def export_start_tokens(self, path=None):
+    def export_start_tokens(self, path=None, show_message=True):
         """Eksportuje rozmieszczenie wszystkich żetonów na mapie do assets/start_tokens.json."""
         if path is None:
             path = str(ASSET_ROOT / "start_tokens.json")
@@ -1066,12 +1784,31 @@ class MapEditor:
                 })
         with open(path, "w", encoding="utf-8") as f:
             json.dump(tokens, f, indent=2, ensure_ascii=False)
-        messagebox.showinfo("Sukces", f"Wyeksportowano rozmieszczenie żetonów do:\n{path}")
+        
+        if show_message:
+            messagebox.showinfo("Sukces", f"Wyeksportowano rozmieszczenie żetonów do:\n{path}")
+        return len(tokens)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Edytor Mapy 3v3")
-    root.geometry("1024x768")
-    editor = MapEditor(root, CONFIG)
-    root.protocol("WM_DELETE_WINDOW", editor.on_close)
-    root.mainloop()
+    def on_commander_selected(self, event):
+        """Obsługuje wybór dowódcy z dropdown"""
+        selected_commander = self.commander_var.get()
+        print(f"⚔️  Wybrano dowódcę z dropdown: {selected_commander}")
+        
+        if selected_commander == "Wszyscy dowódcy":
+            self.commander_filter = None
+        else:
+            self.commander_filter = selected_commander
+        
+        self.update_filtered_tokens()
+
+if __name__ == '__main__':
+    import sys
+    try:
+        cfg = CONFIG  # użyj lokalnej stałej CONFIG
+        root = tk.Tk()
+        root.title('Map Editor')
+        app = MapEditor(root, cfg)
+        root.mainloop()
+    except Exception as e:
+        print('Błąd startu:', e, file=sys.stderr)
+        raise

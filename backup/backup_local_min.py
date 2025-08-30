@@ -5,9 +5,15 @@
 Usprawnienia:
 - Dynamiczny katalog docelowy (ENV BACKUP_LOCAL_DIR lub argument CLI, domyślnie: C:/Users/klif/gra_wojenna_backups)
 - Każdy backup w osobnym folderze snapshot_YYYYMMDD_HHMMSS (brak nadpisywania)
+- Możliwość nadania własnej nazwy backupu (-n/--name) która doda się do nazwy folderu
 - Liczenie plików, rozmiaru i pominięć.
 - Wykluczenia: .git, __pycache__, .vscode, logs, *pyc/pyo/log/tmp.
 - Pomija katalog docelowy jeśli leży wewnątrz projektu.
+
+Przykłady:
+    python backup/backup_local_min.py                           # Standardowy backup
+    python backup/backup_local_min.py -n "przed_refaktorem"     # Z własną nazwą
+    python backup/backup_local_min.py -o D:/backups -n "fix"    # Własny katalog i nazwa
 """
 import os, shutil, sys, time
 from pathlib import Path
@@ -41,6 +47,7 @@ def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description='Lokalny backup projektu')
     ap.add_argument('-o','--output', help='Katalog bazowy backup (domyślnie ENV BACKUP_LOCAL_DIR lub C:/Users/klif/gra_wojenna_backups)')
+    ap.add_argument('-n','--name', help='Własna nazwa backupu (doda się do timestamp)')
     return ap.parse_args()
 
 def main():
@@ -51,7 +58,12 @@ def main():
         Path(os.environ.get('BACKUP_LOCAL_DIR', r'C:/Users/klif/gra_wojenna_backups'))
     )
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    target_root = base_output / f'snapshot_{timestamp}'
+    if args.name:
+        # Czyść nazwę z niedozwolonych znaków
+        clean_name = "".join(c for c in args.name if c.isalnum() or c in "._-")
+        target_root = base_output / f'snapshot_{timestamp}_{clean_name}'
+    else:
+        target_root = base_output / f'snapshot_{timestamp}'
     target_root.mkdir(parents=True, exist_ok=True)
     print(f"➡️ Start backupu: {project_root} -> {target_root}")
 
