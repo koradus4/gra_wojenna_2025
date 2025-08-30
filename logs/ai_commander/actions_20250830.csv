@@ -1,0 +1,5 @@
+timestamp,turn,phase,nation,unit_id,unit_type,action_type,from_q,from_r,to_q,to_r,target_q,target_r,target_type,target_value_before,target_value_after,movement_mode,path_len,path_used,progressive_used,adaptive_frac,mp_before,mp_after,fuel_before,fuel_after,combat_dmg_dealt,combat_dmg_taken,enemy_adj_before,enemy_adj_after,threat_level,decision_reason,extra_tags,reason
+2025-08-30T22:20:08.168910,,,Niemcy,GE_INF_01,,reaction_combat,5,5,6,6,,,,,,,,,,,,,,,,,,,,,,Reaction attack on PL_INF_01
+2025-08-30T22:20:08.171414,,,Niemcy,GE_INF_01,,reaction_combat,5,5,6,6,,,,,,,,,,,,,,,,,,,,,,Reaction attack on PL_INF_01
+2025-08-30T22:20:08.173418,,,Niemcy,GE_INF_02,,reaction_combat,7,7,6,6,,,,,,,,,,,,,,,,,,,,,,Reaction attack on PL_INF_01
+2025-08-30T22:20:08.173418,,,Niemcy,GE_INF_01,,reaction_combat,10,10,11,10,,,,,,,,,,,,,,,,,,,,,,Reaction attack on PL_INF_01

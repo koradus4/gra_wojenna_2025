@@ -2,7 +2,35 @@
 
 ## 📌 STAN BIEŻĄCY (29 sierpnia 2025) – WERSJA 3.3 – POSTĘP AI I OBSERWOWALNOŚĆ
 
-Aktualizacja koncentruje się na: rozszerzeniu logów (ekonomia + ruch), pakiecie 6 usprawnień AI Commander, trybie uśpienia rozkazów strategicznych (izolacja ekonomii), poprawkach launchera i diagnozie przyczyn szybkiego załamania sił.
+Aktualizacja koncentruje się na: rozszerzeniu logów (ekonomia + ruch), pakiecie 6 usprawnień AI Commander, trybie uśpienia rozkazów ## 🗺️ WIDOCZNOŚĆ I FOG OF WAR (ISTOTNE DLA AI) - ZAKTUALIZOWANE
+
+**SYSTEM GRADUOWANEJ WIDOCZNOŚCI (POZIOM 1 - ZAIMPLEMENTOWANY 30.08.2025):**
+
+**Podstawowa mechanika:**
+- Dowódca: widzi heksy w zasięgu swoich żetonów + **graduation detection_level**
+- Generał: agregacja widoczności dowódców + pełna wiedza o własnych jednostkach
+- Aktualizacja: `engine.update_all_players_visibility(players)` po ruchach / na starcie tury
+
+**NOWE: System graduowanej detekcji przeciwników:**
+- `detection_level = f(distance, sight_range)` - krzywa nieliniowa 0.0-1.0
+- **FULL INFO** (detection ≥ 0.8): Pełne dane wroga (ID, CV, typ, nacja)
+- **PARTIAL INFO** (detection ≥ 0.5): Ograniczone dane (skrócone ID, przedział CV, typ szacowany)
+- **MINIMAL INFO** (detection < 0.5): Minimalne dane ("Nieznany kontakt", CV="???")
+
+**Implementacja:**
+- `VisionService.calculate_detection_level(distance, sight)` - oblicza poziom
+- `VisionService._add_visible_enemy_tokens()` - dodaje detection_level do visible_token_data  
+- `detection_filter.py` - filtruje informacje na podstawie poziomu
+- `gui/detection_display.py` - przygotowuje dane do wyświetlenia w UI
+- AI Commander używa detection_level do podejmowania decyzji
+
+**Korzyści dla rozgrywki:**
+- Realistyczne rozpoznanie bez "cheat vision"
+- Zwiększona wartość jednostek zwiadowczych
+- AI musi radzić sobie z niepewnością tak jak człowiek
+- Stopniowe odkrywanie informacji zamiast binarnego "widzi/nie widzi"
+
+AI musi działać w ramach tej samej informacji (brak „cheat vision").gicznych (izolacja ekonomii), poprawkach launchera i diagnozie przyczyn szybkiego załamania sił.
 
 Najważniejsze zmiany od 3.1 → 3.3:
 1. AI Commander: progresywny ruch, oportunistyczne capture, limity garnizonów + stub rotacji, pre‑capture phase, bonusy dla odłączonych KP, rozszerzone CSV.
@@ -287,6 +315,15 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 10. Commander specialization – profile agresywny / defensywny / mobilny.
 
 ## 🗒️ CHANGELOG
+**3.4 (30.08.2025) - NOWA WERSJA**
+* **🎯 SYSTEM GRADUOWANEJ WIDOCZNOŚCI POZIOM 1** - pełna implementacja
+* VisionService.calculate_detection_level() - krzya nieliniowa detekcji
+* detection_filter.py - filtrowanie informacji o wrogach (FULL/PARTIAL/MINIMAL)
+* gui/detection_display.py - przygotowanie danych do GUI
+* AI Commander integracja z detection_level dla realistycznych decyzji
+* Kompleksowe testy i demonstracje funkcjonalności
+* Aktualizacja engine/action_refactored_clean.py i engine/engine.py
+
 **3.3 (29.08.2025)**
 * Pakiet 6 usprawnień AI Commander (movement/capture/garrison/logi)
 * Rozszerzone logi ekonomii (allocate/purchase budgets, low_fuel_ratio, orders_issued)

@@ -463,6 +463,8 @@ def find_enemies_in_range(unit, game_engine, player_id):
             except Exception:
                 visible_hexes = set()
         all_tokens = getattr(game_engine, 'tokens', [])
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        
         for token in all_tokens:
             if getattr(token, 'owner', '') == my_owner:
                 continue
@@ -472,12 +474,29 @@ def find_enemies_in_range(unit, game_engine, player_id):
             if board:
                 distance = board.hex_distance(unit_pos, enemy_pos)
                 if distance <= attack_range:
+                    # NOWE: Sprawdź detection level jeśli dostępny
+                    detection_level = 1.0  # Default dla backward compatibility
+                    if current_player and hasattr(current_player, 'visible_token_data'):
+                        token_detection = current_player.visible_token_data.get(token.id, {})
+                        detection_level = token_detection.get('detection_level', 1.0)
+                    
+                    # Filtruj informacje na podstawie poziomu detekcji
+                    try:
+                        from engine.detection_filter import apply_detection_filter
+                        enemy_info = apply_detection_filter(token, detection_level)
+                        cv_value = enemy_info.get('combat_value', 0)
+                        if isinstance(cv_value, str):  # "~3-7" -> użyj średnią
+                            cv_value = 5  # Konserwatywne szacowanie
+                    except:
+                        cv_value = getattr(token, 'combat_value', 0)
+                    
                     enemies.append({
                         'token': token,
                         'id': getattr(token, 'id', 'unknown'),
                         'q': enemy_pos[0],
                         'r': enemy_pos[1],
-                        'cv': getattr(token, 'combat_value', 0),
+                        'cv': cv_value,
+                        'detection_level': detection_level,
                         'distance': distance
                     })
         return enemies
@@ -646,6 +665,65 @@ def execute_ai_combat(unit, enemy, game_engine, player_nation="Unknown"):
     except Exception as e:
         print(f"❌ [COMBAT] Błąd wykonania ataku: {e}")
         return False
+
+
+def check_ai_reaction_attacks(moved_token, game_engine, ai_player_nation="Unknown"):
+    """Sprawdź czy AI units mogą wykonać ataki reakcyjne po ruchu przeciwnika - IDENTYCZNA LOGIKA JAK GUI"""
+    try:
+        if not moved_token or not game_engine:
+            return
+        
+        moved_owner = getattr(moved_token, 'owner', '')
+        moved_nation = moved_owner.split('(')[-1].replace(')', '').strip() if '(' in moved_owner else ''
+        
+        # IDENTYCZNA logika jak w gui/panel_mapa.py linie 695-750
+        for enemy in getattr(game_engine, 'tokens', []):
+            if enemy.id == moved_token.id or enemy.owner == moved_token.owner:
+                continue
+            
+            # Blokada: nie atakuje własnych żetonów (identyczna jak GUI)
+            nation_enemy = enemy.owner.split('(')[-1].replace(')', '').strip()
+            nation_moved = moved_token.owner.split('(')[-1].replace(')', '').strip()
+            if nation_enemy == nation_moved:
+                continue
+            
+            # Sprawdź sight i attack_range (IDENTYCZNE obliczenia jak GUI)
+            sight = enemy.stats.get('sight', 0)
+            dist = game_engine.board.hex_distance((enemy.q, enemy.r), (moved_token.q, moved_token.r)) if hasattr(game_engine, 'board') else 999
+            in_sight = dist <= sight
+            attack_range = enemy.stats.get('attack', {}).get('range', 1)
+            in_range = dist <= attack_range
+            
+            if in_sight and in_range:
+                print(f"🎯 [AI_REACTION] {enemy.id} ({enemy.owner}) atakuje {moved_token.id} ({moved_owner})!")
+                setattr(moved_token, 'wykryty_do_konca_tury', True)
+                
+                # Execute reaction attack using IDENTICAL CombatAction as GUI
+                from engine.action_refactored_clean import CombatAction
+                action = CombatAction(enemy.id, moved_token.id, is_reaction=True)
+                result = game_engine.execute_action(action)
+                success2, msg2 = result.success, result.message
+                
+                if success2:
+                    print(f"⚔️ [AI_REACTION] Sukces: {msg2}")
+                else:
+                    print(f"❌ [AI_REACTION] Błąd: {msg2}")
+                    
+                # Log reaction attack (simplified version of GUI logging)
+                try:
+                    log_commander_action(
+                        unit_id=enemy.id,
+                        action_type="reaction_combat", 
+                        from_pos=(enemy.q, enemy.r),
+                        to_pos=(moved_token.q, moved_token.r),
+                        reason=f"Reaction attack on {moved_token.id}",
+                        player_nation=nation_enemy
+                    )
+                except Exception:
+                    pass
+                    
+    except Exception as e:
+        print(f"❌ [AI_REACTION] Błąd sprawdzania reakcji: {e}")
 
 
 def get_player_nation(game_engine, player_id):
@@ -1590,6 +1668,10 @@ def move_towards(unit, target, game_engine):
                         player_nation=player_nation,
                         extra=extra_log
                     )
+                    
+                    # SPRAWDŹ ATAKI REAKCYJNE PRZECIWNIKÓW - IDENTYCZNA LOGIKA JAK GUI!
+                    # Po każdym ruchu AI sprawdź czy ktokolwiek może wykonać reakcję
+                    check_ai_reaction_attacks(token, game_engine)
                 else:
                     print(f"[AI Move] ❌ Błąd: {getattr(result, 'message', 'Nieznany błąd')}")
                     
@@ -2751,4 +2833,11 @@ def test_basic_safety():
 if __name__ == "__main__":
     # Uruchom test bezpieczeństwa
     test_basic_safety()
+
+# Eksport kluczowych funkcji dla użycia zewnętrznego
+__all__ = [
+    'AICommander', 'make_tactical_turn', 'check_ai_reaction_attacks', 
+    'ai_attempt_combat', 'evaluate_combat_ratio', 'execute_ai_combat',
+    'test_basic_safety', 'log_commander_action'
+]
 

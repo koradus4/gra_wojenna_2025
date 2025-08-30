@@ -343,6 +343,12 @@ def update_player_visibility(player, all_tokens, board):
     if hasattr(player, 'temp_visible_tokens'):
         visible_tokens |= player.temp_visible_tokens
     player.visible_tokens = visible_tokens
+    
+    # NOWE: Dodaj detection data dla graduowanej widoczności
+    if hasattr(player, 'temp_visible_token_data'):
+        if not hasattr(player, 'visible_token_data'):
+            player.visible_token_data = {}
+        player.visible_token_data.update(player.temp_visible_token_data)
 
 def update_general_visibility(general, all_players, all_tokens):
     """
@@ -374,6 +380,9 @@ def clear_temp_visibility(players):
             p.temp_visible_hexes.clear()
         if hasattr(p, 'temp_visible_tokens'):
             p.temp_visible_tokens.clear()
+        # NOWE: Wyczyść detection data
+        if hasattr(p, 'temp_visible_token_data'):
+            p.temp_visible_token_data.clear()
 
 # Przykład użycia:
 # engine = GameEngine('data/map_data.json', 'data/tokens_index.json', 'data/start_tokens.json', seed=123)

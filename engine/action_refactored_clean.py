@@ -170,6 +170,26 @@ class VisionService:
     """Serwis zarządzania widzeniem i odkrywaniem mapy"""
     
     @staticmethod
+    def calculate_detection_level(distance: int, max_sight: int) -> float:
+        """Oblicz poziom detekcji na podstawie odległości
+        
+        Args:
+            distance: Rzeczywista odległość do celu
+            max_sight: Maksymalny zasięg widzenia
+            
+        Returns:
+            float: Poziom detekcji 0.0-1.0 (1.0 = pełna informacja)
+        """
+        if distance >= max_sight or max_sight <= 0:
+            return 0.0
+            
+        # Krzywa nieliniowa - bliskość daje duży boost
+        base_ratio = 1.0 - (distance / max_sight)
+        detection_level = min(1.0, base_ratio ** 0.6)
+        
+        return detection_level
+    
+    @staticmethod
     def calculate_visible_hexes(board, position: Tuple[int, int], sight: int) -> Set[Tuple[int, int]]:
         """Oblicz widzialne heksy z danej pozycji"""
         visible_hexes = set()
@@ -206,7 +226,10 @@ class VisionService:
     
     @staticmethod
     def _add_visible_enemy_tokens(engine, player, token, visible_hexes: Set[Tuple[int, int]]):
-        """Dodaj żetony przeciwnika z widzialnych heksów"""
+        """Dodaj żetony przeciwnika z widzialnych heksów z detection_level"""
+        token_pos = (token.q, token.r)
+        sight_range = token.stats.get('sight', 0)
+        
         for hex_pos in visible_hexes:
             for enemy_token in engine.tokens:
                 if ((enemy_token.q, enemy_token.r) == hex_pos and 
@@ -216,7 +239,21 @@ class VisionService:
                     token_nation = token.owner.split('(')[-1].replace(')', '').strip()
                     
                     if enemy_nation != token_nation:
+                        # NOWE: Oblicz detection_level na podstawie odległości
+                        distance = engine.board.hex_distance(token_pos, hex_pos)
+                        detection_level = VisionService.calculate_detection_level(distance, sight_range)
+                        
+                        # Sprawdź czy player ma detection_data
+                        if not hasattr(player, 'temp_visible_token_data'):
+                            player.temp_visible_token_data = {}
+                            
+                        # Dodaj z metadanymi detection
                         player.temp_visible_tokens.add(enemy_token.id)
+                        player.temp_visible_token_data[enemy_token.id] = {
+                            'detection_level': detection_level,
+                            'distance': distance,
+                            'detected_by': token.id
+                        }
 
 
 class MoveAction(BaseAction):
