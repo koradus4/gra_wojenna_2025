@@ -294,10 +294,17 @@ class MapEditor:
 
         # Przycisk "Zapisz dane mapy"
         self.save_map_and_data_button = tk.Button(
-            buttons_frame, text="Zapisz dane mapy", command=self.save_map_and_data,
+            buttons_frame, text="Zapisz mapę + eksport żetonów", command=self.save_map_and_data,
             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
         )
         self.save_map_and_data_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === PRZYCISK ZMIANY ROZMIARU MAPY ===
+        self.resize_map_button = tk.Button(
+            buttons_frame, text="Zmień rozmiar mapy", command=self.resize_map_dialog,
+            bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
+        )
+        self.resize_map_button.pack(padx=5, pady=2, fill=tk.X)
 
         # === CHECKBOX AUTO-SAVE ===
         self.auto_save_var = tk.BooleanVar(value=True)
@@ -363,15 +370,6 @@ class MapEditor:
         self.reset_hex_button = tk.Button(reset_hex_frame, text="Resetuj wybrany heks", command=self.reset_selected_hex,
                                           bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
         self.reset_hex_button.pack(padx=5, pady=2, fill=tk.X)
-
-        # === EKSPORT ŻETONÓW ===
-        self.export_tokens_button = tk.Button(
-            self.upper_frame,
-            text="Eksportuj rozmieszczenie żetonów",
-            command=self.export_start_tokens,
-            bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
-        )
-        self.export_tokens_button.pack(padx=5, pady=2, fill=tk.X)
 
         # === DOLNA CZĘŚĆ: Panel informacyjny ===
         self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
@@ -484,6 +482,10 @@ class MapEditor:
         basic_info_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
         basic_info_frame.pack(fill=tk.X, padx=5, pady=2)
         
+        # Informacja o rozmiarze mapy
+        self.map_size_label = tk.Label(basic_info_frame, text="Mapa: 56×40 (2240 heksów)", bg="darkolivegreen", fg="lightgreen", font=("Arial", 9, "bold"))
+        self.map_size_label.pack(anchor="w", pady=1)
+        
         self.hex_info_label = tk.Label(basic_info_frame, text="Heks: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
         self.hex_info_label.pack(anchor="w", pady=1)
         
@@ -492,6 +494,10 @@ class MapEditor:
         
         self.token_info_label = tk.Label(basic_info_frame, text="Żeton: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
         self.token_info_label.pack(anchor="w", pady=1)
+        
+        # Dodatkowa informacja o stanie mapy
+        self.map_status_label = tk.Label(basic_info_frame, text="", bg="darkolivegreen", fg="lightblue", font=("Arial", 8))
+        self.map_status_label.pack(anchor="w", pady=1)
 
     def build_map_canvas(self):
         """Buduje canvas mapy z przewijaniem"""
@@ -734,10 +740,18 @@ class MapEditor:
 
     def draw_grid(self):
         """Rysuje siatkę heksów i aktualizuje wyświetlane żetony."""
-        self.canvas.delete("all")
-        if not hasattr(self, 'photo_bg'):
-            self.photo_bg = ImageTk.PhotoImage(Image.new("RGB", (1, 1), (255, 255, 255)))
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_bg)
+        # Usuń tylko elementy siatki, zachowaj tło
+        self.canvas.delete("hex")
+        self.canvas.delete("spawn")
+        self.canvas.delete("key_point")
+        self.canvas.delete("highlight")
+        
+        # Upewnij się że tło jest wyświetlone
+        if hasattr(self, 'photo_bg') and self.photo_bg:
+            # Usuń stare tło i narysuj nowe
+            self.canvas.delete("background")
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_bg, tags="background")
+        
         self.hex_centers = {}
         s = self.hex_size
         hex_height = math.sqrt(3) * s
@@ -801,11 +815,16 @@ class MapEditor:
         # Podświetlenie wybranego heksu
         if self.selected_hex is not None:
             self.highlight_hex(self.selected_hex)
+        
+        # Aktualizacja stanu mapy
+        self.update_map_status()
 
     def draw_hex(self, hex_id, center_x, center_y, s, terrain=None):
         'Rysuje pojedynczy heksagon na canvasie wraz z tekstem modyfikatorów.'
         points = get_hex_vertices(center_x, center_y, s)
-        self.canvas.create_polygon(points, outline="red", fill="", width=2, tags=hex_id)        # usuwamy poprzedni tekst
+        self.canvas.create_polygon(points, outline="red", fill="", width=2, tags=("hex", hex_id))
+        
+        # usuwamy poprzedni tekst
         self.canvas.delete(f"tekst_{hex_id}")
         # rysujemy modyfikatory tylko jeśli ten heks ma niestandardowe dane
         if hex_id in self.hex_data:
@@ -818,7 +837,7 @@ class MapEditor:
                 fill="blue",
                 font=("Arial", 10),
                 anchor="center",
-                tags=f"tekst_{hex_id}"
+                tags=("hex", f"tekst_{hex_id}")
             )
 
     def draw_spawn_marker(self, nation, hex_id):
@@ -831,14 +850,14 @@ class MapEditor:
         r_c = int(self.hex_size * 0.55)
         self.canvas.create_oval(
             cx - r_c, cy - r_c, cx + r_c, cy + r_c,
-            outline=outline, width=3, tags=f"spawn_{nation}_{hex_id}"
+            outline=outline, width=3, tags=("spawn", f"spawn_{nation}_{hex_id}")
         )
         self.canvas.create_text(
             cx, cy + self.hex_size * 0.60,
             text=letter,
             fill=outline,
             font=("Arial", 10, "bold"),
-            tags=f"spawn_{nation}_{hex_id}"
+            tags=("spawn", f"spawn_{nation}_{hex_id}")
         )
 
     def draw_key_point_marker(self, key_type, value, hex_id):
@@ -862,7 +881,7 @@ class MapEditor:
         self.canvas.create_oval(
             cx - r_c, cy - r_c, cx + r_c, cy + r_c,
             outline=outline, width=3, fill="",  # Bez wypełnienia, tylko obramowanie
-            tags=f"key_point_{key_type}_{hex_id}"
+            tags=("key_point", f"key_point_{key_type}_{hex_id}")
         )
         
         # Rysuj skrót typu
@@ -871,7 +890,7 @@ class MapEditor:
             text=letter,
             fill="black",
             font=("Arial", 9, "bold"),
-            tags=f"key_point_{key_type}_{hex_id}"
+            tags=("key_point", f"key_point_{key_type}_{hex_id}")
         )
         
         # Rysuj wartość pod kółkiem
@@ -880,7 +899,7 @@ class MapEditor:
             text=str(value),
             fill=outline,
             font=("Arial", 8, "bold"),
-            tags=f"key_point_{key_type}_{hex_id}"
+            tags=("key_point", f"key_point_{key_type}_{hex_id}")
         )
 
     def get_clicked_hex(self, x, y):
@@ -1355,6 +1374,11 @@ class MapEditor:
             # zawsze upewnij się, że tło jest załadowane
             self.load_map_image()
 
+            # Automatyczne skalowanie tła do aktualnego rozmiaru siatki
+            current_cols = self.config.get("grid_cols", 56)
+            current_rows = self.config.get("grid_rows", 40)
+            self.scale_background_image_if_needed(current_cols, current_rows)
+
             # i dopiero potem rysuj grid
             self.draw_grid()
             
@@ -1393,6 +1417,275 @@ class MapEditor:
         self.auto_save_enabled = self.auto_save_var.get()
         status = "włączony" if self.auto_save_enabled else "wyłączony"
         print(f"Auto-save {status}")
+
+    def _is_hex_in_bounds(self, hex_id, max_q, max_r):
+        """Sprawdza czy heks jest w granicach mapy."""
+        try:
+            q, r = map(int, hex_id.split(","))
+            return not (q < 0 or q > max_q or r < -(q//2) or r > max_r - (q//2))
+        except ValueError:
+            return False
+
+    def clean_out_of_bounds_data(self):
+        """Usuwa dane z heksów poza granicami mapy."""
+        grid_cols = self.config.get("grid_cols")
+        grid_rows = self.config.get("grid_rows")
+        
+        # Oblicz maksymalne dozwolone współrzędne axial
+        max_q = grid_cols - 1
+        max_r = grid_rows - 1
+        
+        removed_items = {"terrain": 0, "tokens": 0, "key_points": 0, "spawn_points": 0}
+        
+        # Usuń dane terenu i żetonów poza granicami
+        for hex_id in list(self.hex_data.keys()):
+            try:
+                q, r = map(int, hex_id.split(","))
+                # Sprawdź czy heks jest poza granicami
+                if q < 0 or q > max_q or r < -(q//2) or r > max_r - (q//2):
+                    if "token" in self.hex_data[hex_id]:
+                        removed_items["tokens"] += 1
+                    removed_items["terrain"] += 1
+                    del self.hex_data[hex_id]
+            except ValueError:
+                pass
+        
+        # Usuń key points poza granicami
+        for hex_id in list(self.key_points.keys()):
+            try:
+                q, r = map(int, hex_id.split(","))
+                if q < 0 or q > max_q or r < -(q//2) or r > max_r - (q//2):
+                    removed_items["key_points"] += 1
+                    del self.key_points[hex_id]
+            except ValueError:
+                pass
+        
+        # Usuń spawn points poza granicami
+        for nation in self.spawn_points:
+            original_len = len(self.spawn_points[nation])
+            self.spawn_points[nation] = [
+                hex_id for hex_id in self.spawn_points[nation]
+                if self._is_hex_in_bounds(hex_id, max_q, max_r)
+            ]
+            removed_items["spawn_points"] += original_len - len(self.spawn_points[nation])
+        
+        return removed_items
+
+    def scale_background_image_if_needed(self, new_cols, new_rows):
+        """Automatycznie skaluje obraz tła do rozmiaru siatki heksów (bez pytania)."""
+        if not hasattr(self, 'bg_image') or self.bg_image is None:
+            print("⚠️ Brak obrazu tła - skalowanie pominięte")
+            return False
+            
+        s = self.hex_size
+        # Oblicz wymagane wymiary dla nowej siatki
+        required_width = s + new_cols * 1.5 * s + s * 2  # dodatkowy margines
+        required_height = (s * math.sqrt(3) / 2) + new_rows * math.sqrt(3) * s + s * 2
+        
+        print(f"📐 Wymagane wymiary: {required_width:.0f}×{required_height:.0f}")
+        print(f"📐 Aktualne wymiary tła: {self.world_width}×{self.world_height}")
+        
+        # Zawsze skaluj obraz do wymaganego rozmiaru (nawet jeśli zniekształci proporcje)
+        try:
+            print(f"🔄 Automatyczne skalowanie obrazu do {required_width:.0f}×{required_height:.0f}...")
+            
+            # Skaluj obraz używając wysokiej jakości filtra (dokładne wymiary bez zachowania proporcji)
+            from PIL import Image
+            self.bg_image = self.bg_image.resize((int(required_width), int(required_height)), Image.LANCZOS)
+            self.world_width, self.world_height = self.bg_image.size
+            
+            # Zaktualizuj wyświetlany obraz
+            self.photo_bg = ImageTk.PhotoImage(self.bg_image)
+            self.canvas.delete("background")
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_bg, tags="background")
+            
+            # Zaktualizuj obszar przewijania
+            self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
+            
+            print(f"✅ Obraz przeskalowany do {self.world_width}×{self.world_height}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Błąd skalowania obrazu: {e}")
+            messagebox.showerror("Błąd skalowania", f"Nie udało się przeskalować obrazu: {e}")
+            return False
+
+    def count_invisible_hexes(self):
+        """Liczy heksy które są poza granicami obrazu tła."""
+        if not hasattr(self, 'world_width') or not hasattr(self, 'world_height'):
+            return 0
+            
+        invisible_count = 0
+        grid_cols = self.config.get("grid_cols")
+        grid_rows = self.config.get("grid_rows")
+        s = self.hex_size
+        
+        for col in range(grid_cols):
+            for row in range(grid_rows):
+                q = col
+                r = row - (col // 2)
+                
+                # Oblicz pozycję centrum heksa
+                center_x = s + col * 1.5 * s
+                center_y = (s * math.sqrt(3) / 2) + row * math.sqrt(3) * s
+                
+                # Sprawdź czy heks jest poza granicami obrazu
+                if center_x + s > self.world_width or center_y + (s * math.sqrt(3) / 2) > self.world_height:
+                    invisible_count += 1
+                    
+        return invisible_count
+
+    def update_map_status(self):
+        """Aktualizuje informację o stanie mapy."""
+        try:
+            grid_cols = self.config.get("grid_cols", 56)
+            grid_rows = self.config.get("grid_rows", 40)
+            total_hexes = grid_cols * grid_rows
+            invisible_hexes = self.count_invisible_hexes()
+            
+            # Aktualizuj informację o rozmiarze mapy (zawsze widoczne)
+            size_text = f"📐 Mapa: {grid_cols}×{grid_rows} ({total_hexes} heksów)"
+            self.map_size_label.config(text=size_text, fg="lightgreen")
+            
+            # Aktualizuj status problemów (tylko jeśli są)
+            if invisible_hexes > 0:
+                status_text = f"⚠️ {invisible_hexes} heksów poza obszarem tła"
+                self.map_status_label.config(text=status_text, fg="orange")
+            else:
+                self.map_status_label.config(text="✅ Wszystkie heksy widoczne", fg="lightgreen")
+                
+        except Exception as e:
+            self.map_status_label.config(text=f"Błąd stanu mapy: {e}", fg="red")
+
+    def resize_map_dialog(self):
+        """Okno dialogowe do zmiany rozmiaru mapy."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Zmień rozmiar mapy")
+        dialog.geometry("400x300")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        current_cols = self.config.get("grid_cols", 56)
+        current_rows = self.config.get("grid_rows", 40)
+        
+        # Informacja o aktualnym rozmiarze
+        tk.Label(dialog, text=f"Aktualny rozmiar: {current_cols}×{current_rows} heksów",
+                 font=("Arial", 10, "bold")).pack(pady=10)
+        
+        # Predefiniowane rozmiary
+        presets_frame = tk.Frame(dialog)
+        presets_frame.pack(pady=10)
+        
+        tk.Label(presets_frame, text="Predefiniowane rozmiary:", font=("Arial", 9, "bold")).grid(row=0, column=0, columnspan=4, pady=5)
+        
+        cols_var = tk.StringVar(value=str(current_cols))
+        rows_var = tk.StringVar(value=str(current_rows))
+        
+        def apply_preset(cols, rows):
+            cols_var.set(str(cols))
+            rows_var.set(str(rows))
+        
+        preset_configs = [
+            ("Małe (20×15)", 20, 15),
+            ("Średnie (40×30)", 40, 30),
+            ("Standardowe (56×40)", 56, 40),
+            ("Duże (80×60)", 80, 60),
+        ]
+        
+        for i, (name, cols, rows) in enumerate(preset_configs):
+            btn = tk.Button(presets_frame, text=name, 
+                            command=lambda c=cols, r=rows: apply_preset(c, r),
+                            bg="saddlebrown", fg="white", width=15, font=("Arial", 8))
+            btn.grid(row=1+(i//2), column=i%2, padx=5, pady=2)
+        
+        # Ramka na pola wprowadzania
+        input_frame = tk.Frame(dialog)
+        input_frame.pack(pady=15)
+        
+        tk.Label(input_frame, text="Własne wymiary:", font=("Arial", 9, "bold")).grid(row=0, column=0, columnspan=2, pady=5)
+        
+        tk.Label(input_frame, text="Kolumny:").grid(row=1, column=0, padx=5, sticky="e")
+        cols_entry = tk.Entry(input_frame, textvariable=cols_var, width=8)
+        cols_entry.grid(row=1, column=1, padx=5, sticky="w")
+        cols_entry.bind('<Return>', lambda e: apply_resize())
+        
+        tk.Label(input_frame, text="Wiersze:").grid(row=2, column=0, padx=5, sticky="e")
+        rows_entry = tk.Entry(input_frame, textvariable=rows_var, width=8)
+        rows_entry.grid(row=2, column=1, padx=5, sticky="w")
+        rows_entry.bind('<Return>', lambda e: apply_resize())
+        
+        # Informacja o automatycznym skalowaniu
+        warning_label = tk.Label(dialog, text="ℹ️ Uwaga: Obraz tła zostanie automatycznie przeskalowany\ndo rozmiaru wybranej siatki heksów.",
+                              fg="blue", font=("Arial", 9))
+        warning_label.pack(pady=10)
+        
+        # Przyciski akcji
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(fill=tk.X, pady=15, padx=20)
+        
+        def apply_resize():
+            try:
+                new_cols = int(cols_var.get())
+                new_rows = int(rows_var.get())
+                
+                if new_cols <= 0 or new_rows <= 0:
+                    messagebox.showerror("Błąd", "Wymiary muszą być dodatnie!")
+                    return
+                
+                if new_cols > 200 or new_rows > 200:
+                    if not messagebox.askyesno("Ostrzeżenie wydajności", 
+                                           f"Bardzo duży rozmiar ({new_cols}×{new_rows}) może wpływać na wydajność.\nKontynuować?"):
+                        return
+                    
+                # Ostrzeżenie jeśli zmniejszamy mapę
+                if new_cols < current_cols or new_rows < current_rows:
+                    if not messagebox.askyesno("Ostrzeżenie", 
+                                           "Zmniejszenie rozmiaru może spowodować utratę danych poza nowymi granicami.\nKontynuować?"):
+                        return
+                
+                # Aktualizacja konfiguracji
+                self.config["grid_cols"] = new_cols
+                self.config["grid_rows"] = new_rows
+                
+                # Automatyczne skalowanie tła (zawsze)
+                scaling_success = self.scale_background_image_if_needed(new_cols, new_rows)
+                
+                # Usuń dane poza granicami jeśli zmniejszamy mapę
+                removed_summary = ""
+                if new_cols < current_cols or new_rows < current_rows:
+                    removed = self.clean_out_of_bounds_data()
+                    if any(removed.values()):
+                        removed_summary = f"\n\nUsunięto elementy poza granicami:"
+                        if removed['terrain']: removed_summary += f"\n• Tereny: {removed['terrain']}"
+                        if removed['tokens']: removed_summary += f"\n• Żetony: {removed['tokens']}"
+                        if removed['key_points']: removed_summary += f"\n• Punkty kluczowe: {removed['key_points']}"
+                        if removed['spawn_points']: removed_summary += f"\n• Punkty wystawienia: {removed['spawn_points']}"
+                
+                # Przerysowanie siatki
+                self.draw_grid()
+                
+                # Automatyczny zapis nowej konfiguracji
+                if self.auto_save_enabled:
+                    self.auto_save_and_export("resize_map")
+                
+                # Przygotowanie komunikatu o wyniku
+                success_msg = f"Rozmiar mapy zmieniony na {new_cols}×{new_rows}."
+                if scaling_success:
+                    success_msg += f"\n\n✅ Obraz tła został automatycznie przeskalowany."
+                else:
+                    success_msg += f"\n\n⚠️ Uwaga: Wystąpił problem z automatycznym skalowaniem tła."
+                success_msg += removed_summary
+                
+                dialog.destroy()
+                messagebox.showinfo("Sukces", success_msg)
+                
+            except ValueError:
+                messagebox.showerror("Błąd", "Wymiary muszą być liczbami całkowitymi!")
+                
+        tk.Button(button_frame, text="Zastosuj", command=apply_resize, 
+                  bg="green", fg="white", width=12).pack(side=tk.LEFT, padx=10)
+        tk.Button(button_frame, text="Anuluj", command=dialog.destroy, 
+                  bg="red", fg="white", width=12).pack(side=tk.RIGHT, padx=10)
 
     def open_map_and_data(self):
         """Otwiera mapę i wczytuje dane."""
