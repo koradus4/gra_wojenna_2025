@@ -20,6 +20,7 @@ Przykłady:
     python backup/backup_push_github.py                         # jednorazowy push
     python backup/backup_push_github.py -m "Fix ruch"           # własny komunikat
     python backup/backup_push_github.py -n "map_editor_fix"     # własna nazwa (doda do komunikatu)
+    python backup/backup_push_github.py -i                      # tryb interaktywny (pyta o nazwę)
     python backup/backup_push_github.py -b main                 # wymuszenie gałęzi
     python backup/backup_push_github.py --watch                 # ciągłe monitorowanie
     python backup/backup_push_github.py --watch --interval 30 --min-gap 90 -n "dev_session"
@@ -54,6 +55,7 @@ def parse_args():
     ap.add_argument('-b','--branch', help='Gałąź do push (domyślnie aktualna)')
     ap.add_argument('-m','--message', help='Własny komunikat commita')
     ap.add_argument('-n','--name', help='Nazwa backupu (doda się do komunikatu)')
+    ap.add_argument('-i','--interactive', action='store_true', help='Tryb interaktywny - pyta o nazwę/komunikat')
     ap.add_argument('--force', action='store_true', help='Wymuś push (git push --force-with-lease)')
     ap.add_argument('--force-push', action='store_true', help='Wymuś push nawet bez zmian')
     ap.add_argument('--watch', action='store_true', help='Tryb ciągłego monitorowania i automatycznych pushy')
@@ -237,6 +239,21 @@ def main():
     remotes = sh('git remote -v')
     if expected and expected not in (remotes.stdout or ''):
         print(f"⚠️ Ostrzeżenie: remote nie zawiera ciągu '{expected}'")
+
+    # Tryb interaktywny - pytaj o nazwę/komunikat
+    if args.interactive and not args.message and not args.name and not args.watch:
+        try:
+            print("💬 Tryb interaktywny:")
+            user_message = input("   Komunikat commita (Enter dla auto): ").strip()
+            if user_message:
+                args.message = user_message
+            else:
+                user_name = input("   Nazwa backupu (Enter dla domyślnej): ").strip()
+                if user_name:
+                    args.name = user_name
+        except KeyboardInterrupt:
+            print("\n👋 Anulowano przez użytkownika")
+            return 0
 
     if args.watch:
         return watch_loop(args)

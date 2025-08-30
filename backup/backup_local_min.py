@@ -13,6 +13,7 @@ Usprawnienia:
 Przykłady:
     python backup/backup_local_min.py                           # Standardowy backup
     python backup/backup_local_min.py -n "przed_refaktorem"     # Z własną nazwą
+    python backup/backup_local_min.py -i                        # Tryb interaktywny (pyta o nazwę)
     python backup/backup_local_min.py -o D:/backups -n "fix"    # Własny katalog i nazwa
 """
 import os, shutil, sys, time
@@ -48,10 +49,22 @@ def parse_args():
     ap = argparse.ArgumentParser(description='Lokalny backup projektu')
     ap.add_argument('-o','--output', help='Katalog bazowy backup (domyślnie ENV BACKUP_LOCAL_DIR lub C:/Users/klif/gra_wojenna_backups)')
     ap.add_argument('-n','--name', help='Własna nazwa backupu (doda się do timestamp)')
+    ap.add_argument('-i','--interactive', action='store_true', help='Tryb interaktywny - pyta o nazwę')
     return ap.parse_args()
 
 def main():
     args = parse_args()
+    
+    # Tryb interaktywny - pytaj o nazwę
+    if args.interactive and not args.name:
+        try:
+            user_name = input("💬 Podaj nazwę backupu (lub Enter dla domyślnej): ").strip()
+            if user_name:
+                args.name = user_name
+        except KeyboardInterrupt:
+            print("\n👋 Anulowano przez użytkownika")
+            return 0
+    
     project_root = Path(__file__).parent.parent.resolve()
     base_output = (
         Path(args.output).expanduser() if args.output else
