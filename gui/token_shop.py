@@ -5,13 +5,24 @@ import os
 from pathlib import Path
 from PIL import ImageFont
 from edytory.token_editor_prototyp import create_flag_background
-from core.unit_factory import (
-    compute_unit_stats,
-    build_label_and_full_name,
-    SUPPORT_UPGRADES,
+
+"""TokenShop – zmodernizowany do korzystania z centralnego balansu (balance.model).
+
+Usuwa zależność od legacy core.unit_factory (pozostawione tylko minimalne fallbacki w razie braku modułu balansu)."""
+from balance.model import (
+    compute_token,
+    build_unit_names,
     ALLOWED_SUPPORT,
-    TRANSPORT_TYPES,
+    UPGRADES as SUPPORT_UPGRADES,
 )
+
+# Transporty – w nowym systemie wykrywane przez dodatni movement_delta > 0 i nazwy znane
+TRANSPORT_TYPES = [
+    "przodek dwukonny",
+    "sam. ciezarowy Fiat 621",
+    "sam.ciezarowy Praga Rv",
+    "ciagnik altyleryjski",
+]
 import traceback
 
 class TokenShop(tk.Toplevel):
@@ -26,7 +37,7 @@ class TokenShop(tk.Toplevel):
         self.unit_size = tk.StringVar(value="Pluton")
         self.selected_supports = set()
         self.selected_transport = tk.StringVar(value="")
-        # Jedno źródło prawdy – odwołania do unit_factory
+        # Jedno źródło prawdy – centralny balans
         self.transport_types = TRANSPORT_TYPES
         self.support_upgrades = SUPPORT_UPGRADES
         self.allowed_support = ALLOWED_SUPPORT
@@ -225,42 +236,41 @@ class TokenShop(tk.Toplevel):
 
     def update_unit_names(self):
         # Użyj wspólnej fabryki (uniknięcie duplikacji)
-        data = build_label_and_full_name(
+        data = build_unit_names(
             self.nation.get(),
             self.unit_type.get(),
             self.unit_size.get(),
-            self.selected_commander.get(),
         )
-        self.unit_label_var.set(data["label"])
-        self.unit_full_name_var.set(data["unit_full_name"])
+        self.unit_label_var.set(data["label"])  # unified
+        self.unit_full_name_var.set(data["unit_full_name"])  # identyczne gdy UNIFIED_LABELS=True
 
     def update_stats(self):
-        # Nowa implementacja: używa compute_unit_stats z unit_factory (spójność z AI)
+        """Przelicza statystyki wg centralnego modelu i odświeża GUI."""
         ut = self.unit_type.get()
         size = self.unit_size.get()
-        # Zbierz wybrane wsparcia (transport pierwszy jeśli jest)
-        supports = []
-        transport = None
-        for t in self.transport_types:
-            if t in self.support_vars and self.support_vars[t].get():
-                transport = t
-                supports.append(t)
-                break
-        for sup, var in self.support_vars.items():
-            if var.get() and sup not in supports:
-                supports.append(sup)
-        stats_obj = compute_unit_stats(ut, size, supports)
-        # Aktualizacja GUI
-        self.stats_labels["Ruch"].config(text=str(stats_obj.move))
-        self.stats_labels["Zasięg ataku"].config(text=str(stats_obj.attack_range))
-        self.stats_labels["Siła ataku"].config(text=str(stats_obj.attack_value))
-        self.stats_labels["Wartość bojowa"].config(text=str(stats_obj.combat_value))
-        self.stats_labels["Obrona"].config(text=str(stats_obj.defense_value))
-        self.stats_labels["Utrzymanie"].config(text=str(stats_obj.maintenance))
-        self.stats_labels["Cena"].config(text=str(stats_obj.price))
-        self.stats_labels["Zasięg widzenia"].config(text=str(stats_obj.sight))
-        self.buy_btn.config(state="normal" if self.points_var.get() >= stats_obj.price else "disabled")
-        self.current_stats = dict(ruch=stats_obj.move, zasieg=stats_obj.attack_range, atak=stats_obj.attack_value, combat=stats_obj.combat_value, obrona=stats_obj.defense_value, maintenance=stats_obj.maintenance, cena=stats_obj.price, sight=stats_obj.sight, supports=supports)
+        supports = [sup for sup, var in self.support_vars.items() if var.get()]
+        comp = compute_token(ut, size, self.nation.get(), supports, quality='standard')
+        ruch = comp.movement
+        zasieg = comp.attack_range
+        atak = comp.attack_value
+        combat = comp.combat_value
+        obrona = comp.defense_value
+        maintenance = comp.maintenance
+        cena = comp.total_cost
+        sight = comp.sight
+        self.stats_labels["Ruch"].config(text=str(ruch))
+        self.stats_labels["Zasięg ataku"].config(text=str(zasieg))
+        self.stats_labels["Siła ataku"].config(text=str(atak))
+        self.stats_labels["Wartość bojowa"].config(text=str(combat))
+        self.stats_labels["Obrona"].config(text=str(obrona))
+        self.stats_labels["Utrzymanie"].config(text=str(maintenance))
+        self.stats_labels["Cena"].config(text=str(cena))
+        self.stats_labels["Zasięg widzenia"].config(text=str(sight))
+        self.buy_btn.config(state="normal" if self.points_var.get() >= cena else "disabled")
+        self.current_stats = dict(
+            ruch=ruch, zasieg=zasieg, atak=atak, combat=combat, obrona=obrona,
+            maintenance=maintenance, cena=cena, sight=sight, supports=supports
+        )
         self.update_token_preview()
 
     def update_token_preview(self):
@@ -384,6 +394,7 @@ class TokenShop(tk.Toplevel):
             "price": cena,
             "sight": self.current_stats["sight"],
             "owner": f"{dowodca_id}",
+            "support_upgrades": self.current_stats.get("supports", []),
             "image": rel_img_path,
             "w": 240,
             "h": 240

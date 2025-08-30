@@ -119,7 +119,13 @@ class UnitStats:
 
 
 def compute_unit_stats(unit_type: str, unit_size: str, supports: Optional[List[str]] = None) -> UnitStats:
-    """Oblicza statystyki jednostki na podstawie baz i listy wsparć.
+    """[DEPRECATED] Legacy algorytm (używany tylko jako fallback w GUI).
+
+    PRZENIESIONE do balance.model.compute_token – nowe GUI / AI / testy powinny korzystać
+    wyłącznie z centralnego modelu. Ten kod zostanie usunięty po migracji wszystkich
+    odniesień. Zachowany tymczasowo aby nie przerwać istniejących zapisanych scenariuszy.
+
+    Oblicza statystyki jednostki na podstawie baz i listy wsparć.
 
     Zasady (wierne token_shop.update_stats):
       1. Bazowe wartości z tabel.

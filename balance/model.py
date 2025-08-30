@@ -49,6 +49,23 @@ DOCTRINES = {
     "Niemcy": {"quality_bias": 0.02, "attack_bonus": 0.03, "defense_bonus": 0.00, "combat_bonus": 0.02},
 }
 
+# Dozwolone wsparcia (przeniesione z core.unit_factory aby uniezależnić GUI od legacy modułu)
+# Używane przez: TokenShop (po migracji), edytory, AI (walidacja planów zakupów)
+ALLOWED_SUPPORT = {
+    "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
+    "K": ["sekcja ckm"],
+    "TC": ["obserwator"],
+    "TŚ": ["obserwator"],
+    "TL": ["obserwator"],
+    "TS": ["obserwator"],
+    "AC": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
+    "AL": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
+    "AP": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "ciagnik altyleryjski", "obserwator"],
+    "Z": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "obserwator"],
+    "D": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
+    "G": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
+}
+
 _BALANCE_RANDOM = random.Random()
 
 def set_balance_seed(seed: int):
@@ -72,12 +89,16 @@ UNIT_TYPE_FULL = {
 
 UNIT_SIZE_SYMBOL = {"Pluton": "***", "Kompania": "I", "Batalion": "II"}
 
+UNIFIED_LABELS = True  # gdy True: label == unit_full_name (upraszcza spójność)
+
 def build_unit_names(nation: str, unit_type: str, unit_size: str) -> dict:
     full_type = UNIT_TYPE_FULL.get(unit_type, unit_type)
     symbol = UNIT_SIZE_SYMBOL.get(unit_size, "")
     full_name = f"{nation} {full_type} {unit_size} {symbol}".strip()
-    label = full_name  # domyślnie to samo; GUI może podmienić
-    return {"label": label, "unit_full_name": full_name}
+    # Krótka etykieta techniczna (opcjonalna) – np. PL_P_Plu
+    short_label = f"{nation[:2].upper()}_{unit_type}_{unit_size[:3]}".replace("Ś", "S").replace("ł", "l")
+    label = full_name if UNIFIED_LABELS else short_label
+    return {"label": label, "unit_full_name": full_name, "short_label": short_label}
 
 @dataclass
 class ComputedStats:
@@ -187,6 +208,22 @@ def compute_token(unit_type: str, unit_size: str, nation: str, upgrades: Optiona
         total_cost=total_cost,
         applied_upgrades=list(upgrades),
     )
+
+
+# --- Funkcje pomocnicze dla GUI / testów ---
+def to_display_dict(comp: ComputedStats) -> dict:
+    """Zwraca słownik w formacie przyjaznym GUI sklepu/edytora."""
+    return {
+        "move": comp.movement,
+        "attack_range": comp.attack_range,
+        "attack_value": comp.attack_value,
+        "combat_value": comp.combat_value,
+        "defense_value": comp.defense_value,
+        "maintenance": comp.maintenance,
+        "price": comp.total_cost,
+        "sight": comp.sight,
+        "applied_upgrades": list(comp.applied_upgrades),
+    }
 
 # Prosty test manualny
 if __name__ == "__main__":
