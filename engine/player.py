@@ -69,6 +69,7 @@ class Player:
         self.visible_tokens = set()  # ID żetonów widocznych dla gracza
         self.temp_visible_hexes = set()  # Heksy odkryte tymczasowo w tej turze
         self.temp_visible_tokens = set()  # Żetony przeciwnika widoczne tymczasowo w tej turze
+        self.temp_visible_token_data = {}  # Metadane detection_level dla temp_visible_tokens
 
         # --- PUNKTY ZWYCIĘSTWA (VP) ---
         self.victory_points = 0
@@ -114,6 +115,7 @@ class Player:
             'visible_tokens': [list(x) if isinstance(x, tuple) else x for x in self.visible_tokens],
             'temp_visible_hexes': [list(x) if isinstance(x, tuple) else x for x in self.temp_visible_hexes],
             'temp_visible_tokens': [list(x) if isinstance(x, tuple) else x for x in self.temp_visible_tokens],
+            'temp_visible_token_data': self.temp_visible_token_data,
         }
 
     def __str__(self):

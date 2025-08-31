@@ -1,4 +1,5 @@
 import tkinter as tk
+from engine.detection_filter import apply_detection_filter
 
 __all__ = ["TokenInfoPanel"]
 
@@ -38,6 +39,37 @@ class TokenInfoPanel(tk.Frame):
             for key in self.labels:
                 self.labels[key].config(text=f"{key.capitalize()}: -")
             return
+
+        # Sprawdź czy to token wroga i jakim poziomem detekcji go widzimy
+        detection_level = 1.0  # Domyślnie pełne informacje dla własnych tokenów
+        is_enemy = False
+        
+        if hasattr(self, 'player') and hasattr(token, 'owner'):
+            # Sprawdź czy to token wroga
+            player_nation = getattr(self.player, 'nation', '')
+            token_nation = token.stats.get('nation', '')
+            
+            if player_nation and token_nation and player_nation != token_nation:
+                is_enemy = True
+                # Pobierz detection_level z player.temp_visible_token_data
+                if hasattr(self.player, 'temp_visible_token_data'):
+                    token_data = self.player.temp_visible_token_data.get(token.id, {})
+                    detection_level = token_data.get('detection_level', 0.0)
+                else:
+                    detection_level = 0.0
+        
+        # Jeśli to wróg, zastosuj filtr detekcji
+        if is_enemy and detection_level < 1.0:
+            filtered_info = apply_detection_filter(token, detection_level)
+            self._show_filtered_token(filtered_info, detection_level)
+        else:
+            # Pokaż pełne informacje dla własnych tokenów lub pełnej detekcji
+            self._show_full_token(token)
+
+    def _show_full_token(self, token):
+        """Wyświetl pełne informacje o tokenie"""
+    def _show_full_token(self, token):
+        """Wyświetl pełne informacje o tokenie"""
         nation = token.stats.get('nation', '-')
         # Dodaj informację o właścicielu/dowódcy w formacie 'Dowódca X'
         owner_info = ''
@@ -98,6 +130,49 @@ class TokenInfoPanel(tk.Frame):
                 self.labels['price'].config(text=f"Wartość VP: {price}")
         elif 'price' in self.labels:
             self.labels['price'].config(text="Wartość VP: -")
+
+    def _show_filtered_token(self, filtered_info, detection_level):
+        """Wyświetl przefiltrowane informacje o wrogu na podstawie detection_level"""
+        info_quality = filtered_info.get('info_quality', 'MINIMAL')
+        
+        # Podstawowe info - zawsze widoczne
+        token_id = filtered_info.get('id', 'UNKNOWN')
+        nation = filtered_info.get('nation', '???')
+        unit_type = filtered_info.get('type', 'KONTAKT')
+        combat_value = filtered_info.get('combat_value', '???')
+        
+        # Nacja label z poziomem pewności
+        certainty = f"(Pewność: {detection_level:.0%})"
+        nation_label = f"Nacja: {nation} {certainty}"
+        
+        # Jednostka z oznaczeniem jakości detekcji
+        quality_prefix = {
+            'FULL': 'Zidentyfikowany:',
+            'PARTIAL': 'Prawdopodobnie:',
+            'MINIMAL': 'Nieznany kontakt:'
+        }.get(info_quality, '')
+        
+        unit_label = f"Jednostka: {quality_prefix} {unit_type}"
+        
+        # Ukryj szczegółowe informacje dla wrogów
+        self.labels["nacja"].config(text=nation_label)
+        self.labels["jednostka"].config(text=unit_label)
+        self.labels["punkty_ruchu"].config(text="Punkty ruchu: ???")
+        self.labels["wartość_obrony"].config(text="Wartość obrony: ???")
+        self.labels["tryb_ruchu"].config(text="Tryb ruchu: ???")
+        self.labels["paliwo"].config(text="Paliwo: ???")
+        self.labels["zasięg_widzenia"].config(text="Zasięg widzenia: ???")
+        self.labels["wartość_bojowa"].config(text=f"Zasoby bojowe: {combat_value}")
+        self.labels["zasięg_ataku"].config(text="Zasięg ataku: ???")
+        self.labels["siła_ataku"].config(text="Siła ataku: ???")
+        
+        # Ukryj ceny dla wrogów
+        if 'price' in self.labels:
+            self.labels['price'].config(text="Wartość VP: ???")
+
+    def set_player(self, player):
+        """Ustaw gracza dla tego panelu (potrzebne do sprawdzania detection_level)"""
+        self.player = player
 
     def clear(self):
         # Czyści wszystkie etykiety panelu do wartości domyślnych

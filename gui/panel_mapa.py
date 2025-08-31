@@ -62,6 +62,9 @@ class PanelMapa(tk.Frame):
         try:
             if hasattr(self.game_engine, 'current_player_obj') and getattr(self.game_engine.current_player_obj, 'role', None) in ('Generał', 'Dowódca'):
                 self.player = self.game_engine.current_player_obj
+                # Przekaż player do token_info_panel dla detection_level
+                if self.token_info_panel and hasattr(self.token_info_panel, 'set_player'):
+                    self.token_info_panel.set_player(self.player)
                 self._setup_hover_binding()
         except Exception:
             pass
@@ -195,6 +198,9 @@ class PanelMapa(tk.Frame):
         """Synchronizuje self.player z aktualnym obiektem gracza z silnika gry."""
         if hasattr(self.game_engine, 'current_player_obj'):
             self.player = self.game_engine.current_player_obj
+            # Przekaż player do token_info_panel dla detection_level
+            if self.token_info_panel and hasattr(self.token_info_panel, 'set_player'):
+                self.token_info_panel.set_player(self.player)
 
     def _draw_hex_grid(self):
         self._sync_player_from_engine()
@@ -315,14 +321,10 @@ class PanelMapa(tk.Frame):
         for token in tokens:
             # USUNIĘTO DEBUGI
             if token.q is not None and token.r is not None:
-                img_path = token.stats.get("image")
+                # Określ ścieżkę do obrazu na podstawie detection_level dla wrogów
+                img_path = self._get_token_image_path(token)
                 if not img_path:
-                    nation = token.stats.get('nation', '')
-                    img_path = f"assets/tokens/{nation}/{token.id}/token.png"
-                if not os.path.exists(img_path):
-                    img_path = "assets/tokens/default/token.png" if os.path.exists("assets/tokens/default/token.png") else None
-                    if not img_path:
-                        continue
+                    continue
                 try:
                     img = Image.open(img_path)
                     # SKALOWANIE ŻETONÓW: bazowo 40x40; lekkie powiększenie o ~10% (wcześniej 30%).
@@ -341,6 +343,28 @@ class PanelMapa(tk.Frame):
                             alpha = img.split()[-1]  # Pobierz kanał alfa
                             alpha = alpha.point(lambda p: int(p * 0.4))  # 40% przezroczystości
                             img.putalpha(alpha)
+                    
+                    # Zastosuj przezroczystość na podstawie detection_level dla tokenów wroga
+                    if hasattr(self, 'player') and hasattr(token, 'owner'):
+                        player_nation = getattr(self.player, 'nation', '')
+                        token_nation = token.stats.get('nation', '')
+                        
+                        if player_nation and token_nation and player_nation != token_nation:
+                            # To jest token wroga - sprawdź detection_level
+                            detection_level = 1.0  # Domyślnie pełna widoczność
+                            
+                            if hasattr(self.player, 'temp_visible_token_data'):
+                                token_data = self.player.temp_visible_token_data.get(token.id, {})
+                                detection_level = token_data.get('detection_level', 0.0)
+                            
+                            # Zastosuj przezroczystość na podstawie detection_level
+                            if detection_level < 1.0:
+                                img = img.convert("RGBA")
+                                alpha = img.split()[-1]  # Pobierz kanał alfa
+                                # Przezroczystość: 0.4-1.0 na podstawie detection_level
+                                opacity = 0.4 + (detection_level * 0.6)
+                                alpha = alpha.point(lambda p: int(p * opacity))
+                                img.putalpha(alpha)
                     
                     tk_img = ImageTk.PhotoImage(img)
                     x, y = self.map_model.hex_to_pixel(token.q, token.r)
@@ -372,6 +396,55 @@ class PanelMapa(tk.Frame):
         # Kod spełnia wymagania: synchronizacja żetonów, tagowanie, poprawna mgiełka i widoczność.
         # Po narysowaniu żetonów zaktualizuj markery statusu ruchu
         self._refresh_move_status_markers()
+
+    def _get_token_image_path(self, token):
+        """Zwraca ścieżkę do obrazu tokena z uwzględnieniem detection_level dla wrogów"""
+        # Sprawdź czy to token wroga
+        if hasattr(self, 'player') and hasattr(token, 'owner'):
+            player_nation = getattr(self.player, 'nation', '')
+            token_nation = token.stats.get('nation', '')
+            
+            if player_nation and token_nation and player_nation != token_nation:
+                # To jest token wroga - sprawdź detection_level
+                detection_level = 1.0
+                
+                if hasattr(self.player, 'temp_visible_token_data'):
+                    token_data = self.player.temp_visible_token_data.get(token.id, {})
+                    detection_level = token_data.get('detection_level', 0.0)
+                
+                # Wybierz odpowiednią ikonę na podstawie detection_level
+                if detection_level >= 0.8:
+                    # Pełna identyfikacja - standardowa ikona
+                    pass  # Użyj standardowej logiki poniżej
+                elif detection_level >= 0.5:
+                    # Częściowa identyfikacja - generyczna ikona kategorii
+                    unit_type = token.stats.get('type', 'unknown')
+                    if 'tank' in unit_type.lower():
+                        generic_path = "assets/tokens/generic/tank_contact.png"
+                    elif 'infantry' in unit_type.lower():
+                        generic_path = "assets/tokens/generic/infantry_contact.png"
+                    elif 'artillery' in unit_type.lower():
+                        generic_path = "assets/tokens/generic/artillery_contact.png"
+                    else:
+                        generic_path = "assets/tokens/generic/unknown_contact.png"
+                    
+                    if os.path.exists(generic_path):
+                        return generic_path
+                else:
+                    # Minimalna informacja - ikona nieznany kontakt
+                    unknown_path = "assets/tokens/generic/unknown_contact.png"
+                    if os.path.exists(unknown_path):
+                        return unknown_path
+        
+        # Standardowa logika dla własnych tokenów lub pełnej detekcji
+        img_path = token.stats.get("image")
+        if not img_path:
+            nation = token.stats.get('nation', '')
+            img_path = f"assets/tokens/{nation}/{token.id}/token.png"
+        if not os.path.exists(img_path):
+            img_path = "assets/tokens/default/token.png" if os.path.exists("assets/tokens/default/token.png") else None
+        
+        return img_path
 
     def _refresh_move_status_markers(self):
         """WYŁĄCZONE: nie rysuj kropek statusu ruchu. Czyść tylko ewentualne stare markery."""
