@@ -4,6 +4,14 @@ import json, os, math, shutil, sys
 from PIL import Image, ImageDraw, ImageTk, ImageFont
 from pathlib import Path
 
+# Import centralnego systemu balansu
+from balance.model import (
+    compute_token, 
+    build_unit_names,
+    UPGRADES as SUPPORT_UPGRADES,
+    ALLOWED_SUPPORT
+)
+
 # ───────── SCIEŻKI WZGLĘDNE ─────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent  # katalog główny repo
 ASSET_ROOT   = PROJECT_ROOT / "assets"
@@ -150,115 +158,20 @@ class TokenEditor:
             "G__Pluton": 2, "G__Kompania": 6, "G__Batalion": 12
         }
 
-        # Dodanie modyfikatorów obrony do wsparć
-        self.support_upgrades = {
-            "drużyna granatników": {
-                "movement": -1,
-                "range": 1,
-                "attack": 2,
-                "combat": 0,
-                "unit_maintenance": 1,
-                "purchase": 10,
-                "defense": 1
-            },
-            "sekcja km.ppanc": {
-                "movement": -1,
-                "range": 1,
-                "attack": 2,
-                "combat": 0,
-                "unit_maintenance": 2,
-                "purchase": 10,
-                "defense": 2
-            },
-            "sekcja ckm": {
-                "movement": -1,
-                "range": 1,
-                "attack": 2,
-                "combat": 0,
-                "unit_maintenance": 2,
-                "purchase": 10,
-                "defense": 2
-            },
-            "przodek dwukonny": {
-                "movement": 2,
-                "range": 0,
-                "attack": 0,
-                "combat": 0,
-                "unit_maintenance": 1,
-                "purchase": 5,
-                "defense": 0
-            },
-            "sam. ciezarowy Fiat 621": {
-                "movement": 5,
-                "range": 0,
-                "attack": 0,
-                "combat": 0,
-                "unit_maintenance": 3,
-                "purchase": 8,
-                "defense": 0
-            },
-            "sam.ciezarowy Praga Rv": {
-                "movement": 5,
-                "range": 0,
-                "attack": 0,
-                "combat": 0,
-                "unit_maintenance": 3,
-                "purchase": 8,
-                "defense": 0
-            },
-            "ciagnik altyleryjski": {
-                "movement": 3,
-                "range": 0,
-                "attack": 0,
-                "combat": 0,
-                "unit_maintenance": 4,
-                "purchase": 12,
-                "defense": 0
-            },
-            "obserwator": {
-                "movement": 0,
-                "range": 0,
-                "attack": 0,
-                "combat": 0,
-                "unit_maintenance": 1,
-                "purchase": 5,
-                "defense": 0
-            }
-        }
-        self.selected_support = tk.StringVar(value="")  # Przechowuje wybrane wsparcie
-
-        # Dodajemy słownik określający dozwolone wsparcie dla każdego typu jednostki        
-        self.allowed_support = {
-            "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
-                 "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
-            "K": ["sekcja ckm"],
-            "TC": ["obserwator"],
-            "TŚ": ["obserwator"],
-            "TL": ["obserwator"],
-            "TS": ["obserwator"],
-            "AC": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc",
-                  "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", 
-                  "ciagnik altyleryjski", "obserwator"],
-            "AL": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc",
-                  "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv",
-                  "ciagnik altyleryjski", "obserwator"],
-            "AP": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc",
-                  "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv",
-                  "ciagnik altyleryjski", "obserwator"],
-            "Z": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "obserwator"],
-            "D": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
-                 "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
-            "G": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
-                 "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"]
-        }
+        # UŻYWAMY CENTRALNEGO SYSTEMU BALANSU ZAMIAST LOKALNYCH DEFINICJI
+        self.support_upgrades = SUPPORT_UPGRADES
+        self.allowed_support = ALLOWED_SUPPORT
+        
+        # Określ transporty (te z dodatnim movement_delta)
+        self.transport_types = [
+            name for name, data in SUPPORT_UPGRADES.items() 
+            if data.get("movement_delta", 0) > 0
+        ]
 
         # Te atrybuty muszą być zainicjowane PRZED wywołaniem update_numeric_fields()
         self.selected_supports = set()  # Zbiór dla wielu wybranych wsparć
         self.selected_transport = tk.StringVar(value="")  # Dla pojedynczego transportu
-        self.transport_types = ["przodek dwukonny", "sam. ciezarowy Fiat 621", 
-                              "sam.ciezarowy Praga Rv", "ciagnik altyleryjski"]
-        
-        self.selected_support = tk.StringVar(value="")  # Stary atrybut - można usunąć później
+        self.selected_support = tk.StringVar(value="")  # Zachowane dla kompatybilności
         
         self.update_numeric_fields()  # Teraz to wywołanie będzie działać poprawnie
 
@@ -652,6 +565,38 @@ class TokenEditor:
                 btn.configure(state=tk.DISABLED, bg="gray")
 
     def update_numeric_fields(self):
+        """Aktualizuje pola numeryczne używając centralnego systemu balansu (balance.model)"""
+        try:
+            # Pobierz aktualne ustawienia
+            unit_type = self.unit_type.get()
+            unit_size = self.unit_size.get()
+            nation = self.nation.get()
+            
+            # Zbierz wybrane upgrady
+            upgrades = list(self.selected_supports)
+            if hasattr(self, 'selected_transport') and self.selected_transport.get():
+                upgrades.append(self.selected_transport.get())
+            
+            # Użyj centralnego systemu obliczania
+            computed = compute_token(unit_type, unit_size, nation, upgrades, quality='standard')
+            
+            # Ustaw wartości w polach GUI
+            self.movement_points.set(str(computed.movement))
+            self.attack_range.set(str(computed.attack_range))
+            self.attack_value.set(str(computed.attack_value))
+            self.combat_value.set(str(computed.combat_value))
+            self.defense_value.set(str(computed.defense_value))
+            self.unit_maintenance.set(str(computed.maintenance))
+            self.purchase_value.set(str(computed.total_cost))
+            self.sight_range.set(str(computed.sight))
+            
+        except Exception as e:
+            print(f"Błąd w update_numeric_fields: {e}")
+            # Fallback do starych wartości domyślnych w przypadku błędu
+            self._fallback_update_numeric_fields()
+    
+    def _fallback_update_numeric_fields(self):
+        """Zapasowa metoda używająca starych wartości domyślnych"""
         defaults = {
             "ruch": {
                 "P": "3", "K": "4", 
@@ -1184,7 +1129,6 @@ class TokenEditor:
         unit_symbol = {"Pluton": "***", "Kompania": "I", "Batalion": "II"}.get(unit_size, "")
         # Zastąpione centralną funkcją build_unit_names z balance.model
         try:
-            from balance.model import build_unit_names
             _names = build_unit_names(nation, unit_type, unit_size)
             unit_full_name = _names["unit_full_name"]
             # Jeśli użytkownik nie podał własnej etykiety (user_label == default) synchronizujemy label
@@ -1196,7 +1140,6 @@ class TokenEditor:
         # ---- JSON ----
         # ============= INTEGRACJA BALANSU =============
         try:
-            from balance.model import compute_token
             # Zbierz upgrady z GUI
             upgrades = list(self.selected_supports)
             if getattr(self, 'selected_transport', None) and self.selected_transport.get():

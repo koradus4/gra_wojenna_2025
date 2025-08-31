@@ -29,14 +29,14 @@ SIZE_MULTIPLIER = {"Pluton": 1.0, "Kompania": 1.4, "Batalion": 1.8}
 
 UPGRADES: Dict[str, Dict[str, int]] = {
     # movement_delta może być ujemne lub dodatnie; range_bonus stosujemy najwyższy; reszta kumulacja
-    "drużyna granatników": {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 1, "maintenance_delta": 1, "cost_delta": 10},
-    "sekcja km.ppanc":    {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 2, "maintenance_delta": 2, "cost_delta": 10},
-    "sekcja ckm":         {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 2, "maintenance_delta": 2, "cost_delta": 10},
-    "przodek dwukonny":    {"movement_delta": 2,  "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "maintenance_delta": 1, "cost_delta": 5},
-    "sam. ciezarowy Fiat 621": {"movement_delta": 5, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "maintenance_delta": 3, "cost_delta": 8},
-    "sam.ciezarowy Praga Rv": {"movement_delta": 5, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "maintenance_delta": 3, "cost_delta": 8},
-    "ciagnik altyleryjski": {"movement_delta": 3, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "maintenance_delta": 4, "cost_delta": 12},
-    "obserwator":          {"movement_delta": 0, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "maintenance_delta": 1, "cost_delta": 5},
+    "drużyna granatników": {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 1, "sight_delta": 0, "maintenance_delta": 1, "cost_delta": 10},
+    "sekcja km.ppanc":    {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 2, "sight_delta": 0, "maintenance_delta": 2, "cost_delta": 10},
+    "sekcja ckm":         {"movement_delta": -1, "range_bonus": 1, "attack_delta": 2, "combat_delta": 0, "defense_delta": 2, "sight_delta": 0, "maintenance_delta": 2, "cost_delta": 10},
+    "przodek dwukonny":    {"movement_delta": 2,  "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "sight_delta": 0, "maintenance_delta": 1, "cost_delta": 5},
+    "sam. ciezarowy Fiat 621": {"movement_delta": 5, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "sight_delta": 0, "maintenance_delta": 3, "cost_delta": 8},
+    "sam.ciezarowy Praga Rv": {"movement_delta": 5, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "sight_delta": 0, "maintenance_delta": 3, "cost_delta": 8},
+    "ciagnik altyleryjski": {"movement_delta": 3, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "sight_delta": 0, "maintenance_delta": 4, "cost_delta": 12},
+    "obserwator":          {"movement_delta": 0, "range_bonus": 0, "attack_delta": 0, "combat_delta": 0, "defense_delta": 0, "sight_delta": 2, "maintenance_delta": 1, "cost_delta": 5},
 }
 
 QUALITY_LEVELS = {"low": 0.9, "standard": 1.0, "elite": 1.1}
@@ -168,11 +168,12 @@ def apply_upgrades(stats: Dict[str, int], upgrades: List[str]) -> Dict[str, int]
         final_stats["attack_value"] += data.get("attack_delta", 0)
         final_stats["combat_value"] += data.get("combat_delta", 0)
         final_stats["defense_value"] += data.get("defense_delta", 0)
+        final_stats["sight"] += data.get("sight_delta", 0)  # DODANE: obsługa sight
         max_range_bonus = max(max_range_bonus, data.get("range_bonus", 0))
     if max_range_bonus:
         final_stats["attack_range"] += max_range_bonus
     # bezpieczeństwo
-    for k in ["attack_value", "combat_value", "defense_value", "movement"]:
+    for k in ["attack_value", "combat_value", "defense_value", "movement", "sight"]:
         final_stats[k] = max(1, final_stats[k])
     return final_stats
 
