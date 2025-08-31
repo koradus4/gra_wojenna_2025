@@ -549,6 +549,10 @@ class CombatAction(BaseAction):
         if not valid:
             return ActionResult(False, message)
         
+        # NOWE: Zapisz wykonany atak dla artylerii
+        attack_type = 'reaction' if self.is_reaction else 'normal'
+        attacker.record_attack(attack_type)
+        
         # Zużyj punkty ruchu atakującego
         attacker.currentMovePoints = 0
         
@@ -573,6 +577,16 @@ class CombatAction(BaseAction):
     
     def _validate_combat(self, engine, attacker, defender) -> Tuple[bool, str]:
         """Waliduj możliwość przeprowadzenia walki"""
+        # NOWE: Sprawdź ograniczenia strzałów artylerii
+        attack_type = 'reaction' if self.is_reaction else 'normal'
+        if not attacker.can_attack(attack_type):
+            if attacker.is_artillery():
+                if attack_type == 'normal':
+                    return False, "Artyleria już wystrzeliła w tej turze!"
+                else:
+                    return False, "Artyleria już użyła strzału reakcyjnego!"
+            return False, "Jednostka nie może zaatakować."
+        
         # Sprawdź dystans
         attack_range = attacker.stats.get('attack', {}).get('range', 1)
         distance = engine.board.hex_distance((attacker.q, attacker.r), (defender.q, defender.r))

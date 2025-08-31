@@ -35,6 +35,15 @@ FREE_HIGH_VALUE_BONUS_MULTIPLIER = 2.5  # dodatkowy mno\u017cnik do priorytetu w
 FREE_MED_VALUE_BONUS_MULTIPLIER = 1.6
 HEX_MISSING_LOG_PREFIX = "[AI HEX] HEX_MISSING"
 
+# --- NOWE STAŁE KONTROLI RESUPPLY / RUCHU ---
+# Minimalny przyrost paliwa aby kwalifikować się do drugiego ruchu
+RESUPPLY_SECOND_MOVE_MIN_FUEL_GAIN = 2
+# Docelowy procent paliwa (mid-turn) do którego dążymy zamiast pełnego tankowania
+RESUPPLY_TARGET_FUEL_THRESHOLD = 0.65  # 65%
+# Limit ile razy jednostka może otrzymać resupply (faza1) w jednej turze (poza PRE_TURN)
+RESUPPLY_PER_UNIT_CAP_MID_TURN = 1
+
+
 def enforce_garrison_limits(game_engine, hex_id, kp, newly_arrived_token, ratio):
     """Pilnuj limitu garnizonu i wczesnej rotacji.
     - ratio < EARLY_ROTATION_THRESHOLD_RATIO: utrzymuj max 1 jednostkę
@@ -106,8 +115,30 @@ def opportunistic_capture_phase(game_engine, my_units, player_id):
             return captured
         # Dla każdej jednostki zobacz czy może dotrzeć w 1 turze
         for unit in my_units:
-            if unit.get('mp', 0) <= 0 or unit.get('fuel', 0) <= 0:
-                continue
+            # POPRAWKA: Zamiast pomijać - uzupełnij fuel jeśli brakuje
+            if unit.get('mp', 0) <= 0:
+                continue  # MP = 0 to rzeczywiście koniec akcji
+            if unit.get('fuel', 0) <= 0:
+                # Spróbuj uzupełnić fuel
+                print(f"🔧 [FUEL FIX] {unit.get('id')} ma 0 fuel - próbuję uzupełnić")
+                # Wywołaj tactical_resupply w opportunistic_capture
+                current_player = getattr(game_engine, 'current_player_obj', None)
+                if current_player and hasattr(current_player, 'is_ai_commander'):
+                    commander_ref = getattr(game_engine, 'current_player_commander', None)
+                    if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                        resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                        if resupply_success:
+                            # Odśwież fuel jednostki
+                            unit['fuel'] = getattr(unit.get('token'), 'currentFuel', 0)
+                            print(f"🔧 [RESUPPLY SUCCESS] {unit.get('id')} fuel = {unit['fuel']}")
+                            if unit.get('fuel', 0) <= 0:
+                                continue  # Jeśli nadal 0, to pomiń
+                        else:
+                            continue  # Resupply nieudany
+                    else:
+                        continue  # Brak tactical_resupply
+                else:
+                    continue  # Brak AI commander
             pos = (unit['q'], unit['r'])
             best_target = None
             best_score = 0
@@ -150,6 +181,9 @@ def prioritize_targets(key_points, game_engine):
     all_tokens = getattr(game_engine, 'tokens', [])
     current_player = getattr(game_engine, 'current_player_obj', None)
     my_nation = getattr(current_player, 'nation', '') if current_player else ''
+    # KONFIG: najpierw rozważ lokalne cele, dopiero potem dalsze
+    LOCAL_RADIUS = 12  # hexy
+    DIST_EXPONENT = 1.5  # mocniejsza kara za dystans
 
     for hex_id, kp_data in key_points.items():
         value = kp_data.get('current_value', 0)
@@ -193,8 +227,8 @@ def prioritize_targets(key_points, game_engine):
                 dist = board.hex_distance(target_pos, enemy_pos)
                 enemy_distance = min(enemy_distance, dist)
 
-        # Bazowy wynik
-        priority_score = (value * 10) / max(enemy_distance, 1)
+        # Bazowy wynik z mocniejszą karą dystansu (przybliżenie: im dalej wróg, tym mniej pilne)
+        priority_score = (value * 10) / (max(enemy_distance, 1) ** DIST_EXPONENT)
 
         # Bonus za wolny (nieokupowany) i wysoka wartość
         if not occupied_any:
@@ -215,7 +249,52 @@ def prioritize_targets(key_points, game_engine):
             'free': not occupied_any
         })
 
-    return sorted(priorities, key=lambda x: x['priority'], reverse=True)
+    # Podział na lokalne i dalekie
+    local = []
+    distant = []
+    # Heurystyka: przyjmij środek ciężkości własnych jednostek (jeśli dostępne) aby określić lokalność
+    try:
+        my_tokens = [t for t in all_tokens if my_nation and my_nation in getattr(t, 'owner', '')]
+        if my_tokens:
+            avg_q = sum(getattr(t, 'q', 0) for t in my_tokens) / len(my_tokens)
+            avg_r = sum(getattr(t, 'r', 0) for t in my_tokens) / len(my_tokens)
+            center = (avg_q, avg_r)
+        else:
+            center = (0, 0)
+    except Exception:
+        center = (0, 0)
+
+    if board:
+        for p in priorities:
+            dist_center = board.hex_distance(center, tuple(p['target']))
+            if dist_center <= LOCAL_RADIUS:
+                local.append((p, dist_center))
+            else:
+                distant.append((p, dist_center))
+        # Bonus dla lokalnych: lekki mnożnik odwrotnie proporcjonalny do dystansu od środka
+        boosted = []
+        for p, dc in local:
+            boost = 1 + (max(0, (LOCAL_RADIUS - dc)) / (LOCAL_RADIUS * 3))  # max +33%
+            p['priority'] *= boost
+            boosted.append(p)
+        local = boosted
+        priorities = sorted(local, key=lambda x: x['priority'], reverse=True) + \
+                     sorted([p for p, _ in distant], key=lambda x: x['priority'], reverse=True)
+    else:
+        priorities = sorted(priorities, key=lambda x: x['priority'], reverse=True)
+
+    # --- TEMP LOG (diagnostyka) ---
+    try:
+        if priorities:
+            debug_print("[PRIORIZER] TOP 8 celów (hex value dist score free)")
+            for entry in priorities[:8]:
+                tgt = entry['target']
+                debug_print(f"[P] {tgt} v={entry['value']} d={entry['enemy_distance']} s={round(entry['priority'],2)} free={entry['free']}")
+    except Exception as _e:
+        print(f"[PRIORIZER_LOG_ERR] {_e}")
+    # ------------------------------
+
+    return priorities
 
 
 def adaptive_grouping(my_units, game_engine):
@@ -757,10 +836,17 @@ def get_player_nation(game_engine, player_id):
 
 
 def can_move(unit):
-    """Sprawdź czy jednostka może się ruszyć"""
+    """Sprawdź czy jednostka może się ruszyć - POPRAWIONE"""
     mp = unit.get('mp', 0)
     fuel = unit.get('fuel', 0)
-    return mp > 0 and fuel > 0
+    
+    # POPRAWKA: Jeśli brak fuel, nie odrzucaj jednostki - zwróć False ale pozwól na uzupełnienie
+    can_move_result = mp > 0 and fuel > 0
+    
+    if not can_move_result and fuel <= 0:
+        print(f"🔧 [FUEL CHECK] {unit.get('id', 'UNKNOWN')} - MP:{mp}, Fuel:{fuel} - BRAK PALIWA!")
+    
+    return can_move_result
 
 
 def find_target(unit, game_engine):
@@ -1674,7 +1760,7 @@ def move_towards(unit, target, game_engine):
                         'mp_before': unit.get('mp'),
                         'fuel_before': unit.get('fuel'),
                         'mp_after': getattr(token, 'currentMovePoints', None),
-                        'fuel_after': getattr(token, 'fuel', None),
+                        'fuel_after': getattr(token, 'currentFuel', None),  # POPRAWKA: currentFuel zamiast fuel
                         'decision_reason': reason,
                         'extra_tags': 'garrison' if getattr(token, 'hold_position', False) else None
                     }
@@ -1691,6 +1777,13 @@ def move_towards(unit, target, game_engine):
                     # SPRAWDŹ ATAKI REAKCYJNE PRZECIWNIKÓW - IDENTYCZNA LOGIKA JAK GUI!
                     # Po każdym ruchu AI sprawdź czy ktokolwiek może wykonać reakcję
                     check_ai_reaction_attacks(token, game_engine)
+                    
+                    # KRYTYCZNA POPRAWKA: Aktualizuj unit dict po ruchu
+                    unit['mp'] = getattr(token, 'currentMovePoints', 0)
+                    unit['fuel'] = getattr(token, 'currentFuel', 0)
+                    unit['q'] = getattr(token, 'q', unit['q'])
+                    unit['r'] = getattr(token, 'r', unit['r'])
+                    print(f"🔄 [UNIT UPDATE] {unit['id']}: MP={unit['mp']}, Fuel={unit['fuel']}")
                 else:
                     print(f"[AI Move] ❌ Błąd: {getattr(result, 'message', 'Nieznany błąd')}")
                     
@@ -2394,6 +2487,13 @@ def make_tactical_turn(game_engine, player_id=None):
         if current_player:
             player_nation = getattr(current_player, 'nation', 'Unknown')
         
+        # ===== WAŻNE: USTAW COMMANDER REF NA POCZĄTKU =====
+        # Stwórz AICommander na początku i ustaw jako current_player_commander
+        temp_ai_commander = AICommander(current_player) if current_player else None
+        if temp_ai_commander:
+            game_engine.current_player_commander = temp_ai_commander
+            print(f"🔧 [COMMANDER INIT] Ustawiono current_player_commander dla {player_nation}")
+        
         # LOGUJ POCZĄTEK TURY
         log_commander_action(
             unit_id="TURN_START",
@@ -2455,21 +2555,20 @@ def make_tactical_turn(game_engine, player_id=None):
         adaptive_ai = None
         strategic_plan = None
         try:
-            # Stwórz tymczasową instancję AICommander dla AdaptiveAI
-            temp_ai_commander = AICommander(current_player)
-            adaptive_ai = AdaptiveAICommander(temp_ai_commander)
-            
-            # Wykonaj pełną analizę strategiczną
-            strategic_plan = adaptive_ai.adaptive_strategic_behavior(game_engine)
-            
-            if strategic_plan:
-                print(f"🧠 [ADAPTIVE] Plan strategiczny gotowy: {strategic_plan['state']}")
-                # Ustaw priorytetyzację dla reszty tury
-                if hasattr(game_engine, 'current_player_commander'):
-                    game_engine.current_player_commander = temp_ai_commander
-                    # Przekaż dane adaptacyjne
-                    temp_ai_commander.adaptive_plan = strategic_plan
-                    temp_ai_commander.adaptive_ai = adaptive_ai
+            # Użyj już istniejącego temp_ai_commander
+            if temp_ai_commander:
+                adaptive_ai = AdaptiveAICommander(temp_ai_commander)
+                
+                # Wykonaj pełną analizę strategiczną
+                strategic_plan = adaptive_ai.adaptive_strategic_behavior(game_engine)
+                
+                if strategic_plan:
+                    print(f"🧠 [ADAPTIVE] Plan strategiczny gotowy: {strategic_plan['state']}")
+                    # Ustaw priorytetyzację dla reszty tury
+                    if hasattr(game_engine, 'current_player_commander'):
+                        # Przekaż dane adaptacyjne
+                        temp_ai_commander.adaptive_plan = strategic_plan
+                        temp_ai_commander.adaptive_ai = adaptive_ai
             
         except Exception as e:
             print(f"⚠️ [ADAPTIVE] Błąd systemu adaptacyjnego: {e}")
@@ -2534,7 +2633,29 @@ def make_tactical_turn(game_engine, player_id=None):
         for i, unit in enumerate(my_units):
             unit_name = unit.get('id', f'unit_{i}')
             can_move_result = can_move(unit)
-
+            
+            # NOWE: Jeśli brak fuel - spróbuj uzupełnić
+            if not can_move_result and unit.get('fuel', 0) <= 0:
+                print(f"🔧 [TACTICAL RESUPPLY] {unit_name} potrzebuje paliwa")
+                # Wywołaj tactical_resupply przez commander_ref
+                commander_ref = getattr(game_engine, 'current_player_commander', None)
+                print(f"🔧 [DEBUG] commander_ref: {commander_ref}")
+                if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                    print(f"🔧 [DEBUG] Wywołuję tactical_resupply dla {unit_name}")
+                    resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                    # (Throttled: global LOW_FUEL tylko raz na turę)
+                    print(f"🔧 [DEBUG] tactical_resupply result: {resupply_success}")
+                    if resupply_success:
+                        # Odśwież status jednostki z tokena
+                        token = unit.get('token')
+                        if token:
+                            unit['fuel'] = getattr(token, 'currentFuel', 0)
+                            unit['mp'] = getattr(token, 'currentMovePoints', 0)
+                            can_move_result = can_move(unit)
+                            print(f"🔧 [RESUPPLY SUCCESS] {unit_name} fuel = {unit['fuel']}, mp = {unit['mp']}")
+                else:
+                    print(f"🔧 [RESUPPLY FAILED] Brak commander_ref lub tactical_resupply method")
+            
             if can_move_result:
                 combat_attempted = ai_attempt_combat(unit, game_engine, player_id, player_nation)
                 if combat_attempted:
@@ -2637,6 +2758,41 @@ def make_tactical_turn(game_engine, player_id=None):
                     total_processed += 1
                     unit_name = unit.get('id', f'unit_{total_processed}')
                     can_move_result = can_move(unit)
+                    # --- PERSISTENT TARGET ---
+                    # Jeśli jednostka ma już assigned_target i to nie jest zrealizowane, nadpisz finalny target grupy
+                    at = unit.get('assigned_target')
+                    if at:
+                        # Sprawdź czy cel nadal istnieje w key_points_state
+                        kps = getattr(game_engine, 'key_points_state', {})
+                        at_key = f"{at[0]},{at[1]}"
+                        if at_key not in kps:  # jeśli zniknął (np. usunięty / zdobyty i skreślony) – wyczyść
+                            unit.pop('assigned_target', None)
+                        else:
+                            target = at  # kontynuuj marsz
+                    else:
+                        # Nadaj nowe assigned_target jeśli nie ma i grupa ma target
+                        unit['assigned_target'] = target
+                        print(f"🔒 [PERSIST] {unit_name}: przypisano stały cel {target}")
+                    
+                    # NOWE: Jeśli brak fuel - spróbuj uzupełnić
+                    if not can_move_result and unit.get('fuel', 0) <= 0:
+                        print(f"🔧 [TACTICAL RESUPPLY] {unit_name} potrzebuje paliwa w fazie MOVEMENT")
+                        # Wywołaj tactical_resupply przez commander_ref
+                        commander_ref = getattr(game_engine, 'current_player_commander', None)
+                        if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                            resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                            # (Throttled: global LOW_FUEL tylko raz na turę)
+                            if resupply_success:
+                                # Odśwież status jednostki z tokena
+                                token = unit.get('token')
+                                if token:
+                                    unit['fuel'] = getattr(token, 'currentFuel', 0)
+                                    unit['mp'] = getattr(token, 'currentMovePoints', 0)
+                                    can_move_result = can_move(unit)
+                                    print(f"🔧 [RESUPPLY SUCCESS] {unit_name} fuel = {unit['fuel']}, mp = {unit['mp']}")
+                        else:
+                            print(f"🔧 [RESUPPLY FAILED] Brak commander_ref lub tactical_resupply method")
+                    
                     # NOWE: jeśli jednostka utrzymuje pozycję (garnizon) pomijamy ruch
                     if is_unit_holding(unit):
                         print(f"🛡️ [ADVANCED MOVE] {unit_name}: UTRZYMUJE POZYCJĘ (garnizon)")
@@ -2654,6 +2810,10 @@ def make_tactical_turn(game_engine, player_id=None):
                         success = move_towards(unit, final_target, game_engine)
                         if success:
                             moved_count += 1
+                            # Jeśli osiągnięto cel (stanęliśmy na heksie celu) można zwolnić assigned_target
+                            if (unit.get('q'), unit.get('r')) == unit.get('assigned_target'):
+                                print(f"🏁 [PERSIST] {unit_name}: osiągnięto cel {unit['assigned_target']}, zwalniam")
+                                unit.pop('assigned_target', None)
                             # Log zaawansowanego ruchu z adaptacyjnymi danymi
                             move_reason = f"Advanced auto mode: group {assignment_idx + 1}"
                             if strategic_plan:
@@ -2695,6 +2855,25 @@ def make_tactical_turn(game_engine, player_id=None):
                     unit_name = unit.get('id', f'unit_{total_processed}')
                     can_move_result = can_move(unit)
                     print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}")
+
+                    # NOWE: Jeśli brak fuel - spróbuj uzupełnić
+                    if not can_move_result and unit.get('fuel', 0) <= 0:
+                        print(f"🔧 [TACTICAL RESUPPLY] {unit_name} potrzebuje paliwa w fazie STANDARD MOVEMENT")
+                        # Wywołaj tactical_resupply przez commander_ref
+                        commander_ref = getattr(game_engine, 'current_player_commander', None)
+                        if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                            resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                            # (Throttled: global LOW_FUEL tylko raz na turę)
+                            if resupply_success:
+                                # Odśwież status jednostki z tokena
+                                token = unit.get('token')
+                                if token:
+                                    unit['fuel'] = getattr(token, 'currentFuel', 0)
+                                    unit['mp'] = getattr(token, 'currentMovePoints', 0)
+                                    can_move_result = can_move(unit)
+                                    print(f"🔧 [RESUPPLY SUCCESS] {unit_name} fuel = {unit['fuel']}, mp = {unit['mp']}")
+                        else:
+                            print(f"🔧 [RESUPPLY FAILED] Brak commander_ref lub tactical_resupply method")
 
                     if can_move_result:
                         # Wybierz cel i taktykę
@@ -2758,20 +2937,32 @@ def make_tactical_turn(game_engine, player_id=None):
 class AICommander:
     """Wrapper klasa dla kompatybilności z istniejącym kodem"""
     def __init__(self, player: Any):
-        # Poprawne wcięcia naprawiające wcześniejszy błąd składni
-        self.player = player
-        # GARRISONS: hex_id -> {'tokens': set(ids), 'since_turn': int}
-        self.garrisons: dict[str, dict] = {}
-        # Konfiguracja wag strategicznych (docelowo dynamiczne)
-        self.econ_weight: float = 1.0
-        self.vp_weight: float = 0.5
-        self.min_garrison_size: int = 1  # minimalny garnizon na punkt
-        self.max_garrison_fraction: float = 0.3  # max 30% jednostek w garnizonach
-        # Bufor: liczba jednostek trzymanych na każdym zajętym key point
-        self.default_garrison_size: int = 1
-        # Licznik tur do adaptacyjnej zmiany wag
-        self.turns_on_low_income: int = 0
-        self.low_income_threshold: int = 5  # jeśli tura daje < X pkt ekonomicznych
+        """Inicjalizacja prostych pól konfiguracyjnych dowódcy AI."""
+        try:
+            self.player = player
+            # Garrisony i limity
+            self.garrisons = {}
+            self.min_garrison_size = 1
+            self.max_garrison_fraction = 0.3
+            self.default_garrison_size = 1
+            # Wagi strategiczne (mogą być adaptowane później)
+            self.econ_weight = 1.0
+            self.vp_weight = 0.5
+            # Ekonomia adaptacyjna
+            self.turns_on_low_income = 0
+            self.low_income_threshold = 5
+            # Kolejka drugiego ruchu po mid‑turn tankowaniu
+            self._second_chance_queue = []
+            # Flaga zapobiegająca wielokrotnemu PRE_TURN resupply
+            self._did_pre_resupply_turn = None
+            # Śledzenie liczby mid-turn resupply per jednostka w bieżącej turze
+            self._mid_turn_resupply_counts = {}
+            # Globalny cooldown dla triggera LOW_FUEL (jedno zbiorcze wywołanie na segment ruchu)
+            self._last_low_fuel_resupply_turn = None
+            self._low_fuel_resupply_used_this_turn = False
+        except Exception:
+            # W ostateczności nie blokuj dalszego działania
+            pass
 
     def should_hold_position(self, unit_dict: dict) -> bool:
         """Zwraca True jeśli jednostka ma pozostać na zajętym key poincie.
@@ -2784,7 +2975,13 @@ class AICommander:
 
     def pre_resupply(self, game_engine: Any) -> None:
         """Automatyczne uzupełnianie paliwa i siły bojowej AI"""
+        # Uniknij podwójnego PRE_TURN w tej samej turze
+        current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None))
+        if self._did_pre_resupply_turn == current_turn:
+            return
         print(f"🔧 [DEBUG Resupply] START dla {self.player.nation} (id={self.player.id})")
+        print(f"🔧 [DEBUG Resupply] Player type: {type(self.player)}")
+        print(f"🔧 [DEBUG Resupply] Player attributes: {[attr for attr in dir(self.player) if not attr.startswith('_')]}")
         
         # POPRAWKA: Pobierz punkty z economy system + synchronizuj
         punkty = 0
@@ -2813,7 +3010,8 @@ class AICommander:
             
         print(f"[AI Resupply] {self.player.nation}: ✅ Rozpoczynam z {punkty} punktami")
         
-        self._perform_resupply(game_engine, punkty, "PRE_TURN")
+        if self._perform_resupply(game_engine, punkty, "PRE_TURN"):
+            self._did_pre_resupply_turn = current_turn
 
     def tactical_resupply(self, game_engine: Any, trigger: str = "DAMAGE") -> bool:
         """
@@ -2823,6 +3021,25 @@ class AICommander:
         Returns:
             bool: True jeśli uzupełniono cokolwiek
         """
+        # Reset liczników na początek nowej tury
+        try:
+            current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None))
+            if current_turn is not None:
+                if getattr(self, '_resupply_turn_cache', None) != current_turn:
+                    self._resupply_turn_cache = current_turn
+                    self._mid_turn_resupply_counts = {}
+                    self._low_fuel_resupply_used_this_turn = False
+        except Exception:
+            pass
+
+        # Globalny throttling LOW_FUEL
+        if trigger == "LOW_FUEL":
+            # Jeśli już użyto w tej turze i nie minęła faza – przerwij
+            if self._low_fuel_resupply_used_this_turn:
+                print(f"[Tactical Resupply] {self.player.nation}: ⛔ LOW_FUEL throttled (already used this turn)")
+                return False
+            self._low_fuel_resupply_used_this_turn = True
+
         # Pobierz dostępne punkty
         punkty = 0
         if hasattr(self.player, 'economy') and self.player.economy is not None:
@@ -2833,6 +3050,34 @@ class AICommander:
         if punkty <= 5:  # Zachowaj minimum na emergencję
             print(f"[Tactical Resupply] {self.player.nation}: ❌ Za mało punktów ({punkty}) dla {trigger}")
             return False
+
+        # SZYBKA OCENA SUMY POTRZEB (próg batching) – jeśli łączna potrzeba <4 ignoruj
+        try:
+            total_need = 0
+            expected_owner = f"{self.player.id} ({self.player.nation})"
+            tokens_src = []
+            if hasattr(game_engine, 'board') and hasattr(game_engine.board, 'tokens'):
+                tokens_src = game_engine.board.tokens
+            elif hasattr(game_engine, 'tokens'):
+                tokens_src = game_engine.tokens
+            for tk in tokens_src[:150]:
+                if getattr(tk, 'owner', '') != expected_owner:
+                    continue
+                cf = getattr(tk, 'currentFuel', 0)
+                mf = getattr(tk, 'maxFuel', getattr(tk, 'stats', {}).get('maintenance', 0))
+                cc = getattr(tk, 'combat_value', getattr(tk, 'stats', {}).get('combat_value', 0))
+                mc = getattr(tk, 'stats', {}).get('combat_value', 0)
+                if mf and cf < mf:
+                    total_need += (mf - cf)
+                if mc and cc < mc:
+                    total_need += (mc - cc)
+                if total_need >= 4:
+                    break
+            if total_need < 4:
+                print(f"[Tactical Resupply] {self.player.nation}: ⏭️ Łączna potrzeba {total_need}<4 – pomijam {trigger}")
+                return False
+        except Exception:
+            pass
         
         # Użyj maksymalnie 30% punktów na taktyczne resupply
         max_budget = max(3, punkty // 3)
@@ -2946,9 +3191,48 @@ class AICommander:
         
         if not tokens_needing_help:
             print(f"[Resupply {context}] {self.player.nation}: ✅ Wszystkie jednostki w pełni uzupełnione")
+            # Log pustego resupply (nic do zrobienia)
+            try:
+                log_commander_action(
+                    unit_id="RESUPPLY_NONE",
+                    action_type="resupply_none",
+                    from_pos=None,
+                    to_pos=None,
+                    reason=f"No units need resupply ({context})",
+                    player_nation=self.player.nation,
+                    extra={
+                        'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                        'phase': 'resupply',
+                        'decision_reason': context,
+                        'extra_tags': context
+                    }
+                )
+            except Exception:
+                pass
             return True
         
         print(f"🤝 [COLLECTIVE RESUPPLY] {len(tokens_needing_help)} jednostek potrzebuje {total_army_needs} pkt, mamy {punkty}")
+        # Log start
+        try:
+            log_commander_action(
+                unit_id="RESUPPLY_START",
+                action_type="resupply_start",
+                from_pos=None,
+                to_pos=None,
+                reason=f"Begin collective resupply ({context})",
+                player_nation=self.player.nation,
+                extra={
+                    'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                    'phase': 'resupply',
+                    'mp_before': None,
+                    'fuel_before': None,
+                    'fuel_after': None,
+                    'decision_reason': context,
+                    'extra_tags': f"needs={total_army_needs} units={len(tokens_needing_help)}"
+                }
+            )
+        except Exception:
+            pass
         
         # 2. Strategia podziału: każdy dostaje minimum + bonus dla priorytetowych
         base_allocation = max(1, punkty // (len(tokens_needing_help) + 2))  # Gwarantowane minimum
@@ -2965,6 +3249,29 @@ class AICommander:
             token = token_data['token']
             fuel_needed = token_data['fuel_needed']
             combat_needed = token_data['combat_needed']
+            # Ogranicz docelowe paliwo mid-turn do progu procentowego (nie dotyczy PRE_TURN)
+            if context not in ("PRE_TURN",) and fuel_needed > 0:
+                try:
+                    max_fuel_cap = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+                    target_cap = math.ceil(max_fuel_cap * RESUPPLY_TARGET_FUEL_THRESHOLD)
+                    current_fuel_val = getattr(token, 'currentFuel', 0)
+                    allowed_missing = max(0, target_cap - current_fuel_val)
+                    if allowed_missing < fuel_needed:
+                        fuel_needed = allowed_missing
+                        token_data['fuel_needed'] = fuel_needed
+                        token_data['total_needed'] = fuel_needed + combat_needed
+                        if fuel_needed <= 0 and combat_needed <= 0:
+                            continue
+                except Exception:
+                    pass
+
+            # Sprawdź limit per-unit mid-turn
+            if context not in ("PRE_TURN",):
+                unit_id = getattr(token, 'id', None)
+                if unit_id:
+                    count = self._mid_turn_resupply_counts.get(unit_id, 0)
+                    if count >= RESUPPLY_PER_UNIT_CAP_MID_TURN:
+                        continue
             can_spend = min(base_allocation, token_data['total_needed'])
             
             print(f"🔧 [DEBUG] Token {token.id}: fuel={getattr(token, 'currentFuel', 0)}/{getattr(token, 'maxFuel', token.stats.get('maintenance', 0))} (need {fuel_needed}), combat={getattr(token, 'combat_value', token.stats.get('combat_value', 0))}/{token.stats.get('combat_value', 0)} (need {combat_needed})")
@@ -3006,19 +3313,45 @@ class AICommander:
             spent_total += spent
             
             if spent > 0:
+                if context not in ("PRE_TURN",):
+                    try:
+                        if unit_id:
+                            self._mid_turn_resupply_counts[unit_id] = self._mid_turn_resupply_counts.get(unit_id, 0) + 1
+                    except Exception:
+                        pass
                 resupplied_count += 1
                 print(f"[Resupply {context}] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> fuel+{fuel_add}, combat+{combat_add} (faza1: {spent})")
+                # CSV log faza1
+                try:
+                    log_commander_action(
+                        unit_id=getattr(token, 'id', 'unknown'),
+                        action_type="resupply_p1",
+                        from_pos=(getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                        to_pos=(getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                        reason=f"phase1 {context}",
+                        player_nation=self.player.nation,
+                        extra={
+                            'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                            'phase': 'resupply',
+                            'unit_type': getattr(token, 'unit_type', getattr(token, 'type', None)),
+                            'mp_before': getattr(token, 'currentMovePoints', None),
+                            'fuel_before': old_fuel if 'old_fuel' in locals() else None,
+                            'fuel_after': getattr(token, 'currentFuel', None),
+                            'decision_reason': context,
+                            'extra_tags': f"fuel+{fuel_add};combat+{combat_add}"}
+                    )
+                except Exception:
+                    pass
         
         # FAZA 2: Rozdaj bonus pool według priorytetów (ale maksymalnie tyle ile potrzebują)
         bonus_per_priority = max(1, remaining_budget // len(tokens_needing_help)) if remaining_budget > 0 else 0
-        
+
         if bonus_per_priority > 0:
             print(f"🎯 [BONUS PHASE] Dodatkowe {bonus_per_priority} pkt dla najbardziej potrzebujących")
-            
+
             for i, token_data in enumerate(tokens_needing_help[:len(tokens_needing_help)]):
                 if remaining_budget <= 0:
                     break
-                    
                 token = token_data['token']
                 
                 # Sprawdź ile jeszcze potrzebuje
@@ -3034,27 +3367,39 @@ class AICommander:
                 
                 if total_still_needed > 0:
                     bonus_spend = min(bonus_per_priority, total_still_needed, remaining_budget)
-                    
-                    # Kontekstowy bonus
-                    if context == "DAMAGE" and combat_still_needed > 0:
-                        combat_add = min(combat_still_needed, bonus_spend)
-                        fuel_add = 0
-                    elif fuel_still_needed > 0 and combat_still_needed > 0:
-                        fuel_add = min(fuel_still_needed, bonus_spend // 2)
-                        combat_add = min(combat_still_needed, bonus_spend - fuel_add)
-                    elif fuel_still_needed > 0:
-                        fuel_add = min(fuel_still_needed, bonus_spend)
-                        combat_add = 0
-                    else:
-                        fuel_add = 0
-                        combat_add = min(combat_still_needed, bonus_spend)
+
+                # WARUNKOWOŚĆ: bonus tylko jeśli da natychmiastową korzyść (więcej ruchu lub szansa walki)
+                actionable = False
+                try:
+                    cmp = getattr(token, 'currentMovePoints', getattr(token, 'movement_points', 0))
+                    if fuel_still_needed > 0 and getattr(token, 'currentFuel', 0) < cmp:
+                        actionable = True
+                    if self._is_token_in_combat_zone(token, game_engine):
+                        actionable = True
+                except Exception:
+                    pass
+                if not actionable:
+                    continue
+
+                if context == "DAMAGE" and combat_still_needed > 0:
+                    combat_add = min(combat_still_needed, bonus_spend)
+                    fuel_add = 0
+                elif fuel_still_needed > 0 and combat_still_needed > 0:
+                    fuel_add = min(fuel_still_needed, bonus_spend // 2)
+                    combat_add = min(combat_still_needed, bonus_spend - fuel_add)
+                elif fuel_still_needed > 0:
+                    fuel_add = min(fuel_still_needed, bonus_spend)
+                    combat_add = 0
+                else:
+                    fuel_add = 0
+                    combat_add = min(combat_still_needed, bonus_spend)
                     
                     # Aplikuj bonus
                     if fuel_add > 0:
                         token.currentFuel += fuel_add
                         if token.currentFuel > max_fuel:
                             token.currentFuel = max_fuel
-                    
+
                     if combat_add > 0:
                         if hasattr(token, 'combat_value'):
                             token.combat_value += combat_add
@@ -3062,13 +3407,33 @@ class AICommander:
                             token.combat_value = combat_add
                         if token.combat_value > max_combat:
                             token.combat_value = max_combat
-                    
+
                     bonus_spent = fuel_add + combat_add
                     remaining_budget -= bonus_spent
                     spent_total += bonus_spent
-                    
+
                     if bonus_spent > 0:
                         print(f"[Resupply {context}] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> BONUS fuel+{fuel_add}, combat+{combat_add} (faza2: {bonus_spent})")
+                        try:
+                            log_commander_action(
+                                unit_id=getattr(token, 'id', 'unknown'),
+                                action_type="resupply_p2",
+                                from_pos=(getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                                to_pos=(getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                                reason=f"phase2 {context}",
+                                player_nation=self.player.nation,
+                                extra={
+                                    'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                                    'phase': 'resupply',
+                                    'unit_type': getattr(token, 'unit_type', getattr(token, 'type', None)),
+                                    'mp_before': getattr(token, 'currentMovePoints', None),
+                                    'fuel_before': current_fuel,
+                                    'fuel_after': getattr(token, 'currentFuel', None),
+                                    'decision_reason': context,
+                                    'extra_tags': f"bonus fuel+{fuel_add};combat+{combat_add}"}
+                            )
+                        except Exception:
+                            pass
         
         # Synchronizacja ekonomii
         self.player.punkty_ekonomiczne = getattr(self.player, 'punkty_ekonomiczne', 0) - spent_total
@@ -3076,7 +3441,97 @@ class AICommander:
             self.player.economy.economic_points = getattr(self.player.economy, 'economic_points', 0) - spent_total
         
         print(f"[Resupply {context}] {self.player.nation}: ✅ Zakończono, uzupełniono {resupplied_count} jednostek, wydano {spent_total} punktów")
+        # Log summary
+        try:
+            log_commander_action(
+                unit_id="RESUPPLY_END",
+                action_type="resupply_end",
+                from_pos=None,
+                to_pos=None,
+                reason=f"End resupply {context} units={resupplied_count} spent={spent_total}",
+                player_nation=self.player.nation,
+                extra={
+                    'turn': getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None)),
+                    'phase': 'resupply',
+                    'decision_reason': context,
+                    'extra_tags': f"spent={spent_total};units={resupplied_count}"
+                }
+            )
+        except Exception:
+            pass
+        # ZBIERZ jednostki do drugiego ruchu (mid-turn konteksty) – tylko jeśli dostały paliwo
+        if context not in ("PRE_TURN",):
+            try:
+                for td in tokens_needing_help:
+                    tk = td['token']
+                    # Kryterium: dostał cokolwiek (fuel) i ma jeszcze MP > 0 i fuel >0
+                    if getattr(tk, 'currentFuel', 0) > 0 and getattr(tk, 'currentMovePoints', 0) > 0:
+                        # unikaj duplikatów
+                        if tk not in self._second_chance_queue:
+                            self._second_chance_queue.append(tk)
+            except Exception:
+                pass
+
+        # Spróbuj wykonać drugi ruch natychmiast po taktycznym tankowaniu
+        if self._second_chance_queue and context not in ("PRE_TURN",):
+            # Filtrowanie: drugi ruch tylko dla jednostek które faktycznie dostały sensowny przyrost paliwa w tej sesji
+            filtered_queue = []
+            for tk in list(self._second_chance_queue):
+                try:
+                    unit_id = getattr(tk, 'id', None)
+                    # Odnajdź poprzedni wpis resupply w tej sesji (brak prostego trackingu - heurystyka: jeśli fuel >=2 i MP>0)
+                    if getattr(tk, 'currentFuel', 0) >= RESUPPLY_SECOND_MOVE_MIN_FUEL_GAIN and getattr(tk, 'currentMovePoints', 0) > 0:
+                        filtered_queue.append(tk)
+                except Exception:
+                    continue
+            self._second_chance_queue = filtered_queue
+            if self._second_chance_queue:
+                self._process_second_chance_moves(game_engine, context)
+
         return resupplied_count > 0
+
+    def _process_second_chance_moves(self, game_engine, context: str):
+        """Prosty drugi segment ruchu dla jednostek dotankowanych w trakcie tury."""
+        try:
+            while self._second_chance_queue:
+                token = self._second_chance_queue.pop(0)
+                try:
+                    if getattr(token, 'currentMovePoints', 0) <= 0 or getattr(token, 'currentFuel', 0) <= 0:
+                        continue
+                    # Minimalny wrapper unit_dict (funkcje ruchu używają słownika)
+                    unit_dict = {
+                        'id': getattr(token, 'id', 'unknown'),
+                        'q': getattr(token, 'q', 0),
+                        'r': getattr(token, 'r', 0),
+                        'mp': getattr(token, 'currentMovePoints', 0),
+                        'fuel': getattr(token, 'currentFuel', 0),
+                        'token': token
+                    }
+                    # Szukaj celu
+                    target = None
+                    try:
+                        target = find_target(unit_dict, game_engine)
+                    except Exception:
+                        target = None
+                    if target:
+                        move_towards(unit_dict, target, game_engine)
+                        # Log
+                        try:
+                            log_commander_action(
+                                unit_id=getattr(token, 'id', 'unknown'),
+                                action_type="second_move",
+                                from_pos=None,
+                                to_pos=(getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                                reason=f"second_chance after {context}",
+                                player_nation=self.player.nation,
+                                extra={'phase': 'movement', 'decision_reason': context}
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     def _is_token_in_combat_zone(self, token, game_engine) -> bool:
         """Sprawdź czy żeton jest w strefie kontaktu z wrogiem"""

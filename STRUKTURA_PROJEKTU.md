@@ -1,8 +1,35 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (29 sierpnia 2025) – WERSJA 3.3 – POSTĘP AI I OBSERWOWALNOŚĆ
+## 📌 STAN BIEŻĄCY (31 sierpnia 2025) – WERSJA 3.5 – SYSTEM BALANSOWANIA ARTYLERII
 
-Aktualizacja koncentruje się na: rozszerzeniu logów (ekonomia + ruch), pakiecie 6 usprawnień AI Commander, trybie uśpienia rozkazów ## 🗺️ WIDOCZNOŚĆ I FOG OF WAR (ISTOTNE DLA AI) - ZAKTUALIZOWANE
+Aktualizacja koncentruje się na: **implementacji systemu ograniczenia strzałów artylerii**, aktualizacji dokumentacji projektowej i usprawnieniu równowagi gry.
+
+## 🎯 NOWY SYSTEM OGRANICZENIA STRZAŁÓW ARTYLERII (POZIOM 1 - ZAIMPLEMENTOWANY 31.08.2025):
+
+**Problem:** Artyleria była zdominowaną bronią - wysoki zasięg (3-4 hex), duży atak (12-18), mogła atakować wielokrotnie bez ograniczeń, powodując dominację "arty spam".
+
+**Rozwiązanie:** System **1 normalny atak + 1 atak reakcyjny na turę** dla wszystkich jednostek artylerii.
+
+**Implementacja:**
+- **Token.shots_fired_this_turn** - licznik normalnych ataków w turze
+- **Token.reaction_shot_used** - flaga użycia ataku reakcyjnego
+- **Token.can_attack(attack_type)** - walidacja możliwości ataku
+- **Token.record_attack(attack_type)** - rejestracja wykonanego ataku
+- **Token.is_artillery()** - identyfikacja artylerii (AL, AC, AP)
+- **Token.reset_turn_actions()** - reset na początku nowej tury
+
+**Integracja z silnikiem:**
+- **CombatAction._validate_combat()** - automatyczna walidacja przed atakiem
+- **core/tura.py** i **engine/engine.py** - auto-reset na początku tury
+- **Pełna kompatybilność wsteczna** - stare save'y działają bez zmian
+
+**Wpływ na balans:**
+- **Artyleria (AL, AC, AP):** Limitowana do 1+1 ataku na turę
+- **Inne jednostki (P, TL, K, Z, itp.):** Bez ograniczeń
+- **Zwiększona tactical depth** - każdy strzał artylerii ma większą wagę
+- **Eliminacja dominacji** arty spam bez utraty użyteczności artylerii
+
+## 🗺️ WIDOCZNOŚĆ I FOG OF WAR (ISTOTNE DLA AI) - ZAKTUALIZOWANE
 
 **SYSTEM GRADUOWANEJ WIDOCZNOŚCI (POZIOM 1 - ZAIMPLEMENTOWANY 30.08.2025):**
 
@@ -30,17 +57,16 @@ Aktualizacja koncentruje się na: rozszerzeniu logów (ekonomia + ruch), pakieci
 - AI musi radzić sobie z niepewnością tak jak człowiek
 - Stopniowe odkrywanie informacji zamiast binarnego "widzi/nie widzi"
 
-AI musi działać w ramach tej samej informacji (brak „cheat vision").gicznych (izolacja ekonomii), poprawkach launchera i diagnozie przyczyn szybkiego załamania sił.
+AI musi działać w ramach tej samej informacji (brak „cheat vision").
 
-Najważniejsze zmiany od 3.1 → 3.3:
-1. AI Commander: progresywny ruch, oportunistyczne capture, limity garnizonów + stub rotacji, pre‑capture phase, bonusy dla odłączonych KP, rozszerzone CSV.
-2. AI General: rozszerzone kolumny logów (allocate_budget, purchase_budget, low_fuel_ratio, orders_issued, econ_after) + pojedyncze logowanie końca tury.
-3. Flaga `GENERATE_ORDERS = False` (tryb SLEEP) – testowanie bez niestabilnych makro‑rozkazów.
-4. Launcher: czyszczenie logów (Ctrl+Shift+L), większe okno, komunikaty diagnostyczne.
-5. Analiza attrition: spadek own_units bez pakietu ratunkowego → plan Emergency Mode.
-6. Wdrożone żetony kopiowane do `assets/tokens/aktualne/` (parytet z graczem) – brak jeszcze czyszczenia tego katalogu.
+Najważniejsze zmiany od 3.3 → 3.5:
+1. **System ograniczenia strzałów artylerii** - kompletny z testami i dokumentacją
+2. **Aktualizacja dokumentacji** - nowe przewodniki balansowania TOKEN i HEX
+3. **Czyszczenie projektów** - usunięcie starych tokenów i plików tymczasowych
+4. **Testy systemowe** - weryfikacja funkcjonalności artylerii i integracji
+5. **Preparacja do dalszego rozwoju** - uporządkowana struktura dla kolejnych iteracji
 
-Status: można grać przeciw AI (taktyczny opór umiarkowany); dłuższa kampania kończy się porażką AI z powodu braku walki selektywnej i trybu ratunkowego.
+Status: **System artylerii zbalansowany i testowany**; gotowy do dalszych ulepszeń AI i mechanik rozgrywki.
 
 ---
 
@@ -89,7 +115,7 @@ ai/
  └── README.md            # (PLAN) Dokumentacja modułu AI
 ```
 
-### Tabela postępu faz AI (stan na 29.08.2025)
+### Tabela postępu faz AI (stan na 31.08.2025)
 
 | Faza | Status | Pokrycie | Notatki |
 |------|--------|----------|---------|
@@ -97,7 +123,7 @@ ai/
 | 1 Szkielet modułu | ZAKOŃCZONA | 100% | AI Commander + AI General implementowane |
 | 2 Adapter stanu | CZĘŚCIOWO | ~60% | Podstawowa analiza stanu, brak pełnego JSON API |
 | 3 Ruch taktyczny | CZĘŚCIOWO | ~55% | Ruch, progresywny movement, garrison limit, opportunistic capture |
-| 4 Walka selektywna | NIE ROZPOCZĘTO | 0% | Brak pełnej integracji CombatAction (tylko sporadyczne ataki) |
+| 4 Walka selektywna | CZĘŚCIOWO | ~25% | **NOWE:** System ograniczenia artylerii zaimplementowany, podstawowa integracja CombatAction |
 | 5 Strategia key points | CZĘŚCIOWO | ~45% | Capture opportunistyczne + bonusy, brak trwałego hold/rotation |
 | 6 Ekonomia / zakupy | CZĘŚCIOWO | ~75% | Zakupy + alokacja, brak Emergency bundle/resupply |
 | 7 Poziomy trudności | CZĘŚCIOWO | ~20% | Heurystyki statyczne; brak MCTS/adaptacji |
@@ -126,7 +152,7 @@ ai/
 * ❌ Brak skip_reason w logu (diagnoza stagnacji utrudniona)
 * ❌ Brak pełnej rotacji garnizonów
 
-### Znane ograniczenia (3.3)
+### Znane ograniczenia (3.5)
 
 **AI GENERAL:**
 * Brak Monte Carlo Tree Search dla trudniejszych poziomów
@@ -137,9 +163,15 @@ ai/
 **AI COMMANDER (KRYTYCZNE LUKI):**
 * pre_resupply() placeholder – brak wydawania punktów
 * Brak mechanizmu emergency (gwałtowny spadek own_units)
-* Brak risk-based combat (cv_ratio / przewidywane straty)
+* Brak risk-based combat (cv_ratio / przewidywane straty) - **CZĘŚCIOWO:** System artylerii ogranicza spam
 * Brak skip_reason w logach
 * Brak purge martwych alokacji (budżet mrożony w sektorach 0 units)
+
+**SYSTEM BALANSOWANIA:**
+* ✅ **Artyleria zbalansowana** - eliminacja dominacji przez ograniczenie strzałów
+* ✅ **Dokumentacja kompletna** - przewodniki TOKEN i HEX balancing
+* ❌ **Potrzebne dalsze testy** - wpływ na AI vs AI i długie kampanie
+* ❌ **Brak reakcji AI** na nowy system (może wymagać dostrojenia heurystyk)
 
 ---
 
@@ -296,25 +328,42 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 ---
 
-## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – AKTUALNE 29.08.2025)
+## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – AKTUALNE 31.08.2025)
 
-### **IMMEDIATE PRIORITIES – AI COMMANDER (NOWE)**
-1. Emergency Mode (own_units ≤ 8) – wymusza zakup pakietu: 2x P + 1x Z (+1x AL jeśli budżet pozwala).
-2. Purge martwych alokacji – reset wag sektora po 2 turach z total_units==0.
-3. Resupply podstawowy – paliwo <30% → combat <50% (priorytet mobilne + supply chain).
-4. Skip reason w logu (NO_PATH / ZERO_MP / GARRISON_HOLD / LOW_FUEL / BLOCKED).
-5. Minimalny filtr walki: atak tylko jeśli cv_ratio ≥ 1.3.
+### **IMMEDIATE PRIORITIES – AI COMMANDER (NOWE PO SYSTEMIE ARTYLERII)**
+1. **Testowanie wpływu systemu artylerii** na AI vs AI i długie kampanie
+2. **Dostrojenie heurystyk AI** do nowego balansowania artylerii
+3. Emergency Mode (own_units ≤ 8) – wymusza zakup pakietu: 2x P + 1x Z (+1x AL jeśli budżet pozwala)
+4. Purge martwych alokacji – reset wag sektora po 2 turach z total_units==0
+5. Resupply podstawowy – paliwo <30% → combat <50% (priorytet mobilne + supply chain)
+6. Skip reason w logu (NO_PATH / ZERO_MP / GARRISON_HOLD / LOW_FUEL / BLOCKED)
+7. **Analiza skuteczności** - czy AI kupuje różnorodnie po zbalansowaniu artylerii
 
-### **MEDIUM TERM – AI GENERAL**
-6. MCTS po stabilizacji taktyki – lookahead 3–5 tur.
-7. Poziomy trudności – parametryzacja wag (agresja, supply bias, cv_threshold).
+### **MEDIUM TERM – SYSTEM BALANSOWANIA**
+8. **Dodatkowe testy balansingu** - jednostki vs jednostki po ograniczeniu artylerii
+9. **Rozszerzenie systemu** na inne OP jednostki jeśli zostaną zidentyfikowane
+10. **Fine-tuning kosztów** w balance.model jeśli artyleria stanie się za słaba
+11. MCTS po stabilizacji taktyki – lookahead 3–5 tur
+12. Poziomy trudności – parametryzacja wag (agresja, supply bias, cv_threshold)
 
 ### **LONG TERM – ADVANCED AI / KOORDYNACJA**
-8. Machine Learning (pamięć serii) – meta‑statystyki skuteczności.
-9. Feedback loop General↔Commander – adaptacja alokacji wg efektywności ruchów.
-10. Commander specialization – profile agresywny / defensywny / mobilny.
+13. Machine Learning (pamięć serii) – meta‑statystyki skuteczności
+14. Feedback loop General↔Commander – adaptacja alokacji wg efektywności ruchów
+15. Commander specialization – profile agresywny / defensywny / mobilny
+16. **Rozszerzenie systemu ograniczeń** na inne aspekty rozgrywki jeśli potrzebne
 
-## 🗒️ CHANGELOG
+## � CHANGELOG
+**3.5 (31.08.2025) - SYSTEM BALANSOWANIA ARTYLERII**
+* **🎯 SYSTEM OGRANICZENIA STRZAŁÓW ARTYLERII** - pełna implementacja
+* Token.shots_fired_this_turn, reaction_shot_used - ograniczenia AL/AC/AP do 1+1 ataku/turę
+* CombatAction._validate_combat() - automatyczna walidacja przed atakiem
+* core/tura.py i engine/engine.py - auto-reset na początku tury
+* tests/test_artillery_shot_limits.py - komprehensywny test suite (wszystkie testy przeszły)
+* docs/ARTILLERY_SHOT_LIMITS.md - kompletna dokumentacja systemu
+* docs/TOKEN_BALANCING_GUIDE.md - przewodnik balansowania jednostek
+* Czyszczenie projektu: usunięcie starych tokenów z assets/tokens/
+* Eliminacja dominacji "arty spam" przy zachowaniu użyteczności artylerii
+
 **3.4 (30.08.2025) - NOWA WERSJA**
 * **🎯 SYSTEM GRADUOWANEJ WIDOCZNOŚCI POZIOM 1** - pełna implementacja
 * VisionService.calculate_detection_level() - krzya nieliniowa detekcji
@@ -340,8 +389,10 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 1. Uruchom launcher → Start Gry (potwierdź auto‑czyszczenie). 
 2. Sprawdź `ai/ai_general.py` czy `GENERATE_ORDERS` ma oczekiwaną wartość.
 3. Włącz AI dla Niemiec (generał + dowódcy), zagraj 5 tur.
-4. Zapisz turę spadku own_units ≤ 10 (log `ai_actions_*.csv`).
-5. Notuj gdzie brak ruchu – przyda się do skip_reason.
+4. **NOWE:** Obserwuj czy artyleria AI respektuje ograniczenia (max 1+1 atak/turę).
+5. Zapisz turę spadku own_units ≤ 10 (log `ai_actions_*.csv`).
+6. Notuj gdzie brak ruchu – przyda się do skip_reason.
+7. **Test systemu artylerii:** `python tests/test_artillery_shot_limits.py`
 
 ## 🧪 METRYKI DO DODANIA
 | Metryka | Cel | Wykorzystanie |
@@ -351,6 +402,8 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 | effective_move_rate | aktywność taktyczna | wykrycie stagnacji |
 | skip_reason | diagn. stagnacji | tuning heurystyk ruchu |
 | econ_efficiency | wydatkowanie budżetu | ocena alokacji Generała |
+| **artillery_shots_used** | **monitorowanie artylerii** | **weryfikacja systemu ograniczeń** |
+| **attack_success_rate** | **skuteczność ataków** | **ocena wpływu ograniczeń artylerii** |
 
 ## 🧼 PLAN ROZSZERZENIA CZYSZCZENIA
 Aktualnie: quick_clean() usuwa tylko `nowe_dla_*`; full_clean() dodatkowo logi. NIE usuwa `assets/tokens/aktualne/` ani `saves/after_deployment.json`.
@@ -359,19 +412,28 @@ Plan: dodać `clean_deployed_tokens()` + wywołać w full_clean (opcjonalna flag
 ## 🔍 DIAGNOSTYKA PO SESJI
 | Pytanie | Gdzie patrzeć | Oczekiwane |
 |---------|---------------|------------|
+| **Czy system artylerii działa?** | **actions CSV artillery_shots kolumna** | **≤ 2 ataki/turę per jednostka artylerii** |
 | Czy attrition stabilne? | ai_actions own_units | Brak gwałtownych spadków <50%/3 tury |
 | Czy budżet nie stoi? | econ_after vs econ_before | Spadek >50% przy COMBO |
 | Czy ruch aktywny? | turn_summary moved_units | ≥70% wczesnych tur |
 | (po wdrożeniu) skip_reason pełny? | actions CSV | <10% pustych |
+| **Czy AI adaptuje się do systemu?** | **ai_actions attack patterns** | **Różnorodność celów, mniej arty spam** |
 
 ---
 
 ## 📚 META
-Dokument przygotowuje grunt pod implementację gracza komputerowego bez refaktoryzacji istniejących modułów. Zmiany w silniku ograniczyć do dodania (jeśli brak) jednolitego API zakupów.
+Dokument przygotowuje grunt pod implementację gracza komputerowego bez refaktoryzacji istniejących modułów. Zmiany w silniku ograniczyć do dodania (jeśli brak) jednolitego API zakupów. **Nowy system ograniczenia artylerii pokazuje skuteczne podejście do balansowania bez breaking changes.**
 
-Wersja: 3.3 (29 sierpnia 2025)
-Status: Częściowa implementacja (Generał ekonomia + taktyczne usprawnienia)
-Autor aktualizacji: automatyczny asystent + analiza logów
+Wersja: 3.5 (31 sierpnia 2025)
+Status: **System artylerii zaimplementowany i przetestowany** (Generał ekonomia + taktyczne usprawnienia + balans artylerii)
+Autor aktualizacji: automatyczny asystent + analiza logów + implementacja systemu balansowania
+
+**Najważniejsze osiągnięcia wersji 3.5:**
+- ✅ Pełny system ograniczenia strzałów artylerii 
+- ✅ Elimianacja dominacji "arty spam"
+- ✅ Zachowanie użyteczności artylerii przy zwiększeniu tactical depth
+- ✅ Dokumentacja i testy komprehensywne
+- ✅ Wsteczna kompatybilność z istniejącymi save'ami
 
 ---
 

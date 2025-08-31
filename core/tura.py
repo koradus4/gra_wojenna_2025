@@ -42,6 +42,10 @@ class TurnManager:
                     max_mp = getattr(token, 'maxMovePoints', token.stats.get('move', 0))
                     token.maxMovePoints = max_mp
                     token.currentMovePoints = max_mp
+                    
+                    # NOWE: Reset ograniczeń strzałów artylerii na początku nowej tury
+                    if hasattr(token, 'reset_turn_actions'):
+                        token.reset_turn_actions()
 
             if self.current_turn % 6 == 0:  # Co 6 tur generujemy nowy raport pogodowy
                 self.weather.generuj_pogode()

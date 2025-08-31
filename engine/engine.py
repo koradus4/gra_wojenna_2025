@@ -68,6 +68,10 @@ class GameEngine:
                 max_mp = getattr(token, 'maxMovePoints', getattr(token, 'stats', {}).get('move', 0))
                 token.maxMovePoints = max_mp
                 token.currentMovePoints = max_mp
+            
+            # NOWE: Reset ograniczeń strzałów artylerii na początku nowej tury
+            if hasattr(token, 'reset_turn_actions'):
+                token.reset_turn_actions()
         # Reset morale, pogoda itp. (jeśli dotyczy)
         # Wyczyść tymczasową widoczność i przelicz FOW po zmianie tury
         if hasattr(self, 'players'):

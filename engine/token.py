@@ -19,6 +19,48 @@ class Token:
         # --- TRYB RUCHU ---
         self.movement_mode = getattr(self, 'movement_mode', movement_mode)
         self.movement_mode_locked = False  # Blokada zmiany trybu ruchu do końca tury
+        
+        # --- SYSTEM OGRANICZENIA STRZAŁÓW ARTYLERII ---
+        self.shots_fired_this_turn = getattr(self, 'shots_fired_this_turn', 0)
+        self.reaction_shot_used = getattr(self, 'reaction_shot_used', False)
+
+    def can_attack(self, attack_type: str = 'normal') -> bool:
+        """Sprawdza czy jednostka może zaatakować
+        
+        Args:
+            attack_type: 'normal' lub 'reaction'
+        """
+        unit_type = self.stats.get('unitType', '')
+        
+        # Tylko artyleria ma ograniczenia strzałów
+        if unit_type in ['AL', 'AC', 'AP']:
+            if attack_type == 'normal':
+                return self.shots_fired_this_turn == 0
+            elif attack_type == 'reaction':
+                return not self.reaction_shot_used
+        
+        # Inne jednostki mogą atakować bez ograniczeń
+        return True
+    
+    def record_attack(self, attack_type: str = 'normal'):
+        """Zapisz wykonany atak"""
+        unit_type = self.stats.get('unitType', '')
+        
+        if unit_type in ['AL', 'AC', 'AP']:
+            if attack_type == 'normal':
+                self.shots_fired_this_turn += 1
+            elif attack_type == 'reaction':
+                self.reaction_shot_used = True
+    
+    def is_artillery(self) -> bool:
+        """Sprawdź czy jednostka to artyleria"""
+        return self.stats.get('unitType', '') in ['AL', 'AC', 'AP']
+    
+    def reset_turn_actions(self):
+        """Reset akcji na początku nowej tury"""
+        self.shots_fired_this_turn = 0
+        self.reaction_shot_used = False
+        self.movement_mode_locked = False
 
     def can_move_to(self, dist: int) -> bool:
         """Sprawdza, czy żeton może się ruszyć na daną odległość (uwzględnia limit ruchu i paliwa)."""
@@ -42,6 +84,8 @@ class Token:
             'movement_mode': getattr(self, 'movement_mode', 'combat'),
             'movement_mode_locked': getattr(self, 'movement_mode_locked', False),
             'combat_value': getattr(self, 'combat_value', self.stats.get('combat_value', 0)),
+            'shots_fired_this_turn': getattr(self, 'shots_fired_this_turn', 0),
+            'reaction_shot_used': getattr(self, 'reaction_shot_used', False),
         }
 
     @staticmethod
@@ -120,6 +164,8 @@ class Token:
         token.movement_mode = data.get('movement_mode', 'combat')
         token.movement_mode_locked = data.get('movement_mode_locked', False)
         token.combat_value = data.get('combat_value', token.stats.get('combat_value', 0))
+        token.shots_fired_this_turn = data.get('shots_fired_this_turn', 0)
+        token.reaction_shot_used = data.get('reaction_shot_used', False)
         return token
 
     def apply_movement_mode(self, reset_mp: bool = False):

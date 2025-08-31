@@ -177,10 +177,26 @@ def apply_upgrades(stats: Dict[str, int], upgrades: List[str]) -> Dict[str, int]
         final_stats[k] = max(1, final_stats[k])
     return final_stats
 
-def maintenance_from_cost(total_cost: int, upgrades: List[str]) -> int:
-    # bazowo proporcjonalne, z niewielką premią za liczbę upgradów
-    base = max(1, math.ceil(total_cost / 18))
-    return base + max(0, len(upgrades)//2)
+def maintenance_from_cost(total_cost: int, upgrades: List[str], unit_type: str = None) -> int:
+    # NOWY SYSTEM FUEL - zbalansowany z MP na podstawie typu jednostki
+    if unit_type:
+        fuel_map = {
+            'K': 4,   # 6 MP -> 4 fuel
+            'Z': 4,   # 6 MP -> 4 fuel  
+            'TL': 3,  # 5 MP -> 3 fuel
+            'TS': 3,  # 5 MP -> 3 fuel
+            'TŚ': 3,  # 4 MP -> 3 fuel
+            'D': 3,   # 4 MP -> 3 fuel
+            'P': 2,   # 3 MP -> 2 fuel
+            'TC': 2,  # 3 MP -> 2 fuel
+            'AL': 2,  # 3 MP -> 2 fuel
+            'AC': 2,  # 2 MP -> 2 fuel
+            'AP': 2,  # 2 MP -> 2 fuel
+        }
+        return fuel_map.get(unit_type, 2)
+    
+    # Fallback dla starych wywołań bez unit_type
+    return max(1, math.ceil(total_cost / 18))
 
 def total_cost_with_upgrades(base_cost: int, upgrades: List[str]) -> int:
     extra = 0
@@ -196,7 +212,7 @@ def compute_token(unit_type: str, unit_size: str, nation: str, upgrades: Optiona
     base_cost = estimate_base_cost(unit_type, unit_size, base_stats)
     stats_after = apply_upgrades(base_stats, upgrades)
     total_cost = total_cost_with_upgrades(base_cost, upgrades)
-    maintenance = maintenance_from_cost(total_cost, upgrades)
+    maintenance = maintenance_from_cost(total_cost, upgrades, unit_type)
     return ComputedStats(
         movement=stats_after["movement"],
         attack_range=stats_after["attack_range"],
