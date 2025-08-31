@@ -411,6 +411,23 @@ def get_my_units(game_engine, player_id=None):
 def ai_attempt_combat(unit, game_engine, player_id, player_nation="Unknown"):
     """Sprawdź czy jednostka może zaatakować wroga i wykonaj atak"""
     try:
+        # TACTICAL RESUPPLY: Uzupełnij siłę bojową przed atakiem
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        if current_player and hasattr(current_player, 'is_ai_commander'):
+            commander_ref = getattr(game_engine, 'current_player_commander', None)
+            if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                # Sprawdź czy jednostka potrzebuje uzupełnienia CV
+                unit_token = unit.get('token')
+                if unit_token:
+                    current_cv = getattr(unit_token, 'combat_value', 0)
+                    max_cv = unit_token.stats.get('combat_value', 0)
+                    cv_percentage = current_cv / max(max_cv, 1)
+                    
+                    # Uzupełnij jeśli CV < 80%
+                    if cv_percentage < 0.8:
+                        print(f"⚡ [PRE-ATTACK RESUPPLY] {unit.get('id')} CV={current_cv}/{max_cv} ({cv_percentage:.1%})")
+                        commander_ref.tactical_resupply(game_engine, "PRE_ATTACK")
+        
         # 1. Jeśli jednostka ma krytycznie niskie CV spróbuj odwrotu zanim rozważysz atak
         if _attempt_retreat_low_cv(unit, game_engine):
             return False
@@ -2524,6 +2541,25 @@ def make_tactical_turn(game_engine, player_id=None):
                     combat_count += 1
         print(f"[AI] COMBAT PHASE: {combat_count} ataków wykonanych")
 
+        # 3.1. MID-TURN TACTICAL RESUPPLY - uzupełnij jednostki po walkach
+        print(f"⚡ [AI] === MID-TURN RESUPPLY ===")
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'is_ai_commander'):
+                commander_ref = getattr(game_engine, 'current_player_commander', None)
+                if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                    # Sprawdź jednostki potrzebujące uzupełnienia
+                    damaged_units = [u for u in my_units if u.get('token') and 
+                                   getattr(u.get('token'), 'combat_value', 0) < u.get('token').stats.get('combat_value', 0) * 0.7]
+                    
+                    if damaged_units:
+                        print(f"⚡ [MID-TURN RESUPPLY] Znaleziono {len(damaged_units)} jednostek wymagających uzupełnienia")
+                        commander_ref.tactical_resupply(game_engine, "DAMAGE")
+                    else:
+                        print(f"⚡ [MID-TURN RESUPPLY] Wszystkie jednostki w dobrej kondycji")
+        except Exception as e:
+            print(f"❌ [MID-TURN RESUPPLY] Błąd: {e}")
+
         # 3.5. NOWA FAZA DEFENSYWNA - ocena zagrożeń i planowanie obrony
         print(f"🛡️ [AI] === FAZA DEFENSYWNA ===")
 
@@ -2777,6 +2813,38 @@ class AICommander:
             
         print(f"[AI Resupply] {self.player.nation}: ✅ Rozpoczynam z {punkty} punktami")
         
+        self._perform_resupply(game_engine, punkty, "PRE_TURN")
+
+    def tactical_resupply(self, game_engine: Any, trigger: str = "DAMAGE") -> bool:
+        """
+        Taktyczne uzupełnianie zasobów podczas tury
+        Args:
+            trigger: Powód resupply ("DAMAGE", "PRE_ATTACK", "EMERGENCY")
+        Returns:
+            bool: True jeśli uzupełniono cokolwiek
+        """
+        # Pobierz dostępne punkty
+        punkty = 0
+        if hasattr(self.player, 'economy') and self.player.economy is not None:
+            punkty = self.player.economy.economic_points
+        if punkty <= 0:
+            punkty = getattr(self.player, 'punkty_ekonomiczne', 0)
+        
+        if punkty <= 5:  # Zachowaj minimum na emergencję
+            print(f"[Tactical Resupply] {self.player.nation}: ❌ Za mało punktów ({punkty}) dla {trigger}")
+            return False
+        
+        # Użyj maksymalnie 30% punktów na taktyczne resupply
+        max_budget = max(3, punkty // 3)
+        
+        print(f"[Tactical Resupply] {self.player.nation}: 🎯 {trigger} - budżet {max_budget}/{punkty}")
+        
+        return self._perform_resupply(game_engine, max_budget, trigger)
+
+    def _perform_resupply(self, game_engine: Any, punkty: int, context: str) -> bool:
+        """Wspólna logika resupply"""
+        print(f"🔧 [Resupply {context}] {self.player.nation}: budżet={punkty}")
+        
         # DEBUG: Sprawdź strukturę game_engine
         print(f"🔧 [DEBUG] game_engine type: {type(game_engine)}")
         print(f"🔧 [DEBUG] game_engine.board: {hasattr(game_engine, 'board')}")
@@ -2812,33 +2880,52 @@ class AICommander:
         print(f"🔧 [DEBUG] Znaleziono {len(my_tokens)} moich tokenów")
         
         if not my_tokens:
-            print(f"[AI Resupply] {self.player.nation}: ❌ BRAK ŻETONÓW DO UZUPEŁNIENIA")
+            print(f"[Resupply {context}] {self.player.nation}: ❌ BRAK ŻETONÓW DO UZUPEŁNIENIA")
             print(f"🔧 [DEBUG] Expected owner: '{expected_owner}'")
             print(f"🔧 [DEBUG] Board tokens: {tokens_found_board}, Engine tokens: {tokens_found_engine}")
-            return
+            return False
         
-        # Sortuj według priorytetu: najpierw niskie paliwo, potem niska siła bojowa
-        def get_priority(token):
-            current_fuel = getattr(token, 'currentFuel', 0)
-            max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
-            fuel_pct = current_fuel / max(max_fuel, 1)
-            
-            current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
-            max_combat = token.stats.get('combat_value', 0)
-            combat_pct = current_combat / max(max_combat, 1)
-            
-            # Priorytet: im niższy procent, tym wyższy priorytet (sortuj rosnąco)
-            return min(fuel_pct, combat_pct)
+        # Priorytetyzacja dla różnych kontekstów
+        if context == "DAMAGE":
+            # Priorytet: jednostki z najniższym % CV
+            def get_priority(token):
+                current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
+                max_combat = token.stats.get('combat_value', 0)
+                combat_pct = current_combat / max(max_combat, 1)
+                return combat_pct  # Sortuj rosnąco - najniższe pierwsze
+        elif context == "PRE_ATTACK":
+            # Priorytet: jednostki w kontakcie z wrogiem z niskim CV
+            def get_priority(token):
+                current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
+                max_combat = token.stats.get('combat_value', 0)
+                combat_pct = current_combat / max(max_combat, 1)
+                
+                # Bonus jeśli jest blisko wroga
+                in_combat = self._is_token_in_combat_zone(token, game_engine)
+                proximity_bonus = 0.5 if in_combat else 0
+                
+                return combat_pct - proximity_bonus  # Niższe = wyższy priorytet
+        else:  # PRE_TURN i inne
+            # Standardowy priorytet: niskie paliwo lub CV
+            def get_priority(token):
+                current_fuel = getattr(token, 'currentFuel', 0)
+                max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+                fuel_pct = current_fuel / max(max_fuel, 1)
+                
+                current_combat = getattr(token, 'combat_value', token.stats.get('combat_value', 0))
+                max_combat = token.stats.get('combat_value', 0)
+                combat_pct = current_combat / max(max_combat, 1)
+                
+                return min(fuel_pct, combat_pct)
         
         my_tokens.sort(key=get_priority)
         
-        # Uzupełniaj jednostki
-        resupplied_count = 0
+        # === NOWY SYSTEM: "RAZEM WSZYSCY" ===
+        # 1. Znajdź jednostki potrzebujące resupply
+        tokens_needing_help = []
+        total_army_needs = 0
+        
         for token in my_tokens:
-            if punkty <= 0:
-                break
-                
-            # Oblicz ile potrzebuje uzupełnienia
             current_fuel = getattr(token, 'currentFuel', 0)
             max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
             fuel_needed = max(0, max_fuel - current_fuel)
@@ -2848,35 +2935,58 @@ class AICommander:
             combat_needed = max(0, max_combat - current_combat)
             
             total_needed = fuel_needed + combat_needed
+            if total_needed > 0:
+                tokens_needing_help.append({
+                    'token': token,
+                    'fuel_needed': fuel_needed,
+                    'combat_needed': combat_needed,
+                    'total_needed': total_needed
+                })
+                total_army_needs += total_needed
+        
+        if not tokens_needing_help:
+            print(f"[Resupply {context}] {self.player.nation}: ✅ Wszystkie jednostki w pełni uzupełnione")
+            return True
+        
+        print(f"🤝 [COLLECTIVE RESUPPLY] {len(tokens_needing_help)} jednostek potrzebuje {total_army_needs} pkt, mamy {punkty}")
+        
+        # 2. Strategia podziału: każdy dostaje minimum + bonus dla priorytetowych
+        base_allocation = max(1, punkty // (len(tokens_needing_help) + 2))  # Gwarantowane minimum
+        remaining_budget = punkty - (base_allocation * len(tokens_needing_help))
+        
+        print(f"💰 [BUDGET] Minimum dla każdego: {base_allocation}, bonus pool: {remaining_budget}")
+        
+        # Uzupełniaj jednostki
+        resupplied_count = 0
+        spent_total = 0
+        
+        # FAZA 1: Daj każdemu minimum
+        for token_data in tokens_needing_help:
+            token = token_data['token']
+            fuel_needed = token_data['fuel_needed']
+            combat_needed = token_data['combat_needed']
+            can_spend = min(base_allocation, token_data['total_needed'])
             
-            print(f"🔧 [DEBUG] Token {token.id}: fuel={current_fuel}/{max_fuel} (need {fuel_needed}), combat={current_combat}/{max_combat} (need {combat_needed})")
+            print(f"🔧 [DEBUG] Token {token.id}: fuel={getattr(token, 'currentFuel', 0)}/{getattr(token, 'maxFuel', token.stats.get('maintenance', 0))} (need {fuel_needed}), combat={getattr(token, 'combat_value', token.stats.get('combat_value', 0))}/{token.stats.get('combat_value', 0)} (need {combat_needed})")
             
-            if total_needed <= 0:
-                print(f"🔧 [DEBUG] Token {token.id}: PEŁNY - pomijam")
-                continue  # Jednostka pełna
-            
-            # Ograniczenie do dostępnych punktów
-            can_spend = min(total_needed, punkty)
-            
-            # Priorytetyzacja: paliwo < 50% to najpierw paliwo
-            fuel_pct = current_fuel / max(max_fuel, 1)
-            if fuel_pct < 0.5 and fuel_needed > 0:
-                # Najpierw paliwo
-                fuel_add = min(fuel_needed, can_spend)
-                combat_add = min(combat_needed, can_spend - fuel_add)
-                print(f"🔧 [DEBUG] Token {token.id}: PRIORYTET PALIWO (fuel_pct={fuel_pct:.2f})")
-            else:
-                # Równomierne dzielenie
+            # Sprawiedliwy podział fuel/combat
+            if fuel_needed > 0 and combat_needed > 0:
                 fuel_add = min(fuel_needed, can_spend // 2)
                 combat_add = min(combat_needed, can_spend - fuel_add)
-                print(f"🔧 [DEBUG] Token {token.id}: RÓWNOMIERNE DZIELENIE")
+            elif fuel_needed > 0:
+                fuel_add = min(fuel_needed, can_spend)
+                combat_add = 0
+            else:
+                fuel_add = 0
+                combat_add = min(combat_needed, can_spend)
             
-            print(f"🔧 [DEBUG] Token {token.id}: Planowane +{fuel_add} fuel, +{combat_add} combat (budżet: {can_spend})")
+            print(f"🔧 [DEBUG] Token {token.id}: Planowane (PHASE1) +{fuel_add} fuel, +{combat_add} combat")
             
-            # Uzupełnij
+            # Uzupełnij - FAZA 1
             if fuel_add > 0:
                 old_fuel = token.currentFuel
                 token.currentFuel += fuel_add
+                max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
                 if token.currentFuel > max_fuel:
                     token.currentFuel = max_fuel
                 print(f"🔧 [DEBUG] Token {token.id}: Fuel {old_fuel} -> {token.currentFuel}")
@@ -2887,24 +2997,108 @@ class AICommander:
                     token.combat_value += combat_add
                 else:
                     token.combat_value = combat_add
+                max_combat = token.stats.get('combat_value', 0)
                 if token.combat_value > max_combat:
                     token.combat_value = max_combat
                 print(f"🔧 [DEBUG] Token {token.id}: Combat {old_combat} -> {token.combat_value}")
             
-            # Odejmij punkty
             spent = fuel_add + combat_add
-            punkty -= spent
-            self.player.punkty_ekonomiczne = punkty
-            
-            # Synchronizuj z economy jeśli istnieje
-            if hasattr(self.player, 'economy') and self.player.economy is not None:
-                self.player.economy.economic_points = punkty
+            spent_total += spent
             
             if spent > 0:
                 resupplied_count += 1
-                print(f"[AI Resupply] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> fuel+{fuel_add}, combat+{combat_add} (koszt: {spent})")
+                print(f"[Resupply {context}] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> fuel+{fuel_add}, combat+{combat_add} (faza1: {spent})")
         
-        print(f"[AI Resupply] {self.player.nation}: ✅ Zakończono, uzupełniono {resupplied_count} jednostek, pozostało {punkty} punktów")
+        # FAZA 2: Rozdaj bonus pool według priorytetów (ale maksymalnie tyle ile potrzebują)
+        bonus_per_priority = max(1, remaining_budget // len(tokens_needing_help)) if remaining_budget > 0 else 0
+        
+        if bonus_per_priority > 0:
+            print(f"🎯 [BONUS PHASE] Dodatkowe {bonus_per_priority} pkt dla najbardziej potrzebujących")
+            
+            for i, token_data in enumerate(tokens_needing_help[:len(tokens_needing_help)]):
+                if remaining_budget <= 0:
+                    break
+                    
+                token = token_data['token']
+                
+                # Sprawdź ile jeszcze potrzebuje
+                current_fuel = getattr(token, 'currentFuel', 0)
+                max_fuel = getattr(token, 'maxFuel', token.stats.get('maintenance', 0))
+                fuel_still_needed = max(0, max_fuel - current_fuel)
+                
+                current_combat = getattr(token, 'combat_value', 0)
+                max_combat = token.stats.get('combat_value', 0)
+                combat_still_needed = max(0, max_combat - current_combat)
+                
+                total_still_needed = fuel_still_needed + combat_still_needed
+                
+                if total_still_needed > 0:
+                    bonus_spend = min(bonus_per_priority, total_still_needed, remaining_budget)
+                    
+                    # Kontekstowy bonus
+                    if context == "DAMAGE" and combat_still_needed > 0:
+                        combat_add = min(combat_still_needed, bonus_spend)
+                        fuel_add = 0
+                    elif fuel_still_needed > 0 and combat_still_needed > 0:
+                        fuel_add = min(fuel_still_needed, bonus_spend // 2)
+                        combat_add = min(combat_still_needed, bonus_spend - fuel_add)
+                    elif fuel_still_needed > 0:
+                        fuel_add = min(fuel_still_needed, bonus_spend)
+                        combat_add = 0
+                    else:
+                        fuel_add = 0
+                        combat_add = min(combat_still_needed, bonus_spend)
+                    
+                    # Aplikuj bonus
+                    if fuel_add > 0:
+                        token.currentFuel += fuel_add
+                        if token.currentFuel > max_fuel:
+                            token.currentFuel = max_fuel
+                    
+                    if combat_add > 0:
+                        if hasattr(token, 'combat_value'):
+                            token.combat_value += combat_add
+                        else:
+                            token.combat_value = combat_add
+                        if token.combat_value > max_combat:
+                            token.combat_value = max_combat
+                    
+                    bonus_spent = fuel_add + combat_add
+                    remaining_budget -= bonus_spent
+                    spent_total += bonus_spent
+                    
+                    if bonus_spent > 0:
+                        print(f"[Resupply {context}] {self.player.nation}: {token.stats.get('label', token.id)[:15]} -> BONUS fuel+{fuel_add}, combat+{combat_add} (faza2: {bonus_spent})")
+        
+        # Synchronizacja ekonomii
+        self.player.punkty_ekonomiczne = getattr(self.player, 'punkty_ekonomiczne', 0) - spent_total
+        if hasattr(self.player, 'economy') and self.player.economy is not None:
+            self.player.economy.economic_points = getattr(self.player.economy, 'economic_points', 0) - spent_total
+        
+        print(f"[Resupply {context}] {self.player.nation}: ✅ Zakończono, uzupełniono {resupplied_count} jednostek, wydano {spent_total} punktów")
+        return resupplied_count > 0
+
+    def _is_token_in_combat_zone(self, token, game_engine) -> bool:
+        """Sprawdź czy żeton jest w strefie kontaktu z wrogiem"""
+        token_pos = (token.q, token.r)
+        sight_range = token.stats.get('sight', 1)
+        
+        # Sprawdź czy w zasięgu wzroku są wrogowie
+        for enemy_token in game_engine.tokens:
+            if not hasattr(enemy_token, 'owner') or not hasattr(token, 'owner'):
+                continue
+            if not enemy_token.owner or not token.owner:
+                continue
+                
+            enemy_nation = enemy_token.owner.split('(')[-1].replace(')', '').strip()
+            token_nation = token.owner.split('(')[-1].replace(')', '').strip()
+            
+            if enemy_nation != token_nation:
+                enemy_pos = (enemy_token.q, enemy_token.r)
+                distance = game_engine.board.hex_distance(token_pos, enemy_pos)
+                if distance <= sight_range + 1:  # W strefie kontaktu
+                    return True
+        return False
 
     def make_tactical_turn(self, game_engine: Any) -> None:
         """Wykonaj turę taktyczną - używa prostych funkcji"""

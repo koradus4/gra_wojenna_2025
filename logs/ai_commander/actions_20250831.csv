@@ -1,0 +1,4 @@
+timestamp,turn,phase,nation,unit_id,unit_type,action_type,from_q,from_r,to_q,to_r,target_q,target_r,target_type,target_value_before,target_value_after,movement_mode,path_len,path_used,progressive_used,adaptive_frac,mp_before,mp_after,fuel_before,fuel_after,combat_dmg_dealt,combat_dmg_taken,enemy_adj_before,enemy_adj_after,threat_level,decision_reason,extra_tags,reason
+2025-08-31T13:32:40.671233,,,Niemcy,tank_damaged,,combat,5,5,6,5,,,,,,,,,,,,,,,,,,,,,,Attack enemy enemy_tank
+2025-08-31T13:33:16.384641,,,Niemcy,tank_damaged,,combat,5,5,6,5,,,,,,,,,,,,,,,,,,,,,,Attack enemy enemy_tank
+2025-08-31T13:46:48.327947,,,Niemcy,tank_damaged,,combat,5,5,6,5,,,,,,,,,,,,,,,,,,,,,,Attack enemy enemy_tank

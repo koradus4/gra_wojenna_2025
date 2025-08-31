@@ -382,6 +382,10 @@ class CombatResolver:
         defender.combat_value = max(0, getattr(defender, 'combat_value', 0) - attack_damage)
         attacker.combat_value = max(0, getattr(attacker, 'combat_value', 0) - defense_damage)
         
+        # TACTICAL RESUPPLY: Sprawdź czy AI potrzebuje uzupełnienia po otrzymaniu obrażeń
+        CombatResolver._check_post_damage_resupply(engine, attacker, defense_damage)
+        CombatResolver._check_post_damage_resupply(engine, defender, attack_damage)
+        
         messages = []
         
         # Sprawdź eliminację obrońcy
@@ -441,6 +445,50 @@ class CombatResolver:
         
         return None
     
+    @staticmethod
+    def _check_post_damage_resupply(engine, token, damage_taken: int):
+        """Sprawdź czy AI potrzebuje tactical resupply po otrzymaniu obrażeń"""
+        if damage_taken <= 0:
+            return
+            
+        try:
+            # Sprawdź czy to token AI
+            if not hasattr(token, 'owner') or not token.owner:
+                return
+                
+            # Znajdź gracza-właściciela
+            token_player = None
+            for player in getattr(engine, 'players', []):
+                if token.owner == f"{player.id} ({player.nation})":
+                    token_player = player
+                    break
+            
+            # Sprawdź czy to AI Commander
+            if not token_player or not hasattr(token_player, 'is_ai_commander'):
+                return
+                
+            # Znajdź AI Commander instance
+            ai_commanders = getattr(engine, 'ai_commanders', {})
+            if token_player.id not in ai_commanders:
+                return
+                
+            ai_commander = ai_commanders[token_player.id]
+            if not hasattr(ai_commander, 'tactical_resupply'):
+                return
+            
+            # Sprawdź czy jednostka potrzebuje uzupełnienia
+            current_cv = getattr(token, 'combat_value', 0)
+            max_cv = token.stats.get('combat_value', 0)
+            cv_percentage = current_cv / max(max_cv, 1)
+            
+            # Uzupełnij jeśli CV spadło poniżej 60% i otrzymano znaczące obrażenia
+            if cv_percentage < 0.6 and damage_taken >= 3:
+                print(f"💉 [POST-DAMAGE RESUPPLY] {token.id} CV={current_cv}/{max_cv} ({cv_percentage:.1%}) po {damage_taken} dmg")
+                ai_commander.tactical_resupply(engine, "DAMAGE")
+                
+        except Exception as e:
+            print(f"❌ [POST-DAMAGE RESUPPLY] Błąd: {e}")
+
     @staticmethod
     def _award_vp_for_elimination(engine, winner_token, loser_token):
         """Przyznaj VP za eliminację żetonu"""
