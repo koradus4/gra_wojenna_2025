@@ -1,0 +1,102 @@
+[
+  {
+    "id": "P_Kompania__2_Batalion_Strzelc_w",
+    "q": 3,
+    "r": 1
+  },
+  {
+    "id": "P_Pluton__2_Batalion_Strzelc_w",
+    "q": 3,
+    "r": 2
+  },
+  {
+    "id": "TS_Batalion__2_Sam_Pancerny_Einheit",
+    "q": 3,
+    "r": 3
+  },
+  {
+    "id": "Z_Pluton__2_Batalion_Wsparcia",
+    "q": 3,
+    "r": 4
+  },
+  {
+    "id": "Z_Pluton__2_Kompania_Zaopatrzeniowa",
+    "q": 3,
+    "r": 5
+  },
+  {
+    "id": "P_Kompania__3_Batalion_Strzelc_w",
+    "q": 3,
+    "r": 9
+  },
+  {
+    "id": "P_Pluton__3_Batalion_Strzelc_w",
+    "q": 3,
+    "r": 10
+  },
+  {
+    "id": "P_Pluton__3_Batalion_Strzelc_w_20250901213622",
+    "q": 3,
+    "r": 11
+  },
+  {
+    "id": "P_Pluton__3_Batalion_Strzelc_w_20250901213624",
+    "q": 3,
+    "r": 12
+  },
+  {
+    "id": "P_Pluton__3_Kompania_Grenadier_w",
+    "q": 3,
+    "r": 13
+  },
+  {
+    "id": "P_Batalion__5_Grenadier_Bataillon",
+    "q": 20,
+    "r": 1
+  },
+  {
+    "id": "P_Batalion__5_Sch_tzen_Kompanie",
+    "q": 20,
+    "r": 2
+  },
+  {
+    "id": "Z_Pluton__5_Aufkl_rungs_Zug",
+    "q": 20,
+    "r": 4
+  },
+  {
+    "id": "Z_Pluton__5_Aufkl_rungs_Zug_20250901213632",
+    "q": 20,
+    "r": 5
+  },
+  {
+    "id": "K_Pluton__6_Kawaleria_Einheit",
+    "q": 28,
+    "r": -14
+  },
+  {
+    "id": "P_Batalion__6_Grenadier_Bataillon",
+    "q": 28,
+    "r": -13
+  },
+  {
+    "id": "P_Pluton__6_Grenadier_Bataillon",
+    "q": 28,
+    "r": -12
+  },
+  {
+    "id": "P_Pluton__6_Sch_tzen_Kompanie",
+    "q": 28,
+    "r": -11
+  },
+  {
+    "id": "Z_Pluton__6_Aufkl_rungs_Zug",
+    "q": 28,
+    "r": -10
+  },
+  {
+    "id": "TL_Pluton__5_Panzer_Zug",
+    "q": 20,
+    "r": 3
+  }
+]

@@ -12,6 +12,14 @@ from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
 from utils.game_cleaner import clean_all_for_new_game, quick_clean, clean_ai_logs, clean_game_logs
 
+# --- Safe stdout encoding (unikaj UnicodeEncodeError w konsoli cp1250) ---
+try:
+    import sys
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='ignore')
+except Exception:
+    pass
+
 # 🎚️ POZIOM DEBUGOWANIA - łatwa kontrola komunikatów
 DEBUG_LEVEL = "BASIC"  # "BASIC" = tylko kupowanie/wystawianie, "FULL" = wszystkie szczegóły
 

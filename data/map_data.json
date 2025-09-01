@@ -510,27 +510,47 @@
     "3,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Kompania__2_Batalion_Strzelc_w",
+        "image": "assets/tokens/Polska/P_Kompania__2_Batalion_Strzelc_w/token.png"
+      }
     },
     "3,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__2_Batalion_Strzelc_w",
+        "image": "assets/tokens/Polska/P_Pluton__2_Batalion_Strzelc_w/token.png"
+      }
     },
     "3,3": {
       "terrain_key": "mała rzeka",
       "move_mod": 2,
-      "defense_mod": 1
+      "defense_mod": 1,
+      "token": {
+        "unit": "TS_Batalion__2_Sam_Pancerny_Einheit",
+        "image": "assets/tokens/Polska/TS_Batalion__2_Sam_Pancerny_Einheit/token.png"
+      }
     },
     "3,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__2_Batalion_Wsparcia",
+        "image": "assets/tokens/Polska/Z_Pluton__2_Batalion_Wsparcia/token.png"
+      }
     },
     "3,5": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2
+      "defense_mod": 2,
+      "token": {
+        "unit": "Z_Pluton__2_Kompania_Zaopatrzeniowa",
+        "image": "assets/tokens/Polska/Z_Pluton__2_Kompania_Zaopatrzeniowa/token.png"
+      }
     },
     "3,6": {
       "terrain_key": "mała miejscowość",
@@ -550,27 +570,47 @@
     "3,9": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Kompania__3_Batalion_Strzelc_w",
+        "image": "assets/tokens/Polska/P_Kompania__3_Batalion_Strzelc_w/token.png"
+      }
     },
     "3,10": {
       "terrain_key": "mała rzeka",
       "move_mod": 2,
-      "defense_mod": 1
+      "defense_mod": 1,
+      "token": {
+        "unit": "P_Pluton__3_Batalion_Strzelc_w",
+        "image": "assets/tokens/Polska/P_Pluton__3_Batalion_Strzelc_w/token.png"
+      }
     },
     "3,11": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__3_Batalion_Strzelc_w_20250901213622",
+        "image": "assets/tokens/Polska/P_Pluton__3_Batalion_Strzelc_w_20250901213622/token.png"
+      }
     },
     "3,12": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__3_Batalion_Strzelc_w_20250901213624",
+        "image": "assets/tokens/Polska/P_Pluton__3_Batalion_Strzelc_w_20250901213624/token.png"
+      }
     },
     "3,13": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__3_Kompania_Grenadier_w",
+        "image": "assets/tokens/Polska/P_Pluton__3_Kompania_Grenadier_w/token.png"
+      }
     },
     "3,14": {
       "terrain_key": "teren_płaski",
@@ -3355,22 +3395,38 @@
     "20,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__5_Grenadier_Bataillon",
+        "image": "assets/tokens/Niemcy/P_Batalion__5_Grenadier_Bataillon/token.png"
+      }
     },
     "20,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__5_Sch_tzen_Kompanie",
+        "image": "assets/tokens/Niemcy/P_Batalion__5_Sch_tzen_Kompanie/token.png"
+      }
     },
     "20,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__5_Aufkl_rungs_Zug",
+        "image": "assets/tokens/Niemcy/Z_Pluton__5_Aufkl_rungs_Zug/token.png"
+      }
     },
     "20,5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__5_Aufkl_rungs_Zug_20250901213632",
+        "image": "assets/tokens/Niemcy/Z_Pluton__5_Aufkl_rungs_Zug_20250901213632/token.png"
+      }
     },
     "20,6": {
       "terrain_key": "most",
@@ -4595,27 +4651,47 @@
     "28,-14": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "K_Pluton__6_Kawaleria_Einheit",
+        "image": "assets/tokens/Niemcy/K_Pluton__6_Kawaleria_Einheit/token.png"
+      }
     },
     "28,-13": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Batalion__6_Grenadier_Bataillon",
+        "image": "assets/tokens/Niemcy/P_Batalion__6_Grenadier_Bataillon/token.png"
+      }
     },
     "28,-12": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__6_Grenadier_Bataillon",
+        "image": "assets/tokens/Niemcy/P_Pluton__6_Grenadier_Bataillon/token.png"
+      }
     },
     "28,-11": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "P_Pluton__6_Sch_tzen_Kompanie",
+        "image": "assets/tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie/token.png"
+      }
     },
     "28,-10": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__6_Aufkl_rungs_Zug",
+        "image": "assets/tokens/Niemcy/Z_Pluton__6_Aufkl_rungs_Zug/token.png"
+      }
     },
     "28,-9": {
       "terrain_key": "teren_płaski",
@@ -9315,7 +9391,11 @@
     "20,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "TL_Pluton__5_Panzer_Zug",
+        "image": "assets/tokens/Niemcy/TL_Pluton__5_Panzer_Zug/token.png"
+      }
     },
     "17,-1": {
       "terrain_key": "teren_płaski",
