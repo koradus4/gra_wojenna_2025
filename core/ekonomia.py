@@ -21,11 +21,29 @@ class EconomySystem:
         self.special_points += 1
 
     def subtract_points(self, points):
-        """Odejmuje punkty ekonomiczne z dostępnej puli."""
-        if hasattr(self, 'economic_points'):
-            self.economic_points -= points
-            if self.economic_points < 0:
-                self.economic_points = 0
+        """Odejmuje punkty ekonomiczne z dostępnej puli z pełną ochroną przed ujemnymi PE."""
+        if not hasattr(self, 'economic_points'):
+            print(f"⚠️ [ECONOMY] Brak economic_points! Inicjalizuje na 0")
+            self.economic_points = 0
+            
+        current_pe = self.economic_points
+        
+        if points <= 0:
+            print(f"⚠️ [ECONOMY] Próba odejęcia {points} PE - ignoruje")
+            return
+            
+        if current_pe < points:
+            print(f"🚫 [ECONOMY BLOCK] BLOKADA! Próba odejęcia {points} PE, dostępne {current_pe} PE")
+            print(f"🚫 [ECONOMY BLOCK] Odejmuję maksimum: {current_pe} PE")
+            self.economic_points = 0
+        else:
+            self.economic_points = current_pe - points
+            print(f"💰 [ECONOMY] PE: {current_pe} → {self.economic_points} (odejęto {points})")
+        
+        # Dodatkowa kontrola bezpieczeństwa
+        if self.economic_points < 0:
+            print(f"🚨 [ECONOMY EMERGENCY] WYKRYTO UJEMNE PE ({self.economic_points})! Przywracam do 0")
+            self.economic_points = 0
 
     def get_points(self):
         """Zwraca aktualne punkty ekonomiczne i specjalne."""

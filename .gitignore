@@ -44,3 +44,6 @@ Thumbs.db
 # Game specific
 saves/latest.json
 ekran_startowy.log
+
+# Test cache
+.pytest_cache/

@@ -41,6 +41,7 @@ from ai.log_kategorie_ai import (
 try:
     from ai.ruch_jednostek import move_towards, choose_movement_mode  # type: ignore
     from ai.okupacja_punktow import enforce_garrison_limits, GARRISON_LIMITS  # type: ignore
+    from ai.wsparcie_garnizonu import assign_garrison_support, clear_obsolete_garrison_support  # type: ignore
 except Exception:
     # Fallback - jeśli import się nie powiedzie pozostają lokalne (część funkcji zachowana niżej)
     pass
@@ -67,7 +68,7 @@ except Exception:
     # fallback wartości (nie powinny być użyte jeśli import działa)
     RESUPPLY_SECOND_MOVE_MIN_FUEL_GAIN = 2
     RESUPPLY_TARGET_FUEL_THRESHOLD = 0.65
-    RESUPPLY_PER_UNIT_CAP_MID_TURN = 1
+    RESUPPLY_PER_UNIT_CAP_MID_TURN = 3  # Zaktualizowane z 1 do 3
 
 
 ### enforce_garrison_limits delegowany w całości do ai.okupacja_punktow
@@ -236,6 +237,55 @@ def is_unit_holding(unit_dict: dict) -> bool:
         return bool(getattr(token, 'hold_position', False))
     except Exception:
         return False
+
+
+def _check_and_manage_garrisons(game_engine, my_units):
+    """Sprawdza garnizone na początku tury i zarządza rotacją jednostek.
+    
+    Args:
+        game_engine: GameEngine
+        my_units: Lista jednostek gracza
+    """
+    try:
+        kp_state = getattr(game_engine, 'key_points_state', {})
+        if not kp_state:
+            return
+            
+        debug_print(f"🏰 [GARRISON CHECK] Sprawdzanie {len(my_units)} jednostek pod kątem garnizonów", "FULL", TACTIC)
+        
+        # Sprawdź każdą jednostkę czy stoi na punkcie kluczowym
+        for unit in my_units:
+            unit_pos = (unit['q'], unit['r'])
+            hex_id = f"{unit_pos[0]},{unit_pos[1]}"
+            kp_data = kp_state.get(hex_id)
+            
+            if kp_data:
+                # Jednostka stoi na punkcie kluczowym
+                token = unit.get('token')
+                current_value = kp_data.get('current_value', 0)
+                initial_value = kp_data.get('initial_value', 1)
+                current_ratio = current_value / max(initial_value, 1)
+                
+                debug_print(f"🏰 [GARRISON] {unit.get('id', 'UNKNOWN')} na punkcie {hex_id}: wartość {current_value}/{initial_value} ({current_ratio:.1%})", "FULL", TACTIC)
+                
+                if token and current_value > 0:
+                    # Punkt nadal ma wartość - sprawdź czy jednostka powinna zostać
+                    if not getattr(token, 'hold_position', False):
+                        # Jednostka nie ma garnizonu - ustaw go
+                        setattr(token, 'hold_position', True)
+                        debug_print(f"🏰 [GARRISON SET] {unit.get('id', 'UNKNOWN')}: Automatycznie ustawiono garnizon na {hex_id}", "BASIC", TACTIC)
+                    
+                    # Sprawdź czy garnizon powinien zostać zwolniony (delegacja do okupacja_punktow)
+                    enforce_garrison_limits(game_engine, hex_id, kp_data, token, current_ratio)
+                    
+                elif token and current_value <= 0:
+                    # Punkt wyczerpany - zwolnij garnizon
+                    if getattr(token, 'hold_position', False):
+                        setattr(token, 'hold_position', False)
+                        debug_print(f"🏰 [GARRISON RELEASE] {unit.get('id', 'UNKNOWN')}: Punkt {hex_id} wyczerpany - zwalniam garnizon", "BASIC", TACTIC)
+                        
+    except Exception as e:
+        debug_print(f"🏰 [GARRISON ERROR] Błąd sprawdzania garnizonów: {e}", "BASIC", ERROR)
 
 
 def get_my_units(game_engine, player_id=None):
@@ -530,14 +580,46 @@ def advanced_autonomous_mode(my_units, game_engine):
     prioritized_targets = prioritize_targets(available_keypoints, game_engine)
     debug_print(f"🎯 [TARGETS] Priorytetyzowano {len(prioritized_targets)} celów", "FULL", PRIORIZER)
     
+    # SZCZEGÓŁOWE LOGOWANIE CELÓW
+    debug_print("📊 [TARGET ANALYSIS] === ANALIZA CELÓW ===", "BASIC", PRIORIZER)
+    for i, target in enumerate(prioritized_targets[:8]):  # Top 8 celów
+        debug_print(f"🎯 [{i+1}] {target['target']} - wartość:{target['value']}, dystans:{target['enemy_distance']}, score:{target['priority']:.1f}, wolny:{target['free']}", "BASIC", PRIORIZER)
+    
     # NOWY: Adaptacyjne grupowanie
     groups = adaptive_grouping(my_units, game_engine)
     debug_print(f"🎯 [GROUPING] Utworzono {len(groups)} adaptacyjnych grup", "FULL", ASSIGN)
     
+    # SZCZEGÓŁOWE LOGOWANIE GRUP
+    debug_print("👥 [GROUP ANALYSIS] === ANALIZA GRUP ===", "BASIC", ASSIGN)
+    for i, group in enumerate(groups):
+        leader = group[0] if group else None
+        if leader:
+            debug_print(f"👥 [G{i+1}] Lider: {leader.get('id', 'UNKNOWN')} na ({leader.get('q', '?')},{leader.get('r', '?')}), jednostek: {len(group)}", "BASIC", ASSIGN)
+    
     # NOWY: Koordynacja celów - bez duplikatów
     group_assignments = assign_targets_with_coordination(groups, prioritized_targets, game_engine)
+    # NOWE: natychmiastowa próba reasignacji pustych celów
+    try:
+        if any(a.get('target') is None for a in group_assignments if isinstance(a, dict)):
+            group_assignments = dynamic_reassignment(group_assignments, game_engine)
+    except Exception as _dre:
+        debug_print(f"[ADVANCED AUTO] Reassignment fail: {_dre}", "FULL", WARN)
     
     debug_print(f"🎯 [FINAL] Przypisano cele dla {len(group_assignments)} grup", "BASIC", ASSIGN)
+    
+    # SZCZEGÓŁOWE LOGOWANIE PRZYPISAŃ
+    debug_print("🎯 [ASSIGNMENT ANALYSIS] === PRZYPISANIA GRUP ===", "BASIC", ASSIGN)
+    for i, assignment in enumerate(group_assignments):
+        if isinstance(assignment, dict):
+            target = assignment.get('target')
+            group = assignment.get('group', [])
+            leader = group[0] if group else None
+            leader_id = leader.get('id', 'UNKNOWN') if leader else 'NO_LEADER'
+            if target:
+                debug_print(f"🎯 [A{i+1}] Grupa {leader_id} -> CEL {target} ({len(group)} jednostek)", "BASIC", ASSIGN)
+            else:
+                debug_print(f"⚠️ [A{i+1}] Grupa {leader_id} -> BRAK CELU! ({len(group)} jednostek)", "BASIC", ASSIGN)
+    
     return group_assignments
 
 
@@ -739,6 +821,19 @@ def make_tactical_turn(game_engine, player_id=None):
             player_nation=player_nation
         )
 
+        # ===== REFRESH MOVEMENT POINTS NA POCZĄTKU TURY =====
+        try:
+            if hasattr(game_engine, 'tokens'):
+                refreshed_count = 0
+                for token in game_engine.tokens:
+                    if getattr(token, 'player_id', None) == player_id:
+                        max_mp = getattr(token, 'maxMovePoints', getattr(token, 'stats', {}).get('move', 5))
+                        token.currentMovePoints = max_mp
+                        refreshed_count += 1
+                debug_print(f"🔄 [MP REFRESH] Odświeżono MP dla {refreshed_count} jednostek gracza {player_id}", "FULL", INFO)
+        except Exception as e:
+            debug_print(f"[MP REFRESH ERROR] {e}", "BASIC", ERROR)
+
         # --- AUTO INIT KEY POINTS (jeśli brak current_value) ---
         try:
             kp_state = getattr(game_engine, 'key_points_state', None)
@@ -768,23 +863,10 @@ def make_tactical_turn(game_engine, player_id=None):
         except Exception as _e:
             debug_print(f"[AI KP INIT] Błąd inicjalizacji key pointów: {_e}", "BASIC", ERROR)
         
-        # STRATEGICZNE ROZKAZY od General
-        strategic_order = None
-        try:
-            if current_player:
-                # Zarejestruj referencję do commander aby find_target mógł pobrać wagi
-                if not hasattr(game_engine, 'current_player_commander'):
-                    game_engine.current_player_commander = None
-                temp_commander = type('obj', (), {'player': current_player})()
-                current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
-                strategic_order = AICommander.receive_orders(temp_commander, current_turn=current_turn)
-                
-                if strategic_order:
-                    debug_print(f"📋 [AI] Otrzymano strategiczny rozkaz: {strategic_order['mission_type']} -> {strategic_order['target_hex']}", "BASIC", TACTIC)
-                else:
-                    debug_print(f"🔄 [AI] Brak rozkazów strategicznych - tryb autonomiczny", "FULL", TACTIC)
-        except Exception as e:
-            debug_print(f"⚠️ [AI] Błąd odczytu rozkazów strategicznych: {e}", "BASIC", ERROR)
+        # === USUNIĘTO SYSTEM ROZKAZÓW ===
+        # AI Dowódcy działają autonomicznie bez rozkazów od AI Generała
+        debug_print(f"🔄 [AI] Tryb w pełni autonomiczny - brak systemu rozkazów", "FULL", TACTIC)
+        debug_print(f"� [AI] Tryb w pełni autonomiczny - brak systemu rozkazów", "FULL", TACTIC)
 
         # ===== NOWY: ADAPTACYJNY SYSTEM AI =====
         adaptive_ai = None
@@ -812,6 +894,16 @@ def make_tactical_turn(game_engine, player_id=None):
         # 1. Zbierz dane
         my_units = get_my_units(game_engine, player_id)
         starting_unit_ids = {u.get('id') for u in my_units}
+        
+        # 🔥 NOWE: Sprawdź i zarządzaj garnizonami na początku tury
+        _check_and_manage_garrisons(game_engine, my_units)
+        
+        # 🔥 NOWE: Wyczyść przestarzałe wsparcie garnizonów
+        cleared_support = clear_obsolete_garrison_support(my_units, game_engine)
+        
+        # 🔥 NOWE: Przydziel wsparcie do garnizonów
+        assigned_support = assign_garrison_support(my_units, game_engine)
+        
         # Sanity: usuń martwe / nieistniejące assigned_target (np. po zmianie key pointów)
         for u in my_units:
             at = u.get('assigned_target')
@@ -855,65 +947,61 @@ def make_tactical_turn(game_engine, player_id=None):
         # Odfiltruj jednostki które już ruszyły
         my_units = [u for u in my_units if not u.get('moved_capture')]
 
-        # 2b. GRUPOWANIE JEDNOSTEK według bliskości lub zaawansowany autonomiczny
-        if strategic_order:
-            # Standardowe grupowanie dla rozkazów strategicznych
-            unit_groups = group_units_by_proximity(my_units, max_group_distance=8)
-            debug_print(f"[AI] Utworzono {len(unit_groups)} grup jednostek (tryb strategiczny)", "FULL", ASSIGN)
-            advanced_mode = False
-        else:
-            # ZAAWANSOWANY TRYB AUTONOMICZNY
-            debug_print(f"🎯 [AI] ZAAWANSOWANY TRYB AUTONOMICZNY AKTYWOWANY!", "BASIC", TACTIC)
-            group_assignments = advanced_autonomous_mode(my_units, game_engine)
-            
-            # NOWY: Dynamiczne przeprzydzielanie sił
-            group_assignments = dynamic_reassignment(group_assignments, game_engine)
-            
-            advanced_mode = True
-            debug_print(f"[AI] Utworzono {len(group_assignments)} zorganizowanych grup", "BASIC", ASSIGN)
-            # DIAGNOSTYKA / NORMALIZACJA: Upewnij się, że każdy assignment ma 'leader' i 'distance'
-            try:
-                board = getattr(game_engine, 'board', None)
-                enriched = 0
-                for a_idx, assign in enumerate(group_assignments):
-                    if not isinstance(assign, dict):
-                        debug_print(f"[ASSIGNMENTS DEBUG] Pozycja {a_idx}: nie-dict -> {type(assign)}", "FULL", ASSIGN)
+        # 2b. GRUPOWANIE JEDNOSTEK - TYLKO ZAAWANSOWANY TRYB AUTONOMICZNY
+        # USUNIĘTO: system rozkazów strategicznych
+        debug_print(f"🎯 [AI] ZAAWANSOWANY TRYB AUTONOMICZNY AKTYWOWANY!", "BASIC", TACTIC)
+        group_assignments = advanced_autonomous_mode(my_units, game_engine)
+        
+        # NOWY: Dynamiczne przeprzydzielanie sił
+        group_assignments = dynamic_reassignment(group_assignments, game_engine)
+        
+        advanced_mode = True
+        debug_print(f"[AI] Utworzono {len(group_assignments)} zorganizowanych grup", "BASIC", ASSIGN)
+        
+        # DIAGNOSTYKA / NORMALIZACJA: Upewnij się, że każdy assignment ma 'leader' i 'distance'
+        try:
+            board = getattr(game_engine, 'board', None)
+            enriched = 0
+            for a_idx, assign in enumerate(group_assignments):
+                if not isinstance(assign, dict):
+                    debug_print(f"[ASSIGNMENTS DEBUG] Pozycja {a_idx}: nie-dict -> {type(assign)}", "FULL", ASSIGN)
+                    continue
+                grp = assign.get('group')
+                tgt = assign.get('target')
+                if 'leader' not in assign:
+                    if grp and len(grp) > 0:
+                        assign['leader'] = grp[0]
+                        enriched += 1
+                        debug_print(f"[ASSIGNMENTS FIX] Dodano leader dla assignment {a_idx} -> {assign['leader'].get('id')}", "FULL", ASSIGN)
+                    else:
+                        debug_print(f"[ASSIGNMENTS WARN] Brak group lub pusta grupa w assignment {a_idx}", "BASIC", WARN)
                         continue
-                    grp = assign.get('group')
-                    tgt = assign.get('target')
-                    if 'leader' not in assign:
-                        if grp and len(grp) > 0:
-                            assign['leader'] = grp[0]
-                            enriched += 1
-                            debug_print(f"[ASSIGNMENTS FIX] Dodano leader dla assignment {a_idx} -> {assign['leader'].get('id')}", "FULL", ASSIGN)
-                        else:
-                            debug_print(f"[ASSIGNMENTS WARN] Brak group lub pusta grupa w assignment {a_idx}", "BASIC", WARN)
-                            continue
-                    # Distance – jeśli brak i mamy target
-                    if 'distance' not in assign:
-                        distance = None
-                        try:
-                            if board and tgt and assign['leader']:
-                                if hasattr(board, 'hex_distance'):
-                                    distance = board.hex_distance((assign['leader']['q'], assign['leader']['r']), tgt)
-                                else:
-                                    path = board.find_path((assign['leader']['q'], assign['leader']['r']), tgt, max_mp=assign['leader'].get('mp',1), max_fuel=assign['leader'].get('fuel',1)) if hasattr(board, 'find_path') else None
-                                    if path:
-                                        distance = len(path)-1
-                        except Exception as de:
-                            debug_print(f"[ASSIGNMENTS WARN] Błąd wyliczania distance dla {a_idx}: {de}", "BASIC", ERROR)
-                        if distance is not None:
-                            assign['distance'] = distance
-                            debug_print(f"[ASSIGNMENTS FIX] Dodano distance={distance} dla assignment {a_idx}", "FULL", ASSIGN)
-                if enriched:
-                    debug_print(f"[ASSIGNMENTS SUMMARY] Uzupełniono {enriched} assignmentów o brakujący leader", "FULL", ASSIGN)
-            except Exception as dbg_e:
-                debug_print(f"[ASSIGNMENTS DEBUG] Błąd normalizacji: {dbg_e}", "BASIC", ERROR)
+                # Distance – jeśli brak i mamy target
+                if 'distance' not in assign:
+                    distance = None
+                    try:
+                        if board and tgt and assign['leader']:
+                            if hasattr(board, 'hex_distance'):
+                                distance = board.hex_distance((assign['leader']['q'], assign['leader']['r']), tgt)
+                            else:
+                                path = board.find_path((assign['leader']['q'], assign['leader']['r']), tgt, max_mp=assign['leader'].get('mp',1), max_fuel=assign['leader'].get('fuel',1)) if hasattr(board, 'find_path') else None
+                                if path:
+                                    distance = len(path)-1
+                    except Exception as de:
+                        debug_print(f"[ASSIGNMENTS WARN] Błąd wyliczania distance dla {a_idx}: {de}", "BASIC", ERROR)
+                    if distance is not None:
+                        assign['distance'] = distance
+                        debug_print(f"[ASSIGNMENTS FIX] Dodano distance={distance} dla assignment {a_idx}", "FULL", ASSIGN)
+            if enriched:
+                debug_print(f"[ASSIGNMENTS SUMMARY] Uzupełniono {enriched} assignmentów o brakujący leader", "FULL", ASSIGN)
+        except Exception as dbg_e:
+            debug_print(f"[ASSIGNMENTS DEBUG] Błąd normalizacji: {dbg_e}", "BASIC", ERROR)
         
         # 3. COMBAT PHASE - dla każdej jednostki sprawdź możliwe ataki
         combat_count = 0
         for i, unit in enumerate(my_units):
             unit_name = unit.get('id', f'unit_{i}')
+            unit_id = unit.get('id')
             can_move_result = can_move(unit)
 
             # Jeśli brak paliwa spróbuj taktycznego uzupełnienia
@@ -923,7 +1011,7 @@ def make_tactical_turn(game_engine, player_id=None):
                 debug_print(f"[DEBUG] commander_ref: {commander_ref}", "FULL", RESUPPLY)
                 if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
                     debug_print(f"Wywołuję tactical_resupply dla {unit_name}", "FULL", RESUPPLY)
-                    resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                    resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL", unit_id)
                     debug_print(f"tactical_resupply result: {resupply_success}", "FULL", RESUPPLY)
                     if resupply_success:
                         token = unit.get('token')
@@ -1024,6 +1112,31 @@ def make_tactical_turn(game_engine, player_id=None):
                     assignment['leader'] = leader
                     debug_print(f"[ADVANCED MOVE FIX] Autouzupelniono leader dla assignment {assignment_idx} -> {leader.get('id')}", "FULL", MOVE)
                 target = assignment.get('target')
+                if target is None:
+                    # Fallback 1: dynamic reasignacja jeszcze raz (rzadkie)
+                    try:
+                        reassign_try = dynamic_reassignment([assignment], game_engine)
+                        if reassign_try and isinstance(reassign_try[0], dict):
+                            target = reassign_try[0].get('target')
+                            assignment['target'] = target
+                    except Exception:
+                        pass
+                    # Fallback 2: lokalne wyszukanie celu dla lidera
+                    if target is None:
+                        try:
+                            target_candidate = find_target(leader, game_engine)
+                            if target_candidate:
+                                target = target_candidate
+                                assignment['target'] = target_candidate
+                                debug_print(f"[ADVANCED MOVE FIX] Nadano awaryjny cel {target}", "FULL", MOVE)
+                        except Exception as _ft_err:
+                            debug_print(f"[ADVANCED MOVE WARN] Brak fallback target: {_ft_err}", "FULL", MOVE)
+                
+                # LOGOWANIE DECYZJI STRATEGICZNEJ
+                if target:
+                    debug_print(f"🎯 [STRATEGIC] Grupa {assignment_idx + 1} idzie do {target} - powód: przypisany cel", "BASIC", MOVE)
+                else:
+                    debug_print(f"⚠️ [STRATEGIC] Grupa {assignment_idx + 1} BEZ CELU - jednostki będą stać w miejscu", "BASIC", MOVE)
                 # Distance fallback
                 if 'distance' not in assignment:
                     board = getattr(game_engine, 'board', None)
@@ -1046,7 +1159,7 @@ def make_tactical_turn(game_engine, player_id=None):
                 debug_print(f"🎯 [ADVANCED MOVE] Lider: {leader.get('id')} (dystans: {distance_report})", "FULL", MOVE)
 
                 # NOWE: Użyj priorytetów z adaptacyjnego systemu jeśli dostępne
-                if strategic_plan and 'target_priorities' in strategic_plan:
+                if strategic_plan and target and 'target_priorities' in strategic_plan:
                     # Sprawdź czy cel grupy pasuje do top priorytetów
                     target_str = f"{target[0]},{target[1]}"
                     for priority_hex, priority_data in strategic_plan['target_priorities']:
@@ -1081,7 +1194,7 @@ def make_tactical_turn(game_engine, player_id=None):
                         debug_print(f"🔧 [TACTICAL RESUPPLY] {unit_name} potrzebuje paliwa w fazie MOVEMENT", "FULL", RESUPPLY)
                         commander_ref = getattr(game_engine, 'current_player_commander', None)
                         if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
-                            resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
+                            resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL", unit.get('id'))
                             if resupply_success:
                                 token = unit.get('token')
                                 if token:
@@ -1100,6 +1213,9 @@ def make_tactical_turn(game_engine, player_id=None):
                     if can_move_result:
                         # NOWE: Adaptacyjna taktyka na podstawie stanu strategicznego
                         final_target = target
+                        if final_target is None:
+                            debug_print(f"[ADVANCED MOVE] Pomijam jednostkę {unit_name} brak celu", "FULL", MOVE)
+                            continue
                         if strategic_plan:
                             final_target = adaptive_ai._adaptive_movement_tactics(
                                 unit, target, strategic_plan, game_engine
@@ -1132,90 +1248,11 @@ def make_tactical_turn(game_engine, player_id=None):
                     else:
                         debug_print(f"⚠️ [ADVANCED MOVE] {unit_name}: Nie może się ruszyć (MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)})", "FULL", MOVE)
 
-        else:
-            # STANDARDOWA LOGIKA - dla rozkazów strategicznych
-            for group_idx, group in enumerate(unit_groups):
-                debug_print(f"[AI] Przetwarzam grupę {group_idx + 1}/{len(unit_groups)} ({len(group)} jednostek)", "FULL", MOVE)
-
-                # Oblicz średnią pozycję grupy dla lepszego target selection
-                if strategic_order and strategic_order.get('target_hex'):
-                    # Wszystkie grupy mają ten sam strategiczny cel
-                    base_target = strategic_order['target_hex']
-                    mission_type = strategic_order.get('mission_type', 'UNKNOWN')
-                else:
-                    # Autonomiczny cel dla grupy - wybierz na podstawie pozycji lidera (stara logika)
-                    leader = group[0]
-                    base_target = find_target(leader, game_engine)
-                    mission_type = 'AUTONOMOUS'
-
-                # Przetwórz jednostki w grupie
-                for unit_idx, unit in enumerate(group):
-                    total_processed += 1
-                    unit_name = unit.get('id', f'unit_{total_processed}')
-                    can_move_result = can_move(unit)
-                    debug_print(f"[AI] {unit_name}: MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)}, Can move: {can_move_result}", "FULL", MOVE)
-
-                    # NOWE: Jeśli brak fuel - spróbuj uzupełnić
-                    if not can_move_result and unit.get('fuel', 0) <= 0:
-                        debug_print(f"🔧 [TACTICAL RESUPPLY] {unit_name} potrzebuje paliwa w fazie STANDARD MOVEMENT", "FULL", RESUPPLY)
-                        commander_ref = getattr(game_engine, 'current_player_commander', None)
-                        if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
-                            resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL")
-                            if resupply_success:
-                                token = unit.get('token')
-                                if token:
-                                    unit['fuel'] = getattr(token, 'currentFuel', 0)
-                                    unit['mp'] = getattr(token, 'currentMovePoints', 0)
-                                    can_move_result = can_move(unit)
-                                    debug_print(f"🔧 [RESUPPLY SUCCESS] {unit_name} fuel = {unit['fuel']}, mp = {unit['mp']}", "FULL", RESUPPLY)
-                        else:
-                            debug_print(f"🔧 [RESUPPLY FAILED] Brak commander_ref lub tactical_resupply method", "BASIC", RESUPPLY)
-
-                    if can_move_result:
-                        # Wybierz cel i taktykę
-                        if base_target:
-                            if mission_type != 'AUTONOMOUS':
-                                # TAKTYKA STRATEGICZNA
-                                target = execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_idx, len(group))
-                                debug_print(f"[AI] {unit_name}: {mission_type} -> {target} (taktyka)", "FULL", TACTIC)
-                            else:
-                                # AUTONOMOUS MOVEMENT (stara logika)
-                                target = base_target
-                                debug_print(f"[AI] {unit_name}: Cel autonomiczny {target}", "FULL", TACTIC)
-                        else:
-                            debug_print(f"[AI] {unit_name}: Brak celu", "BASIC", WARN)
-                            continue
-
-                        # NOWE: pomiń ruch jeśli jednostka jest w trybie hold_position
-                        if is_unit_holding(unit):
-                            debug_print(f"🛡️ [MOVE] {unit_name}: UTRZYMUJE POZYCJĘ (garnizon)", "FULL", MOVE)
-                            continue
-
-                        if target:
-                            success = move_towards(unit, target, game_engine)
-                            if success:
-                                moved_count += 1
-                                # Log taktyki
-                                log_commander_action(
-                                    unit_id=unit_name,
-                                    action_type="tactical_move",
-                                    from_pos=(unit['q'], unit['r']),
-                                    to_pos=target,
-                                    reason=f"{mission_type} mission (group {group_idx + 1})",
-                                    player_nation=player_nation
-                                )
-                            else:
-                                debug_print(f"[AI] {unit_name}: Ruch nieudany", "BASIC", MOVE)
-                        else:
-                            debug_print(f"[AI] {unit_name}: Brak celu", "BASIC", WARN)
-                    else:
-                        debug_print(f"[AI] {unit_name}: Nie może się ruszyć", "FULL", MOVE)
-
         debug_print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)} (sukces: {moved_count/len(my_units)*100:.1f}%)", "BASIC", MOVE)
 
-    # LOGUJ KONIEC TURY (szczegółowy w actions + zagregowany w turns)
-        group_count = len(group_assignments) if advanced_mode else len(unit_groups)
-        mode_type = "advanced" if advanced_mode else "standard"
+        # LOGUJ KONIEC TURY (szczegółowy w actions + zagregowany w turns)
+        group_count = len(group_assignments)
+        mode_type = "advanced"
         opportunistic_count = len(opportunistic_captured) if 'opportunistic_captured' in locals() and opportunistic_captured else 0
         # Przygotuj podstawowe metryki artylerii (jeśli tokens mają pola strzałów)
         artillery_tokens = [u for u in my_units if u.get('token') and getattr(u.get('token'), 'is_artillery', lambda: False)()]
@@ -1270,14 +1307,14 @@ def make_tactical_turn(game_engine, player_id=None):
             'groups': group_count,
             'units_total': len(my_units),
             'units_moved': moved_count,
-            'moved_pct': round((moved_count/len(my_units))*100,1) if my_units else 0,
+            'moved_pct': round(moved_count / len(my_units) * 100, 1) if my_units else 0,
             'opportunistic_captures': opportunistic_count,
             'combats': combat_count,
             'retreats': retreat_count if 'retreat_count' in locals() else 0,
-            'deployments': deployed_count,
-            'resupply_attempts': resupply_attempts,
-            'resupply_successes': resupply_successes,
-            'threatened_units': threatened_units_count,
+            'deployments': deployed_count if 'deployed_count' in locals() else 0,
+            'resupply_attempts': 0,  # TODO: będzie dodane w przyszłości
+            'resupply_successes': 0,
+            'threatened_units': len(threatened_units) if 'threatened_units' in locals() else 0,
             'low_income_streak': low_income_streak,
             'econ_weight': econ_weight,
             'vp_weight': vp_weight,
@@ -1287,7 +1324,20 @@ def make_tactical_turn(game_engine, player_id=None):
             'artillery_avg_shots': avg_shots,
             'casualties_turn': casualties_turn,
             'new_units_turn': new_units_turn,
-            'notes': None
+            # === NOWE DIAGNOSTYKI FAZA 1 ===
+            'total_targets_analyzed': len(locals().get('prioritized_targets', [])),
+            'avg_target_score': round(sum(t.get('priority', 0) for t in locals().get('prioritized_targets', [])[:10]) / min(10, len(locals().get('prioritized_targets', []))), 2) if locals().get('prioritized_targets') else 0,
+            'targets_with_fallback': 0,  # TODO: liczyć w find_target
+            'groups_without_targets': len([a for a in locals().get('group_assignments', []) if isinstance(a, dict) and not a.get('target')]),
+            'dynamic_reassignments': 0,  # TODO: liczyć w dynamic_reassignment
+            'strategic_state': strategic_plan.get('state') if strategic_plan else 'UNKNOWN',
+            'aggression_level': strategic_plan.get('aggression_level') if strategic_plan else 0.5,
+            'high_priority_targets': len([t for t in locals().get('prioritized_targets', [])[:5] if t.get('priority', 0) > 50]),
+            'free_targets_captured': len([t for t in locals().get('prioritized_targets', [])[:10] if t.get('free', False)]),
+            'coordination_failures': 0,  # TODO: liczyć niepowodzenia w assign_targets_with_coordination
+            'memory_targets_used': 0,  # TODO: liczyć użycie ai_target_memory
+            'tactical_resupply_calls': 0,  # TODO: liczyć wywołania tactical_resupply
+            'notes': f"Advanced mode: {advanced_mode}, Strategic plan: {strategic_plan is not None}"
         })
 
     except Exception as e:
@@ -1338,9 +1388,9 @@ class AICommander:
             from ai.zaopatrzenie_ai import pre_resupply as _pr
             return _pr(self, game_engine)
 
-    def tactical_resupply(self, game_engine: Any, trigger: str = "DAMAGE") -> bool:
+    def tactical_resupply(self, game_engine: Any, trigger: str = "DAMAGE", unit_id: str = None) -> bool:
             from ai.zaopatrzenie_ai import tactical_resupply as _tr
-            return _tr(self, game_engine, trigger)
+            return _tr(self, game_engine, trigger, unit_id)
 
     def _perform_resupply(self, game_engine: Any, punkty: int, context: str) -> bool:
         from ai.zaopatrzenie_ai import _perform_resupply as _prf
@@ -1360,67 +1410,8 @@ class AICommander:
         debug_print(f"[AICommander] Tura dla {self.player.nation} (id={player_id})", "BASIC", INFO)
         make_tactical_turn(game_engine, player_id)
 
-    def receive_orders(self, orders_file_path=None, current_turn=1):
-        """
-        Odbiera strategiczne rozkazy z pliku wydanego przez AI General.
-        
-        Args:
-            orders_file_path: Ścieżka do pliku z rozkazami (domyślnie data/strategic_orders.json)
-            current_turn: Aktualny numer tury do sprawdzenia ważności rozkazów
-            
-        Returns:
-            dict: Rozkaz dla tego dowódcy lub None jeśli brak/wygasł
-        """
-        import json
-        from pathlib import Path
-        
-        # Domyślna ścieżka do pliku rozkazów
-        if orders_file_path is None:
-            orders_file_path = Path("data/strategic_orders.json")
-        else:
-            orders_file_path = Path(orders_file_path)
-        
-        # Sprawdź czy plik istnieje
-        if not orders_file_path.exists():
-            return None
-        
-        try:
-            # Wczytaj rozkazy z pliku
-            with open(orders_file_path, 'r', encoding='utf-8') as f:
-                orders_data = json.load(f)
-            
-            # Sprawdź czy są rozkazy dla tego dowódcy
-            # Najpierw spróbuj po ID dowódcy (nowy system)
-            my_nation = self.player.nation.lower()
-            commander_id = f"{my_nation}_commander_{self.player.id}"
-            
-            my_order = None
-            
-            # Nowy system - indywidualne rozkazy per dowódca
-            if "orders" in orders_data and commander_id in orders_data["orders"]:
-                my_order = orders_data["orders"][commander_id]
-            # Fallback - stary system per nacja (dla kompatybilności)
-            elif "orders" in orders_data and my_nation in orders_data["orders"]:
-                my_order = orders_data["orders"][my_nation]
-            
-            if not my_order:
-                return None
-            
-            # Sprawdź czy rozkaz nie wygasł
-            expires_turn = my_order.get("expires_turn", 0)
-            if current_turn > expires_turn:
-                return None  # Rozkaz wygasł
-            
-            # Sprawdź czy rozkaz jest aktywny
-            if my_order.get("status") != "ACTIVE":
-                return None
-            
-            # Zwróć rozkaz
-            return my_order
-            
-        except Exception as e:
-            debug_print(f"❌ Błąd odczytu rozkazów: {e}", "BASIC", ERROR)
-            return None
+    # === USUNIĘTO SYSTEM ROZKAZÓW ===
+    # AI Dowódcy działają autonomicznie bez rozkazów od AI Generała
 
 
 # ========== STRATEGIA DEFENSYWNA (delegaty do ai.obrona_ai) ==========

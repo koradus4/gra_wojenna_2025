@@ -8,10 +8,10 @@ from .logowanie_ai import log_commander_action
 from .wybor_celow import find_target
 from .ruch_jednostek import move_towards
 
-# Stałe przeniesione z ai_commander
+# Stałe przeniesione z ai_commander - wszystkie wartości uaktualnione do 3
 RESUPPLY_SECOND_MOVE_MIN_FUEL_GAIN = 2
 RESUPPLY_TARGET_FUEL_THRESHOLD = 0.65
-RESUPPLY_PER_UNIT_CAP_MID_TURN = 1
+RESUPPLY_PER_UNIT_CAP_MID_TURN = 3  # Zwiększone z 1 do 3 aby pasować do LOW_FUEL systemu
 
 __all__ = [
     'pre_resupply','tactical_resupply','_perform_resupply','_process_second_chance_moves',
@@ -45,26 +45,37 @@ def pre_resupply(commander, game_engine: Any) -> None:
     if _perform_resupply(commander, game_engine, punkty, "PRE_TURN"):
         commander._did_pre_resupply_turn = current_turn
 
-def tactical_resupply(commander, game_engine: Any, trigger: str = "DAMAGE") -> bool:
+def tactical_resupply(commander, game_engine: Any, trigger: str = "DAMAGE", unit_id: str = None) -> bool:
     try:
         current_turn = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None))
         if current_turn is not None and getattr(commander, '_resupply_turn_cache', None) != current_turn:
             commander._resupply_turn_cache = current_turn
             commander._mid_turn_resupply_counts = {}
-            commander._low_fuel_resupply_used_this_turn = False
+            commander._low_fuel_token_counts = {}  # Per-token LOW_FUEL counter
     except Exception:
         pass
-    if trigger == "LOW_FUEL" and commander._low_fuel_resupply_used_this_turn:
-        return False
-    if trigger == "LOW_FUEL":
-        commander._low_fuel_resupply_used_this_turn = True
+    
+    # LOW_FUEL limit per token (3 times per turn per token)
+    if trigger == "LOW_FUEL" and unit_id:
+        token_count = getattr(commander, '_low_fuel_token_counts', {}).get(unit_id, 0)
+        if token_count >= 3:
+            print(f"❌ [RESUPPLY BLOCK] {unit_id} osiągnął limit 3x LOW_FUEL na turę")
+            return False
+        # Increment counter for this token
+        if not hasattr(commander, '_low_fuel_token_counts'):
+            commander._low_fuel_token_counts = {}
+        commander._low_fuel_token_counts[unit_id] = token_count + 1
+        print(f"🔄 [LOW_FUEL COUNT] {unit_id}: {token_count + 1}/3 użyć w tej turze")
+    
     player = commander.player
     punkty = 0
     if hasattr(player, 'economy') and player.economy is not None:
         punkty = getattr(player.economy, 'economic_points', 0)
     if punkty <= 0:
         punkty = getattr(player, 'punkty_ekonomiczne', 0)
+    print(f"💰 [RESUPPLY CHECK] PE dostępne: {punkty}")
     if punkty <= 5:
+        print(f"❌ [RESUPPLY BLOCK] Za mało PE: {punkty} <= 5")
         return False
     # szybka ocena sumy potrzeb
     try:
@@ -86,13 +97,22 @@ def tactical_resupply(commander, game_engine: Any, trigger: str = "DAMAGE") -> b
                 total_need += (mf-cf)
             if mc and cc < mc:
                 total_need += (mc-cc)
-            if total_need >= 4:
+            if total_need >= 1:  # Zmniejszone z 4 do 1 - pozwala na małe operacje LOW_FUEL
                 break
-        if total_need < 4:
+        if total_need < 1:
+            print(f"❌ [RESUPPLY BLOCK] Za mała potrzeba: {total_need} < 1")
             return False
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ [RESUPPLY ERROR] Błąd oceny potrzeb: {e}")
         pass
-    max_budget = max(3, punkty // 3)
+    # Użyj właściwej alokacji z AI Commander zamiast arbitralnej 1/3
+    try:
+        allocation = getattr(commander, 'budget_allocation', {"allocate": 0.6, "purchase": 0.3, "reserve": 0.1})
+        allocate_ratio = allocation.get('allocate', 0.6)
+        max_budget = max(5, int(punkty * allocate_ratio))
+        print(f"💰 [RESUPPLY BUDGET] PE={punkty} * {allocate_ratio} = budżet {max_budget}")
+    except Exception:
+        max_budget = max(3, punkty // 3)
     # Zlicz próbę
     try:
         commander.resupply_attempts_this_turn = getattr(commander, 'resupply_attempts_this_turn', 0) + 1
@@ -168,8 +188,26 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
     if not tokens_needing_help:
         return True
     print(f"🤝 [COLLECTIVE RESUPPLY] {len(tokens_needing_help)} units need {total_needs} pkt (budget {punkty})")
-    base_alloc = max(1, punkty // (len(tokens_needing_help)+2))
-    remaining = punkty - base_alloc*len(tokens_needing_help)
+    
+    # Sprawdź czy budżet wystarczy na potrzeby
+    if total_needs > punkty:
+        print(f"⚠️ [BUDGET SHORTAGE] Potrzeba {total_needs} PE, dostępne {punkty} PE")
+    
+    # Zwiększona alokacja dla LOW_FUEL - minimum 3 punkty na jednostkę
+    if context == "LOW_FUEL":
+        base_alloc = max(3, punkty // max(1, len(tokens_needing_help)))
+    else:
+        base_alloc = max(1, punkty // (len(tokens_needing_help)+2))
+    
+    
+    # NOWE: Sprawdź czy planowana alokacja nie przekracza budżetu
+    planned_spending = base_alloc * len(tokens_needing_help)
+    if planned_spending > punkty:
+        print(f"⚠️ [OVERSPENDING] Planowano {planned_spending}, dostępne {punkty} - koryguje alokację")
+        base_alloc = max(1, punkty // len(tokens_needing_help))
+        planned_spending = base_alloc * len(tokens_needing_help)
+    
+    remaining = punkty - planned_spending
     resupplied = 0
     spent_total = 0
     for data in tokens_needing_help:
@@ -228,12 +266,47 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
             if c_add>0:
                 tk.combat_value = min(mc, getattr(tk,'combat_value',0)+c_add)
             remaining -= (f_add+c_add); spent_total += (f_add+c_add)
-    # Odejmij zasoby ekonomiczne
+    
+    # WALIDACJA PE PRZED WYDANIEM - BLOKADA UJEMNYCH PE!
+    current_pe = getattr(player, 'punkty_ekonomiczne', 0)
+    if hasattr(player, 'economy') and player.economy is not None:
+        current_pe = max(current_pe, getattr(player.economy, 'economic_points', 0))
+    
+    if spent_total > current_pe:
+        print(f"🚫 [PE BLOCK] BLOKADA WYDANIA! Próba wydania {spent_total} PE, dostępne {current_pe} PE")
+        print(f"🚫 [PE BLOCK] Koryguje wydatek do maksimum dostępnego: {current_pe} PE")
+        spent_total = current_pe
+        
+        if spent_total <= 0:
+            print(f"🚫 [PE BLOCK] Brak PE do wydania! Anuluje operację resupply")
+            return False
+    
+    # Ostateczne wydanie środków - już zwalidowane
+    print(f"💰 Wydaję {spent_total} PE na zaopatrzenie jednostek")
+    
+    # Odejmij zasoby ekonomiczne - bezpieczne odejmowanie
     try:
-        player.punkty_ekonomiczne = getattr(player,'punkty_ekonomiczne',0) - spent_total
-        if hasattr(player,'economy') and player.economy is not None:
-            player.economy.economic_points = getattr(player.economy,'economic_points',0) - spent_total
-    except Exception:
+        old_pe = getattr(player, 'punkty_ekonomiczne', 0)
+        new_pe = max(0, old_pe - spent_total)  # Nigdy nie pozwalaj na ujemne PE
+        player.punkty_ekonomiczne = new_pe
+        
+        if hasattr(player, 'economy') and player.economy is not None:
+            old_eco_pe = getattr(player.economy, 'economic_points', 0)
+            new_eco_pe = max(0, old_eco_pe - spent_total)  # Nigdy nie pozwalaj na ujemne PE
+            player.economy.economic_points = new_eco_pe
+        
+        print(f"💰 PE: {old_pe} → {new_pe} (wydano {spent_total})")
+        
+        # Dodatkowa kontrola bezpieczeństwa
+        if getattr(player, 'punkty_ekonomiczne', 0) < 0:
+            print(f"🚨 [EMERGENCY] WYKRYTO UJEMNE PE! Przywracam do 0")
+            player.punkty_ekonomiczne = 0
+        if hasattr(player, 'economy') and getattr(player.economy, 'economic_points', 0) < 0:
+            print(f"🚨 [EMERGENCY] WYKRYTO UJEMNE ECONOMY PE! Przywracam do 0")
+            player.economy.economic_points = 0
+            
+    except Exception as e:
+        print(f"⚠️ Błąd przy aktualizacji ekonomii: {e}")
         pass
     if context != 'PRE_TURN':
         try:

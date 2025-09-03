@@ -22,6 +22,7 @@ ai/
 class AICommander:
     def __init__(self, player: Any)
     def pre_resupply(self, game_engine: Any) -> None
+    def tactical_resupply(self, game_engine: Any, trigger: str = "DAMAGE") -> bool
     def make_tactical_turn(self, game_engine: Any) -> None
     def receive_orders(self, orders_file_path=None, current_turn=1)
 ```
@@ -214,6 +215,90 @@ Loguje akcje AI Commander do pliku CSV.
 - `to_pos`: Pozycja końcowa  
 - `reason`: Powód akcji
 - `player_nation`: Nacja gracza
+
+---
+## Publiczny Kontrakt AI (Complete Contract v1)
+
+Ta sekcja zestawia pełny, stabilizowany kontrakt „publiczny” potrzebny do:
+1. Zachowania parytetu z graczem human (te same ograniczenia i mechaniki)
+2. Testów automatycznych / integracyjnych
+3. Ewentualnej wymiany backendu AI bez łamania istniejących wywołań
+
+### Zakres parytetu z Human
+| Obszar | Human używa | AI odpowiednik | Status |
+|--------|-------------|----------------|--------|
+| Ruch | board.find_path / execute_action(MoveAction) | move_towards(), board.find_path (pośrednio) | OK |
+| Koszty ruchu | Terrain cost w board | Identyczne (MP/Fuel weryfikowane) | OK |
+| Combat | CombatAction przez execute_action | ai_attempt_combat()/execute_ai_combat() (używa CombatAction) | OK |
+| Reaction attacks | Silnik reakcji na ruch | check_ai_reaction_attacks() | OK |
+| Ekonomia | player.economy.* | pre_resupply()/tactical_resupply() + AI General zakupy | OK |
+| Deployment | GUI -> spawn + walidacje | deploy_purchased_units() + find_deployment_position() | OK |
+| Capture VP | Wejście na hex + flag logic | move_towards() + opportunistic_capture_phase() | OK |
+| Pathfinding limity | MP/Fuel aktualne | max_mp/max_fuel parametry w find_path() | OK (po naprawie) |
+| Vision/detekcja | Silnik detection_filter | Te same struktury board/tokens | OK |
+
+### Stabilizowana Lista Funkcji (Warstwa „Publiczna”)
+#### Klasa / Wrapper
+- `AICommander(player)`
+    - Atrybuty używalne z zewnątrz (read-only w kontrakcie): `player`, `econ_weight`, `vp_weight`
+    - Metody publiczne: `pre_resupply()`, `tactical_resupply()`, `make_tactical_turn()`, `receive_orders()`
+
+#### Funkcje Globalne (do pozostawienia publicznie)
+- `get_my_units(game_engine, player_id=None)` – podstawowy snapshot jednostek (dict kontraktowy)
+- `prioritize_targets(key_points, game_engine)` – scoring punktów kluczowych
+- `calculate_hex_distance(pos1, pos2)` – spójna metryka dla testów
+- `assess_defensive_threats(my_units, game_engine)`
+- `plan_defensive_retreat(threatened_units, threat_assessment, game_engine)`
+- `deploy_purchased_units(game_engine, player_id)`
+- `find_deployment_position(unit_data, game_engine, player_id)`
+- `opportunistic_capture_phase(game_engine, my_units, player_id)`
+- `ai_attempt_combat(unit_dict, game_engine, player_id, player_nation)`
+- `find_enemies_in_range(unit_dict, game_engine, player_id)`
+- `evaluate_combat_ratio(unit_dict, enemy_dict)`
+- `execute_ai_combat(unit_dict, enemy_dict, game_engine, player_nation)`
+- `check_ai_reaction_attacks(moved_token, game_engine, ai_player_nation)`
+
+#### Funkcje Wewnętrzne (NIE traktować jako kontrakt – mogą ulec zmianie)
+- `choose_movement_mode`, `dynamic_reassignment`, `group_units_by_proximity`, `_perform_resupply`, `_process_second_chance_moves`, `_is_token_in_combat_zone` itd.
+
+### Struktury Danych w Kontrakcie
+`unit_dict` (zwracany przez `get_my_units`):
+```python
+{
+    'id': str|int,
+    'q': int,
+    'r': int,
+    'mp': int,      # bieżące punkty ruchu
+    'fuel': int,    # aktualne paliwo
+    'cv': int,      # combat value
+    'token': Token  # referencja (niestabilna – nie używać w testach do asercji poza id/q/r)
+}
+```
+
+### Braki / Zalecane Uzupełnienia
+| Brak | Propozycja | Powód |
+|------|------------|-------|
+| Brak jawnej `can_move(unit_dict)` w API | Dodać prostą funkcję eksportowaną | Testy parytetu ruchu |
+| Brak dokumentacji `tactical_resupply` | Dodano w tym dokumencie | Spójność z pre_resupply |
+| Brak jawnego helpera capture | Udokumentować opportunistic_capture_phase | Czytelność przejęć VP |
+| Niejednorodne nazwy pól (`cv` vs `combat_value`) | Utrwalić `cv` w kontrakcie, mapować w adapterach | Stabilność snapshotu |
+| Bez wersjonowania kontraktu | Dodać nagłówek `Complete Contract v1` | Możliwość przyszłych zmian |
+
+### Konwencje Testowe
+Minimalny zestaw asercji dla parytetu:
+1. Wszystkie ruchy AI przechodzą przez `board.find_path`
+2. Combat wyłącznie via `CombatAction` -> `execute_action`
+3. Resupply nie przekracza dostępnych punktów ekonomicznych
+4. Deployment używa tych samych spawn rules co gracz (brak bypass)
+5. Brak modyfikacji atrybutów tokena poza oficjalnymi akcjami (walidacja diff stanu)
+
+### Plan Dalszej Stabilizacji
+1. (Opcjonalnie) dodać moduł `ai/public_api.py` re‑eksportujący wyłącznie funkcje kontraktu
+2. Oznaczyć w kodzie komentarzem `# PUBLIC API` przy definicjach
+3. Dodać test regresyjny blokujący usunięcie funkcji z listy
+4. Wersjonować zmiany w sekcji changelog (docs/ai/CHANGELOG.md)
+
+---
 
 ## AI General (Strategiczny)
 

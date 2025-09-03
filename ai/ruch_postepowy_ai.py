@@ -40,7 +40,7 @@ def calculate_progressive_target(unit: Dict[str, Any], final_target, game_engine
             if hasattr(board, 'get_tile') and board.get_tile(candidate[0], candidate[1]) is None:
                 debug_print(f"{HEX_MISSING_LOG_PREFIX} progressive_target {candidate}", "FULL", "WARN")
                 continue
-            path = board.find_path(unit_pos, candidate, max_mp=max_reach, max_fuel=max_reach)
+            path = board.find_path(unit_pos, candidate, max_mp=unit.get('mp', 99), max_fuel=unit.get('fuel', 99))
             if not path or len(path) < 2:
                 continue
             try:
@@ -61,7 +61,7 @@ def calculate_progressive_target(unit: Dict[str, Any], final_target, game_engine
                 if abs(dq + dr) > radius:
                     continue
                 candidate = (unit_pos[0] + dq, unit_pos[1] + dr)
-                path = board.find_path(unit_pos, candidate, max_mp=max_reach, max_fuel=max_reach)
+                path = board.find_path(unit_pos, candidate, max_mp=unit.get('mp', 99), max_fuel=unit.get('fuel', 99))
                 if path and len(path) > 1:
                     debug_print(f"[PROGRESSIVE] {unit.get('id')}: Fallback movement {candidate}", "FULL", "PROGRESSIVE")
                     return candidate

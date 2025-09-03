@@ -39,8 +39,7 @@ BUDGET_STRATEGIES = {
     'EKSPANSJA': {'reserve': 0.20, 'allocate': 0.35, 'purchase': 0.45}
 }
 
-# Flaga sterująca generowaniem strategicznych rozkazów (uśpienie systemu rozkazów dla szybkiej gry z AI)
-GENERATE_ORDERS = False
+# System rozkazów USUNIĘTY - autonomiczne AI tylko
 
 
 class EconAction(Enum):
@@ -233,10 +232,26 @@ class AIGeneral:
         # FAZA 2: Zapisz stan ekonomiczny na początku tury
         pe_start = current_player.economy.get_points().get('economic_points', 0) if hasattr(current_player, 'economy') else 0
         
+        # === SZCZEGÓŁOWE LOGOWANIE PE - POCZĄTEK TURY ===
+        print(f"💰 [PE DETAILED] TURA {self._current_turn} - GENERAŁ {current_player.nation} START")
+        print(f"💰 [PE DETAILED] PE na początku tury: {pe_start}")
+        
+        # Sprawdź dowódców przed turą
+        commanders = [p for p in (getattr(game_engine, 'players', []) or []) if p.nation == current_player.nation and p.role == 'Dowódca']
+        for cmd in commanders:
+            cmd_pe = cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0
+            print(f"💰 [PE DETAILED] Dowódca {cmd.id} PE przed turą: {cmd_pe}")
+        print(f"💰 [PE DETAILED] Suma PE narodu {current_player.nation} przed turą: {pe_start + sum(cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0 for cmd in commanders)}")
+        
         # ROZBUDOWANE ANALIZY - FAZA 1
         self.analyze_economy(current_player)
         self.analyze_units(game_engine, current_player)
         self.analyze_strategic_situation(game_engine, current_player)  # NOWA
+        
+        # === PE PO GENEROWANIU PUNKTÓW ===
+        pe_after_generation = current_player.economy.get_points().get('economic_points', 0)
+        generated_this_turn = pe_after_generation - pe_start
+        print(f"💰 [PE DETAILED] PE po generowaniu: {pe_after_generation} (wygenerowano: {generated_this_turn})")
         
         # FAZA 2: Loguj Key Points na początku tury
         try:
@@ -250,29 +265,64 @@ class AIGeneral:
         low_ratio = getattr(self, '_low_fuel_ratio', 0.0)
         self._phase = 'REGEN' if low_ratio >= LOW_FUEL_UNITS_RATIO_TRIGGER else 'BUILD'
         
+        # === PE PRZED DECYZJAMI STRATEGICZNYMI ===
+        pe_before_decisions = current_player.economy.get_points().get('economic_points', 0)
+        print(f"💰 [PE DETAILED] PE przed decyzjami strategicznymi: {pe_before_decisions}")
+        
         # Decyzje strategiczne (purchase/allocate/hold)
         self.make_strategic_decisions(game_engine, current_player)
         
-        # Opcjonalne strategiczne rozkazy (uśpione jeśli flaga False)
+        # === PE PO DECYZJACH STRATEGICZNYCH ===
+        pe_after_decisions = current_player.economy.get_points().get('economic_points', 0)
+        spent_on_decisions = pe_before_decisions - pe_after_decisions
+        print(f"💰 [PE DETAILED] PE po decyzjach strategicznych: {pe_after_decisions} (wydano: {spent_on_decisions})")
+        
+        # Sprawdź dowódców po decyzjach
+        for cmd in commanders:
+            cmd_pe_after = cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0
+            cmd_pe_before = cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0  # To będzie update później
+            print(f"💰 [PE DETAILED] Dowódca {cmd.id} PE po decyzjach: {cmd_pe_after}")
+        
+        total_pe_after = pe_after_decisions + sum(cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0 for cmd in commanders)
+        print(f"💰 [PE DETAILED] Suma PE narodu {current_player.nation} po decyzjach: {total_pe_after}")
+        
+        # System rozkazów USUNIĘTY - tylko autonomiczne AI
         orders_issued = False
-        if GENERATE_ORDERS:
-            try:
-                issued = self.issue_strategic_orders(game_engine=game_engine, current_turn=self._current_turn)
-                orders_issued = bool(issued)
-                if orders_issued:
-                    print(f"📋 Wydano strategiczne rozkazy (tura {self._current_turn})")
-                else:
-                    print("⚠️ Nie udało się wydać rozkazów strategicznych")
-            except Exception as e:
-                print(f"❌ Błąd wydawania rozkazów: {e}")
-        else:
-            print("🛌 Generowanie rozkazów wyłączone (GENERATE_ORDERS=False) – dowódcy autonomiczni")
+        print("� AI Generał - pełna autonomia, brak systemu rozkazów")
 
         # Log ekonomii NA KOŃCU z informacją czy wydano rozkazy
         pe_end = current_player.economy.get_points().get('economic_points', 0) if hasattr(current_player, 'economy') else 0
         pe_allocated = getattr(self, '_turn_pe_allocated', 0)
         pe_spent_purchases = getattr(self, '_turn_pe_spent_purchases', 0)
         strategy_used = getattr(self, '_turn_strategy_used', 'UNKNOWN')
+        
+        # === SZCZEGÓŁOWE LOGOWANIE PE - KONIEC TURY ===
+        print(f"💰 [PE DETAILED] TURA {self._current_turn} - GENERAŁ {current_player.nation} KONIEC")
+        print(f"💰 [PE DETAILED] PE na końcu tury: {pe_end}")
+        print(f"💰 [PE DETAILED] PE alokowane dowódcom: {pe_allocated}")
+        print(f"💰 [PE DETAILED] PE wydane na zakupy: {pe_spent_purchases}")
+        print(f"💰 [PE DETAILED] Strategia użyta: {strategy_used}")
+        print(f"💰 [PE DETAILED] Zmiana PE generała: {pe_end - pe_start} (start: {pe_start} -> koniec: {pe_end})")
+        
+        # Sprawdź dowódców na końcu tury
+        commanders_pe_end_total = 0
+        for cmd in commanders:
+            cmd_pe_end = cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0
+            commanders_pe_end_total += cmd_pe_end
+            print(f"💰 [PE DETAILED] Dowódca {cmd.id} PE na końcu: {cmd_pe_end}")
+        
+        total_pe_end = pe_end + commanders_pe_end_total
+        total_pe_start_with_commanders = pe_start + sum(cmd.economy.get_points().get('economic_points', 0) if hasattr(cmd, 'economy') else 0 for cmd in commanders)
+        pe_balance = total_pe_end - (total_pe_start_with_commanders + generated_this_turn)
+        
+        print(f"💰 [PE DETAILED] Suma PE narodu {current_player.nation} na końcu: {total_pe_end}")
+        print(f"💰 [PE DETAILED] BILANS CAŁKOWITY: start+generacja({total_pe_start_with_commanders + generated_this_turn}) -> koniec({total_pe_end}) = różnica({pe_balance})")
+        
+        if abs(pe_balance) > 1:
+            print(f"🚨 [PE ERROR] BŁĄD BILANSU PE! Różnica: {pe_balance}")
+        else:
+            print(f"✅ [PE OK] Bilans PE poprawny (różnica: {pe_balance})")
+        
         # Zachowaj metryki decyzji (ostatnie) jeśli były – przechowuj przy decide_action
         self.log_economy_turn(
             self._current_turn,
@@ -757,30 +807,36 @@ class AIGeneral:
             data = per_c.get(c.id, {})
             base = 0.1
             add_supply = 0.4 if not data.get('has_supply') else 0.0
-            add_art = 0.3 if not data.get('has_artillery') else 0.0
+            # USUNIĘTO: add_art - sztuczna paranoja o artylerii
             add_fuel = 0.2 if data.get('avg_fuel', 1.0) < 0.6 else 0.0
             tu = data.get('total_units', 0)
             add_units = 0.0
             if tu < 3:
                 add_units = (3 - tu) * 0.1
-            # Kara – realne niewydane punkty przed alokacją
+            
+            # POPRAWIONO: Kara za niewydane punkty - uwzględnia naturalną rezerwę 10%
             unspent = 0
             if hasattr(getattr(c, 'economy', None), 'get_points'):
                 unspent = c.economy.get_points().get('economic_points', 0)
             else:
                 unspent = getattr(getattr(c,'economy',None), 'economic_points', 0) or 0
-            penalty = min(0.4, unspent / max(1, UNSPENT_CAP))
-            w = base + add_supply + add_art + add_fuel + add_units - penalty
+            
+            # Dowódca naturalnie zostawia ~10% w rezerwie, więc kara tylko od nadmiaru
+            expected_reserve_ratio = 0.1  # 10% naturalnej rezerwy
+            total_received_estimate = unspent / max(0.1, expected_reserve_ratio)  # Szacuj całkowite PE
+            excess_unspent = max(0, unspent - (total_received_estimate * expected_reserve_ratio))
+            penalty = min(0.3, excess_unspent / max(1, UNSPENT_CAP))  # Zmniejszona max kara 0.4→0.3
+            
+            w = base + add_supply + add_fuel + add_units - penalty
             if w < 0.05:
                 w = 0.05
             weights[c.id] = round(w, 3)
             details[c.id] = {
                 'baza': round(base,2),
                 'brak_zaop': round(add_supply,2),
-                'brak_art': round(add_art,2),
                 'niskie_paliwo': round(add_fuel,2),
                 'malo_jednostek': round(add_units,2),
-                'kara_niewydane': round(penalty,2),
+                'kara_nadmiar': round(penalty,2),
                 'suma': round(w,3),
                 'unspent': unspent,
                 'avg_fuel': data.get('avg_fuel'),
@@ -823,7 +879,7 @@ class AIGeneral:
         for c in commanders:
             cid = c.id
             det = details.get(cid, {})
-            print(f"   ➡️ Dowódca {cid}: otrzymał {allocations.get(cid,0)} pkt | waga={weights.get(cid)} (znorm={norm_weights.get(cid)}) -> skład: baza {det.get('baza')} + brak zaop {det.get('brak_zaop')} + brak art {det.get('brak_art')} + niskie paliwo {det.get('niskie_paliwo')} + mało jednostek {det.get('malo_jednostek')} - kara niewydane {det.get('kara_niewydane')} (niewydane wcześniej: {det.get('unspent')})")
+            print(f"   ➡️ Dowódca {cid}: otrzymał {allocations.get(cid,0)} pkt | waga={weights.get(cid)} (znorm={norm_weights.get(cid)}) -> skład: baza {det.get('baza')} + brak zaop {det.get('brak_zaop')} + niskie paliwo {det.get('niskie_paliwo')} + mało jednostek {det.get('malo_jednostek')} - kara nadmiar {det.get('kara_nadmiar')} (niewydane: {det.get('unspent')})")
         return distributed, len(commanders), {'raw': weights, 'norm': norm_weights, 'details': details, 'allocations': allocations}
 
     def _log_action(self, player, action: EconAction, econ_before, econ_after, metrics, allocated_total=0, units_bought=0):
@@ -863,7 +919,13 @@ class AIGeneral:
         self._turn_strategy_used = 'UNKNOWN'
         
         econ_before = player.economy.get_points().get('economic_points', 0)
+        print(f"💰 [DECISION DETAIL] PE przed decyzją: {econ_before}")
+        
         action, metrics = self.decide_action(player, game_engine)
+        
+        print(f"💰 [DECISION DETAIL] Wybrana akcja: {action.name}")
+        print(f"💰 [DECISION DETAIL] Metryki decyzji: {metrics}")
+        
         faza_opis = 'REGEN (odbudowa paliwa)' if metrics.get('phase') == 'REGEN' else 'BUILD (rozbudowa armii)'
         rule_desc = self._friendly_action_reason(metrics.get('rule'))
         rule_used = metrics.get('rule', 'unknown')
@@ -882,32 +944,47 @@ class AIGeneral:
         allocated_total = 0
         
         if action == EconAction.PURCHASE:
+            print(f"💰 [ACTION DETAIL] WYKONUJĘ PURCHASE z budżetem {econ_before}")
+            pe_before_purchase = player.economy.get_points().get('economic_points', 0)
             self.consider_unit_purchase(game_engine, player, econ_before)
+            pe_after_purchase = player.economy.get_points().get('economic_points', 0)
+            spent_purchase = pe_before_purchase - pe_after_purchase
+            print(f"💰 [ACTION DETAIL] PURCHASE: przed({pe_before_purchase}) -> po({pe_after_purchase}) = wydano({spent_purchase})")
             ctx = getattr(self, '_last_decision_context', {})
             units_bought = ctx.get('units_bought', 0)
-            self._turn_pe_spent_purchases = econ_before - player.economy.get_points().get('economic_points', 0)
+            self._turn_pe_spent_purchases = spent_purchase
+            self._turn_strategy_used = 'PURCHASE'
+            print(f"✅ Zakup jednostek: {units_bought} sztuk za {spent_purchase} punktów.")
             self._turn_strategy_used = 'PURCHASE'
             
         elif action == EconAction.ALLOCATE:
-            print(f"🔧 [DEBUG ALLOCATE] Rozpoczynam alokację punktów")
+            print(f"� [ACTION DETAIL] WYKONUJĘ ALLOCATE z budżetem {econ_before}")
+            # FAZA 1: Alokacja punktów dowódcom
             commanders = [p for p in (getattr(game_engine, 'players', []) or []) if p.nation == player.nation and p.role == 'Dowódca']
-            print(f"🔧 [DEBUG ALLOCATE] Znaleziono {len(commanders)} dowódców dla {player.nation}")
+            print(f"� [ACTION DETAIL] Znaleziono {len(commanders)} dowódców do alokacji")
+            
+            # Loguj stan PE dowódców przed alokacją
             for cmd in commanders:
                 current_points = 0
                 if hasattr(cmd, 'economy') and hasattr(cmd.economy, 'economic_points'):
                     current_points = cmd.economy.economic_points
-                print(f"🔧 [DEBUG ALLOCATE] Dowódca {cmd.id}: ma {current_points} punktów przed alokacją")
+                print(f"� [ACTION DETAIL] Dowódca {cmd.id}: ma {current_points} punktów przed alokacją")
             
+            pe_before_allocate = player.economy.get_points().get('economic_points', 0)
             state = self._gather_state(game_engine, player, commanders)
-            print(f"🔧 [DEBUG ALLOCATE] Stan zebrany, dostępne PE u generała: {player.economy.get_points().get('economic_points', 0)}")
+            print(f"� [ACTION DETAIL] Stan zebrany, dostępne PE u generała: {pe_before_allocate}")
             allocated_total, cmd_cnt, weights = self.allocate_points(player, game_engine, state=state)
-            print(f"🔧 [DEBUG ALLOCATE] Alokacja zakończona: {allocated_total} PE dla {cmd_cnt} dowódców")
+            pe_after_allocate = player.economy.get_points().get('economic_points', 0)
+            actually_spent = pe_before_allocate - pe_after_allocate
+            print(f"� [ACTION DETAIL] ALLOCATE: przed({pe_before_allocate}) -> po({pe_after_allocate}) = wydano({actually_spent})")
+            print(f"💰 [ACTION DETAIL] Alokacja zakończona: {allocated_total} PE dla {cmd_cnt} dowódców (faktycznie wydano: {actually_spent})")
             
+            # Loguj stan PE dowódców po alokacji
             for cmd in commanders:
                 current_points = 0
                 if hasattr(cmd, 'economy') and hasattr(cmd.economy, 'economic_points'):
                     current_points = cmd.economy.economic_points
-                print(f"🔧 [DEBUG ALLOCATE] Dowódca {cmd.id}: ma {current_points} punktów PO alokacji")
+                print(f"� [ACTION DETAIL] Dowódca {cmd.id}: ma {current_points} punktów PO alokacji")
             
             metrics['allocation_weights'] = weights
             self._turn_pe_allocated = allocated_total
@@ -915,8 +992,8 @@ class AIGeneral:
             print(f"✅ Zakończono przydział punktów dla {cmd_cnt} dowódców.")
             
         elif action == EconAction.COMBO:
+            print(f"💰 [ACTION DETAIL] WYKONUJĘ COMBO z budżetem {econ_before}")
             # FAZA 3: Kombinacja alokacji + zakupów
-            print("🔄 COMBO: Wykonuję kombinację alokacji + zakupów")
             commanders = [p for p in (getattr(game_engine, 'players', []) or []) if p.nation == player.nation and p.role == 'Dowódca']
             state = self._gather_state(game_engine, player, commanders)
             
@@ -924,14 +1001,15 @@ class AIGeneral:
             allocate_budget = metrics.get('allocate_budget', int(econ_before * 0.4))
             purchase_budget = metrics.get('purchase_budget', int(econ_before * 0.4))
             
-            print(f"  💰 Budżet alokacji: {allocate_budget}")
-            print(f"  🛒 Budżet zakupów: {purchase_budget}")
+            print(f"💰 [ACTION DETAIL] Budżet alokacji: {allocate_budget}")
+            print(f"💰 [ACTION DETAIL] Budżet zakupów: {purchase_budget}")
             
             # Inicjalizuj allocated_total
             allocated_total = 0
             
             # 1. Najpierw alokacja punktów (z ograniczonym budżetem)
             if allocate_budget >= 20:
+                print(f"💰 [ACTION DETAIL] Wykonuję alokację z budżetem {allocate_budget}")
                 # Tymczasowo ustaw budżet tylko na alokację
                 original_points = player.economy.get_points().get('economic_points', 0)
                 player.economy.economic_points = allocate_budget
@@ -939,23 +1017,29 @@ class AIGeneral:
                 # Przywróć oryginalny stan minus wydane
                 player.economy.economic_points = original_points - allocated_total
                 self._turn_pe_allocated = allocated_total
-                print(f"  ✅ Alokacja: {allocated_total} PE dla {cmd_cnt} dowódców")
+                print(f"💰 [ACTION DETAIL] Alokacja COMBO: {allocated_total} PE dla {cmd_cnt} dowódców")
+            else:
+                print(f"💰 [ACTION DETAIL] Pomijam alokację - budżet za mały: {allocate_budget}")
             
             # 2. Potem zakupy (z pozostałym budżetem)
             remaining_points = player.economy.get_points().get('economic_points', 0)
             if purchase_budget >= 20 and remaining_points >= purchase_budget:
+                print(f"💰 [ACTION DETAIL] Wykonuję zakupy z budżetem {purchase_budget}")
                 pe_before_purchase = remaining_points
                 self.consider_unit_purchase(game_engine, player, purchase_budget)
                 pe_after_purchase = player.economy.get_points().get('economic_points', 0)
                 self._turn_pe_spent_purchases = pe_before_purchase - pe_after_purchase
                 ctx = getattr(self, '_last_decision_context', {})
                 units_bought = ctx.get('units_bought', 0)
-                print(f"  ✅ Zakupy: {self._turn_pe_spent_purchases} PE, {units_bought} jednostek")
+                print(f"💰 [ACTION DETAIL] Zakupy COMBO: {self._turn_pe_spent_purchases} PE, {units_bought} jednostek")
+            else:
+                print(f"💰 [ACTION DETAIL] Pomijam zakupy - budżet za mały lub brak PE: budget={purchase_budget}, remaining={remaining_points}")
             
             self._turn_strategy_used = 'COMBO'
-            print(f"🔄 COMBO zakończone: Alokacja {allocated_total}, Zakupy {self._turn_pe_spent_purchases}")
+            print(f"� [ACTION DETAIL] COMBO zakończone: Alokacja {allocated_total}, Zakupy {self._turn_pe_spent_purchases}")
             
         else:
+            print(f"💰 [ACTION DETAIL] WYKONUJĘ HOLD - zatrzymuję wszystkie {econ_before} PE")
             self._turn_strategy_used = 'HOLD'
             print("⛔ HOLD – zatrzymuję punkty")
             
@@ -1143,21 +1227,20 @@ class AIGeneral:
 
     # === FAZA 2: PODZIAŁ BUDŻETU ===
     def _decide_budget(self, available_points, state):
-        """Prosty podział budżetu: jeżeli brak artylerii lub zaopatrzenia – wydaj więcej.
+        """Prosty podział budżetu: jeżeli brak zaopatrzenia lub presja wroga – wydaj więcej.
         Zwraca (purchase_budget, reserve, diagnostics).
         """
         per_commander = state.get('per_commander', {})
         enemy = state.get('enemy', {})
         need_supply = any(not data['has_supply'] for data in per_commander.values()) if per_commander else False
-        need_art = any(not data['has_artillery'] for data in per_commander.values()) if per_commander else False
+        # USUNIĘTO: need_art - sztuczna paranoja o artylerii
         enemy_total = enemy.get('total_units', 0) or 0
         own_total = state.get('global', {}).get('total_units', 0) or 0
         pressure = enemy_total / (own_total + 1) if own_total >= 0 else 0
         base_ratio = 0.5
         if need_supply:
-            base_ratio += 0.1
-        if need_art:
-            base_ratio += 0.1
+            base_ratio += 0.15  # Zwiększone z 0.1 na 0.15 bo to jedyny realny problem
+        # USUNIĘTO: if need_art
         if pressure > 1.2:
             base_ratio += 0.15
         elif pressure > 0.8:
@@ -1168,10 +1251,9 @@ class AIGeneral:
             base_ratio = 0.85
         purchase_budget = int(available_points * base_ratio)
         reserve = available_points - purchase_budget
-        print(f"⚖️ Budżet decyzja: need_supply={need_supply} need_art={need_art} pressure={pressure:.2f} ratio={base_ratio:.2f}")
+        print(f"⚖️ Budżet decyzja: need_supply={need_supply} pressure={pressure:.2f} ratio={base_ratio:.2f}")
         diagnostics = {
             'need_supply': need_supply,
-            'need_art': need_art,
             'pressure': pressure,
             'enemy_has_armor': enemy.get('has_armor', False),
             'ratio': base_ratio
@@ -1399,7 +1481,6 @@ class AIGeneral:
         """Nadaje wagi dowódcom na podstawie braków i stanu paliwa.
         Heurystyka (sumuje czynniki):
           brak zaopatrzenia +0.4
-          brak artylerii +0.3
           avg_fuel < 0.6 +0.15
           mało jednostek (<3) + (3-total_units)*0.1
         Minimalna waga 0.1 aby nikt nie był całkiem pominięty.
@@ -1412,8 +1493,7 @@ class AIGeneral:
             w = 0.0
             if not data.get('has_supply'):
                 w += 0.4
-            if not data.get('has_artillery'):
-                w += 0.3
+            # USUNIĘTO: if not data.get('has_artillery') - sztuczna paranoja
             avg_fuel = data.get('avg_fuel', 1.0)
             if avg_fuel < 0.6:
                 w += 0.15
@@ -1881,476 +1961,5 @@ class AIGeneral:
         # TODO: Implement economic AI
         pass
 
-    def should_issue_new_order(self, commander, new_target, new_score, current_turn, game_engine):
-        """
-        Sprawdza czy warto wydać nowy rozkaz dowódcy - system stabilności rozkazów.
-        
-        Args:
-            commander: Obiekt dowódcy
-            new_target: Nowy cel [x, y]
-            new_score: Score nowego celu
-            current_turn: Aktualny numer tury
-            game_engine: GameEngine do sprawdzenia wrogów
-            
-        Returns:
-            tuple: (should_issue: bool, reason: str)
-        """
-        commander_id = f"{self.display_nation.lower()}_commander_{commander.id}"
-        
-        # Sprawdź czy istnieje poprzedni rozkaz
-        try:
-            orders_file = Path("data/strategic_orders.json")
-            if orders_file.exists():
-                with open(orders_file, 'r', encoding='utf-8') as f:
-                    old_orders = json.load(f)
-                    
-                old_order = old_orders.get("orders", {}).get(commander_id)
-                if not old_order:
-                    return True, "No previous order"
-            else:
-                return True, "No orders file"
-        except Exception:
-            return True, "Error reading old orders"
-        
-        # 1. COOLING DOWN - 3 tury przerwy 
-        # (Jak wydałeś rozkaz, czekaj 3 tury zanim wydasz nowy - żeby żołnierze nie szaleli)
-        last_order_turn = old_order.get('issued_turn', 0)
-        cooling_down = current_turn - last_order_turn < 3
-        cooling_reason = f"Cooling down ({current_turn - last_order_turn}/3 turns)"
-        
-        # Pobierz pozycję dowódcy (średnia jednostek)
-        commander_pos = [0, 0]  # Default fallback
-        try:
-            all_tokens = getattr(game_engine, 'tokens', [])
-            units_positions = []
-            for token in all_tokens:
-                owner = str(getattr(token, 'owner', ''))
-                if str(commander.id) in owner:
-                    q = getattr(token, 'q', None)
-                    r = getattr(token, 'r', None)
-                    if q is not None and r is not None:
-                        units_positions.append([q, r])
-            
-            if units_positions:
-                avg_x = sum(pos[0] for pos in units_positions) / len(units_positions)
-                avg_y = sum(pos[1] for pos in units_positions) / len(units_positions)
-                commander_pos = [avg_x, avg_y]
-        except Exception:
-            pass  # Użyj fallback [0, 0]
-        
-        # 4. EMERGENCY CHECK FIRST - wróg w pobliżu lub niska HP
-        # (Jeśli zagrożenie, ignoruj wszystko powyżej - natychmiast zmieniaj rozkazy)
-        try:
-            enemy_count = 0
-            low_health_units = 0
-            total_units = 0
-            
-            all_tokens = getattr(game_engine, 'tokens', [])
-            my_nation = self.display_nation
-            
-            for token in all_tokens:
-                owner = str(getattr(token, 'owner', ''))
-                token_q = getattr(token, 'q', 0)
-                token_r = getattr(token, 'r', 0)
-                
-                # Sprawdź wrogów w promieniu 10
-                def hex_distance(pos1, pos2):
-                    x1, y1 = pos1
-                    x2, y2 = pos2
-                    return (abs(x1 - x2) + abs(x1 + y1 - x2 - y2) + abs(y1 - y2)) / 2
-                
-                distance_to_commander = hex_distance(commander_pos, [token_q, token_r])
-                if distance_to_commander <= 10:
-                    # Sprawdź czy to wróg (różna nacja)
-                    if my_nation.lower() not in owner.lower() and owner.strip():
-                        enemy_count += 1
-                
-                # Sprawdź HP naszych jednostek
-                if str(commander.id) in owner:
-                    total_units += 1
-                    combat_value = getattr(token, 'combat_value', 100)
-                    max_combat = getattr(token, 'max_combat_value', combat_value) or 100
-                    health_percent = combat_value / max_combat if max_combat > 0 else 1.0
-                    if health_percent < 0.5:
-                        low_health_units += 1
-            
-            # Emergency conditions
-            enemy_nearby = enemy_count >= 3  # (3+ wrogów w promieniu 10)
-            low_health = (low_health_units / max(total_units, 1)) > 0.5  # (>50% jednostek ma <50% HP)
-            
-            if enemy_nearby or low_health:
-                reason = []
-                if enemy_nearby:
-                    reason.append(f"{enemy_count} enemies nearby")
-                if low_health:
-                    reason.append(f"{low_health_units}/{total_units} units low health")
-                return True, f"EMERGENCY: {', '.join(reason)} - overriding cooling down"
-                
-        except Exception as e:
-            pass  # Ignoruj błędy emergency check
-        
-        # Sprawdź cooling down (jeśli nie emergency)
-        if cooling_down:
-            return False, cooling_reason
-        
-        # 2. MISSION COMPLETION - odległość ≤5 hexów
-        # (Jeśli twoi żołnierze są już blisko celu, pozwól im go zdobyć - nie przerywaj)
-        current_target = old_order.get('target_hex')
-        if current_target:
-            def hex_distance_local(pos1, pos2):
-                x1, y1 = pos1
-                x2, y2 = pos2
-                return (abs(x1 - x2) + abs(x1 + y1 - x2 - y2) + abs(y1 - y2)) / 2
-            
-            distance_to_current = hex_distance_local(commander_pos, current_target)
-            if distance_to_current <= 5:
-                return False, f"Close to completing mission (distance: {distance_to_current:.1f})"
-        
-        # 3. THRESHOLD - nowy cel 40% lepszy
-        # (Nowy cel musi być ZNACZNIE lepszy niż stary - nie zmieniaj dla byle czego)
-        old_target = old_order.get('target_hex')
-        if old_target:
-            # Oblicz score starego celu (może się zmienić przez pozycję)
-            old_distance = hex_distance_local(commander_pos, old_target)
-            old_score = 100 / max(old_distance, 1)  # Simplified scoring dla porównania
-            
-            if new_score < old_score * 1.4:
-                return False, f"New target not significantly better (new: {new_score:.1f}, old: {old_score:.1f}, need: {old_score * 1.4:.1f})"
-        
-        return True, "Order change approved"
-
-    def issue_strategic_orders(self, game_engine=None, orders_file_path=None, current_turn=1):
-        """
-        Wydaje strategiczne rozkazy dla dowódców na podstawie analizy sytuacji.
-        """
-        import json
-        from datetime import datetime
-        from pathlib import Path
-        # Szybkie wyłączenie systemu rozkazów
-        if not GENERATE_ORDERS:
-            return None
-        
-        # Zabezpiecz current_turn przed None
-        if current_turn is None:
-            current_turn = 1
-        
-        # Domyślna ścieżka do pliku rozkazów
-        if orders_file_path is None:
-            orders_file_path = Path("data/strategic_orders.json")
-        else:
-            orders_file_path = Path(orders_file_path)
-        
-        # Upewnij się że folder data/ istnieje
-        orders_file_path.parent.mkdir(exist_ok=True)
-        
-        # Sprawdź czy mamy engine do uzyskania graczy
-        if not game_engine:
-            print("❌ Brak game_engine - nie można wydać rozkazów")
-            return None
-            
-        # Pobierz listę wszystkich graczy z gry
-        try:
-            all_players = getattr(game_engine, 'players', [])
-            if not all_players:
-                print("❌ Brak graczy w game_engine")
-                return None
-        except Exception as e:
-            print(f"❌ Błąd pobierania graczy: {e}")
-            return None
-        
-        # Pobierz analizę strategiczną (jeśli istnieje)
-        strategic_analysis = getattr(self, '_strategic_analysis', {})
-        game_phase = strategic_analysis.get('game_phase', 1.0)
-        vp_status = strategic_analysis.get('vp_status', 0)
-        
-        # Określ strategię na podstawie fazy gry
-        if game_phase <= 1.0:
-            # EARLY GAME - ekspansja do key points
-            strategy_type = "EXPANSION"
-            mission_type = "SECURE_KEYPOINT"
-        elif game_phase <= 2.0:
-            # MID GAME - zwiększ scouting
-            strategy_type = "SCOUTING"
-            mission_type = "INTEL_GATHERING"
-        else:
-            # LATE GAME - VP dependent
-            if vp_status > 0:
-                strategy_type = "DEFENSIVE"
-                mission_type = "DEFEND_KEYPOINTS"
-            else:
-                strategy_type = "AGGRESSIVE"
-                mission_type = "ATTACK_ENEMY_VP"
-        
-        # Przygotuj indywidualne rozkazy dla dowódców tej nacji
-        # Znajdź wszystkich dowódców tej samej nacji co AI General
-        my_nation = self.display_nation.lower()  # "polska" lub "niemcy"
-        my_commanders = []
-        
-        for player in all_players:
-            if (hasattr(player, 'nation') and player.nation and 
-                player.nation.lower() == my_nation and 
-                hasattr(player, 'role') and player.role and 
-                'dowódca' in player.role.lower()):
-                my_commanders.append(player)
-        
-        if not my_commanders:
-            print(f"❌ Nie znaleziono dowódców dla nacji {my_nation}")
-            return None
-        
-        print(f"🧭 Znaleziono {len(my_commanders)} dowódców dla nacji {my_nation}")
-        
-        orders_data = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
-            "turn": current_turn,
-            "strategy_type": strategy_type,
-            "orders": {}
-        }
-        
-        # Pobierz key points z game_engine dla inteligentnego przydziału celów
-        key_points = []
-        try:
-            if hasattr(game_engine, 'key_points_state'):
-                for kp_id, kp_data in game_engine.key_points_state.items():
-                    if kp_data.get('controlled_by') is None:  # Neutralne key points
-                        pos = kp_data.get('position', [0, 0])
-                        value = kp_data.get('value', 100)
-                        kp_type = kp_data.get('type', 'unknown')
-                        key_points.append({
-                            'position': pos, 
-                            'value': value, 
-                            'type': kp_type,
-                            'id': kp_id
-                        })
-        except Exception as e:
-            print(f"⚠️ Błąd pobierania key points: {e}")
-            # Fallback - hardcoded key points z wartościami
-            key_points = [
-                {'position': [9, -4], 'value': 100, 'type': 'miasto', 'id': 'miasto_1'},
-                {'position': [15, -7], 'value': 100, 'type': 'miasto', 'id': 'miasto_2'},
-                {'position': [15, 6], 'value': 75, 'type': 'węzeł', 'id': 'wezel_1'},
-                {'position': [28, 3], 'value': 75, 'type': 'węzeł', 'id': 'wezel_2'},
-                {'position': [43, -14], 'value': 150, 'type': 'fortyfikacja', 'id': 'fort_1'},
-                {'position': [51, -12], 'value': 100, 'type': 'miasto', 'id': 'miasto_3'}
-            ]
-        
-        if not key_points:
-            key_points = [
-                {'position': [9, -4], 'value': 100, 'type': 'miasto', 'id': 'miasto_1'},
-                {'position': [15, -7], 'value': 100, 'type': 'miasto', 'id': 'miasto_2'},
-                {'position': [15, 6], 'value': 75, 'type': 'węzeł', 'id': 'wezel_1'},
-                {'position': [28, 3], 'value': 75, 'type': 'węzeł', 'id': 'wezel_2'}
-            ]
-        
-        print(f"🗺️ Dostępne cele strategiczne: {len(key_points)} key points")
-        
-        # POPRAWKA: Jeśli key points mają wszystkie pozycję [0,0], użyj hardcoded key points
-        if key_points and all(kp.get('position', [0, 0]) == [0, 0] for kp in key_points):
-            print("⚠️ Wykryto key points z pozycją [0,0] - używam hardcoded key points")
-            key_points = [
-                {'position': [9, -4], 'value': 100, 'type': 'miasto', 'id': 'miasto_polskie_1'},
-                {'position': [15, -7], 'value': 100, 'type': 'miasto', 'id': 'miasto_polskie_2'},
-                {'position': [21, 3], 'value': 75, 'type': 'węzeł', 'id': 'wezel_centralny_1'},
-                {'position': [28, 3], 'value': 75, 'type': 'węzeł', 'id': 'wezel_centralny_2'},
-                {'position': [33, 5], 'value': 100, 'type': 'miasto', 'id': 'miasto_niemieckie_1'},
-                {'position': [43, -14], 'value': 150, 'type': 'fortyfikacja', 'id': 'fort_niemieckie_1'},
-                {'position': [51, -12], 'value': 100, 'type': 'miasto', 'id': 'miasto_niemieckie_2'},
-                {'position': [39, 0], 'value': 125, 'type': 'przełęcz', 'id': 'przelecz_strategiczna'},
-                {'position': [25, 10], 'value': 90, 'type': 'most', 'id': 'most_rzeczny'},
-                {'position': [13, 15], 'value': 110, 'type': 'miasto', 'id': 'miasto_polskie_3'},
-                {'position': [47, 2], 'value': 80, 'type': 'węzeł', 'id': 'wezel_niemiecki'},
-                {'position': [20, -8], 'value': 85, 'type': 'wzgórze', 'id': 'wzgorze_obserwacyjne'}
-            ]
-            print(f"🗺️ Użyto {len(key_points)} hardcoded key points z realnymi pozycjami")
-        
-        # Funkcja do obliczania odległości hex
-        def hex_distance(pos1, pos2):
-            """Oblicza odległość Manhattan w układzie hex"""
-            x1, y1 = pos1
-            x2, y2 = pos2
-            return (abs(x1 - x2) + abs(x1 + y1 - x2 - y2) + abs(y1 - y2)) / 2
-        
-        # Znajdź średnią pozycję jednostek każdego dowódcy
-        commander_positions = {}
-        for commander in my_commanders:
-            units_positions = []
-            print(f"🔍 DEBUG: Szukam jednostek dla dowódcy {commander.id}")
-            print(f"🔍 DEBUG: Typ commander: {type(commander)}, atrybuty: {dir(commander) if hasattr(commander, '__dict__') else 'brak'}")
-            
-            try:
-                # POPRAWKA: Użyj tej samej metody co AI Commander - bezpośredni dostęp do tokenów
-                all_tokens = getattr(game_engine, 'tokens', [])
-                commander_units = []
-                
-                # Filtruj tokeny dla tego dowódcy
-                for token in all_tokens:
-                    owner = str(getattr(token, 'owner', ''))
-                    if str(commander.id) in owner or owner.startswith(str(commander.id)):
-                        commander_units.append(token)
-                
-                print(f"🔍 DEBUG: Znaleziono {len(commander_units)} jednostek z tokens dla dowódcy {commander.id}")
-                
-                # Debug pierwszej jednostki
-                if commander_units:
-                    first_unit = commander_units[0]
-                    print(f"🔍 DEBUG: Pierwsza jednostka typu: {type(first_unit)}")
-                    print(f"🔍 DEBUG: Wszystkie atrybuty: {sorted([attr for attr in dir(first_unit) if not attr.startswith('_')])}")
-                    
-                found_count = 0
-                for unit in commander_units:
-                    # Użyj q, r jako pozycji hex (tak jak AI Commander)
-                    q = getattr(unit, 'q', None)
-                    r = getattr(unit, 'r', None)
-                    
-                    if q is not None and r is not None:
-                        units_positions.append([q, r])
-                        found_count += 1
-                        print(f"🔍 DEBUG: Jednostka {getattr(unit, 'id', '?')} ma pozycję: q={q}, r={r}")
-                
-                print(f"🔍 DEBUG: Znaleziono {found_count} jednostek z pozycjami dla dowódcy {commander.id}")
-                
-            except Exception as e:
-                print(f"🔍 DEBUG: Błąd get_visible_tokens: {e}, fallback do board.tokens")
-                # Fallback do starej metody
-                try:
-                    if hasattr(game_engine, 'board') and hasattr(game_engine.board, 'tokens'):
-                        # Obsłuż zarówno dict jak i list tokenów
-                        if hasattr(game_engine.board.tokens, 'values'):
-                            # tokens jest dict
-                            tokens_iter = game_engine.board.tokens.values()
-                        else:
-                            # tokens jest list
-                            tokens_iter = game_engine.board.tokens
-                        
-                        found_count = 0
-                        total_tokens = 0
-                        for token in tokens_iter:
-                            total_tokens += 1
-                            if hasattr(token, 'owner'):
-                                print(f"🔍 DEBUG: Token {token.id if hasattr(token, 'id') else '?'}: owner={token.owner}, szukamy={commander.id}")
-                                if token.owner == commander.id:
-                                    pos = getattr(token, 'position', None)
-                                    if pos:
-                                        units_positions.append(pos)
-                                        found_count += 1
-                        print(f"🔍 DEBUG: Przeszukano {total_tokens} tokenów, znaleziono {found_count} jednostek dla dowódcy {commander.id}")
-                        
-                except Exception as e2:
-                    print(f"🔍 DEBUG: Błąd fallback: {e2}")
-                
-            if units_positions:
-                # Oblicz średnią pozycję jednostek dowódcy
-                avg_x = sum(pos[0] for pos in units_positions) / len(units_positions)
-                avg_y = sum(pos[1] for pos in units_positions) / len(units_positions)
-                commander_positions[commander.id] = [avg_x, avg_y]
-                print(f"🎯 Dowódca {commander.id}: śr. pozycja {[round(avg_x,1), round(avg_y,1)]} ({len(units_positions)} jednostek)")
-            else:
-                # Fallback - pozycja spawn dla nacji
-                spawn_fallback = [10, 10] if my_nation == 'polska' else [40, -10]
-                commander_positions[commander.id] = spawn_fallback
-                print(f"⚠️ Dowódca {commander.id}: brak jednostek, fallback do {spawn_fallback}")
-        
-        # Inteligentny przydział celów oparty na odległości i wartości
-        assigned_targets = []  # Lista już przydzielonych celów
-        
-        # Sortuj dowódców by mieć stałą kolejność
-        sorted_commanders = sorted(my_commanders, key=lambda x: x.id)
-        
-        # JEDNA PĘTLA - przydziel indywidualne cele każdemu dowódcy
-        for i, commander in enumerate(sorted_commanders):
-            commander_id = f"{my_nation}_commander_{commander.id}"
-            commander_pos = commander_positions.get(commander.id, [0, 0])
-            
-            print(f"🎯 DEBUG: Analizuję dowódcę {commander.id} na pozycji {commander_pos}")
-            
-            # Znajdź najlepszy cel dla tego dowódcy
-            best_target = None
-            best_score = float('-inf')
-            best_kp_info = None
-            
-            for kp in key_points:
-                kp_pos = kp['position']
-                kp_value = kp['value']
-                
-                # Pomiń już przydzielone cele (chyba że wszystkie są przydzielone)
-                if kp_pos in assigned_targets and len(assigned_targets) < len(key_points):
-                    print(f"🚫 Key point {kp_pos} już przydzielony, pomijam")
-                    continue
-                
-                # Oblicz odległość
-                distance = hex_distance(commander_pos, kp_pos)
-                
-                # Scoring: wysoka wartość / niska odległość = dobry cel
-                # Dodaj bonus dla fortyfikacji (typ defens)
-                type_bonus = 50 if kp['type'] == 'fortyfikacja' else 0
-                score = (kp_value + type_bonus) / max(distance, 1)  # Avoid division by zero
-                
-                print(f"📊 Key point {kp_pos}: distance={distance:.1f}, value={kp_value}, type={kp['type']}, score={score:.2f}")
-                
-                if score > best_score:
-                    best_score = score
-                    best_target = kp_pos
-                    best_kp_info = kp
-            
-            # Jeśli nie znaleziono celu (wszystkie przydzielone), weź pierwszy dostępny
-            if best_target is None and key_points:
-                best_target = key_points[i % len(key_points)]['position']
-                best_kp_info = key_points[i % len(key_points)]
-                best_score = 10.0  # Default score
-                print(f"⚠️ Wszystkie cele przydzielone, używam fallback: {best_target}")
-            
-            # NOWE: Sprawdź czy warto wydać nowy rozkaz (system stabilności)
-            if best_target:
-                should_issue, reason = self.should_issue_new_order(
-                    commander, best_target, best_score, current_turn, game_engine
-                )
-                
-                if not should_issue:
-                    print(f"🚫 Dowódca {commander.id}: {reason} - zachowuję stary rozkaz")
-                    continue  # Pomiń tego dowódcy, nie nadpisuj rozkazu
-                else:
-                    print(f"✅ Dowódca {commander.id}: {reason} - wydaję nowy rozkaz")
-            
-            # Dodaj do listy przydzielonych (tylko jeśli wydajemy rozkaz)
-            if best_target:
-                assigned_targets.append(best_target)
-                target_hex = best_target
-                print(f"✅ Przydzielono cel {target_hex} (typ: {best_kp_info['type'] if best_kp_info else '?'}, wartość: {best_kp_info['value'] if best_kp_info else '?'})")
-            else:
-                target_hex = [0, 0]  # Final fallback
-                print(f"🚨 Final fallback do [0, 0]")
-            
-            # Określ priorytet na podstawie wartości celu i pozycji dowódcy
-            distance_to_target = hex_distance(commander_pos, target_hex) if target_hex != [0, 0] else 999
-            priority = "HIGH" if distance_to_target < 20 or i == 0 else "MEDIUM"
-            
-            orders_data["orders"][commander_id] = {
-                "mission_type": mission_type,
-                "target_hex": target_hex,
-                "priority": priority,
-                "expires_turn": current_turn + 5,  # Rozkaz ważny 5 tur
-                "issued_turn": current_turn,
-                "status": "ACTIVE",
-                "strategy_context": strategy_type,
-                "commander_player_id": commander.id  # Dodatkowy klucz dla identyfikacji
-            }
-            
-            print(f"📋 Dowódca {commander.id}: {mission_type} -> {target_hex} (priorytet: {priority})")
-        
-        # Zapisz rozkazy do pliku
-        try:
-            with open(orders_file_path, 'w', encoding='utf-8') as f:
-                json.dump(orders_data, f, indent=2, ensure_ascii=False)
-            
-            # Log że wydano rozkazy
-            self.log_strategy_decision(
-                current_turn, 
-                f"ORDERS_ISSUED_{strategy_type}", 
-                f"phase_{game_phase}_vp_{vp_status}",
-                f"Issued {mission_type} orders to all commanders"
-            )
-            
-            return orders_data
-            
-        except Exception as e:
-            print(f"❌ Błąd zapisywania rozkazów: {e}")
-            return None
+    # === USUNIĘTO SYSTEM ROZKAZÓW ===
+    # AI Generał i Dowódcy działają autonomicznie bez centralnych rozkazów
