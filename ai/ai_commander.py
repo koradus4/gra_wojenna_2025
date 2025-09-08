@@ -100,21 +100,24 @@ def prioritize_targets(key_points, game_engine):
 
     # Import czystych funkcji scoringu (fallback jeśli brak)
     try:
-        from ai.priorytety_ai import compute_keypoint_priority, apply_free_point_bonus, apply_defended_penalty
+        from ai.priorytety_ai import compute_keypoint_priority, apply_free_point_bonus, apply_allied_penalty
     except Exception:
-        def compute_keypoint_priority(value, enemy_distance, dist_exponent):
+        def compute_keypoint_priority(distance, value, dist_exponent):
             if value <= 0:
                 return 0
-            return (value * 10) / (max(enemy_distance, 1) ** dist_exponent)
+            d = max(distance, 1)
+            distance_score = 100.0 / (d ** dist_exponent)
+            value_modifier = value * 0.1
+            return distance_score + value_modifier
         def apply_free_point_bonus(base_score, value, high_mult, med_mult):
             if value >= 120:
-                return base_score * FREE_HIGH_VALUE_BONUS_MULTIPLIER
+                return base_score + (base_score * 0.3)
             if value >= 70:
-                return base_score * FREE_MED_VALUE_BONUS_MULTIPLIER
+                return base_score + (base_score * 0.15)
             return base_score
-        def apply_defended_penalty(score, occupied_by_me, enemy_distance):
-            if occupied_by_me:
-                score *= 0.65
+        def apply_allied_penalty(score, occupied_by_ally):
+            if occupied_by_ally:
+                score *= 0.5
             return score
 
     for hex_id, kp_data in key_points.items():
@@ -137,8 +140,8 @@ def prioritize_targets(key_points, game_engine):
                 debug_print(f"{HEX_MISSING_LOG_PREFIX} priorytetyzacja {hex_id}", "FULL", "WARN")
                 continue
 
-        # Sprawdzenie czy punkt jest już okupowany przez nas
-        occupied_by_me = False
+        # Sprawdzenie czy punkt jest już okupowany przez sojusznika
+        occupied_by_ally = False
         occupied_any = False
         for t in all_tokens[:200]:  # limit
             tq, tr = getattr(t, 'q', None), getattr(t, 'r', None)
@@ -146,30 +149,31 @@ def prioritize_targets(key_points, game_engine):
                 occupied_any = True
                 owner = getattr(t, 'owner', '')
                 if my_nation and my_nation in owner:
-                    occupied_by_me = True
+                    occupied_by_ally = True
                 break
 
-        enemy_distance = 10
+        # Dystans do najbliższej własnej jednostki (nie wroga!)
+        my_distance = 15  # większy domyślny dystans
         if board:
             for token in all_tokens[:80]:
                 token_owner = getattr(token, 'owner', '')
-                if my_nation and my_nation in token_owner:
-                    continue
-                enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
-                dist = board.hex_distance(target_pos, enemy_pos)
-                enemy_distance = min(enemy_distance, dist)
+                if not (my_nation and my_nation in token_owner):
+                    continue  # Sprawdzamy tylko swoje jednostki
+                my_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
+                dist = board.hex_distance(target_pos, my_pos)
+                my_distance = min(my_distance, dist)
 
-        # Czyste obliczenie wyniku + bonusy / kary
-        priority_score = compute_keypoint_priority(value, enemy_distance, DIST_EXPONENT)
+        # Nowa formuła: dystans wiodący, wartość drugorzędna
+        priority_score = compute_keypoint_priority(my_distance, value, DIST_EXPONENT)
         if not occupied_any:
             priority_score = apply_free_point_bonus(priority_score, value, FREE_HIGH_VALUE_BONUS_MULTIPLIER, FREE_MED_VALUE_BONUS_MULTIPLIER)
-        priority_score = apply_defended_penalty(priority_score, occupied_by_me, enemy_distance)
+        priority_score = apply_allied_penalty(priority_score, occupied_by_ally)
 
         priorities.append({
             'target': target_pos,
             'hex_id': hex_id,
             'value': value,
-            'enemy_distance': enemy_distance,
+            'my_distance': my_distance,
             'priority': priority_score,
             'free': not occupied_any
         })
@@ -214,7 +218,7 @@ def prioritize_targets(key_points, game_engine):
             debug_print("[PRIORIZER] TOP 8 celów (hex value dist score free)")
             for entry in priorities[:8]:
                 tgt = entry['target']
-                debug_print(f"[P] {tgt} v={entry['value']} d={entry['enemy_distance']} s={round(entry['priority'],2)} free={entry['free']}")
+                debug_print(f"[P] {tgt} v={entry['value']} d={entry['my_distance']} s={round(entry['priority'],2)} free={entry['free']}")
     except Exception as _e:
             debug_print(f"[PRIORIZER_LOG_ERR] {_e}", "BASIC", "ERROR")
     # ------------------------------
@@ -583,7 +587,7 @@ def advanced_autonomous_mode(my_units, game_engine):
     # SZCZEGÓŁOWE LOGOWANIE CELÓW
     debug_print("📊 [TARGET ANALYSIS] === ANALIZA CELÓW ===", "BASIC", PRIORIZER)
     for i, target in enumerate(prioritized_targets[:8]):  # Top 8 celów
-        debug_print(f"🎯 [{i+1}] {target['target']} - wartość:{target['value']}, dystans:{target['enemy_distance']}, score:{target['priority']:.1f}, wolny:{target['free']}", "BASIC", PRIORIZER)
+        debug_print(f"🎯 [{i+1}] {target['target']} - wartość:{target['value']}, dystans:{target['my_distance']}, score:{target['priority']:.1f}, wolny:{target['free']}", "BASIC", PRIORIZER)
     
     # NOWY: Adaptacyjne grupowanie
     groups = adaptive_grouping(my_units, game_engine)
@@ -667,17 +671,15 @@ def move_towards(unit, target, game_engine):
 # ========== ADAPTACYJNY SYSTEM AI COMMANDER ==========
 
 class AdaptiveAICommander:
-    """Kompletny adaptacyjny system AI Commander z VP-based strategic switching"""
+    """Adaptacyjny system AI Commander - tylko taktyka (budżet zarządza AI General)"""
     def __init__(self, ai_commander_instance):
         self.commander = ai_commander_instance
         self.player = ai_commander_instance.player
         self.strategic_state = "TIED"  # WINNING, LOSING, TIED
         self.last_vp_check = 0
         self.consecutive_losing_turns = 0
-        self.budget_allocation = {"allocate": 0.6, "purchase": 0.3, "reserve": 0.1}
         self.keypoint_priorities = {}
         self.reconnaissance_data = {}
-        self.adaptive_purchase_queue = []
         self.aggression_level = 0.5  # 0.0 = defensive, 1.0 = full aggression
         debug_print(f"🧠 [ADAPTIVE AI] Zainicjalizowano dla {getattr(self.player,'nation','?')}", "FULL", ADAPTIVE)
 
@@ -689,10 +691,6 @@ class AdaptiveAICommander:
             from ai.strategia_ai import _adapt_strategy_to_state as _ad_str
             return _ad_str(self)
 
-    def optimize_budget(self, game_engine):
-            from ai.ekonomia_ai import optimize_budget as _opt_budget
-            return _opt_budget(self, game_engine)
-
     def prioritize_keypoints(self, game_engine):
             from ai.strategia_ai import prioritize_keypoints as _pk
             return _pk(self, game_engine)
@@ -701,58 +699,34 @@ class AdaptiveAICommander:
             from ai.rozpoznanie_ai import gather_reconnaissance as _gr
             return _gr(self, game_engine)
 
-    # Recon cluster & threat analysis -> ai.rozpoznanie_ai
-
-    def adaptive_purchase_ai(self, game_engine, budget_plan):
-            from ai.ekonomia_ai import adaptive_purchase_ai as _apa
-            return _apa(self, game_engine, budget_plan)
-
-    def _determine_purchase_priority(self):
-            from ai.strategia_ai import _determine_purchase_priority as _dpp
-            return _dpp(self)
-
-    def _get_available_purchase_options(self, game_engine):
-            from ai.strategia_ai import _get_available_purchase_options as _gapo
-            return _gapo(self, game_engine)
-
-    def _select_optimal_purchases(self, available_units, budget, priorities, current_army_size):
-            from ai.strategia_ai import _select_optimal_purchases as _sop
-            return _sop(self, available_units, budget, priorities, current_army_size)
+    # Funkcje budżetowe przeniesione do AI General - Commander tylko taktyka
 
     def adaptive_strategic_behavior(self, game_engine):
-        """GŁÓWNA FUNKCJA - Koordynuje wszystkie adaptacyjne systemy"""
+        """GŁÓWNA FUNKCJA - Koordynuje systemy taktyczne (bez zakupów - to robi AI General)"""
         try:
-            debug_print(f"🧠 [ADAPTIVE AI] === ANALIZA STRATEGICZNA ===", "BASIC", ADAPTIVE)
+            debug_print(f"🧠 [ADAPTIVE AI] === ANALIZA TAKTYCZNA ===", "BASIC", ADAPTIVE)
             
             # 1. Analiza stanu strategicznego
             strategic_state = self.analyze_strategic_state(game_engine)
             
-            # 2. Optymalizacja budżetu
-            budget_plan = self.optimize_budget(game_engine)
-            
-            # 3. Priorytetyzacja celów
+            # 2. Priorytetyzacja celów
             prioritized_keypoints = self.prioritize_keypoints(game_engine)
             
-            # 4. Rozpoznanie
+            # 3. Rozpoznanie
             recon_data = self.gather_reconnaissance(game_engine)
             
-            # 5. Adaptacyjne zakupy
-            purchase_recommendations = self.adaptive_purchase_ai(game_engine, budget_plan)
-            
-            # 6. Kompilacja strategii
+            # 4. Kompilacja strategii (bez zakupów - to robi AI General)
             strategic_plan = {
                 'state': strategic_state,
                 'aggression_level': self.aggression_level,
-                'budget': budget_plan,
                 'target_priorities': prioritized_keypoints[:5],  # Top 5 celów
                 'reconnaissance': recon_data,
-                'purchase_plan': purchase_recommendations,
                 'recommended_actions': self._generate_action_recommendations()
             }
             
-            debug_print(f"📋 [ADAPTIVE AI] Strategia gotowa: {strategic_state}, agresja {self.aggression_level:.1f}", "BASIC", ADAPTIVE)
+            debug_print(f"📋 [ADAPTIVE AI] Analiza taktyczna gotowa: {strategic_state}, agresja {self.aggression_level:.1f}", "BASIC", ADAPTIVE)
             
-            # 7. Wykonaj automatyczne akcje jeśli włączone
+            # 5. Wykonaj automatyczne akcje jeśli włączone
             if getattr(self.commander, 'auto_execute', True):
                 self._execute_strategic_plan(strategic_plan, game_engine)
             
@@ -804,6 +778,75 @@ def make_tactical_turn(game_engine, player_id=None):
         current_player = getattr(game_engine, 'current_player_obj', None)
         if current_player:
             player_nation = getattr(current_player, 'nation', 'Unknown')
+
+        # ===== PHASE 5: VP INTELLIGENCE SYSTEM INTEGRATION =====
+        try:
+            from ai.victory_ai import integrate_vp_intelligence_system, integrate_victory_ai_complete_system, log_victory_ai_csv
+            # Pobierz gracza dla Victory AI
+            current_player = None
+            all_players = getattr(game_engine, 'players', [])
+            for player in all_players[:10]:
+                if getattr(player, 'id', -1) == player_id:
+                    current_player = player
+                    break
+            
+            if current_player is None:
+                debug_print(f"❌ [VICTORY AI] Nie znaleziono gracza {player_id}", "BASIC", ERROR)
+                return
+            
+            # Log start stanu przed Victory AI
+            current_turn = getattr(game_engine, 'current_turn', 1)
+            log_victory_ai_csv("TURN_START", player_id, current_turn,
+                             player_nation=player_nation, 
+                             total_tokens=len(getattr(current_player, 'tokens', [])),
+                             captured_kps=len(getattr(current_player, 'captured_kps', [])))
+            
+            # PHASE 5: VP Intelligence Analysis (NOWE!)
+            my_units = getattr(current_player, 'tokens', [])
+            vp_analysis = integrate_vp_intelligence_system(game_engine, my_units, player_id)
+            
+            if vp_analysis and vp_analysis.get('strategic_recommendations'):
+                debug_print(f"🧠 [VP INTELLIGENCE] Status: {vp_analysis.get('current_status', 'UNKNOWN')}, "
+                           f"Trend: {vp_analysis.get('trend_direction', 'STABLE')}, "
+                           f"Recommendations: {len(vp_analysis.get('strategic_recommendations', []))}", "BASIC", INFO)
+                
+                # Log top strategic recommendation
+                recommendations = vp_analysis.get('strategic_recommendations', [])
+                if recommendations:
+                    top_rec = recommendations[0]
+                    debug_print(f"🎯 [TOP STRATEGY] {top_rec.get('strategy', 'N/A')}: "
+                               f"{top_rec.get('reasoning', 'N/A')} (Priority: {top_rec.get('priority', 'N/A')})", "FULL", INFO)
+            else:
+                debug_print("📊 [VP INTELLIGENCE] No strategic analysis available", "BASIC", INFO)
+            
+            # Uruchom Victory AI COMPLETE SYSTEM (Phase 1 + Phase 2 + Phase 3 + Phase 4)
+            victory_report = integrate_victory_ai_complete_system(game_engine, my_units, player_id)
+            
+            if victory_report:
+                phase1 = victory_report.get('phase1', {})
+                phase2 = victory_report.get('phase2', {})
+                phase3 = victory_report.get('phase3', {})
+                phase4 = victory_report.get('phase4', {})
+                system_status = victory_report.get('system_status', 'UNKNOWN')
+                
+                debug_print(f"🎯 [VICTORY AI] Phase 1: {phase1.get('scouts_deployed', 0)} scouts, "
+                           f"{phase1.get('enemies_detected', 0)} enemies detected", "BASIC", INFO)
+                debug_print(f"⚔️ [VICTORY AI] Phase 2: {phase2.get('active_plans', 0)} active plans, "
+                           f"{phase2.get('new_plans_created', 0)} new plans created", "BASIC", INFO)
+                debug_print(f"🛡️ [VICTORY AI] Phase 3: {victory_report.get('kps_secured', 0)} KPs secured, "
+                           f"PE secure: {victory_report.get('pe_secure', False)}", "BASIC", INFO)
+                debug_print(f"📞 [VICTORY AI] Phase 4: Request {phase4.get('request_generated', False)}, "
+                           f"Urgency: {phase4.get('urgency_level', 'N/A')}, System: {system_status}", "BASIC", INFO)
+                
+                # Log Phase 4 details if active
+                if phase4.get('logistics_integration_success', False):
+                    requirements = phase4.get('total_requirements', 0)
+                    debug_print(f"🔧 [LOGISTICS] Phase 4 active - {requirements} units requested, "
+                               f"priorities: {', '.join(phase4.get('priority_areas', []))}", "FULL", INFO)
+            else:
+                debug_print("❌ [VICTORY AI] Błąd w wykonaniu Victory AI Complete System", "BASIC", ERROR)
+        except Exception as e:
+            debug_print(f"⚠️ [VICTORY AI] Full system error: {e}", "BASIC", WARN)
 
         # ===== WAŻNE: USTAW COMMANDER REF NA POCZĄTKU =====
         temp_ai_commander = AICommander(current_player) if current_player else None
@@ -895,15 +938,6 @@ def make_tactical_turn(game_engine, player_id=None):
         my_units = get_my_units(game_engine, player_id)
         starting_unit_ids = {u.get('id') for u in my_units}
         
-        # 🔥 NOWE: Sprawdź i zarządzaj garnizonami na początku tury
-        _check_and_manage_garrisons(game_engine, my_units)
-        
-        # 🔥 NOWE: Wyczyść przestarzałe wsparcie garnizonów
-        cleared_support = clear_obsolete_garrison_support(my_units, game_engine)
-        
-        # 🔥 NOWE: Przydziel wsparcie do garnizonów
-        assigned_support = assign_garrison_support(my_units, game_engine)
-        
         # Sanity: usuń martwe / nieistniejące assigned_target (np. po zmianie key pointów)
         for u in my_units:
             at = u.get('assigned_target')
@@ -946,6 +980,15 @@ def make_tactical_turn(game_engine, player_id=None):
             debug_print(f"[OPPORTUNISTIC] Zajęto błyskawicznie {len(opportunistic_captured)} wolnych punktów", "FULL", TACTIC)
         # Odfiltruj jednostki które już ruszyły
         my_units = [u for u in my_units if not u.get('moved_capture')]
+
+        # 🔥 GARRISON SUPPORT: Wyczyść przestarzałe wsparcie garnizonów AFTER MP refresh
+        cleared_support = clear_obsolete_garrison_support(my_units, game_engine)
+        
+        # 🔥 GARRISON SUPPORT: Przydziel wsparcie do garnizonów AFTER MP refresh
+        assigned_support = assign_garrison_support(my_units, game_engine)
+        
+        # 🔥 GARRISON MANAGEMENT: Sprawdź i zarządzaj garnizonami AFTER MP refresh
+        _check_and_manage_garrisons(game_engine, my_units)
 
         # 2b. GRUPOWANIE JEDNOSTEK - TYLKO ZAAWANSOWANY TRYB AUTONOMICZNY
         # USUNIĘTO: system rozkazów strategicznych

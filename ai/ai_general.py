@@ -913,6 +913,30 @@ class AIGeneral:
         """Podejmuje decyzje strategiczne (rozszerzone o PURCHASE/ALLOCATE/HOLD)."""
         print("\n🎯 === DECYZJE STRATEGICZNE ===")
         
+        # ===== PHASE 4: ADVANCED LOGISTICS AI - COMMANDER REQUEST PROCESSING =====
+        try:
+            from ai.general_phase4 import integrate_phase4_with_general
+            phase4_results = integrate_phase4_with_general(self, game_engine, player)
+            
+            if phase4_results.get('phase4_active', False):
+                requests_count = phase4_results.get('requests_collected', 0)
+                units_purchased = phase4_results.get('units_purchased', 0)
+                adaptive_cost = phase4_results.get('total_cost_estimate', 0)
+                
+                print(f"📞 [PHASE 4] Advanced Logistics: {requests_count} requests → {units_purchased} adaptive purchases (cost: {adaptive_cost} PE)")
+                
+                # Log successful Phase 4 integration
+                if phase4_results.get('integration_success', False):
+                    print(f"✅ [PHASE 4] Adaptive purchasing successful - {units_purchased} units based on field requirements")
+                else:
+                    print(f"⚠️ [PHASE 4] Limited success - check request processing")
+            else:
+                reason = phase4_results.get('reason', 'Unknown')
+                print(f"🔇 [PHASE 4] Advanced Logistics inactive: {reason}")
+                
+        except Exception as e:
+            print(f"❌ [PHASE 4] Error in Advanced Logistics integration: {e}")
+        
         # Reset zmiennych śledzących dla logowania
         self._turn_pe_allocated = 0
         self._turn_pe_spent_purchases = 0

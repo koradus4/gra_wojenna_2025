@@ -6,7 +6,20 @@ from pathlib import Path
 from PIL import ImageFont
 from edytory.token_editor_prototyp import create_flag_background
 
-"""TokenShop – zmodernizowany do korzystania z centralnego balansu (balance.model).
+"""TokenShop – zmodernizowany do korzystania z centralnego         unit_type_name = {
+            "P": "Piechota",
+            "K": "Kawaleria",
+            "TC": "Czołg ciężki",
+            "TŚ": "Czołg średni",
+            "TL": "Czołg lekki",
+            "TS": "Sam. pancerny",
+            "AC": "Artyleria ciężka",
+            "AL": "Artyleria lekka",
+            "AP": "Artyleria plot",
+            "Z": "Zaopatrzenie ⭐ PE",
+            "D": "Dowództwo",
+            "G": "Generał"
+        }.get(unit_type, unit_type)ce.model).
 
 Usuwa zależność od legacy core.unit_factory (pozostawione tylko minimalne fallbacki w razie braku modułu balansu)."""
 from balance.model import (
@@ -52,7 +65,7 @@ class TokenShop(tk.Toplevel):
             ("Artyleria ciężka (AC)", "AC", True),
             ("Artyleria lekka (AL)", "AL", True),
             ("Artyleria plot (AP)", "AP", True),
-            ("Zaopatrzenie (Z)", "Z", True),
+            ("Zaopatrzenie (Z) ⭐ JEDYNY ZBIERACZ PE", "Z", True),
             ("Dowództwo (D)", "D", True),
             ("Generał (G)", "G", True)
         ]
@@ -421,7 +434,7 @@ class TokenShop(tk.Toplevel):
             "AC": "Artyleria ciężka",
             "AL": "Artyleria lekka",
             "AP": "Artyleria plot",
-            "Z": "Zaopatrzenie",
+            "Z": "Zaopatrzenie ⭐ PE",
             "D": "Dowództwo",
             "G": "Generał"
         }.get(unit_type, unit_type)

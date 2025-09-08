@@ -230,6 +230,27 @@ class GameEngine:
         
         print("=" * 80)
 
+    def _is_supply_unit(self, token):
+        """Sprawdza czy jednostka jest typu zaopatrzenie (Z) i może zbierać PE."""
+        if not token or not hasattr(token, 'stats'):
+            return False
+            
+        unit_type = token.stats.get('unitType', '')
+        return unit_type == 'Z'
+
+    def _get_unit_type_display(self, token):
+        """Zwraca czytelny typ jednostki do logowania."""
+        if not token or not hasattr(token, 'stats'):
+            return 'UNKNOWN'
+            
+        unit_type = token.stats.get('unitType', 'UNKNOWN')
+        type_names = {
+            'P': 'Piechota', 'TL': 'Czołg lekki', 'TS': 'Sam. pancerny',
+            'K': 'Kawaleria', 'AL': 'Art. lekka', 'AC': 'Art. ciężka', 
+            'AP': 'Art. plot', 'Z': 'Zaopatrzenie', 'D': 'Dowództwo', 'G': 'Generał'
+        }
+        return f"{type_names.get(unit_type, unit_type)} ({unit_type})"
+
     def process_key_points(self, players):
         """Przetwarza punkty kluczowe: rozdziela punkty ekonomiczne, aktualizuje stan punktów, usuwa wyzerowane."""
         print(f"\n💰 PROCESSING KEY POINTS - koniec pełnej tury")
@@ -245,6 +266,12 @@ class GameEngine:
             q, r = map(int, hex_id.split(","))
             token = tokens_by_pos.get((q, r))
             if token and hasattr(token, 'owner') and token.owner:
+                # NOWE: Sprawdź czy to jednostka zaopatrzenia
+                if not self._is_supply_unit(token):
+                    unit_type_display = self._get_unit_type_display(token)
+                    print(f"  ⚠️ {hex_id}: {unit_type_display} nie może zbierać PE - tylko Zaopatrzenie (Z)")
+                    continue
+                    
                 nation = token.owner.split("(")[-1].replace(")", "").strip()
                 owner_id = token.owner.split("(")[0].strip()
                 general = generals.get(nation)
@@ -262,8 +289,8 @@ class GameEngine:
                     general.economy.economic_points += give
                     kp['current_value'] -= give
                     
-                    print(f"  💰 {hex_id}: +{give} punktów dla generała {nation}")
-                    print(f"      👤 Okupant: {owner_id} ({nation})")
+                    print(f"  💰 {hex_id}: +{give} punktów dla generała {nation} (okupant: {owner_id} - Zaopatrzenie)")
+                    print(f"      👤 Okupant: {owner_id} ({nation}) - jednostka Zaopatrzenia (Z)")
                     print(f"      💵 Ekonomia generała: {old_economy} → {general.economy.economic_points}")
                     print(f"      📍 Key Point: {kp['current_value']}/{kp['initial_value']} pozostało")
                     

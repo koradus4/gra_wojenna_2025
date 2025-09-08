@@ -1,13 +1,13 @@
 [
   {
-    "id": "AL_Batalion__5_Artillerie_Regiment",
+    "id": "AL_Batalion__5_Artillerie_Abteilung",
     "nation": "Niemcy",
     "unitType": "AL",
     "unitSize": "Batalion",
     "shape": "prostokąt",
-    "label": "5. Artillerie Regiment",
+    "label": "5. Artillerie Abteilung",
     "unit_full_name": "Niemcy Artyleria lekka Batalion II",
-    "move": 3,
+    "move": 6,
     "attack": {
       "range": 3,
       "value": 23
@@ -15,91 +15,41 @@
     "combat_value": 11,
     "defense_value": 11,
     "maintenance": 2,
-    "price": 28,
+    "price": 40,
     "sight": 6,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
-      "obserwator"
+      "obserwator",
+      "ciagnik altyleryjski"
     ],
-    "image": "assets/tokens/Niemcy/AL_Batalion__5_Artillerie_Regiment/token.png",
+    "image": "assets/tokens/Niemcy/AL_Batalion__5_Artillerie_Abteilung/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "AL_Kompania__6_Artillerie_Abteilung",
+    "id": "AL_Pluton__6_Artillerie_Batterie",
     "nation": "Niemcy",
     "unitType": "AL",
-    "unitSize": "Kompania",
-    "shape": "prostokąt",
-    "label": "6. Artillerie Abteilung",
-    "unit_full_name": "Niemcy Artyleria lekka Kompania I",
-    "move": 3,
-    "attack": {
-      "range": 3,
-      "value": 18
-    },
-    "combat_value": 8,
-    "defense_value": 8,
-    "maintenance": 2,
-    "price": 19,
-    "sight": 6,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "obserwator"
-    ],
-    "image": "assets/tokens/Niemcy/AL_Kompania__6_Artillerie_Abteilung/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "K_Batalion__6_Kawaleria_Einheit",
-    "nation": "Niemcy",
-    "unitType": "K",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Kawaleria Einheit",
-    "unit_full_name": "Niemcy Kawaleria Batalion II",
-    "move": 6,
-    "attack": {
-      "range": 1,
-      "value": 11
-    },
-    "combat_value": 11,
-    "defense_value": 14,
-    "maintenance": 4,
-    "price": 22,
-    "sight": 7,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "obserwator"
-    ],
-    "image": "assets/tokens/Niemcy/K_Batalion__6_Kawaleria_Einheit/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "K_Pluton__5_Kawaleria_Einheit",
-    "nation": "Niemcy",
-    "unitType": "K",
     "unitSize": "Pluton",
     "shape": "prostokąt",
-    "label": "5. Kawaleria Einheit",
-    "unit_full_name": "Niemcy Kawaleria Pluton ***",
-    "move": 6,
+    "label": "6. Artillerie Batterie",
+    "unit_full_name": "Niemcy Artyleria lekka Pluton ***",
+    "move": 2,
     "attack": {
-      "range": 1,
-      "value": 6
+      "range": 4,
+      "value": 14
     },
     "combat_value": 6,
     "defense_value": 8,
-    "maintenance": 4,
-    "price": 11,
-    "sight": 7,
-    "owner": "5 (Niemcy)",
+    "maintenance": 2,
+    "price": 23,
+    "sight": 6,
+    "owner": "6 (Niemcy)",
     "support_upgrades": [
+      "sekcja km.ppanc",
       "obserwator"
     ],
-    "image": "assets/tokens/Niemcy/K_Pluton__5_Kawaleria_Einheit/token.png",
+    "image": "assets/tokens/Niemcy/AL_Pluton__6_Artillerie_Batterie/token.png",
     "w": 240,
     "h": 240
   },
@@ -111,21 +61,79 @@
     "shape": "prostokąt",
     "label": "5. Infanterie Regiment",
     "unit_full_name": "Niemcy Piechota Batalion II",
-    "move": 5,
+    "move": 4,
     "attack": {
-      "range": 1,
-      "value": 14
+      "range": 2,
+      "value": 18
     },
     "combat_value": 14,
-    "defense_value": 18,
+    "defense_value": 21,
     "maintenance": 2,
-    "price": 25,
+    "price": 45,
     "sight": 3,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
     "image": "assets/tokens/Niemcy/P_Batalion__5_Infanterie_Regiment/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Batalion__5_Infanterie_Regiment_20250907191829",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Batalion",
+    "shape": "prostokąt",
+    "label": "5. Infanterie Regiment",
+    "unit_full_name": "Niemcy Piechota Batalion II",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 18
+    },
+    "combat_value": 14,
+    "defense_value": 21,
+    "maintenance": 2,
+    "price": 45,
+    "sight": 3,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Batalion__5_Infanterie_Regiment_20250907191829/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Batalion__5_Infanterie_Regiment_20250907191830",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Batalion",
+    "shape": "prostokąt",
+    "label": "5. Infanterie Regiment",
+    "unit_full_name": "Niemcy Piechota Batalion II",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 18
+    },
+    "combat_value": 14,
+    "defense_value": 21,
+    "maintenance": 2,
+    "price": 45,
+    "sight": 3,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Batalion__5_Infanterie_Regiment_20250907191830/token.png",
     "w": 240,
     "h": 240
   },
@@ -140,16 +148,17 @@
     "move": 4,
     "attack": {
       "range": 2,
-      "value": 16
+      "value": 18
     },
     "combat_value": 14,
-    "defense_value": 20,
+    "defense_value": 21,
     "maintenance": 2,
-    "price": 35,
+    "price": 45,
     "sight": 3,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
       "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
     "image": "assets/tokens/Niemcy/P_Batalion__5_Sch_tzen_Kompanie/token.png",
@@ -157,135 +166,58 @@
     "h": 240
   },
   {
-    "id": "P_Batalion__6_Grenadier_Bataillon",
-    "nation": "Niemcy",
-    "unitType": "P",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Grenadier Bataillon",
-    "unit_full_name": "Niemcy Piechota Batalion II",
-    "move": 7,
-    "attack": {
-      "range": 2,
-      "value": 16
-    },
-    "combat_value": 14,
-    "defense_value": 19,
-    "maintenance": 2,
-    "price": 38,
-    "sight": 3,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "drużyna granatników",
-      "sam. ciezarowy Fiat 621"
-    ],
-    "image": "assets/tokens/Niemcy/P_Batalion__6_Grenadier_Bataillon/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "P_Batalion__6_Infanterie_Regiment",
-    "nation": "Niemcy",
-    "unitType": "P",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Infanterie Regiment",
-    "unit_full_name": "Niemcy Piechota Batalion II",
-    "move": 2,
-    "attack": {
-      "range": 2,
-      "value": 16
-    },
-    "combat_value": 14,
-    "defense_value": 19,
-    "maintenance": 2,
-    "price": 30,
-    "sight": 3,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "drużyna granatników"
-    ],
-    "image": "assets/tokens/Niemcy/P_Batalion__6_Infanterie_Regiment/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "P_Batalion__6_Infanterie_Regiment_20250906210428",
-    "nation": "Niemcy",
-    "unitType": "P",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Infanterie Regiment",
-    "unit_full_name": "Niemcy Piechota Batalion II",
-    "move": 4,
-    "attack": {
-      "range": 2,
-      "value": 16
-    },
-    "combat_value": 14,
-    "defense_value": 20,
-    "maintenance": 2,
-    "price": 35,
-    "sight": 3,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "sekcja ckm",
-      "przodek dwukonny"
-    ],
-    "image": "assets/tokens/Niemcy/P_Batalion__6_Infanterie_Regiment_20250906210428/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "P_Batalion__6_Infanterie_Regiment_20250906210429",
-    "nation": "Niemcy",
-    "unitType": "P",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Infanterie Regiment",
-    "unit_full_name": "Niemcy Piechota Batalion II",
-    "move": 4,
-    "attack": {
-      "range": 2,
-      "value": 16
-    },
-    "combat_value": 14,
-    "defense_value": 19,
-    "maintenance": 2,
-    "price": 35,
-    "sight": 3,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "drużyna granatników",
-      "przodek dwukonny"
-    ],
-    "image": "assets/tokens/Niemcy/P_Batalion__6_Infanterie_Regiment_20250906210429/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "P_Kompania__5_Sch_tzen_Kompanie",
+    "id": "P_Kompania__6_Infanterie_Regiment",
     "nation": "Niemcy",
     "unitType": "P",
     "unitSize": "Kompania",
     "shape": "prostokąt",
-    "label": "5. Schützen Kompanie",
+    "label": "6. Infanterie Regiment",
     "unit_full_name": "Niemcy Piechota Kompania I",
-    "move": 5,
+    "move": 4,
     "attack": {
-      "range": 1,
-      "value": 11
+      "range": 2,
+      "value": 15
     },
     "combat_value": 11,
-    "defense_value": 14,
+    "defense_value": 17,
     "maintenance": 2,
-    "price": 17,
+    "price": 37,
     "sight": 3,
-    "owner": "5 (Niemcy)",
+    "owner": "6 (Niemcy)",
     "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
-    "image": "assets/tokens/Niemcy/P_Kompania__5_Sch_tzen_Kompanie/token.png",
+    "image": "assets/tokens/Niemcy/P_Kompania__6_Infanterie_Regiment/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Kompania__6_Sch_tzen_Kompanie",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Kompania",
+    "shape": "prostokąt",
+    "label": "6. Schützen Kompanie",
+    "unit_full_name": "Niemcy Piechota Kompania I",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 15
+    },
+    "combat_value": 11,
+    "defense_value": 17,
+    "maintenance": 2,
+    "price": 37,
+    "sight": 3,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Kompania__6_Sch_tzen_Kompanie/token.png",
     "w": 240,
     "h": 240
   },
@@ -297,7 +229,7 @@
     "shape": "prostokąt",
     "label": "5. Grenadier Bataillon",
     "unit_full_name": "Niemcy Piechota Pluton ***",
-    "move": 2,
+    "move": 4,
     "attack": {
       "range": 2,
       "value": 12
@@ -305,14 +237,207 @@
     "combat_value": 8,
     "defense_value": 13,
     "maintenance": 2,
-    "price": 27,
+    "price": 32,
     "sight": 3,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
+      "sekcja ckm",
       "drużyna granatników",
-      "sekcja ckm"
+      "przodek dwukonny"
     ],
     "image": "assets/tokens/Niemcy/P_Pluton__5_Grenadier_Bataillon/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__5_Grenadier_Bataillon_20250907191834",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Grenadier Bataillon",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__5_Grenadier_Bataillon_20250907191834/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__5_Grenadier_Bataillon_20250907191836",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Grenadier Bataillon",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__5_Grenadier_Bataillon_20250907191836/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__6_Grenadier_Bataillon",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Grenadier Bataillon",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__6_Grenadier_Bataillon/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__6_Grenadier_Bataillon_20250907191921",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Grenadier Bataillon",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__6_Grenadier_Bataillon_20250907191921/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__6_Infanterie_Regiment",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Infanterie Regiment",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 2,
+    "attack": {
+      "range": 2,
+      "value": 10
+    },
+    "combat_value": 8,
+    "defense_value": 12,
+    "maintenance": 2,
+    "price": 22,
+    "sight": 5,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja km.ppanc",
+      "obserwator"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__6_Infanterie_Regiment/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__6_Sch_tzen_Kompanie",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Schützen Kompanie",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__6_Sch_tzen_Kompanie_20250907191927",
+    "nation": "Niemcy",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Schützen Kompanie",
+    "unit_full_name": "Niemcy Piechota Pluton ***",
+    "move": 2,
+    "attack": {
+      "range": 2,
+      "value": 10
+    },
+    "combat_value": 8,
+    "defense_value": 12,
+    "maintenance": 2,
+    "price": 22,
+    "sight": 5,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja km.ppanc",
+      "obserwator"
+    ],
+    "image": "assets/tokens/Niemcy/P_Pluton__6_Sch_tzen_Kompanie_20250907191927/token.png",
     "w": 240,
     "h": 240
   },
@@ -324,7 +449,7 @@
     "shape": "prostokąt",
     "label": "5. Panzer Abteilung",
     "unit_full_name": "Niemcy Czołg lekki Kompania I",
-    "move": 7,
+    "move": 5,
     "attack": {
       "range": 1,
       "value": 14
@@ -333,90 +458,64 @@
     "defense_value": 17,
     "maintenance": 3,
     "price": 25,
-    "sight": 3,
+    "sight": 5,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
-      "przodek dwukonny"
+      "obserwator"
     ],
     "image": "assets/tokens/Niemcy/TL_Kompania__5_Panzer_Abteilung/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "TL_Pluton__6_Panzer_Kompanie",
+    "id": "TL_Kompania__6_Panzer_Kompanie",
     "nation": "Niemcy",
     "unitType": "TL",
-    "unitSize": "Pluton",
+    "unitSize": "Kompania",
     "shape": "prostokąt",
     "label": "6. Panzer Kompanie",
-    "unit_full_name": "Niemcy Czołg lekki Pluton ***",
-    "move": 5,
-    "attack": {
-      "range": 1,
-      "value": 10
-    },
-    "combat_value": 10,
-    "defense_value": 12,
-    "maintenance": 3,
-    "price": 16,
-    "sight": 5,
-    "owner": "6 (Niemcy)",
-    "support_upgrades": [
-      "obserwator"
-    ],
-    "image": "assets/tokens/Niemcy/TL_Pluton__6_Panzer_Kompanie/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "TS_Batalion__6_Sam_Pancerny_Einheit",
-    "nation": "Niemcy",
-    "unitType": "TS",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "6. Sam. Pancerny Einheit",
-    "unit_full_name": "Niemcy Sam. pancerny Batalion II",
+    "unit_full_name": "Niemcy Czołg lekki Kompania I",
     "move": 5,
     "attack": {
       "range": 1,
       "value": 14
     },
     "combat_value": 14,
-    "defense_value": 18,
+    "defense_value": 17,
     "maintenance": 3,
-    "price": 29,
-    "sight": 6,
+    "price": 25,
+    "sight": 5,
     "owner": "6 (Niemcy)",
     "support_upgrades": [
       "obserwator"
     ],
-    "image": "assets/tokens/Niemcy/TS_Batalion__6_Sam_Pancerny_Einheit/token.png",
+    "image": "assets/tokens/Niemcy/TL_Kompania__6_Panzer_Kompanie/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "TŚ_Batalion__5_Panzer_Regiment",
+    "id": "Z_Kompania__6_Unterst_tzungs_Bataillon",
     "nation": "Niemcy",
-    "unitType": "TŚ",
-    "unitSize": "Batalion",
+    "unitType": "Z",
+    "unitSize": "Kompania",
     "shape": "prostokąt",
-    "label": "5. Panzer Regiment",
-    "unit_full_name": "Niemcy Czołg średni Batalion II",
-    "move": 4,
+    "label": "6. Unterstützungs Bataillon",
+    "unit_full_name": "Niemcy Zaopatrzenie Kompania I",
+    "move": 5,
     "attack": {
       "range": 2,
-      "value": 27
+      "value": 8
     },
-    "combat_value": 27,
-    "defense_value": 30,
-    "maintenance": 3,
-    "price": 60,
-    "sight": 5,
-    "owner": "5 (Niemcy)",
+    "combat_value": 6,
+    "defense_value": 10,
+    "maintenance": 4,
+    "price": 15,
+    "sight": 6,
+    "owner": "6 (Niemcy)",
     "support_upgrades": [
-      "obserwator"
+      "sekcja ckm"
     ],
-    "image": "assets/tokens/Niemcy/TŚ_Batalion__5_Panzer_Regiment/token.png",
+    "image": "assets/tokens/Niemcy/Z_Kompania__6_Unterst_tzungs_Bataillon/token.png",
     "w": 240,
     "h": 240
   },
@@ -428,7 +527,7 @@
     "shape": "prostokąt",
     "label": "5. Aufklärungs Zug",
     "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
-    "move": 6,
+    "move": 9,
     "attack": {
       "range": 1,
       "value": 4
@@ -436,13 +535,41 @@
     "combat_value": 4,
     "defense_value": 6,
     "maintenance": 4,
-    "price": 10,
+    "price": 22,
     "sight": 8,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
-      "obserwator"
+      "obserwator",
+      "ciagnik altyleryjski"
     ],
     "image": "assets/tokens/Niemcy/Z_Pluton__5_Aufkl_rungs_Zug/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__5_Aufkl_rungs_Zug_20250907191835",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Aufklärungs Zug",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__5_Aufkl_rungs_Zug_20250907191835/token.png",
     "w": 240,
     "h": 240
   },
@@ -454,7 +581,7 @@
     "shape": "prostokąt",
     "label": "5. Unterstützungs Bataillon",
     "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
-    "move": 6,
+    "move": 9,
     "attack": {
       "range": 1,
       "value": 4
@@ -462,25 +589,212 @@
     "combat_value": 4,
     "defense_value": 6,
     "maintenance": 4,
-    "price": 10,
+    "price": 22,
     "sight": 8,
     "owner": "5 (Niemcy)",
     "support_upgrades": [
-      "obserwator"
+      "obserwator",
+      "ciagnik altyleryjski"
     ],
     "image": "assets/tokens/Niemcy/Z_Pluton__5_Unterst_tzungs_Bataillon/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "AL_Batalion__2_Pu_k_Artylerii",
+    "id": "Z_Pluton__5_Versorgungs_Kompanie",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Versorgungs Kompanie",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 15,
+    "sight": 6,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__5_Versorgungs_Kompanie/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__5_Versorgungs_Kompanie_20250907191826",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Versorgungs Kompanie",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 15,
+    "sight": 6,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__5_Versorgungs_Kompanie_20250907191826/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__5_Versorgungs_Kompanie_20250907191837",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "5. Versorgungs Kompanie",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "5 (Niemcy)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__5_Versorgungs_Kompanie_20250907191837/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__6_Aufkl_rungs_Zug",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Aufklärungs Zug",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 20,
+    "sight": 8,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja km.ppanc",
+      "obserwator"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__6_Aufkl_rungs_Zug/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__6_Aufkl_rungs_Zug_20250907191928",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Aufklärungs Zug",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 20,
+    "sight": 8,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja km.ppanc",
+      "obserwator"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__6_Aufkl_rungs_Zug_20250907191928/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__6_Versorgungs_Kompanie",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Versorgungs Kompanie",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 15,
+    "sight": 6,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__6_Versorgungs_Kompanie/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__6_Versorgungs_Kompanie_20250907191929",
+    "nation": "Niemcy",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "6. Versorgungs Kompanie",
+    "unit_full_name": "Niemcy Zaopatrzenie Pluton ***",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 6
+    },
+    "combat_value": 4,
+    "defense_value": 8,
+    "maintenance": 4,
+    "price": 20,
+    "sight": 8,
+    "owner": "6 (Niemcy)",
+    "support_upgrades": [
+      "sekcja km.ppanc",
+      "obserwator"
+    ],
+    "image": "assets/tokens/Niemcy/Z_Pluton__6_Versorgungs_Kompanie_20250907191929/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "AL_Batalion__2_Bateria_Artylerii",
     "nation": "Polska",
     "unitType": "AL",
     "unitSize": "Batalion",
     "shape": "prostokąt",
-    "label": "2. Pułk Artylerii",
+    "label": "2. Bateria Artylerii",
     "unit_full_name": "Polska Artyleria lekka Batalion II",
-    "move": 8,
+    "move": 6,
     "attack": {
       "range": 3,
       "value": 22
@@ -488,13 +802,14 @@
     "combat_value": 11,
     "defense_value": 11,
     "maintenance": 2,
-    "price": 31,
-    "sight": 4,
+    "price": 40,
+    "sight": 6,
     "owner": "2 (Polska)",
     "support_upgrades": [
-      "sam. ciezarowy Fiat 621"
+      "obserwator",
+      "ciagnik altyleryjski"
     ],
-    "image": "assets/tokens/Polska/AL_Batalion__2_Pu_k_Artylerii/token.png",
+    "image": "assets/tokens/Polska/AL_Batalion__2_Bateria_Artylerii/token.png",
     "w": 240,
     "h": 240
   },
@@ -514,65 +829,14 @@
     "combat_value": 8,
     "defense_value": 8,
     "maintenance": 2,
-    "price": 25,
-    "sight": 4,
+    "price": 30,
+    "sight": 6,
     "owner": "3 (Polska)",
     "support_upgrades": [
+      "obserwator",
       "ciagnik altyleryjski"
     ],
     "image": "assets/tokens/Polska/AL_Kompania__3_Bateria_Artylerii/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "K_Batalion__2_Oddzia_Jazdy",
-    "nation": "Polska",
-    "unitType": "K",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "2. Oddział Jazdy",
-    "unit_full_name": "Polska Kawaleria Batalion II",
-    "move": 11,
-    "attack": {
-      "range": 1,
-      "value": 11
-    },
-    "combat_value": 11,
-    "defense_value": 14,
-    "maintenance": 4,
-    "price": 25,
-    "sight": 5,
-    "owner": "2 (Polska)",
-    "support_upgrades": [
-      "sam. ciezarowy Fiat 621"
-    ],
-    "image": "assets/tokens/Polska/K_Batalion__2_Oddzia_Jazdy/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "K_Batalion__3_Oddzia_Jazdy",
-    "nation": "Polska",
-    "unitType": "K",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "3. Oddział Jazdy",
-    "unit_full_name": "Polska Kawaleria Batalion II",
-    "move": 9,
-    "attack": {
-      "range": 1,
-      "value": 11
-    },
-    "combat_value": 11,
-    "defense_value": 14,
-    "maintenance": 4,
-    "price": 29,
-    "sight": 5,
-    "owner": "3 (Polska)",
-    "support_upgrades": [
-      "ciagnik altyleryjski"
-    ],
-    "image": "assets/tokens/Polska/K_Batalion__3_Oddzia_Jazdy/token.png",
     "w": 240,
     "h": 240
   },
@@ -584,7 +848,7 @@
     "shape": "prostokąt",
     "label": "2. Batalion Strzelców",
     "unit_full_name": "Polska Piechota Batalion II",
-    "move": 2,
+    "move": 4,
     "attack": {
       "range": 2,
       "value": 18
@@ -592,41 +856,43 @@
     "combat_value": 14,
     "defense_value": 21,
     "maintenance": 2,
-    "price": 40,
+    "price": 45,
     "sight": 3,
     "owner": "2 (Polska)",
     "support_upgrades": [
+      "sekcja ckm",
       "drużyna granatników",
-      "sekcja ckm"
+      "przodek dwukonny"
     ],
     "image": "assets/tokens/Polska/P_Batalion__2_Batalion_Strzelc_w/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "P_Batalion__2_Kompania_Grenadier_w",
+    "id": "P_Batalion__2_Pu_k_Piechoty",
     "nation": "Polska",
     "unitType": "P",
     "unitSize": "Batalion",
     "shape": "prostokąt",
-    "label": "2. Kompania Grenadierów",
+    "label": "2. Pułk Piechoty",
     "unit_full_name": "Polska Piechota Batalion II",
     "move": 4,
     "attack": {
       "range": 2,
-      "value": 16
+      "value": 18
     },
     "combat_value": 14,
-    "defense_value": 20,
+    "defense_value": 21,
     "maintenance": 2,
-    "price": 35,
+    "price": 45,
     "sight": 3,
     "owner": "2 (Polska)",
     "support_upgrades": [
       "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
-    "image": "assets/tokens/Polska/P_Batalion__2_Kompania_Grenadier_w/token.png",
+    "image": "assets/tokens/Polska/P_Batalion__2_Pu_k_Piechoty/token.png",
     "w": 240,
     "h": 240
   },
@@ -638,18 +904,20 @@
     "shape": "prostokąt",
     "label": "3. Kompania Grenadierów",
     "unit_full_name": "Polska Piechota Batalion II",
-    "move": 5,
+    "move": 4,
     "attack": {
-      "range": 1,
-      "value": 14
+      "range": 2,
+      "value": 18
     },
     "combat_value": 14,
-    "defense_value": 18,
+    "defense_value": 21,
     "maintenance": 2,
-    "price": 25,
+    "price": 45,
     "sight": 3,
     "owner": "3 (Polska)",
     "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
     "image": "assets/tokens/Polska/P_Batalion__3_Kompania_Grenadier_w/token.png",
@@ -667,15 +935,16 @@
     "move": 4,
     "attack": {
       "range": 2,
-      "value": 16
+      "value": 18
     },
     "combat_value": 14,
-    "defense_value": 19,
+    "defense_value": 21,
     "maintenance": 2,
-    "price": 35,
+    "price": 45,
     "sight": 3,
     "owner": "3 (Polska)",
     "support_upgrades": [
+      "sekcja ckm",
       "drużyna granatników",
       "przodek dwukonny"
     ],
@@ -691,21 +960,107 @@
     "shape": "prostokąt",
     "label": "3. Batalion Strzelców",
     "unit_full_name": "Polska Piechota Kompania I",
-    "move": 5,
+    "move": 4,
     "attack": {
-      "range": 1,
-      "value": 11
+      "range": 2,
+      "value": 15
     },
     "combat_value": 11,
-    "defense_value": 14,
+    "defense_value": 17,
     "maintenance": 2,
-    "price": 17,
+    "price": 37,
     "sight": 3,
     "owner": "3 (Polska)",
     "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
       "przodek dwukonny"
     ],
     "image": "assets/tokens/Polska/P_Kompania__3_Batalion_Strzelc_w/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Batalion_Strzelc_w",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Batalion Strzelców",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Batalion_Strzelc_w/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Batalion_Strzelc_w_20250907191751",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Batalion Strzelców",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Batalion_Strzelc_w_20250907191751/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Batalion_Strzelc_w_20250907191752",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Batalion Strzelców",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 4,
+    "attack": {
+      "range": 2,
+      "value": 12
+    },
+    "combat_value": 8,
+    "defense_value": 13,
+    "maintenance": 2,
+    "price": 32,
+    "sight": 3,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm",
+      "drużyna granatników",
+      "przodek dwukonny"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Batalion_Strzelc_w_20250907191752/token.png",
     "w": 240,
     "h": 240
   },
@@ -717,7 +1072,115 @@
     "shape": "prostokąt",
     "label": "2. Kompania Grenadierów",
     "unit_full_name": "Polska Piechota Pluton ***",
-    "move": 2,
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Kompania_Grenadier_w/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Kompania_Grenadier_w_20250907191759",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Kompania Grenadierów",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Kompania_Grenadier_w_20250907191759/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Pu_k_Piechoty",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Pułk Piechoty",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Pu_k_Piechoty/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__2_Pu_k_Piechoty_20250907191758",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Pułk Piechoty",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__2_Pu_k_Piechoty_20250907191758/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "P_Pluton__3_Batalion_Strzelc_w",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "3. Batalion Strzelców",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 4,
     "attack": {
       "range": 2,
       "value": 12
@@ -725,41 +1188,42 @@
     "combat_value": 8,
     "defense_value": 13,
     "maintenance": 2,
-    "price": 27,
+    "price": 32,
     "sight": 3,
-    "owner": "2 (Polska)",
+    "owner": "3 (Polska)",
     "support_upgrades": [
+      "sekcja ckm",
       "drużyna granatników",
-      "sekcja ckm"
+      "przodek dwukonny"
     ],
-    "image": "assets/tokens/Polska/P_Pluton__2_Kompania_Grenadier_w/token.png",
+    "image": "assets/tokens/Polska/P_Pluton__3_Batalion_Strzelc_w/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "P_Pluton__2_Kompania_Grenadier_w_20250906210350",
+    "id": "P_Pluton__3_Batalion_Strzelc_w_20250907191814",
     "nation": "Polska",
     "unitType": "P",
     "unitSize": "Pluton",
     "shape": "prostokąt",
-    "label": "2. Kompania Grenadierów",
+    "label": "3. Batalion Strzelców",
     "unit_full_name": "Polska Piechota Pluton ***",
-    "move": 4,
+    "move": 6,
     "attack": {
-      "range": 2,
-      "value": 10
+      "range": 1,
+      "value": 8
     },
     "combat_value": 8,
-    "defense_value": 12,
+    "defense_value": 10,
     "maintenance": 2,
-    "price": 22,
-    "sight": 3,
-    "owner": "2 (Polska)",
+    "price": 24,
+    "sight": 5,
+    "owner": "3 (Polska)",
     "support_upgrades": [
-      "sekcja ckm",
-      "przodek dwukonny"
+      "obserwator",
+      "ciagnik altyleryjski"
     ],
-    "image": "assets/tokens/Polska/P_Pluton__2_Kompania_Grenadier_w_20250906210350/token.png",
+    "image": "assets/tokens/Polska/P_Pluton__3_Batalion_Strzelc_w_20250907191814/token.png",
     "w": 240,
     "h": 240
   },
@@ -771,153 +1235,368 @@
     "shape": "prostokąt",
     "label": "3. Kompania Grenadierów",
     "unit_full_name": "Polska Piechota Pluton ***",
-    "move": 2,
+    "move": 7,
     "attack": {
       "range": 2,
       "value": 12
     },
     "combat_value": 8,
-    "defense_value": 13,
+    "defense_value": 14,
     "maintenance": 2,
-    "price": 27,
+    "price": 35,
     "sight": 3,
     "owner": "3 (Polska)",
     "support_upgrades": [
-      "drużyna granatników",
-      "sekcja ckm"
+      "sekcja km.ppanc",
+      "sekcja ckm",
+      "sam. ciezarowy Fiat 621"
     ],
     "image": "assets/tokens/Polska/P_Pluton__3_Kompania_Grenadier_w/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "TL_Kompania__2_Pluton_Tankietek",
+    "id": "P_Pluton__3_Kompania_Grenadier_w_20250907191815",
     "nation": "Polska",
-    "unitType": "TL",
-    "unitSize": "Kompania",
+    "unitType": "P",
+    "unitSize": "Pluton",
     "shape": "prostokąt",
-    "label": "2. Pluton Tankietek",
-    "unit_full_name": "Polska Czołg lekki Kompania I",
+    "label": "3. Kompania Grenadierów",
+    "unit_full_name": "Polska Piechota Pluton ***",
     "move": 6,
-    "attack": {
-      "range": 2,
-      "value": 16
-    },
-    "combat_value": 14,
-    "defense_value": 19,
-    "maintenance": 3,
-    "price": 35,
-    "sight": 3,
-    "owner": "2 (Polska)",
-    "support_upgrades": [
-      "sekcja ckm",
-      "przodek dwukonny"
-    ],
-    "image": "assets/tokens/Polska/TL_Kompania__2_Pluton_Tankietek/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "TL_Pluton__3_Batalion_Pancerny",
-    "nation": "Polska",
-    "unitType": "TL",
-    "unitSize": "Pluton",
-    "shape": "prostokąt",
-    "label": "3. Batalion Pancerny",
-    "unit_full_name": "Polska Czołg lekki Pluton ***",
-    "move": 7,
-    "attack": {
-      "range": 1,
-      "value": 10
-    },
-    "combat_value": 10,
-    "defense_value": 12,
-    "maintenance": 3,
-    "price": 16,
-    "sight": 3,
-    "owner": "3 (Polska)",
-    "support_upgrades": [
-      "przodek dwukonny"
-    ],
-    "image": "assets/tokens/Polska/TL_Pluton__3_Batalion_Pancerny/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "TS_Pluton__2_Sam_Pancerny_Einheit",
-    "nation": "Polska",
-    "unitType": "TS",
-    "unitSize": "Pluton",
-    "shape": "prostokąt",
-    "label": "2. Sam. Pancerny Einheit",
-    "unit_full_name": "Polska Sam. pancerny Pluton ***",
-    "move": 10,
     "attack": {
       "range": 1,
       "value": 8
     },
     "combat_value": 8,
     "defense_value": 10,
-    "maintenance": 3,
-    "price": 16,
-    "sight": 4,
-    "owner": "2 (Polska)",
-    "support_upgrades": [
-      "sam. ciezarowy Fiat 621"
-    ],
-    "image": "assets/tokens/Polska/TS_Pluton__2_Sam_Pancerny_Einheit/token.png",
-    "w": 240,
-    "h": 240
-  },
-  {
-    "id": "TŚ_Batalion__3_Pluton_Czo_g_w",
-    "nation": "Polska",
-    "unitType": "TŚ",
-    "unitSize": "Batalion",
-    "shape": "prostokąt",
-    "label": "3. Pluton Czołgów",
-    "unit_full_name": "Polska Czołg średni Batalion II",
-    "move": 7,
-    "attack": {
-      "range": 2,
-      "value": 25
-    },
-    "combat_value": 25,
-    "defense_value": 29,
-    "maintenance": 3,
-    "price": 63,
-    "sight": 3,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
     "owner": "3 (Polska)",
     "support_upgrades": [
+      "obserwator",
       "ciagnik altyleryjski"
     ],
-    "image": "assets/tokens/Polska/TŚ_Batalion__3_Pluton_Czo_g_w/token.png",
+    "image": "assets/tokens/Polska/P_Pluton__3_Kompania_Grenadier_w_20250907191815/token.png",
     "w": 240,
     "h": 240
   },
   {
-    "id": "Z_Kompania__2_Batalion_Wsparcia",
+    "id": "P_Pluton__3_Pu_k_Piechoty",
+    "nation": "Polska",
+    "unitType": "P",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "3. Pułk Piechoty",
+    "unit_full_name": "Polska Piechota Pluton ***",
+    "move": 6,
+    "attack": {
+      "range": 1,
+      "value": 8
+    },
+    "combat_value": 8,
+    "defense_value": 10,
+    "maintenance": 2,
+    "price": 24,
+    "sight": 5,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/P_Pluton__3_Pu_k_Piechoty/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "TL_Batalion__3_Kompania_Czo_g_w_Lekkich",
+    "nation": "Polska",
+    "unitType": "TL",
+    "unitSize": "Batalion",
+    "shape": "prostokąt",
+    "label": "3. Kompania Czołgów Lekkich",
+    "unit_full_name": "Polska Czołg lekki Batalion II",
+    "move": 5,
+    "attack": {
+      "range": 1,
+      "value": 18
+    },
+    "combat_value": 18,
+    "defense_value": 22,
+    "maintenance": 3,
+    "price": 38,
+    "sight": 5,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "obserwator"
+    ],
+    "image": "assets/tokens/Polska/TL_Batalion__3_Kompania_Czo_g_w_Lekkich/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "TL_Kompania__2_Kompania_Czo_g_w_Lekkich",
+    "nation": "Polska",
+    "unitType": "TL",
+    "unitSize": "Kompania",
+    "shape": "prostokąt",
+    "label": "2. Kompania Czołgów Lekkich",
+    "unit_full_name": "Polska Czołg lekki Kompania I",
+    "move": 5,
+    "attack": {
+      "range": 1,
+      "value": 14
+    },
+    "combat_value": 14,
+    "defense_value": 17,
+    "maintenance": 3,
+    "price": 25,
+    "sight": 5,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator"
+    ],
+    "image": "assets/tokens/Polska/TL_Kompania__2_Kompania_Czo_g_w_Lekkich/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Batalion__2_Batalion_Wsparcia",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Batalion",
+    "shape": "prostokąt",
+    "label": "2. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Batalion II",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 9
+    },
+    "combat_value": 7,
+    "defense_value": 13,
+    "maintenance": 4,
+    "price": 19,
+    "sight": 6,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Polska/Z_Batalion__2_Batalion_Wsparcia/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Batalion__3_Batalion_Wsparcia",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Batalion",
+    "shape": "prostokąt",
+    "label": "3. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Batalion II",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 9
+    },
+    "combat_value": 7,
+    "defense_value": 13,
+    "maintenance": 4,
+    "price": 19,
+    "sight": 6,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Polska/Z_Batalion__3_Batalion_Wsparcia/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Kompania__2_Kompania_Zaopatrzeniowa",
     "nation": "Polska",
     "unitType": "Z",
     "unitSize": "Kompania",
     "shape": "prostokąt",
-    "label": "2. Batalion Wsparcia",
+    "label": "2. Kompania Zaopatrzeniowa",
     "unit_full_name": "Polska Zaopatrzenie Kompania I",
-    "move": 11,
+    "move": 5,
     "attack": {
-      "range": 1,
-      "value": 6
+      "range": 2,
+      "value": 8
     },
     "combat_value": 6,
-    "defense_value": 8,
+    "defense_value": 10,
     "maintenance": 4,
-    "price": 13,
+    "price": 15,
     "sight": 6,
     "owner": "2 (Polska)",
     "support_upgrades": [
-      "sam. ciezarowy Fiat 621"
+      "sekcja ckm"
     ],
-    "image": "assets/tokens/Polska/Z_Kompania__2_Batalion_Wsparcia/token.png",
+    "image": "assets/tokens/Polska/Z_Kompania__2_Kompania_Zaopatrzeniowa/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Kompania__3_Oddzia_Rozpoznawczy",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Kompania",
+    "shape": "prostokąt",
+    "label": "3. Oddział Rozpoznawczy",
+    "unit_full_name": "Polska Zaopatrzenie Kompania I",
+    "move": 5,
+    "attack": {
+      "range": 2,
+      "value": 8
+    },
+    "combat_value": 6,
+    "defense_value": 10,
+    "maintenance": 4,
+    "price": 15,
+    "sight": 6,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "sekcja ckm"
+    ],
+    "image": "assets/tokens/Polska/Z_Kompania__3_Oddzia_Rozpoznawczy/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__2_Batalion_Wsparcia",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/Z_Pluton__2_Batalion_Wsparcia/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__2_Batalion_Wsparcia_20250907191757",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "2. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "2 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/Z_Pluton__2_Batalion_Wsparcia_20250907191757/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__3_Batalion_Wsparcia",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "3. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/Z_Pluton__3_Batalion_Wsparcia/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__3_Batalion_Wsparcia_20250907191818",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "3. Batalion Wsparcia",
+    "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/Z_Pluton__3_Batalion_Wsparcia_20250907191818/token.png",
+    "w": 240,
+    "h": 240
+  },
+  {
+    "id": "Z_Pluton__3_Oddzia_Rozpoznawczy",
+    "nation": "Polska",
+    "unitType": "Z",
+    "unitSize": "Pluton",
+    "shape": "prostokąt",
+    "label": "3. Oddział Rozpoznawczy",
+    "unit_full_name": "Polska Zaopatrzenie Pluton ***",
+    "move": 9,
+    "attack": {
+      "range": 1,
+      "value": 4
+    },
+    "combat_value": 4,
+    "defense_value": 6,
+    "maintenance": 4,
+    "price": 22,
+    "sight": 8,
+    "owner": "3 (Polska)",
+    "support_upgrades": [
+      "obserwator",
+      "ciagnik altyleryjski"
+    ],
+    "image": "assets/tokens/Polska/Z_Pluton__3_Oddzia_Rozpoznawczy/token.png",
     "w": 240,
     "h": 240
   }

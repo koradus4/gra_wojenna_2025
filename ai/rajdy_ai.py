@@ -1,5 +1,7 @@
 """Moduł rajdów opportunistycznych: szybkie przechwytywanie wolnych punktów kluczowych.
 Wydzielone z ai_commander.opportunistic_capture_phase
+
+NOWE: Tylko jednostki Zaopatrzenia (Z) mogą zbierać PE z key points!
 """
 from __future__ import annotations
 from typing import List, Dict, Any
@@ -13,6 +15,36 @@ except Exception:  # fallback
     def debug_print(msg, level="BASIC", category="INFO"):
         print(f"[AI_RAID] {msg}")
 
+
+def is_supply_unit(unit: Dict[str, Any]) -> bool:
+    """Sprawdza czy jednostka jest typu Zaopatrzenie (Z) i może zbierać PE z key points.
+    
+    Args:
+        unit: Słownik z danymi jednostki
+        
+    Returns:
+        bool: True jeśli jednostka może zbierać PE (typ Z)
+    """
+    token = unit.get('token')
+    if not token or not hasattr(token, 'stats'):
+        return False
+        
+    unit_type = token.stats.get('unitType', '')
+    return unit_type == 'Z'
+
+def get_unit_type_display(unit: Dict[str, Any]) -> str:
+    """Zwraca czytelny typ jednostki do logowania."""
+    token = unit.get('token')
+    if not token or not hasattr(token, 'stats'):
+        return 'UNKNOWN'
+        
+    unit_type = token.stats.get('unitType', 'UNKNOWN')
+    type_names = {
+        'P': 'Piechota', 'TL': 'Czołg lekki', 'TS': 'Sam. pancerny',
+        'K': 'Kawaleria', 'AL': 'Art. lekka', 'AC': 'Art. ciężka', 
+        'AP': 'Art. plot', 'Z': 'Zaopatrzenie', 'D': 'Dowództwo', 'G': 'Generał'
+    }
+    return f"{type_names.get(unit_type, unit_type)} ({unit_type})"
 
 def optimize_fuel_for_raids(unit: Dict[str, Any], game_engine, commander_ref) -> bool:
     """Dotankuj jednostkę do MP+1 przed rajdem jeśli opłacalne i możliwe.
@@ -119,6 +151,7 @@ def opportunistic_capture_phase(game_engine, my_units: List[Dict[str, Any]], pla
     """Szybka próba zajęcia wolnych keypointów osiągalnych w tej turze LUB w planach wieloturowych.
     Kryterium solo-rajdu: (value / distance) >= FREE_KEYPOINT_VALUE_DISTANCE_FACTOR
     NOWE: Obsługuje cele osiągalne w 2-3 turach z uzupełnianiem paliwa.
+    NOWE: Tylko jednostki Zaopatrzenia (Z) mogą zbierać PE z key points!
     Zwraca listę hex_id przejętych punktów.
     """
     captured: List[str] = []
@@ -127,6 +160,11 @@ def opportunistic_capture_phase(game_engine, my_units: List[Dict[str, Any]], pla
         kp_state = getattr(game_engine, 'key_points_state', {}) or {}
         if not board or not kp_state:
             return captured
+
+        # Sprawdź ile jednostek Z jest dostępnych do rajdów
+        supply_units = [unit for unit in my_units if unit.get('mp', 0) > 0 and is_supply_unit(unit)]
+        total_mobile_units = len([unit for unit in my_units if unit.get('mp', 0) > 0])
+        debug_print(f"[RAID PLANNING] Jednostki zdolne do rajdów PE: {len(supply_units)}/{total_mobile_units} (tylko typ Z może zbierać PE)", "BASIC", "INFO")
 
         # Lista wolnych punktów
         free_kps = []
@@ -149,6 +187,12 @@ def opportunistic_capture_phase(game_engine, my_units: List[Dict[str, Any]], pla
 
         for unit in my_units:
             if unit.get('mp', 0) <= 0:
+                continue
+                
+            # NOWE: Sprawdź czy jednostka może zbierać PE (tylko typ Z)
+            if not is_supply_unit(unit):
+                unit_type_display = get_unit_type_display(unit)
+                debug_print(f"[RAID FILTER] {unit.get('id', 'UNKNOWN')}: {unit_type_display} nie może zbierać PE - pomijam rajdy", "FULL", "INFO")
                 continue
                 
             # PRIORYTET 1: Sprawdź czy jednostka ma już assigned_target z poprzedniej tury (plan wieloturowy)
@@ -192,7 +236,8 @@ def opportunistic_capture_phase(game_engine, my_units: List[Dict[str, Any]], pla
                                     unit['garrison_established_turn'] = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
                                     unit.pop('assigned_target', None)  # Cel osiągnięty, usuń plan
                                     captured.append(target_key)
-                                    debug_print(f"[MULTI-TURN SUCCESS] ✅ Zrealizowano plan wieloturowy: {target_key}, garnizon ustanowiony", "BASIC", "INFO")
+                                    unit_type_display = get_unit_type_display(unit)
+                                    debug_print(f"[MULTI-TURN SUCCESS] ✅ {unit.get('id', 'UNKNOWN')} ({unit_type_display}): Zrealizowano plan wieloturowy: {target_key}, garnizon ustanowiony - MOŻE ZBIERAĆ PE!", "BASIC", "INFO")
                                     continue  # Przejdź do następnej jednostki
                             except Exception as e:
                                 debug_print(f"[MULTI-TURN ERROR] Błąd ruchu: {e}", "BASIC", "ERROR")
@@ -415,7 +460,8 @@ def opportunistic_capture_phase(game_engine, my_units: List[Dict[str, Any]], pla
                             unit['garrison_kp'] = (tq, tr)
                             unit['garrison_established_turn'] = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', 1))
                             captured.append(hex_id)
-                            debug_print(f"[RAID SUCCESS] ✅ {unit.get('id', 'UNKNOWN')}: Rajd do {hex_id} sukces, garnizon ustanowiony", "BASIC", "INFO")
+                            unit_type_display = get_unit_type_display(unit)
+                            debug_print(f"[RAID SUCCESS] ✅ {unit.get('id', 'UNKNOWN')} ({unit_type_display}): Rajd do {hex_id} sukces, garnizon ustanowiony - MOŻE ZBIERAĆ PE!", "BASIC", "INFO")
                     except Exception as e:
                         debug_print(f"[RAID] Move error {e}", "BASIC", "ERROR")
             else:

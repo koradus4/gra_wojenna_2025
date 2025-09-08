@@ -113,7 +113,11 @@ def clean_csv_logs():
         csv_patterns = [
             "actions_*.csv",
             "ai_actions_*.csv", 
-            "ai_purchases_*.csv"
+            "ai_purchases_*.csv",
+            "garrison_*.csv",
+            "ai_*.csv",           # Wszystkie inne pliki AI CSV
+            "*_problems_*.csv",   # Pliki problemów (garrison_problems itp.)
+            "*_issues_*.csv"      # Pliki issues
         ]
         
         # Usuń pliki CSV z głównego katalogu
@@ -127,18 +131,18 @@ def clean_csv_logs():
                 except Exception as e:
                     print(f"⚠️ Nie mogę usunąć {csv_file.name}: {e}")
         
-        # Usuń CSV z podfolderów
-        for subfolder in ["ai_general", "ai_commander", "ai_flow"]:
-            subfolder_path = logs_dir / subfolder
-            if subfolder_path.exists():
-                for csv_file in subfolder_path.glob("*.csv"):
-                    try:
-                        size = csv_file.stat().st_size
-                        csv_file.unlink()
-                        deleted_count += 1
-                        total_size += size
-                    except Exception as e:
-                        print(f"⚠️ Nie mogę usunąć {csv_file}: {e}")
+        # Usuń WSZYSTKIE pliki CSV rekurencyjnie z logs/
+        processed_files = set()
+        for csv_file in logs_dir.rglob("*.csv"):
+            if csv_file not in processed_files:
+                try:
+                    size = csv_file.stat().st_size
+                    csv_file.unlink()
+                    deleted_count += 1
+                    total_size += size
+                    processed_files.add(csv_file)
+                except Exception as e:
+                    print(f"⚠️ Nie mogę usunąć {csv_file}: {e}")
 
         if deleted_count > 0:
             print(f"✅ Usunięto {deleted_count} plików CSV ({total_size/1024:.1f} KB)")

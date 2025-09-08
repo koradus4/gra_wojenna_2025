@@ -51,7 +51,7 @@ class ArmyCreatorStudio:
             "AL": {"name": "Artyleria Lekka", "base_cost": 35, "weight": 0.15},
             "AC": {"name": "Artyleria Ciężka", "base_cost": 55, "weight": 0.1},
             "AP": {"name": "Art. Przeciwlotnicza", "base_cost": 30, "weight": 0.05},
-            "Z": {"name": "Zaopatrzenie/Rozpoznanie", "base_cost": 20, "weight": 0.1},
+            "Z": {"name": "Zaopatrzenie/Rozpoznanie", "base_cost": 20, "weight": 0.25},
             "D": {"name": "Dowództwo", "base_cost": 40, "weight": 0.05}
         }
         
@@ -494,29 +494,60 @@ class ArmyCreatorStudio:
         self.analyze_army_balance(preview_army)
     
     def generate_balanced_army_preview(self, size, budget):
-        """Generuje zbalansowaną armię do podglądu."""
+        """Generuje zbalansowaną armię do podglądu z gwarancją minimum 2 jednostek Z."""
         army = []
         remaining_budget = budget
         remaining_slots = size
         
-        # Sortuj typy według wagi (od najważniejszych)
-        sorted_types = sorted(self.unit_templates.items(), 
+        # ETAP 1: Gwarantuj minimum 2 jednostki Z (Zaopatrzenie)
+        z_template = self.unit_templates["Z"]
+        guaranteed_z_count = min(2, size)  # Minimum 2, ale nie więcej niż rozmiar armii
+        
+        for _ in range(guaranteed_z_count):
+            if remaining_budget < z_template['base_cost']:
+                break
+                
+            unit_size = random.choice(self.unit_sizes)
+            size_multiplier = {"Pluton": 1.0, "Kompania": 1.5, "Batalion": 2.2}
+            unit_cost = int(z_template['base_cost'] * size_multiplier.get(unit_size, 1.0))
+            variation = random.uniform(0.8, 1.2)
+            unit_cost = int(unit_cost * variation)
+            
+            selected_upgrades = self.auto_select_upgrades("Z", unit_size, unit_cost)
+            upgrade_cost = sum(self.support_upgrades.get(upgrade, {}).get("purchase", 0) 
+                             for upgrade in selected_upgrades)
+            total_unit_cost = unit_cost + upgrade_cost
+            
+            if total_unit_cost <= remaining_budget:
+                army.append({
+                    'type': z_template['name'],
+                    'size': unit_size,
+                    'cost': total_unit_cost,
+                    'base_cost': unit_cost,
+                    'upgrade_cost': upgrade_cost,
+                    'unit_type': "Z",
+                    'upgrades': selected_upgrades
+                })
+                remaining_budget -= total_unit_cost
+                remaining_slots -= 1
+        
+        # ETAP 2: Wypełnij resztę armii według normalnych wag
+        # Sortuj typy według wagi (od najważniejszych), ale wykluczając Z (już dodane)
+        sorted_types = sorted([(k, v) for k, v in self.unit_templates.items() if k != "Z"], 
                              key=lambda x: x[1]['weight'], reverse=True)
         
         for unit_type, template in sorted_types:
             if remaining_slots <= 0 or remaining_budget <= 0:
                 break
                 
-            # Oblicz ile jednostek tego typu chcemy
-            desired_count = int(size * template['weight'])
+            # Oblicz ile jednostek tego typu chcemy (proporcjonalnie do pozostałych slotów)
+            desired_count = int(remaining_slots * template['weight'])
             
             # Dla bardzo małych armii (≤3) nie wymuszaj minimum 1 dla każdego typu
-            if size <= 3 and desired_count == 0:
-                # Małe szanse dla rzadkich typów w mini-armiach
+            if remaining_slots <= 3 and desired_count == 0:
                 if random.random() < template['weight'] * 2:
                     desired_count = 1
             elif desired_count == 0:
-                # Dla większych armii daj małą szansę na rzadkie typy
                 if random.random() < template['weight']:
                     desired_count = 1
             
@@ -527,21 +558,13 @@ class ArmyCreatorStudio:
                 if remaining_slots <= 0 or remaining_budget < template['base_cost']:
                     break
                     
-                # Wybierz losowy rozmiar jednostki
                 unit_size = random.choice(self.unit_sizes)
-                
-                # Dostosuj koszt w zależności od rozmiaru
                 size_multiplier = {"Pluton": 1.0, "Kompania": 1.5, "Batalion": 2.2}
                 unit_cost = int(template['base_cost'] * size_multiplier.get(unit_size, 1.0))
-                
-                # Dodaj losową wariację ±20%
                 variation = random.uniform(0.8, 1.2)
                 unit_cost = int(unit_cost * variation)
                 
-                # Automatycznie wybierz upgrady na podstawie poziomu wyposażenia
                 selected_upgrades = self.auto_select_upgrades(unit_type, unit_size, unit_cost)
-                
-                # Dodaj koszt upgradów
                 upgrade_cost = sum(self.support_upgrades.get(upgrade, {}).get("purchase", 0) 
                                  for upgrade in selected_upgrades)
                 total_unit_cost = unit_cost + upgrade_cost
@@ -668,11 +691,25 @@ class ArmyCreatorStudio:
         # Wyświetl analizę
         self.units_text.insert(tk.END, f"\n📊 ANALIZA BALANSU:\n")
         
+        z_count = type_counts.get('Z', 0)
         for unit_type, count in sorted(type_counts.items()):
             template = self.unit_templates.get(unit_type, {})
             type_name = template.get('name', unit_type)
             percentage = (count / len(army)) * 100
-            self.units_text.insert(tk.END, f"  {type_name}: {count} ({percentage:.0f}%)\n")
+            
+            # Oznacz jednostki Z jako PE collectors
+            if unit_type == 'Z':
+                self.units_text.insert(tk.END, f"  💰 {type_name}: {count} ({percentage:.0f}%) - PE COLLECTORS\n")
+            else:
+                self.units_text.insert(tk.END, f"  {type_name}: {count} ({percentage:.0f}%)\n")
+        
+        # Krótka ocena PE
+        if z_count >= 2:
+            self.units_text.insert(tk.END, f"✅ Ekonomia PE: zabezpieczona ({z_count} jednostek Z)\n")
+        elif z_count == 1:
+            self.units_text.insert(tk.END, f"⚠️ Ekonomia PE: ryzykowna (tylko {z_count} jednostka Z)\n")
+        else:
+            self.units_text.insert(tk.END, f"❌ Ekonomia PE: brak zabezpieczenia!\n")
     
     def generate_random_army(self):
         """Generuje losową armię."""

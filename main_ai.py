@@ -116,8 +116,8 @@ class GameLauncher:
         ttk.Button(btns, text="🧹 Szybkie czyszczenie", command=self.quick_clean).grid(row=0, column=0, padx=(0, 10))
         ttk.Button(btns, text="🗑️ Pełne czyszczenie", command=self.full_clean).grid(row=0, column=1, padx=(0, 10))
         ttk.Button(btns, text="🧾 Czyść logi CSV", command=self.clean_logs_only).grid(row=0, column=2)
-        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi | Logi CSV: tylko pliki", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
-        ttk.Label(clean_frame, text="Skrót: Ctrl+Shift+L (czyści logi AI + actions_*.csv)", font=("Arial", 8), foreground="gray").grid(row=2, column=0, columnspan=3)
+        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi | Logi CSV: WSZYSTKIE *.csv", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
+        ttk.Label(clean_frame, text="Skrót: Ctrl+Shift+L (czyści WSZYSTKIE CSV - garrison, AI, actions)", font=("Arial", 8), foreground="gray").grid(row=2, column=0, columnspan=3)
         # Główne przyciski
         main_button_frame = ttk.Frame(frame)
         main_button_frame.grid(row=4, column=0, columnspan=2, pady=20)
@@ -167,11 +167,11 @@ class GameLauncher:
         try:
             result = messagebox.askyesno(
                 "Potwierdzenie",
-                "Wyczyścić TYLKO logi CSV?\n\nUsuwa:\n• Logi AI (foldery ai_*)\n• actions_*.csv\n\nNie usuwa rozkazów ani nowych żetonów.")
+                "Wyczyścić TYLKO logi CSV?\n\nUsuwa:\n• WSZYSTKIE pliki *.csv w logs/\n• Wszystkie podfoldery z CSV\n\nNie usuwa rozkazów ani nowych żetonów.")
             if result:
-                clean_ai_logs()
-                clean_game_logs()
-                messagebox.showinfo("Sukces", "Logi CSV wyczyszczone!")
+                from czyszczenie.game_cleaner import clean_csv_logs
+                clean_csv_logs()
+                messagebox.showinfo("Sukces", "Wszystkie logi CSV wyczyszczone!")
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd czyszczenia logów: {e}")
 

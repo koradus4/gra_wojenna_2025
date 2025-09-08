@@ -16,8 +16,9 @@ MOVE = "MOVE"              # Ruch jednostek (standard / advanced)
 ADAPTIVE = "ADAPTIVE"      # System adaptacyjny
 ASSIGN = "ASSIGN"          # Przydziały grup / liderów
 SAVE = "SAVE"              # Zapisy stanu / plików
+GARRISON = "GARRISON"      # Wsparcie garnizonów i problemy z ruchem
 
 __all__ = [
     'TACTIC','DEPLOY','ERROR','FUEL','PROGRESSIVE','PRIORIZER','WARN','INFO',
-    'DEFENSE','RESUPPLY','MOVE','ADAPTIVE','ASSIGN','SAVE'
+    'DEFENSE','RESUPPLY','MOVE','ADAPTIVE','ASSIGN','SAVE','GARRISON'
 ]

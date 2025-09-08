@@ -1,5 +1,5 @@
 import math
-from ai.priorytety_ai import compute_keypoint_priority, apply_free_point_bonus, apply_defended_penalty
+from ai.priorytety_ai import compute_keypoint_priority, apply_free_point_bonus, apply_allied_penalty
 
 
 def test_compute_keypoint_priority_basic():
@@ -19,7 +19,7 @@ def test_apply_free_point_bonus_thresholds():
     assert math.isclose(low, base)
 
 
-def test_apply_defended_penalty():
-    v1 = apply_defended_penalty(100, True, 3)
-    v2 = apply_defended_penalty(100, False, 3)
+def test_apply_allied_penalty():
+    v1 = apply_allied_penalty(100, True)
+    v2 = apply_allied_penalty(100, False)
     assert v1 < v2

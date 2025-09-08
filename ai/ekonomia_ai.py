@@ -1,13 +1,27 @@
 """Moduł ekonomii i zakupów AI.
 Wydzielony z ai_commander: optimize_budget, adaptive_purchase_ai oraz funkcje pomocnicze.
+
+NOWE: Priorytetyzacja jednostek Zaopatrzenia (Z) - jedynych zbierających PE.
 """
 from __future__ import annotations
 from typing import Any, List, Dict
 from ai.logowanie_ai import log_commander_action
 
 __all__ = [
-    'optimize_budget','adaptive_purchase_ai'
+    'optimize_budget','adaptive_purchase_ai','get_unit_type_priority_multiplier'
 ]
+
+def get_unit_type_priority_multiplier(unit_type):
+    """Zwraca mnożnik priorytetu dla różnych typów jednostek.
+    NOWE: Jednostki Z (Zaopatrzenie) mają zwiększony priorytet jako jedyne zbierające PE.
+    """
+    if unit_type == 'Z':
+        return 1.5  # Zwiększony priorytet dla zaopatrzenia - kluczowe dla ekonomii PE
+    elif unit_type == 'P':
+        return 1.1  # Lekki bonus dla piechoty - uniwersalna
+    elif unit_type == 'D':
+        return 1.2  # Dowództwo też ważne
+    return 1.0  # Standardowy priorytet dla pozostałych
 
 def optimize_budget(commander, game_engine):
     try:
@@ -89,9 +103,13 @@ def adaptive_purchase_ai(commander, game_engine, budget_plan):
                 continue
             utype = unit_opt.get('type','unknown')
             priority = purchase_priority.get(utype,1)
+            # NOWE: Zastosuj mnożnik priorytetu dla typu jednostki
+            type_multiplier = get_unit_type_priority_multiplier(utype)
+            priority *= type_multiplier
+            
             need = 1.0 / (1+unit_types.get(utype,0))
             score = priority * need
-            recommendations.append({**unit_opt,'score':score})
+            recommendations.append({**unit_opt,'score':score, 'type_priority':type_multiplier})
         recommendations.sort(key=lambda x: x.get('score',0), reverse=True)
         selected = []
         remaining = purchase_budget
