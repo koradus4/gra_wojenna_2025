@@ -383,8 +383,11 @@ class TokenShop(tk.Toplevel):
             return
         # --- Generuj unikalny id ---
         import datetime
+        import re
         now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        unit_id = f"nowy_{self.unit_type.get()}_{self.unit_size.get()}__{dowodca_id}_{label}_{now}"
+        # Oczyść label z niedozwolonych znaków Windows
+        safe_label = re.sub(r'[<>:"/\\|?*]', '_', label)
+        unit_id = f"nowy_{self.unit_type.get()}_{self.unit_size.get()}__{dowodca_id}_{safe_label}_{now}"
         folder = Path("assets/tokens") / f"nowe_dla_{dowodca_id}" / unit_id
         folder.mkdir(parents=True, exist_ok=True)
         # Zamiast: "image": "token.png",
