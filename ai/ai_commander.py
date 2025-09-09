@@ -1128,7 +1128,9 @@ def make_tactical_turn(game_engine, player_id=None):
 
     # 3.6. DEPLOYMENT NOWYCH JEDNOSTEK
         debug_print(f"🚀 === FAZA DEPLOYMENT ===", "BASIC", "DEPLOY")
+        print(f"🔧 [DEBUG DEPLOY] Wywołuję deploy_purchased_units dla gracza {player_id}")
         deployed_count = deploy_purchased_units(game_engine, player_id)
+        print(f"🔧 [DEBUG DEPLOY] Rezultat deploy_purchased_units: {deployed_count}")
 
         if deployed_count > 0:
             debug_print(f"✅ Wdrożono {deployed_count} nowych jednostek", "BASIC", "DEPLOY")
@@ -1489,8 +1491,17 @@ def evaluate_position_safety(position, threatening_enemies, target_point=None): 
 
 
 def deploy_purchased_units(game_engine, player_id):  # delegat do deployment_ai
-    from ai.deployment_ai import deploy_purchased_units as _dpu
-    return _dpu(game_engine, player_id)
+    print(f"🔧 [DEBUG] deploy_purchased_units DELEGAT wywołany dla gracza {player_id}")
+    try:
+        from ai.deployment_ai import deploy_purchased_units as _dpu
+        result = _dpu(game_engine, player_id)
+        print(f"🔧 [DEBUG] deployment_ai zwrócił: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ [DEBUG] Błąd w deploy_purchased_units: {e}")
+        import traceback
+        traceback.print_exc()
+        return 0
 
 
 def find_deployment_position(unit_data, game_engine, player_id):

@@ -268,21 +268,68 @@ def get_strategic_spawn_bonus(spawn_pos: Tuple[int, int], nation: str) -> float:
 LAST_DEPLOY_CHOICE: Optional[Dict[str, Any]] = None  # Przechowuje ostatni wybór dla logów
 
 
-def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[Tuple[int, int]]:
+def find_simple_free_spawn(spawn_points, nation) -> Optional[Tuple[int, int]]:
+    """Prosty system wyboru wolnego spawn point bez pełnej analizy taktycznej"""
+    try:
+        # Wczytaj zajęte pozycje z start_tokens.json
+        start_tokens_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'start_tokens.json')
+        occupied_positions = set()
+        
+        if os.path.exists(start_tokens_path):
+            with open(start_tokens_path, 'r', encoding='utf-8') as f:
+                start_data = json.load(f)
+            occupied_positions = {(pos["q"], pos["r"]) for pos in start_data}
+        
+        # Znajdź pierwszy wolny spawn point
+        for spawn_str in spawn_points:
+            try:
+                q, r = map(int, spawn_str.split(','))
+                if (q, r) not in occupied_positions:
+                    print(f"[SMART_DEPLOY] Prosty wybór: ({q},{r}) dla {nation}")
+                    return (q, r)
+            except ValueError:
+                continue
+                
+        print(f"[SMART_DEPLOY] Wszystkie spawn points zajęte dla {nation}")
+        return None
+        
+    except Exception as e:
+        print(f"[SMART_DEPLOY] Błąd prostego wyboru: {e}")
+        return None
+
+def find_optimal_spawn_position(unit_data, game_engine=None, player_id=None, nation=None) -> Optional[Tuple[int, int]]:
     """Znajduje optymalną pozycję spawn na podstawie analizy taktycznej.
+    
+    Args:
+        unit_data: Dane jednostki do spawnowania
+        game_engine: Silnik gry (opcjonalne)
+        player_id: ID gracza (opcjonalne) 
+        nation: Nacja jednostki (opcjonalne, można podać bezpośrednio)
 
     Efekt uboczny: zapisuje szczegóły wyboru w globalu LAST_DEPLOY_CHOICE.
     """
-    board = getattr(game_engine, 'board', None)
-    if not board:
-        return None
-    
-    current_player = getattr(game_engine, 'current_player_obj', None)
-    nation = getattr(current_player, 'nation', 'Unknown')
+    # Sprawdź czy mamy bezpośrednio podaną nację
+    if nation:
+        target_nation = nation
+    elif game_engine:
+        board = getattr(game_engine, 'board', None)
+        if not board:
+            return None
+        
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        target_nation = getattr(current_player, 'nation', 'Unknown')
+    else:
+        # Spróbuj wyciągnąć nację z danych jednostki
+        target_nation = unit_data.get('nation') if unit_data else None
+        if not target_nation:
+            print(f"[SMART_DEPLOY] Nie można określić nacji")
+            return None
     
     # 1. Spróbuj dynamicznych danych z engine (umożliwia testy / reorganizację w locie)
-    engine_map = getattr(game_engine, 'map_data', {}) or {}
-    spawn_points = engine_map.get('spawn_points', {}).get(nation)
+    spawn_points = None
+    if game_engine:
+        engine_map = getattr(game_engine, 'map_data', {}) or {}
+        spawn_points = engine_map.get('spawn_points', {}).get(target_nation)
 
     # 2. Jeśli brak lub pusta lista – fallback do pliku map_data.json
     if not spawn_points:
@@ -290,16 +337,24 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
             map_data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'map_data.json')
             with open(map_data_path, 'r', encoding='utf-8') as f:
                 file_map = json.load(f)
-            spawn_points = file_map.get('spawn_points', {}).get(nation, [])
+            spawn_points = file_map.get('spawn_points', {}).get(target_nation, [])
         except Exception as e:
             print(f"[SMART_DEPLOY] Błąd ładowania map_data.json: {e}")
             return None
     
     if not spawn_points:
-        print(f"[SMART_DEPLOY] Brak spawn points dla nacji {nation}")
+        print(f"[SMART_DEPLOY] Brak spawn points dla nacji {target_nation}")
         return None
     
-    print(f"[SMART_DEPLOY] Analiza {len(spawn_points)} spawn points dla {nation}")
+    print(f"[SMART_DEPLOY] Analiza {len(spawn_points)} spawn points dla {target_nation}")
+    
+    # Jeśli brak game_engine, użyj uproszczonego systemu
+    if not game_engine:
+        return find_simple_free_spawn(spawn_points, target_nation)
+    
+    board = getattr(game_engine, 'board', None)
+    if not board:
+        return find_simple_free_spawn(spawn_points, target_nation)
     
     # Przeprowadź analizę taktyczną
     tactical_analysis = analyze_tactical_situation(game_engine, player_id)
@@ -313,7 +368,7 @@ def find_optimal_spawn_position(unit_data, game_engine, player_id) -> Optional[T
             
             # Sprawdź czy pozycja jest wolna
             if not board.is_occupied(spawn_pos[0], spawn_pos[1]):
-                score, breakdown = evaluate_spawn_position(spawn_pos, tactical_analysis, game_engine, nation)
+                score, breakdown = evaluate_spawn_position(spawn_pos, tactical_analysis, game_engine, target_nation)
                 # Konstruujemy krótki opis najważniejszego komponentu dodatniego
                 positive_components = {k: v for k, v in breakdown.items() if not k.endswith('malus') and v > 0}
                 top_component = max(positive_components.items(), key=lambda x: x[1])[0] if positive_components else 'baseline'

@@ -1696,7 +1696,7 @@ class AIGeneral:
             "maintenance": comp.maintenance,
             "price": comp.total_cost,
             "sight": comp.sight,
-            "owner": str(commander_id),
+            "owner": f"{commander_id} ({nation_name})",
             "support_upgrades": supports,
             "image": rel_img_path,
             "w": 240,

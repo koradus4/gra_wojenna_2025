@@ -116,7 +116,7 @@ class GameLauncher:
         ttk.Button(btns, text="🧹 Szybkie czyszczenie", command=self.quick_clean).grid(row=0, column=0, padx=(0, 10))
         ttk.Button(btns, text="🗑️ Pełne czyszczenie", command=self.full_clean).grid(row=0, column=1, padx=(0, 10))
         ttk.Button(btns, text="🧾 Czyść logi CSV", command=self.clean_logs_only).grid(row=0, column=2)
-        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi | Logi CSV: WSZYSTKIE *.csv", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
+        ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony (kompletne) | Pełne: wszystko + logi | Logi CSV: WSZYSTKIE *.csv", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
         ttk.Label(clean_frame, text="Skrót: Ctrl+Shift+L (czyści WSZYSTKIE CSV - garrison, AI, actions)", font=("Arial", 8), foreground="gray").grid(row=2, column=0, columnspan=3)
         # Główne przyciski
         main_button_frame = ttk.Frame(frame)
@@ -138,7 +138,8 @@ class GameLauncher:
                                        "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
                                        "To usunie:\n"
                                        "• Rozkazy strategiczne AI\n"
-                                       "• Zakupione żetony (nowe_dla_*)")
+                                       "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                                       "• Wpisy w index.json i start_tokens.json")
             if result:
                 quick_clean()
                 messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
@@ -152,7 +153,8 @@ class GameLauncher:
                                        "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
                                        "To usunie:\n"
                                        "• Rozkazy strategiczne AI\n"
-                                       "• Zakupione żetony (nowe_dla_*)\n"
+                                       "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                                       "• Wpisy w index.json i start_tokens.json\n"
                                        "• Logi AI\n"
                                        "• Logi akcji gry\n\n"
                                        "UWAGA: Ta operacja jest nieodwracalna!")

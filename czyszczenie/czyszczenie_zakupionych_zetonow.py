@@ -68,6 +68,21 @@ class TokenFolderCleaner:
         
         if total_items == 0:
             print("✅ Wszystkie foldery są już czyste!")
+            # Ale sprawdź czy są żetony w JSON do wyczyszczenia
+            print(f"\n🧹 SPRAWDZANIE JSON - index.json i start_tokens.json...")
+            try:
+                import sys
+                import os
+                # Dodaj ścieżkę do głównego katalogu
+                sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+                from czyszczenie.game_cleaner import clean_purchased_tokens_from_index, clean_purchased_tokens_from_start
+                
+                # Wywołaj funkcje czyszczenia JSON
+                clean_purchased_tokens_from_index()
+                clean_purchased_tokens_from_start()
+                print("✅ Sprawdzenie i czyszczenie JSON zakończone!")
+            except Exception as e:
+                print(f"⚠️ Błąd sprawdzania JSON: {e}")
             return
         
         if not force:
@@ -100,9 +115,26 @@ class TokenFolderCleaner:
             
             cleaned_folders += 1
         
-        print(f"\n✅ CZYSZCZENIE ZAKOŃCZONE!")
+        print(f"\n✅ CZYSZCZENIE FOLDERÓW ZAKOŃCZONE!")
         print(f"   📂 Wyczyszczono folderów: {cleaned_folders}")
         print(f"   🗑️  Usunięto elementów: {cleaned_items}")
+        
+        # NOWE: Dodaj kompletne czyszczenie z index.json i start_tokens.json
+        print(f"\n🧹 KOMPLETNE CZYSZCZENIE - index.json i start_tokens.json...")
+        try:
+            import sys
+            import os
+            # Dodaj ścieżkę do głównego katalogu
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from czyszczenie.game_cleaner import clean_purchased_tokens_from_index, clean_purchased_tokens_from_start
+            
+            # Wywołaj funkcje czyszczenia JSON
+            clean_purchased_tokens_from_index()
+            clean_purchased_tokens_from_start()
+            print("✅ Kompletne czyszczenie JSON zakończone!")
+        except Exception as e:
+            print(f"⚠️ Błąd kompletnego czyszczenia JSON: {e}")
+            print("ℹ️ Foldery zostały wyczyszczone, ale mogą pozostać wpisy w index/start_tokens")
     
     def backup_before_clean(self):
         """Tworzy backup przed czyszczeniem"""

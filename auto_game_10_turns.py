@@ -64,15 +64,25 @@ def clean_old_data():
     
     print()
     
-    # 3. Czyszczenie żetonów
+    # 3. NOWE: Kompleksowe czyszczenie żetonów używając nowego systemu
     try:
-        from czyszczenie.czyszczenie_zakupionych_zetonow import TokenFolderCleaner
-        print("🪙 Czyszczenie zakupionych żetonów...")
-        cleaner = TokenFolderCleaner()
-        cleaner.clean_folders(force=True)  # Force aby nie pytać
-        print("✅ Żetony wyczyszczone!")
+        from czyszczenie.game_cleaner import clean_purchased_tokens, clean_purchased_tokens_from_index, clean_purchased_tokens_from_start
+        print("🪙 Kompleksowe czyszczenie zakupionych żetonów...")
+        clean_purchased_tokens()  # Foldery nowe_dla_* i pliki w aktualne/
+        clean_purchased_tokens_from_index()  # Wpisy w index.json
+        clean_purchased_tokens_from_start()  # Pozycje w start_tokens.json
+        print("✅ Żetony kompletnie wyczyszczone ze wszystkich lokalizacji!")
     except Exception as e:
         print(f"⚠️ Błąd czyszczenia żetonów: {e}")
+        # Fallback do starego systemu
+        try:
+            from czyszczenie.czyszczenie_zakupionych_zetonow import TokenFolderCleaner
+            print("🔄 Próba fallback do starego systemu...")
+            cleaner = TokenFolderCleaner()
+            cleaner.clean_folders(force=True)
+            print("✅ Żetony wyczyszczone (stary system)")
+        except Exception as e2:
+            print(f"❌ Całkowity błąd czyszczenia żetonów: {e2}")
     
     print("="*50)
     print("✅ DANE WYCZYSZCZONE - GOTOWE DO NOWEJ ANALIZY!")

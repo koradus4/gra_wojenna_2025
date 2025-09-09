@@ -301,7 +301,8 @@ class EkranStartowy:
                 "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
                 "To usunie:\n"
                 "• Rozkazy strategiczne AI\n"
-                "• Zakupione żetony (nowe_dla_*)"
+                "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                "• Wpisy w index.json i start_tokens.json"
             )
             if result:
                 quick_clean()
@@ -317,7 +318,8 @@ class EkranStartowy:
                 "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
                 "To usunie:\n"
                 "• Rozkazy strategiczne AI\n"
-                "• Zakupione żetony (nowe_dla_*)\n"
+                "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                "• Wpisy w index.json i start_tokens.json\n"
                 "• Logi AI\n"
                 "• Logi akcji gry\n\n"
                 "UWAGA: Ta operacja jest nieodwracalna!"

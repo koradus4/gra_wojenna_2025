@@ -51,6 +51,29 @@ def clean_purchased_tokens():
                 deleted_count += 1
                 print(f"✅ Usunięto folder: {folder.name}")
         
+        # NOWE: Usuń zakupione zetony z folderu aktualne/
+        aktualne_dir = tokens_dir / "aktualne"
+        if aktualne_dir.exists():
+            deleted_files = 0
+            # Usuń pliki nowy_* z folderu aktualne/
+            for file_path in aktualne_dir.glob("nowy_*.json"):
+                try:
+                    # Usuń odpowiadający plik PNG
+                    png_path = file_path.with_suffix('.png')
+                    if png_path.exists():
+                        png_path.unlink()
+                        deleted_files += 1
+                    
+                    # Usuń plik JSON
+                    file_path.unlink()
+                    deleted_files += 1
+                    print(f"✅ Usunięto zakupiony zeton: {file_path.stem}")
+                except Exception as e:
+                    print(f"⚠️ Błąd usuwania {file_path.name}: {e}")
+            
+            if deleted_files > 0:
+                print(f"✅ Usunięto {deleted_files} plików zakupionych zetonów z aktualne/")
+        
         if deleted_count > 0:
             print(f"✅ Usunięto {deleted_count} folderów z zakupionymi żetonami")
         else:
@@ -58,6 +81,64 @@ def clean_purchased_tokens():
             
     except Exception as e:
         print(f"⚠️ Błąd usuwania żetonów: {e}")
+
+
+def clean_purchased_tokens_from_index():
+    """Usuń zakupione zetony z assets/tokens/index.json"""
+    try:
+        index_path = Path("assets/tokens/index.json")
+        if not index_path.exists():
+            print("ℹ️ Brak pliku index.json - pomijam czyszczenie")
+            return
+            
+        # Wczytaj index.json
+        with open(index_path, 'r', encoding='utf-8') as f:
+            index_data = json.load(f)
+        
+        # Filtruj zetony - usuń te z id zaczynającym się od "nowy_"
+        original_count = len(index_data)
+        cleaned_data = [token for token in index_data if not token.get("id", "").startswith("nowy_")]
+        removed_count = original_count - len(cleaned_data)
+        
+        if removed_count > 0:
+            # Zapisz wyczyszczony index.json
+            with open(index_path, 'w', encoding='utf-8') as f:
+                json.dump(cleaned_data, f, indent=2, ensure_ascii=False)
+            print(f"✅ Usunięto {removed_count} zakupionych zetonów z index.json")
+        else:
+            print("ℹ️ Brak zakupionych zetonów w index.json")
+            
+    except Exception as e:
+        print(f"⚠️ Błąd czyszczenia index.json: {e}")
+
+
+def clean_purchased_tokens_from_start():
+    """Usuń zakupione zetony z assets/start_tokens.json"""
+    try:
+        start_path = Path("assets/start_tokens.json")
+        if not start_path.exists():
+            print("ℹ️ Brak pliku start_tokens.json - pomijam czyszczenie")
+            return
+            
+        # Wczytaj start_tokens.json
+        with open(start_path, 'r', encoding='utf-8') as f:
+            start_data = json.load(f)
+        
+        # Filtruj pozycje - usuń te z id zaczynającym się od "nowy_"
+        original_count = len(start_data)
+        cleaned_data = [pos for pos in start_data if not pos.get("id", "").startswith("nowy_")]
+        removed_count = original_count - len(cleaned_data)
+        
+        if removed_count > 0:
+            # Zapisz wyczyszczony start_tokens.json
+            with open(start_path, 'w', encoding='utf-8') as f:
+                json.dump(cleaned_data, f, indent=2, ensure_ascii=False)
+            print(f"✅ Usunięto {removed_count} zakupionych zetonów z start_tokens.json")
+        else:
+            print("ℹ️ Brak zakupionych zetonów w start_tokens.json")
+            
+    except Exception as e:
+        print(f"⚠️ Błąd czyszczenia start_tokens.json: {e}")
 
 
 def clean_ai_logs():
@@ -197,6 +278,8 @@ def clean_all_for_new_game():
     
     clean_strategic_orders()
     clean_purchased_tokens()
+    clean_purchased_tokens_from_index()
+    clean_purchased_tokens_from_start()
     clean_ai_logs()
     clean_game_logs()
     
@@ -212,6 +295,8 @@ def quick_clean():
     
     clean_strategic_orders()
     clean_purchased_tokens()
+    clean_purchased_tokens_from_index()
+    clean_purchased_tokens_from_start()
     
     print("-" * 30)
     print("✅ SZYBKIE CZYSZCZENIE ZAKOŃCZONE!")

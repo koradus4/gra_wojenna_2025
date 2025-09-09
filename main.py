@@ -52,6 +52,11 @@ def main():
             
             print(f"🎯 Opcje gry: {max_turns} tur, tryb: {victory_mode}")
             
+            # NOWE: Automatyczne czyszczenie przed nową grą
+            print("\n🧹 Automatyczne czyszczenie przed nową grą...")
+            quick_clean()
+            print("✅ Czyszczenie zakończone\n")
+            
             # Ustawienie konfiguracji AI na podstawie wyboru użytkownika
             set_ai_general_enabled(use_ai_general)
         except AttributeError:

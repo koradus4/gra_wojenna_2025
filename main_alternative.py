@@ -69,7 +69,8 @@ def show_clean_options():
                                        "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
                                        "To usunie:\n"
                                        "• Rozkazy strategiczne AI\n"
-                                       "• Zakupione żetony (nowe_dla_*)")
+                                       "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                                       "• Wpisy w index.json i start_tokens.json")
             if result:
                 quick_clean()
                 messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
@@ -82,7 +83,8 @@ def show_clean_options():
                                        "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
                                        "To usunie:\n"
                                        "• Rozkazy strategiczne AI\n"
-                                       "• Zakupione żetony (nowe_dla_*)\n"
+                                       "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                                       "• Wpisy w index.json i start_tokens.json\n"
                                        "• Logi AI\n"
                                        "• Logi akcji gry\n\n"
                                        "UWAGA: Ta operacja jest nieodwracalna!")
@@ -105,7 +107,7 @@ def show_clean_options():
     tk.Button(clean_btn_frame, text="🧹 Szybkie czyszczenie", command=quick_clean_action).pack(side="left", padx=(0, 10))
     tk.Button(clean_btn_frame, text="🗑️ Pełne czyszczenie", command=full_clean_action).pack(side="left")
     
-    tk.Label(clean_frame, text="Szybkie: rozkazy + żetony | Pełne: wszystko + logi", 
+    tk.Label(clean_frame, text="Szybkie: rozkazy + żetony (kompletne) | Pełne: wszystko + logi", 
              font=("Arial", 9), fg="gray").pack()
     
     # Główne przyciski
