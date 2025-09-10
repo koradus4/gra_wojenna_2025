@@ -186,8 +186,23 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
             tokens_needing_help.append({'token': tk,'fuel_needed': fuel_needed,'combat_needed': combat_needed,'total_needed': tot})
             total_needs += tot
     if not tokens_needing_help:
+        # Log że nie było potrzeby resupply
+        try:
+            log_commander_action(unit_id='NO_RESUPPLY_NEEDED', action_type='resupply_analysis', from_pos=None, to_pos=None, reason=f'ANALYSIS {context} | NO_UNITS_NEED_RESUPPLY | BUDGET_AVAILABLE: {punkty} PE', player_nation=getattr(player,'nation','?'))
+        except Exception:
+            pass
         return True
+    
     print(f"🤝 [COLLECTIVE RESUPPLY] {len(tokens_needing_help)} units need {total_needs} pkt (budget {punkty})")
+    
+    # LOGOWANIE ANALIZY POTRZEB - szczegółowy breakdown
+    try:
+        total_fuel_needed = sum(d['fuel_needed'] for d in tokens_needing_help)
+        total_combat_needed = sum(d['combat_needed'] for d in tokens_needing_help)
+        analysis = f'NEEDS_ANALYSIS {context} | TOTAL_FUEL_NEEDED: {total_fuel_needed} | TOTAL_COMBAT_NEEDED: {total_combat_needed} | TOTAL_PE_NEEDED: {total_needs} | BUDGET_AVAILABLE: {punkty} | UNITS_REQUIRING_HELP: {len(tokens_needing_help)}'
+        log_commander_action(unit_id='RESUPPLY_NEEDS', action_type='resupply_analysis', from_pos=None, to_pos=None, reason=analysis, player_nation=getattr(player,'nation','?'))
+    except Exception:
+        pass
     
     # Sprawdź czy budżet wystarczy na potrzeby
     if total_needs > punkty:
@@ -246,7 +261,9 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
                 if uid:
                     commander._mid_turn_resupply_counts[uid] = commander._mid_turn_resupply_counts.get(uid,0)+1
             try:
-                log_commander_action(unit_id=getattr(tk,'id','unknown'), action_type='resupply_p1', from_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), to_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), reason=f'phase1 {context}', player_nation=getattr(player,'nation','?'))
+                # SZCZEGÓŁOWE LOGOWANIE: dokładnie co zostało uzupełnione
+                details = f'phase1 {context} | PE_SPENT: fuel={fuel_add} combat={combat_add} total={spent} | BEFORE: fuel={getattr(tk,"currentFuel",0)-fuel_add} combat={getattr(tk,"combat_value",0)-combat_add} | AFTER: fuel={getattr(tk,"currentFuel",0)} combat={getattr(tk,"combat_value",0)}'
+                log_commander_action(unit_id=getattr(tk,'id','unknown'), action_type='resupply_detailed', from_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), to_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), reason=details, player_nation=getattr(player,'nation','?'))
             except Exception:
                 pass
     # Bonus faza uproszczona (opcjonalna)
@@ -266,6 +283,14 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
             if c_add>0:
                 tk.combat_value = min(mc, getattr(tk,'combat_value',0)+c_add)
             remaining -= (f_add+c_add); spent_total += (f_add+c_add)
+            
+            # SZCZEGÓŁOWE LOGOWANIE BONUS FAZY
+            if f_add > 0 or c_add > 0:
+                try:
+                    bonus_details = f'bonus_phase {context} | PE_SPENT: fuel={f_add} combat={c_add} total={f_add+c_add} | BONUS_ALLOCATION: {bonus_each} PE available | REMAINING_BUDGET: {remaining} PE'
+                    log_commander_action(unit_id=getattr(tk,'id','unknown'), action_type='resupply_bonus', from_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), to_pos=(getattr(tk,'q',0),getattr(tk,'r',0)), reason=bonus_details, player_nation=getattr(player,'nation','?'))
+                except Exception:
+                    pass
     
     # WALIDACJA PE PRZED WYDANIEM - BLOKADA UJEMNYCH PE!
     current_pe = getattr(player, 'punkty_ekonomiczne', 0)
@@ -307,6 +332,13 @@ def _perform_resupply(commander, game_engine: Any, punkty: int, context: str) ->
             
     except Exception as e:
         print(f"⚠️ Błąd przy aktualizacji ekonomii: {e}")
+        pass
+    
+    # SUMMARY LOGOWANIE - CAŁOŚCIOWY RAPORT PE SPENDING
+    try:
+        summary = f'RESUPPLY_SUMMARY {context} | TOTAL_PE_SPENT: {spent_total} | UNITS_RESUPPLIED: {resupplied}/{len(tokens_needing_help)} | BUDGET_ALLOCATED: {punkty} | PE_REMAINING: {current_pe - spent_total}'
+        log_commander_action(unit_id='RESUPPLY_OPERATION', action_type='resupply_summary', from_pos=None, to_pos=None, reason=summary, player_nation=getattr(player,'nation','?'))
+    except Exception:
         pass
     if context != 'PRE_TURN':
         try:

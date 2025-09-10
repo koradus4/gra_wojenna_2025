@@ -56,10 +56,12 @@
 - Planuje kontrolowany odwrót zagrożonych jednostek
 - Koordynuje obronę wokół key pointów
 
-## 8. **DEPLOYMENT NOWYCH JEDNOSTEK**
-- Deleguje do `ai.deployment_ai` rozmieszczenie zakupionych żetonów
-- Szuka plików w folderze `nowe_dla_{player_id}` i umieszcza na mapie
-- Kopiuje pliki do `assets/tokens/aktualne/` jak robi człowiek
+## 8. **🎯 UNIFIED DEPLOYMENT SYSTEM**
+- Deleguje do `ai.unified_deployment` **NOWY jednolity system dla human i AI**
+- **Inteligentne pozycjonowanie:** `smart_deployment.py` + `find_optimal_spawn_position()`
+- **Niezawodność human:** `Token.from_json()` + natychmiastowe `game_engine.tokens.append()`
+- **Markery deployment:** `.deployed` system zapobiega duplikatom
+- Kopiuje pliki do `assets/tokens/aktualne/` identycznie jak system human
 
 ## 9. **FAZA RUCHU GŁÓWNEGO**
 - Każda grupa wykonuje ruch do przypisanego celu

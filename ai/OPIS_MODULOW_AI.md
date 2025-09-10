@@ -14,8 +14,11 @@ Ten dokument w prostych słowach wyjaśnia do czego służy każdy plik w folder
 ## 2. ai_general.py
 "Generał strategiczny". Wyższy poziom AI: analizuje ekonomię, punkty zwycięstwa (VP), sytuację paliwową, podejmuje decyzje jak wydać punkty (alokacja / zakupy / oszczędzanie) i (opcjonalnie) może tworzyć strategiczne rozkazy dla commanderów. **NOWE:** PE validation system - bezpieczne transfery do dowódców z walidacją. Dużo logów CSV do późniejszej analizy.
 
-## 3. deployment_ai.py
-Wystawianie (spawn) świeżo zakupionych jednostek na mapę. Szuka plików nowych tokenów i próbuje umieścić je w sensownej, wolnej pozycji startowej.
+## 3. deployment_ai.py ⚠️ **ZASTĄPIONY - UNIFIED SYSTEM**
+~~Stary system wystawiania jednostek~~ **ZASTĄPIONY przez unified_deployment.py**. Legacy moduł - nie używany od wdrożenia unified systemu.
+
+## 3a. unified_deployment.py ✅ **NOWY - UNIFIED SYSTEM**
+**"Ujednolicony system deployment human+ai"**. Łączy najlepsze cechy obu systemów: niezawodność human (Token.from_json(), natychmiastowe dodanie do runtime) + inteligencję AI (smart positioning, marker system). Jeden kod dla human i AI deployment. Używa `find_optimal_spawn_position()` z smart_deployment.py + sprawdzone metody z gui/panel_mapa.py.
 
 ## 4. ekonomia_ai.py
 **ROZSZERZONY:** Logika zakupów / wydatków z PE validation. Kalkuluje budżet, sugeruje co kupić, **NOWE:** sprawdza czy operacja nie spowoduje ujemnych PE. Zawiera funkcje bezpieczeństwa ekonomicznego.
@@ -62,8 +65,8 @@ Podstawowy ruch jednostek: wybór trybu (march / combat / recon) na podstawie dy
 ## 18. ruch_postepowy_ai.py
 "Ruch postępowy" – jeśli jednostka nie dojdzie do celu w tej turze, wybiera najlepszy punkt pośredni dający realny postęp (lub fallback jeśli teren blokuje).
 
-## 19. smart_deployment.py
-Inteligentny dobór miejsca spawnu: ocenia zagrożenia, niebronione punkty, klastry przyjaciół, unika przepełnienia i wybiera strategicznie korzystny hex. Zapisuje też szczegóły wyboru.
+## 19. smart_deployment.py ✅ **ENHANCED - UNIFIED INTEGRATION**
+Inteligentny dobór miejsca spawnu: ocenia zagrożenia, niebronione punkty, klastry przyjaciół, unika przepełnienia i wybiera strategicznie korzystny hex. **NOWE:** Główny dostawca inteligentnego pozycjonowania dla unified_deployment.py. Funkcja `find_optimal_spawn_position()` używana przez unified system.
 
 ## 20. strategia_ai.py
 Warstwa strategiczna: ocena sytuacji VP (wygrywamy / przegrywamy / remis), dostosowanie agresji, priorytetyzacja punktów oraz wybór preferowanych kategorii zakupów.
@@ -91,7 +94,7 @@ Plik techniczny – pozwala traktować folder `ai` jako moduł Pythona.
 Zbiera wygenerowane pliki CSV i logi pomocnicze (np. testy ruchu, **NOWE:** PE flow analysis, Victory AI operations). Nie zawiera kodu logiki.
 
 ---
-### Jak całość współpracuje? (AKTUALIZACJA VICTORY AI + PE VALIDATION)
+### Jak całość współpracuje? (AKTUALIZACJA VICTORY AI + PE VALIDATION + UNIFIED DEPLOYMENT)
 1. **Victory AI Strategic Layer** (`victory_ai.py`) - scouting, threat assessment, attack planning, defense allocation
 2. Generał (`ai_general.py`) decyduje o wydatkach z **PE validation** i (opcjonalnie) tworzy rozkazy.
 3. **PE transfer security** - bezpieczne przekazywanie PE do dowódców z walidacją.
@@ -102,7 +105,7 @@ Zbiera wygenerowane pliki CSV i logi pomocnicze (np. testy ruchu, **NOWE:** PE f
 8. Ruch i walka (`ruch_jednostek.py`, `ruch_postepowy_ai.py`, `walka_ai.py`).
 9. **Victory AI Defense Coordination** + Obrona i rotacje garnizonów (`obrona_ai.py`, `okupacja_punktow.py`).
 10. **Bezpieczne uzupełnienia** (`zaopatrzenie_ai.py`) z PE validation.
-11. Deployment nowych jednostek (`deployment_ai.py` / `smart_deployment.py`).
+11. **🎯 UNIFIED DEPLOYMENT** (`unified_deployment.py`) - jeden system dla human i AI z inteligentnym pozycjonowaniem.
 12. **Enhanced logging** (`logowanie_ai.py`) z PE flow tracking + Victory AI operations.
 
 ---
