@@ -1490,15 +1490,15 @@ def evaluate_position_safety(position, threatening_enemies, target_point=None): 
     return _eps(position, threatening_enemies, target_point)
 
 
-def deploy_purchased_units(game_engine, player_id):  # delegat do deployment_ai
-    print(f"🔧 [DEBUG] deploy_purchased_units DELEGAT wywołany dla gracza {player_id}")
+def deploy_purchased_units(game_engine, player_id):  # ujednolicony system human+ai
+    print(f"🎯 [UNIFIED] deploy_purchased_units wywołany dla gracza {player_id}")
     try:
-        from ai.deployment_ai import deploy_purchased_units as _dpu
-        result = _dpu(game_engine, player_id)
-        print(f"🔧 [DEBUG] deployment_ai zwrócił: {result}")
+        from ai.unified_deployment import unified_deploy_purchased_units
+        result = unified_deploy_purchased_units(game_engine, player_id)
+        print(f"🎯 [UNIFIED] unified_deployment zwrócił: {result}")
         return result
     except Exception as e:
-        print(f"❌ [DEBUG] Błąd w deploy_purchased_units: {e}")
+        print(f"❌ [UNIFIED] Błąd w deploy_purchased_units: {e}")
         import traceback
         traceback.print_exc()
         return 0
