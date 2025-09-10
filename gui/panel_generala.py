@@ -7,7 +7,7 @@ from gui.panel_gracza import PanelGracza
 from gui.zarzadzanie_punktami_ekonomicznymi import ZarzadzaniePunktamiEkonomicznymi
 from engine.board import Board
 from gui.panel_mapa import PanelMapa
-from gui.token_info_panel import TokenInfoPanel
+# from gui.token_info_panel import TokenInfoPanel  # USUNIĘTE - zastąpione tooltip
 
 class PanelGenerala:
     def __init__(self, turn_number, ekonomia, gracz, gracze, game_engine):
@@ -45,9 +45,7 @@ class PanelGenerala:
         self.timer_frame.pack(pady=(1, 8), fill=tk.BOTH, expand=False)
         self.timer_frame.bind("<Button-1>", self.confirm_end_turn)
 
-        # Panel informacji o żetonie
-        self.token_info_panel = TokenInfoPanel(self.left_frame, height=120)
-        self.token_info_panel.pack(pady=(1, 15), fill=tk.BOTH, expand=False)
+        # Panel informacji o żetonie - USUNIĘTY (zastąpiony tooltip hover)
 
         # Raport ekonomiczny
         self.economy_panel = PanelEkonomiczny(self.left_frame)
@@ -86,7 +84,7 @@ class PanelGenerala:
             bg_path="assets/mapa_globalna.jpg",
             player_nation=self.gracz.nation,
             width=800, height=600,
-            token_info_panel=self.token_info_panel
+            token_info_panel=None  # USUNIĘTE - zastąpione tooltip hover
         )
         self.panel_mapa.pack(fill="both", expand=True)
         self.panel_mapa.set_active_commander(None)
@@ -382,8 +380,7 @@ class PanelGenerala:
                 tx, ty = self.panel_mapa.map_model.hex_to_pixel(token.q, token.r)
                 hex_size = self.panel_mapa.map_model.hex_size
                 if abs(x - tx) < hex_size // 2 and abs(y - ty) < hex_size // 2:
-                    if self.token_info_panel is not None:
-                        self.token_info_panel.show_token(token)
+                    # Token info panel usunięty - tooltip hover w PanelMapa
                     break
 
     def show_vp_window(self):

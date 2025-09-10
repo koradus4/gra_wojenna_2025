@@ -57,6 +57,8 @@ class PanelMapa(tk.Frame):
         self._token_canvas_items = {}
         # markery statusu ruchu (token_id -> marker canvas id)
         self._move_status_markers = {}
+        # tooltip token info
+        self.active_tooltip = None
         self._draw_tokens_on_map()
         # Aktywuj podgląd hover dla generała i dowódców jeśli dostępny player w silniku
         try:
@@ -495,10 +497,10 @@ class PanelMapa(tk.Frame):
         # Podgląd tylko dla ról kontrolujących (Generał lub Dowódca)
         if not (hasattr(self, 'player') and getattr(self.player, 'role', None) in ('Generał', 'Dowódca')):
             return
-        if self.token_info_panel is None:
-            return
+            
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
+        
         # znajdź żeton pod kursorem (widoczny dla gracza zgodnie z widocznością)
         hovered = None
         for token in self.tokens:
@@ -516,19 +518,43 @@ class PanelMapa(tk.Frame):
             if abs(x - tx) < self.map_model.hex_size // 2 and abs(y - ty) < self.map_model.hex_size // 2:
                 hovered = token
                 break
+        
+        # Nowy system tooltip - pokazuj tooltip tylko gdy mysz jest na żetonie
         if hovered and hovered.id != getattr(self, 'last_hover_token_id', None):
             self.last_hover_token_id = hovered.id
+            
+            # Zniszcz poprzedni tooltip jeśli istnieje
+            if hasattr(self, 'active_tooltip') and self.active_tooltip:
+                try:
+                    self.active_tooltip.destroy()
+                except:
+                    pass
+            
+            # Utwórz nowy tooltip - pozycja względem ekranu
+            screen_x = event.x_root
+            screen_y = event.y_root
+            
             try:
-                self.token_info_panel.show_token(hovered)
-            except Exception:
-                pass
+                from gui.tooltip_token_info import TooltipTokenInfo
+                self.active_tooltip = TooltipTokenInfo(
+                    parent=self.winfo_toplevel(),
+                    token=hovered,
+                    player=self.player,
+                    x=screen_x,
+                    y=screen_y
+                )
+            except Exception as e:
+                print(f"Błąd tworzenia tooltip: {e}")
+                
         elif hovered is None and getattr(self, 'last_hover_token_id', None) is not None:
-            # Opuściliśmy żeton – czyścimy panel aby nie wprowadzać w błąd
+            # Opuściliśmy żeton - natychmiast zniszcz tooltip
             self.last_hover_token_id = None
-            try:
-                self.token_info_panel.clear()
-            except Exception:
-                pass
+            if hasattr(self, 'active_tooltip') and self.active_tooltip:
+                try:
+                    self.active_tooltip.destroy()
+                    self.active_tooltip = None
+                except:
+                    pass
 
     def clear_token_info_panel(self):
         parent = self.master
@@ -539,6 +565,15 @@ class PanelMapa(tk.Frame):
             parent = getattr(parent, 'master', None)
 
     def _on_click(self, event):
+        # NAJPIERW: Ukryj tooltip żeby nie konfliktował z klikiem
+        if hasattr(self, 'active_tooltip') and self.active_tooltip:
+            try:
+                self.active_tooltip.destroy()
+                self.active_tooltip = None
+            except:
+                pass
+        self.last_hover_token_id = None
+        
         # Blokada akcji dla generała (podgląd, brak ruchu)
         if hasattr(self, 'player') and hasattr(self.player, 'role') and self.player.role == 'Generał':
             # Zachowujemy blokadę czynności, ale usuwamy komunikat popup proszony przez użytkownika
@@ -961,6 +996,15 @@ class PanelMapa(tk.Frame):
         self.refresh()
 
     def _on_right_click_token(self, event):
+        # NAJPIERW: Ukryj tooltip żeby nie konfliktował z prawym klikiem
+        if hasattr(self, 'active_tooltip') and self.active_tooltip:
+            try:
+                self.active_tooltip.destroy()
+                self.active_tooltip = None
+            except:
+                pass
+        self.last_hover_token_id = None
+        
         # Obsługa ataku na żeton przeciwnika
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
