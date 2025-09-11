@@ -729,7 +729,8 @@ class PanelMapa(tk.Frame):
                         self.result = self.combo.get()
                 dialog = ModeDialog(self)
                 mode = getattr(dialog, 'result', None)
-                if mode is not None:
+                # Sprawdź czy dialog został potwierdzony (nie anulowany)
+                if mode is not None and mode in ["Bojowy", "Marsz", "Zwiad"]:
                     if mode == "Bojowy":
                         clicked_token.movement_mode = "combat"
                     elif mode == "Marsz":
@@ -743,6 +744,7 @@ class PanelMapa(tk.Frame):
                         self.panel_dowodcy.wybrany_token = clicked_token
                     if self.token_info_panel is not None:
                         self.token_info_panel.show_token(clicked_token)  # Odśwież info panel po zmianie trybu
+                # Jeśli dialog anulowano - nie blokujemy trybu, można ponownie wybrać
             self.current_path = None
             self.refresh()
             return
