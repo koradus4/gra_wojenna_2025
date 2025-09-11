@@ -3,16 +3,17 @@
 Ten dokument w prostych słowach wyjaśnia do czego służy każdy plik w folderze `ai/`. Ma pomóc nowej osobie szybko zrozumieć strukturę sztucznej inteligencji w grze. 
 
 **NAJNOWSZE AKTUALIZACJE:**
-- ✅ **Victory AI System** - zaawansowany system strategiczny (Phase 1-3 COMPLETE)
+- ✅ **Victory AI Phase 1-5** - kompletny system strategiczny (Phase 1-5 COMPLETE)
 - ✅ **PE Validation System** - zabezpieczenie ekonomiczne  
-- 🔄 **Phase 4-6** - Advanced Logistics w przygotowaniu
+- ✅ **VP Intelligence System** - vp_intelligence.py (Phase 5)
+- 🔄 **Phase 6** - Final integration w przygotowaniu
 
 ---
 ## 1. ai_commander.py
 "Dowódca taktyczny". Koordynuje zachowania jednostek w turze: wybiera cele, grupuje żetony, porusza je, walczy, uzupełnia paliwo/siłę i kończy turę. Zawiera też klasę adaptacyjnej AI (uczy się sytuacji VP i zmienia poziom agresji). **NOWE:** Integracja z PE validation - nie może wydać więcej PE niż ma. Wiele funkcji deleguje do innych modułów.
 
 ## 2. ai_general.py
-"Generał strategiczny". Wyższy poziom AI: analizuje ekonomię, punkty zwycięstwa (VP), sytuację paliwową, podejmuje decyzje jak wydać punkty (alokacja / zakupy / oszczędzanie) i (opcjonalnie) może tworzyć strategiczne rozkazy dla commanderów. **NOWE:** PE validation system - bezpieczne transfery do dowódców z walidacją. Dużo logów CSV do późniejszej analizy.
+"Generał strategiczny". Wyższy poziom AI: analizuje ekonomię, punkty zwycięstwa (VP), sytuację paliwową, podejmuje decyzje jak wydać punkty (alokacja / zakupy / oszczędzanie) i (opcjonalnie) może tworzyć strategiczne rozkazy dla commanderów. **NOWE:** PE validation system - bezpieczne transfery do dowódców z walidacją. **ZAKTUALIZOWANE:** Dynamiczny system zakupów oparty na kontekście strategicznym (force_ratio, casualties, sytuacja battlefield) zamiast sztywnych limitów liczbowych. Dużo logów CSV do późniejszej analizy.
 
 ## 3. deployment_ai.py ⚠️ **ZASTĄPIONY - UNIFIED SYSTEM**
 ~~Stary system wystawiania jednostek~~ **ZASTĄPIONY przez unified_deployment.py**. Legacy moduł - nie używany od wdrożenia unified systemu.
@@ -83,40 +84,51 @@ Wybór celu dla pojedynczej jednostki: skanuje punkty kluczowe, liczy wynik (wag
 ## 24. __init__.py
 Plik techniczny – pozwala traktować folder `ai` jako moduł Pythona.
 
-## 25. victory_ai.py ✅ **NOWY - PHASE 1-3 COMPLETE**
-**"Strategiczny mózg AI"**. Zaawansowany system Victory AI z 3 fazami:
+## 25. victory_ai.py ✅ **NOWY - PHASE 1-5 COMPLETE**
+**"Strategiczny mózg AI"**. Zaawansowany system Victory AI z 5 fazami:
 - **Phase 1:** Intelligent Scouting (72 scout checks) + Enemy Detection (uczciwy visibility)
 - **Phase 2:** Multi-turn Attack Planning (4-fazowy system: POSITIONING → CONCENTRATION → ATTACK → EXPLOITATION) 
 - **Phase 3:** Balanced Defense + KP Security (60% defense, 30% attack, 10% reserve + PE collection protection)
+- **Phase 4:** Advanced Logistics AI (Commander-General Communication + Force Requirements Analysis)
+- **Phase 5:** VP Intelligence System (Victory Points optimization + predictive modeling)
 **NOWE:** Comprehensive CSV logging, plan validation, defense allocation. Integruje się z ai_commander.py.
 
-## 26. logs/ (podfolder)
-Zbiera wygenerowane pliki CSV i logi pomocnicze (np. testy ruchu, **NOWE:** PE flow analysis, Victory AI operations). Nie zawiera kodu logiki.
+## 26. vp_intelligence.py ✅ **NOWY - PHASE 5 COMPLETE**
+**"VP Intelligence System"**. Zaawansowany system analizy Victory Points:
+- Real-time VP trend analysis + predictive modeling (next 3-5 turns)
+- VP opportunity identification + enemy VP threat assessment
+- Strategic VP recommendations + comprehensive CSV logging
+- Integracja z Phase 1-4 dla complete strategic mastery
+
+## 27. logs/ (podfolder)
+Zbiera wygenerowane pliki CSV i logi pomocnicze (np. testy ruchu, **NOWE:** PE flow analysis, Victory AI operations, VP Intelligence logs). Nie zawiera kodu logiki.
 
 ---
-### Jak całość współpracuje? (AKTUALIZACJA VICTORY AI + PE VALIDATION + UNIFIED DEPLOYMENT)
-1. **Victory AI Strategic Layer** (`victory_ai.py`) - scouting, threat assessment, attack planning, defense allocation
-2. Generał (`ai_general.py`) decyduje o wydatkach z **PE validation** i (opcjonalnie) tworzy rozkazy.
-3. **PE transfer security** - bezpieczne przekazywanie PE do dowódców z walidacją.
-4. Commander (`ai_commander.py`) + Victory AI integration - pobiera jednostki, priorytety i planuje turę **bez możliwości ujemnych PE**.
-5. Wczesny rajd (`rajdy_ai.py`) próbuje zająć wolne punkty.
-6. Grupy są tworzone (`grupowanie_ai.py`) i dostają cele (`wybor_celow.py`, `priorytety_ai.py`).
-7. **Victory AI Phase Execution** - multi-turn attack plans + intelligent scouting patrol
-8. Ruch i walka (`ruch_jednostek.py`, `ruch_postepowy_ai.py`, `walka_ai.py`).
-9. **Victory AI Defense Coordination** + Obrona i rotacje garnizonów (`obrona_ai.py`, `okupacja_punktow.py`).
-10. **Bezpieczne uzupełnienia** (`zaopatrzenie_ai.py`) z PE validation.
-11. **🎯 UNIFIED DEPLOYMENT** (`unified_deployment.py`) - jeden system dla human i AI z inteligentnym pozycjonowaniem.
-12. **Enhanced logging** (`logowanie_ai.py`) z PE flow tracking + Victory AI operations.
+### Jak całość współpracuje? (AKTUALIZACJA VICTORY AI PHASE 1-5 + PE VALIDATION + UNIFIED DEPLOYMENT)
+1. **Victory AI Strategic Layer** (`victory_ai.py`) - scouting, threat assessment, attack planning, defense allocation, logistics analysis, VP intelligence
+2. **VP Intelligence System** (`vp_intelligence.py`) - Victory Points optimization + predictive modeling
+3. Generał (`ai_general.py`) decyduje o wydatkach z **PE validation** i (opcjonalnie) tworzy rozkazy.
+4. **PE transfer security** - bezpieczne przekazywanie PE do dowódców z walidacją.
+5. Commander (`ai_commander.py`) + Victory AI integration - pobiera jednostki, priorytety i planuje turę **bez możliwości ujemnych PE**.
+6. Wczesny rajd (`rajdy_ai.py`) próbuje zająć wolne punkty.
+7. Grupy są tworzone (`grupowanie_ai.py`) i dostają cele (`wybor_celow.py`, `priorytety_ai.py`).
+8. **Victory AI Phase Execution** - multi-turn attack plans + intelligent scouting patrol + logistics analysis + VP optimization
+9. Ruch i walka (`ruch_jednostek.py`, `ruch_postepowy_ai.py`, `walka_ai.py`).
+10. **Victory AI Defense Coordination** + Obrona i rotacje garnizonów (`obrona_ai.py`, `okupacja_punktow.py`).
+11. **Bezpieczne uzupełnienia** (`zaopatrzenie_ai.py`) z PE validation.
+12. **🎯 UNIFIED DEPLOYMENT** (`unified_deployment.py`) - jeden system dla human i AI z inteligentnym pozycjonowaniem.
+13. **Enhanced logging** (`logowanie_ai.py`) z PE flow tracking + Victory AI operations + VP Intelligence logs.
 
 ---
-### Najprostszy mentalny model (VICTORY AI UPDATE)
-- **🧠 Strategiczny mózg → Victory AI (victory_ai.py) - scouting, planning, defense**
+### Najprostszy mentalny model (VICTORY AI PHASE 1-5 UPDATE)
+- **🧠 Strategiczny mózg → Victory AI (victory_ai.py) - scouting, planning, defense, logistics, VP intelligence**
+- **🏆 VP Intelligence → VP Intelligence System (vp_intelligence.py) - Victory Points optimization + predictive modeling**
 - **💰 Ekonomia (głowa) → Generał + PE Security**
 - **⚔️ Taktyka i wykonanie (ręce) → Commander + Victory AI Integration + moduły ruchu/walki**
 - **👁️ Zmysły → Rozpoznanie + Victory AI Enemy Detection.**
-- **🚛 Logistyka → Zaopatrzenie + PE Validation + Deployment.**
+- **🚛 Logistyka → Zaopatrzenie + PE Validation + Deployment + Victory AI Logistics.**
 - **🛡️ Obrona / garnizony → Victory AI Defense Allocation + Obrona + Okupacja.**
-- **📊 Pamięć i analiza → Logi + PE Flow + Victory AI Operations + zapisane cele.**
+- **📊 Pamięć i analiza → Logi + PE Flow + Victory AI Operations + VP Intelligence + zapisane cele.**
 
 ---
 ### 🔒 PE VALIDATION SYSTEM - KLUCZOWE ZABEZPIECZENIE

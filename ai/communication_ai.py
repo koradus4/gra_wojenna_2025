@@ -119,7 +119,8 @@ def _analyze_current_composition(units: List[Dict[str, Any]]) -> Dict[str, Any]:
         'combat_strength': 0,
         'mobility': {'high': 0, 'medium': 0, 'low': 0},
         'fuel_status': {'critical': 0, 'low': 0, 'good': 0},
-        'combat_value_total': 0
+        'combat_value_total': 0,  # HP total dla kompatybilności
+        'combat_strength_total': 0  # Rzeczywista siła bojowa
     }
     
     for unit in units:
@@ -127,9 +128,14 @@ def _analyze_current_composition(units: List[Dict[str, Any]]) -> Dict[str, Any]:
         unit_type = unit.get('unit_type', 'Unknown')
         composition['by_type'][unit_type] = composition['by_type'].get(unit_type, 0) + 1
         
-        # Combat value
-        cv = unit.get('combat_value', 0)
-        composition['combat_value_total'] += cv
+        # Combat value (HP) i combat strength (attack+defense)
+        cv = unit.get('combat_value', 0)  # HP
+        attack_val = unit.get('attack_val', 0)
+        defense_val = unit.get('defense_val', 0)
+        combat_strength = attack_val + defense_val
+        
+        composition['combat_value_total'] += cv  # HP total
+        composition['combat_strength_total'] += combat_strength  # Siła bojowa
         
         # Status paliwa
         fuel_ratio = unit.get('fuel', 0) / max(1, unit.get('max_fuel', 1))
@@ -149,7 +155,8 @@ def _analyze_current_composition(units: List[Dict[str, Any]]) -> Dict[str, Any]:
         else:
             composition['mobility']['low'] += 1
     
-    composition['avg_combat_value'] = composition['combat_value_total'] / max(1, len(units))
+    composition['avg_combat_value'] = composition['combat_value_total'] / max(1, len(units))  # Avg HP
+    composition['avg_combat_strength'] = composition['combat_strength_total'] / max(1, len(units))  # Avg siła bojowa
     
     return composition
 
@@ -178,18 +185,32 @@ def _analyze_tactical_threats(units: List[Dict[str, Any]], game_engine) -> Dict[
             token_nation = getattr(token, 'nation', '')
             if token_nation and token_nation != my_nation:
                 enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
-                enemy_cv = getattr(token, 'combat_value', 0)
+                # Używamy combat_strength zamiast HP dla analizy siły
+                enemy_attack = getattr(token, 'attack', None)
+                enemy_attack_val = enemy_attack.value if enemy_attack else 0
+                enemy_defense_val = getattr(token, 'defense_value', 0)
+                enemy_combat_strength = enemy_attack_val + enemy_defense_val
+                enemy_hp = getattr(token, 'combat_value', 0)  # HP dla statusu
+                
                 visible_enemies.append({
                     'position': enemy_pos,
-                    'combat_value': enemy_cv,
+                    'combat_value': enemy_hp,  # HP dla kompatybilności
+                    'combat_strength': enemy_combat_strength,  # Rzeczywista siła
+                    'attack_val': enemy_attack_val,
+                    'defense_val': enemy_defense_val,
                     'type': getattr(token, 'type', 'Unknown')
                 })
-                threats['total_enemy_cv'] += enemy_cv
+                threats['total_enemy_cv'] += enemy_combat_strength  # Używamy siły, nie HP
         
-        # Oblicz force ratio
-        my_total_cv = sum(unit.get('combat_value', 0) for unit in units)
+        # Oblicz force ratio na podstawie combat_strength
+        my_total_strength = 0
+        for unit in units:
+            unit_attack = unit.get('attack_val', 0)
+            unit_defense = unit.get('defense_val', 0) 
+            my_total_strength += unit_attack + unit_defense
+            
         if threats['total_enemy_cv'] > 0:
-            threats['force_ratio'] = my_total_cv / threats['total_enemy_cv']
+            threats['force_ratio'] = my_total_strength / threats['total_enemy_cv']
         else:
             threats['force_ratio'] = float('inf')
         
@@ -340,8 +361,8 @@ def _calculate_force_requirements(composition: Dict, threats: Dict, operations: 
     
     # Potrzeby na podstawie threat level
     if threats['threat_level'] in ['HIGH', 'CRITICAL']:
-        # Potrzeba wzmocnień bojowych
-        cv_deficit = max(0, threats['total_enemy_cv'] * 1.2 - composition['combat_value_total'])
+        # Potrzeba wzmocnień bojowych - porównujemy siłę bojową, nie HP
+        cv_deficit = max(0, threats['total_enemy_cv'] * 1.2 - composition['combat_strength_total'])
         requirements['total_cv_needed'] = int(cv_deficit)
         
         if cv_deficit > 0:

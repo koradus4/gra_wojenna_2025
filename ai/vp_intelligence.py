@@ -205,9 +205,9 @@ class VPIntelligenceSystem:
             # Analyze enemy units for VP threat potential
             enemy_units = self._get_visible_enemy_units()
             
-            # Calculate threat levels
-            high_value_targets = len([u for u in enemy_units if u.get('combat_value', 0) >= 10])
-            medium_value_targets = len([u for u in enemy_units if 5 <= u.get('combat_value', 0) < 10])
+            # Calculate threat levels based on combat_strength not HP
+            high_value_targets = len([u for u in enemy_units if u.get('combat_strength', u.get('attack_val', 0) + u.get('defense_val', 0)) >= 10])
+            medium_value_targets = len([u for u in enemy_units if 5 <= u.get('combat_strength', u.get('attack_val', 0) + u.get('defense_val', 0)) < 10])
             
             # Assess overall threat level
             if vp_status['vp_gap'] < -10:
@@ -262,7 +262,7 @@ class VPIntelligenceSystem:
         if len(enemy_units) > 15:
             factors.append("LARGE_ENEMY_FORCE")
             
-        high_combat_units = [u for u in enemy_units if u.get('combat_value', 0) >= 12]
+        high_combat_units = [u for u in enemy_units if u.get('combat_strength', u.get('attack_val', 0) + u.get('defense_val', 0)) >= 12]
         if len(high_combat_units) > 3:
             factors.append("ELITE_ENEMY_UNITS")
         
@@ -278,31 +278,33 @@ class VPIntelligenceSystem:
             enemy_units = self._get_visible_enemy_units()
             
             for unit in enemy_units:
-                # Calculate VP opportunity score
-                combat_value = unit.get('combat_value', 0)
+                # Calculate VP opportunity score based on combat strength, not HP
+                combat_strength = unit.get('combat_strength', 
+                                         unit.get('attack_val', 0) + unit.get('defense_val', 0))
+                combat_value = unit.get('combat_value', 0)  # HP dla statusu jednostki
                 
-                if combat_value >= 10:
-                    # High-value target
+                if combat_strength >= 10:
+                    # High-value target based on combat strength
                     opportunity = {
                         'type': 'HIGH_VALUE_ELIMINATION',
                         'target_id': unit['id'],
                         'target_type': unit.get('type', 'Unknown'),
-                        'estimated_vp': self._estimate_vp_value(combat_value),
+                        'estimated_vp': self._estimate_vp_value(combat_strength),
                         'risk_level': 'MEDIUM',
-                        'priority_score': combat_value * 2,
+                        'priority_score': combat_strength * 2,
                         'resources_required': 'MAJOR_ATTACK'
                     }
                     opportunities.append(opportunity)
                 
-                elif combat_value >= 5:
-                    # Medium-value target
+                elif combat_strength >= 5:
+                    # Medium-value target based on combat strength
                     opportunity = {
                         'type': 'MEDIUM_VALUE_ELIMINATION', 
                         'target_id': unit['id'],
                         'target_type': unit.get('type', 'Unknown'),
-                        'estimated_vp': self._estimate_vp_value(combat_value),
+                        'estimated_vp': self._estimate_vp_value(combat_strength),
                         'risk_level': 'LOW',
-                        'priority_score': combat_value,
+                        'priority_score': combat_strength,
                         'resources_required': 'TACTICAL_STRIKE'
                     }
                     opportunities.append(opportunity)
@@ -318,14 +320,14 @@ class VPIntelligenceSystem:
             
         return self.opportunities
     
-    def _estimate_vp_value(self, combat_value: int) -> int:
+    def _estimate_vp_value(self, combat_strength: int) -> int:
         """Estimate VP value of destroying unit with given combat value"""
-        # Simplified VP estimation - adjust based on game rules
-        if combat_value >= 15:
+        # Simplified VP estimation based on combat strength - adjust based on game rules
+        if combat_strength >= 15:
             return 8  # Major unit
-        elif combat_value >= 10:
+        elif combat_strength >= 10:
             return 5  # Regular unit
-        elif combat_value >= 5:
+        elif combat_strength >= 5:
             return 3  # Small unit
         else:
             return 1  # Minimal unit

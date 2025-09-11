@@ -8,6 +8,58 @@ from .logowanie_ai import log_commander_action
 from .wybor_celow import find_target
 from .ruch_jednostek import move_towards
 
+def _assess_tactical_situation(commander, game_engine):
+    """
+    Ocena sytuacji taktycznej dla dynamicznej alokacji budżetu.
+    
+    DEFINICJE STANÓW:
+    - SPOKÓJ: force_ratio >= 1.5, brak immediate_threats, średnie paliwo > 70%
+    - WOJNA: force_ratio 0.8-1.5, lub immediate_threats > 0, paliwo 40-70%
+    - KRYZYS: force_ratio < 0.8, lub immediate_threats > 2, paliwo < 40%
+    """
+    try:
+        from ai.communication_ai import _analyze_tactical_threats
+        
+        # Zbierz jednostki dowódcy
+        player = getattr(commander, 'player', commander)
+        expected_owner = f"{getattr(player,'id',0)} ({getattr(player,'nation','?')})"
+        my_units = []
+        
+        if hasattr(game_engine, 'board') and hasattr(game_engine.board, 'tokens'):
+            for token in game_engine.board.tokens:
+                if getattr(token, 'owner', '') == expected_owner:
+                    my_units.append({
+                        'id': getattr(token, 'id', 'unknown'),
+                        'position': (getattr(token, 'q', 0), getattr(token, 'r', 0)),
+                        'attack_val': token.stats.get('attack', {}).get('value', 0),
+                        'defense_val': token.stats.get('defense_value', 0),
+                        'fuel_pct': getattr(token, 'currentFuel', 0) / max(getattr(token, 'maxFuel', 1), 1)
+                    })
+        
+        if not my_units:
+            return "SPOKÓJ"  # Brak jednostek = bezpieczna sytuacja
+        
+        # Analiza zagrożeń
+        threats = _analyze_tactical_threats(my_units, game_engine)
+        force_ratio = threats.get('force_ratio', float('inf'))
+        immediate_threats = threats.get('immediate_threats', 0)
+        
+        # Średni poziom paliwa
+        avg_fuel = sum(u['fuel_pct'] for u in my_units) / len(my_units) if my_units else 1.0
+        
+        # Klasyfikacja sytuacji
+        if force_ratio >= 1.5 and immediate_threats == 0 and avg_fuel > 0.7:
+            return "SPOKÓJ"
+        elif force_ratio < 0.8 or immediate_threats > 2 or avg_fuel < 0.4:
+            return "KRYZYS"
+        else:
+            return "WOJNA"
+            
+    except Exception as e:
+        # W razie błędu zakładamy stan wojny (bezpieczna opcja)
+        print(f"⚠️ [SITUATION ASSESSMENT] Błąd oceny: {e}")
+        return "WOJNA"
+
 # Stałe przeniesione z ai_commander - wszystkie wartości uaktualnione do 3
 RESUPPLY_SECOND_MOVE_MIN_FUEL_GAIN = 2
 RESUPPLY_TARGET_FUEL_THRESHOLD = 0.65
@@ -105,14 +157,35 @@ def tactical_resupply(commander, game_engine: Any, trigger: str = "DAMAGE", unit
     except Exception as e:
         print(f"⚠️ [RESUPPLY ERROR] Błąd oceny potrzeb: {e}")
         pass
-    # Użyj właściwej alokacji z AI Commander zamiast arbitralnej 1/3
+    # ⚡ DYNAMICZNA ALOKACJA BUDŻETU - rozwiązanie problemu marnowania 30% PE na nieużywane zakupy
     try:
+        # OCENA SYTUACJI TAKTYCZNEJ
+        situation = _assess_tactical_situation(commander, game_engine)
+        
+        # DEFINICJE STANÓW:
+        # SPOKÓJ: force_ratio >= 1.5, brak immediate_threats, fuel > 70%
+        # WOJNA: force_ratio 0.8-1.5, lub immediate_threats > 0, fuel 40-70%  
+        # KRYZYS: force_ratio < 0.8, lub immediate_threats > 2, fuel < 40%
+        
+        if situation == "SPOKÓJ":
+            allocation = {"resupply": 0.5, "reserve": 0.5}  # 50% na paliwo, 50% rezerwa
+            print(f"🟢 SYTUACJA: {situation} - alokacja 50% paliwo / 50% rezerwa")
+        elif situation == "WOJNA":
+            allocation = {"resupply": 0.8, "reserve": 0.2}  # 80% na paliwo, 20% rezerwa
+            print(f"🟡 SYTUACJA: {situation} - alokacja 80% paliwo / 20% rezerwa") 
+        else:  # KRYZYS
+            allocation = {"resupply": 0.9, "reserve": 0.1}  # 90% na paliwo, 10% rezerwa
+            print(f"🔴 SYTUACJA: {situation} - alokacja 90% paliwo / 10% rezerwa")
+        
+        resupply_ratio = allocation.get('resupply', 0.6)
+        max_budget = max(5, int(punkty * resupply_ratio))
+        print(f"💰 [DYNAMIC BUDGET] PE={punkty} × {resupply_ratio} = budżet {max_budget} (sytuacja: {situation})")
+    except Exception as e:
+        # Fallback do starego systemu w razie błędu
+        print(f"⚠️ [BUDGET ERROR] Błąd oceny sytuacji: {e}, używam domyślnej alokacji")
         allocation = getattr(commander, 'budget_allocation', {"allocate": 0.6, "purchase": 0.3, "reserve": 0.1})
         allocate_ratio = allocation.get('allocate', 0.6)
         max_budget = max(5, int(punkty * allocate_ratio))
-        print(f"💰 [RESUPPLY BUDGET] PE={punkty} * {allocate_ratio} = budżet {max_budget}")
-    except Exception:
-        max_budget = max(3, punkty // 3)
     # Zlicz próbę
     try:
         commander.resupply_attempts_this_turn = getattr(commander, 'resupply_attempts_this_turn', 0) + 1

@@ -25,7 +25,7 @@ except ImportError:
 MIN_BUY = 30          # Poniżej – HOLD
 MIN_ALLOCATE = 60     # Od tej wartości (i gdy mamy już trochę armii) rozważ ALLOCATE
 ALLOC_RATIO = 0.6     # Procent środków przekazywany dowódcom przy ALLOCATE
-MAX_UNITS_PER_TURN = 2  # Limit zakupów na turę (anty-spam)
+MAX_UNITS_PER_TURN = 2  # PODSTAWOWY limit - będzie dynamicznie dostosowany do liczby istniejących jednostek
 LOW_FUEL_PERCENT_THRESHOLD = 30   # % paliwa poniżej którego jednostka uznana za low-fuel
 LOW_FUEL_UNITS_RATIO_TRIGGER = 0.30  # Jeśli >=30% jednostek ma niski poziom paliwa -> priorytet ALLOCATE (regeneracja)
 UNSPENT_CAP = 80  # Skala do kar za niewydane punkty dowódcy
@@ -60,6 +60,11 @@ class AIGeneral:
         self._last_action = None
         self._last_lowfuel_ratio = 0.0
         self._prev_commander_points = {}
+        
+        # Śledzenie strat dla dynamicznych zakupów
+        self._recent_casualties_estimate = 0
+        self._last_unit_count = 0
+        self._casualties_history = []  # Historia strat z ostatnich tur
         
         # FAZA 2: System logowania
         self._init_logging_system()
@@ -1091,8 +1096,49 @@ class AIGeneral:
             print(f"📊 Budżet przydzielony na zakupy: {purchase_budget} (rezerwa: {reserve})")
             priorities = self._compute_commander_priorities(state, commanders)
             purchase_plans = self.plan_purchases(purchase_budget, commanders, priorities=priorities, state=state)
-            # Limitujemy liczbę zakupów
-            purchase_plans = purchase_plans[:MAX_UNITS_PER_TURN]
+            
+            # ⚡ DYNAMICZNY SYSTEM ZAKUPÓW - adaptacja do kontekstu strategicznego
+            our_units = state.get('global', {}).get('total_units', 0)
+            enemy_units = state.get('enemy', {}).get('total_units', 1)  # min 1 aby uniknąć dzielenia przez 0
+            
+            # ANALIZA KONTEKSTU STRATEGICZNEGO
+            force_ratio = our_units / enemy_units
+            
+            # Oszacuj straty z ostatnich tur (na podstawie logów lub heurystyki)
+            recent_casualties = getattr(self, '_recent_casualties_estimate', 0)
+            
+            # ADAPTACYJNY LIMIT ZAKUPÓW
+            if force_ratio < 0.7:
+                # DEFENSYWA - jesteśmy w defensywie, potrzebujemy szybkiej odbudowy
+                dynamic_limit = min(len(purchase_plans), 4)
+                situation = "DEFENSYWA"
+                reasoning = f"Stosunek sił {force_ratio:.2f} - intensywna odbudowa"
+            elif recent_casualties > 3:
+                # ODBUDOWA - ciężkie straty, trzeba uzupełnić
+                dynamic_limit = min(len(purchase_plans), 3) 
+                situation = "ODBUDOWA"
+                reasoning = f"Straty {recent_casualties} jednostek - szybkie uzupełnienie"
+            elif force_ratio > 1.5:
+                # DOMINACJA - przewaga, ograniczone zakupy
+                dynamic_limit = min(len(purchase_plans), 1)
+                situation = "DOMINACJA" 
+                reasoning = f"Stosunek sił {force_ratio:.2f} - konserwacja przewagi"
+            elif our_units < 8:
+                # ROZBUDOWA - za mało jednostek bez względu na wroga
+                dynamic_limit = min(len(purchase_plans), 3)
+                situation = "ROZBUDOWA"
+                reasoning = f"Tylko {our_units} jednostek - budowa siły"
+            else:
+                # RÓWNOWAGA - standardowe zakupy
+                dynamic_limit = min(len(purchase_plans), 2)
+                situation = "RÓWNOWAGA"
+                reasoning = f"Stosunek sił {force_ratio:.2f} - standardowe zakupy"
+            
+            print(f"🎯 {situation}: {reasoning} -> limit {dynamic_limit}/turę")
+            print(f"📊 Kontekst: nasze={our_units}, wrogie={enemy_units}, straty={recent_casualties}")
+            
+            # Limitujemy liczbę zakupów dynamicznie
+            purchase_plans = purchase_plans[:dynamic_limit]
             bought = 0
             total_cost_spent = 0
             # Zapisz kontekst do późniejszego logowania pojedynczych zakupów
@@ -1193,7 +1239,12 @@ class AIGeneral:
                 'has_armor': any(k in e_counts for k in ('TC','TŚ','TL','TS'))
             }
             g = result['global']
-            print(f"🛰️ Nasze jednostki: suma {g.get('total_units')} | typy: {g.get('unit_counts_by_type')}")
+            current_unit_count = g.get('total_units', 0)
+            
+            # AKTUALIZACJA HISTORII STRAT dla dynamicznych zakupów
+            self._update_casualties_history(current_unit_count)
+            
+            print(f"🛰️ Nasze jednostki: suma {current_unit_count} | typy: {g.get('unit_counts_by_type')}")
             e = result.get('enemy', {})
             print(f"🎯 Widziane wrogie jednostki: {e.get('total_units')} (artyleria={e.get('has_artillery')} pancerne={e.get('has_armor')})")
             for cid, data in result['per_commander'].items():
@@ -1201,6 +1252,36 @@ class AIGeneral:
         except Exception as e:
             print(f"⚠️ _gather_state błąd: {e}")
         return result
+    
+    def _update_casualties_history(self, current_unit_count):
+        """Aktualizuje historię strat dla dynamicznych decyzji zakupowych."""
+        try:
+            if self._last_unit_count > 0:
+                # Szacuj straty - różnica może być negatywna (straty) lub pozytywna (zakupy/spawn)
+                unit_change = current_unit_count - self._last_unit_count
+                
+                # Jeśli spadek, to prawdopodobnie straty
+                if unit_change < 0:
+                    casualties = abs(unit_change)
+                    self._casualties_history.append(casualties)
+                    print(f"🔥 Wykryto straty: {casualties} jednostek (było {self._last_unit_count}, jest {current_unit_count})")
+                else:
+                    # Wzrost lub bez zmian - brak strat
+                    self._casualties_history.append(0)
+            
+            # Utrzymuj historię ostatnich 3 tur
+            if len(self._casualties_history) > 3:
+                self._casualties_history = self._casualties_history[-3:]
+            
+            # Aktualizuj oszacowanie ostatnich strat
+            self._recent_casualties_estimate = sum(self._casualties_history) if self._casualties_history else 0
+            self._last_unit_count = current_unit_count
+            
+            if self._recent_casualties_estimate > 0:
+                print(f"📊 Szacowane straty ostatnie 3 tury: {self._recent_casualties_estimate}")
+                
+        except Exception as e:
+            print(f"⚠️ Błąd aktualizacji historii strat: {e}")
 
     def _friendly_action_reason(self, code):
         mapping = {

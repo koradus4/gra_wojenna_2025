@@ -79,15 +79,28 @@ def find_enemies_in_range(unit: Dict, game_engine: Any, player_id: int) -> List[
                     if current_player and hasattr(current_player, 'visible_token_data'):
                         token_detection = current_player.visible_token_data.get(token.id, {})
                         detection_level = token_detection.get('detection_level', 1.0)
-                    try:
-                        from engine.detection_filter import apply_detection_filter
-                        enemy_info = apply_detection_filter(token, detection_level)
-                        cv_value = enemy_info.get('combat_value', 0)
-                        if isinstance(cv_value, str):
-                            cv_value = 5
-                    except Exception:
-                        cv_value = getattr(token, 'combat_value', 0)
-                    enemies.append({'token': token,'id': getattr(token, 'id', 'unknown'),'q': enemy_pos[0],'r': enemy_pos[1],'cv': cv_value,'detection_level': detection_level,'distance': distance})
+                    
+                    # POPRAWKA: Używaj attack/defense zamiast combat_value do oceny siły
+                    enemy_attack = token.stats.get('attack', {}).get('value', 0)
+                    enemy_defense = token.stats.get('defense_value', 0)
+                    enemy_hp = getattr(token, 'combat_value', 0)
+                    
+                    # Jeśli ograniczona detekcja, użyj przybliżonych wartości
+                    if detection_level < 0.8:
+                        try:
+                            from engine.detection_filter import apply_detection_filter
+                            enemy_info = apply_detection_filter(token, detection_level)
+                            # Szacuj attack/defense na podstawie poziomu detekcji
+                            if detection_level >= 0.5:
+                                enemy_attack = max(1, int(enemy_attack * 0.8))  # Przybliżona wartość
+                                enemy_defense = max(1, int(enemy_defense * 0.8))
+                            else:
+                                enemy_attack = 5  # Domyślne założenie przy słabej detekcji
+                                enemy_defense = 5
+                        except Exception:
+                            pass
+                    
+                    enemies.append({'token': token,'id': getattr(token, 'id', 'unknown'),'q': enemy_pos[0],'r': enemy_pos[1],'attack_val': enemy_attack,'defense_val': enemy_defense,'hp': enemy_hp,'detection_level': detection_level,'distance': distance})
         return enemies
     except Exception as e:
         print(f"❌ [COMBAT] Błąd wyszukiwania wrogów: {e}")

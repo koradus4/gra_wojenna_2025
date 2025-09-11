@@ -21,15 +21,25 @@ def gather_reconnaissance(commander, game_engine: Any):
                 my_owner = f"{commander.player.id} ({commander.player.nation})"
                 if token_owner != my_owner and token_owner:
                     enemy_pos = (getattr(token,'q',0), getattr(token,'r',0))
-                    combat_value = getattr(token,'combat_value',0)
+                    # POPRAWKA: Użyj prawdziwych statystyk bojowych zamiast tylko HP
+                    attack_val = token.stats.get('attack', {}).get('value', 0)
+                    defense_val = token.stats.get('defense_value', 0)
+                    combat_value = getattr(token,'combat_value',0)  # HP - nadal potrzebne do sprawdzenia czy żyje
                     detection_level = 1.0
                     if hasattr(current_player,'visible_token_data'):
                         token_data = current_player.visible_token_data.get(token.id,{})
                         detection_level = token_data.get('detection_level',1.0)
+                    
+                    # Oblicz rzeczywistą siłę bojową jako kombinację ataku i obrony
+                    combat_strength = max(1, (attack_val + defense_val) // 2)  # Średnia sił bojowych
+                    
                     visible_enemies.append({
                         'id': getattr(token,'id','unknown'),
                         'position': enemy_pos,
-                        'combat_value': combat_value,
+                        'combat_value': combat_value,  # HP - do sprawdzenia stanu
+                        'combat_strength': combat_strength,  # Prawdziwa siła bojowa
+                        'attack_value': attack_val,
+                        'defense_value': defense_val,
                         'detection_level': detection_level,
                         'owner': token_owner
                     })
@@ -71,7 +81,7 @@ def analyze_enemy_clusters(enemies: List[Dict]):
             'size': len(cluster),
             'enemies': cluster,
             'center': _calculate_cluster_center(cluster),
-            'threat_level': sum(e['combat_value'] for e in cluster)
+            'threat_level': sum(e.get('combat_strength', 1) for e in cluster)  # Użyj combat_strength zamiast combat_value
         })
     return clusters
 
@@ -100,7 +110,7 @@ def assess_keypoint_threats(commander, enemies: List[Dict], game_engine: Any):
                 nearby_enemies.append({
                     'enemy': enemy,
                     'distance': distance,
-                    'threat_score': enemy['combat_value']/max(1,distance)
+                    'threat_score': enemy.get('combat_strength', 1)/max(1,distance)  # Użyj combat_strength
                 })
         if nearby_enemies:
             total_threat = sum(e['threat_score'] for e in nearby_enemies)

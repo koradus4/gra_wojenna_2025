@@ -42,7 +42,11 @@ def assess_defensive_threats(my_units: List[Dict], game_engine: Any) -> Dict[str
     for token in all_tokens:
         token_owner = getattr(token, 'owner', 'NO_OWNER')
         if token_owner != expected_owner and token_owner != 'NO_OWNER':
-            enemy_positions.append({'id': getattr(token,'id','unknown'),'pos': (getattr(token,'q',0), getattr(token,'r',0)),'combat': getattr(token,'combat_value',0)})
+            # POPRAWKA: Użyj prawdziwych statystyk bojowych zamiast tylko HP
+            attack_val = token.stats.get('attack', {}).get('value', 0)
+            defense_val = token.stats.get('defense_value', 0)
+            combat_strength = max(1, (attack_val + defense_val) // 2)  # Średnia sił bojowych
+            enemy_positions.append({'id': getattr(token,'id','unknown'),'pos': (getattr(token,'q',0), getattr(token,'r',0)),'combat': combat_strength})
     key_points = get_all_key_points(game_engine)
     for unit in my_units:
         unit_pos = (unit['q'], unit['r'])
@@ -147,7 +151,9 @@ def defensive_coordination(my_units: List[Dict], threat_assessment: Dict[str,Dic
 
 def plan_group_defense(key_point: Position, defending_units: List[Dict], game_engine: Any):
     print(f"[GROUP_DEFENSE] Planowanie obrony punktu {key_point} przez {len(defending_units)} jednostek")
-    defending_units.sort(key=lambda u: u.get('combat_value', 0), reverse=True)
+    # Sortuj jednostki obronne po sile bojowej (combat_strength), nie HP
+    defending_units.sort(key=lambda u: u.get('combat_strength', 
+                                           u.get('attack_val', 0) + u.get('defense_val', 0)), reverse=True)
     board = getattr(game_engine, 'board', None)
     if not board: return {}
     assigned_positions = {}

@@ -454,7 +454,7 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 ~~4. Multi-layer protection - walidacja na wszystkich poziomach~~
 
 ### **IMMEDIATE PRIORITIES – AI OPTIMIZATION POST-PE-FIX**
-1. **Performance analysis** - analiza wpływu PE validation na wydajność AI
+1. ✅ **AI Combat Logic Fix** - poprawiona logika oceny siły wroga (attack/defense zamiast HP)
 2. **Advanced skip_reason** implementation - rozszerzona diagnostyka stagnacji
 3. **Emergency Mode trigger** oparty o casualties_turn + PE shortage
 4. **Purge martwych alokacji** - reset po 3 turach z total_units == 0

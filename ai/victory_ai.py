@@ -411,7 +411,7 @@ def scan_visible_enemies(my_units: List[Dict[str, Any]], game_engine) -> List[Di
                       enemy_nations=",".join(set(e['owner'].split('_')[0] for e in visible_enemies if '_' in e['owner'])))
     
     for enemy in visible_enemies[:5]:  # Log first 5
-        debug_print(f"[ENEMY DETECTED] {enemy['unit_id']} ({enemy['unit_type']}) na {enemy['position']}, CV: {enemy['combat_value']}", "FULL", THREAT_LOG)
+        debug_print(f"[ENEMY DETECTED] {enemy['unit_id']} ({enemy['unit_type']}) na {enemy['position']}, HP: {enemy.get('combat_value', 'N/A')}, Combat: {enemy.get('combat_strength', 'N/A')}", "FULL", THREAT_LOG)
     
     return visible_enemies
 
@@ -457,9 +457,11 @@ def cluster_enemies(enemies: List[Dict[str, Any]], cluster_radius: int = 5) -> L
     
     debug_print(f"[ENEMY CLUSTERING] {len(enemies)} wrogów → {len(clusters)} clusterów", "BASIC", THREAT_LOG)
     for i, cluster in enumerate(clusters):
-        total_cv = sum(e.get('combat_value', 0) for e in cluster)
+        total_combat_strength = sum(e.get('combat_strength', 
+                                        e.get('attack_val', 0) + e.get('defense_val', 0)) for e in cluster)
+        total_hp = sum(e.get('combat_value', 0) for e in cluster)  # HP dla info
         center_pos = cluster[0]['position'] if cluster else (0, 0)
-        debug_print(f"[CLUSTER {i+1}] {len(cluster)} jednostek przy {center_pos}, łączne CV: {total_cv}", "FULL", THREAT_LOG)
+        debug_print(f"[CLUSTER {i+1}] {len(cluster)} jednostek przy {center_pos}, siła: {total_combat_strength}, HP: {total_hp}", "FULL", THREAT_LOG)
     
     return clusters
 
@@ -619,7 +621,9 @@ def calculate_vp_potential(target_list: List[Dict[str, Any]], game_engine) -> in
     
     for target in target_list:
         unit_type = target.get('unit_type', 'UNKNOWN')
-        combat_value = target.get('combat_value', 0)
+        combat_value = target.get('combat_value', 0)  # HP
+        combat_strength = target.get('combat_strength', 
+                                   target.get('attack_val', 0) + target.get('defense_val', 0))
         
         # Simple VP estimation based on unit type and strength
         if unit_type == 'G':  # Generał
@@ -633,8 +637,8 @@ def calculate_vp_potential(target_list: List[Dict[str, Any]], game_engine) -> in
         else:
             vp_value = 1  # Default
         
-        # Bonus dla stronger units
-        if combat_value > 10:
+        # Bonus dla stronger units based on combat strength, not HP
+        if combat_strength > 10:
             vp_value += 1
         
         total_vp += vp_value
