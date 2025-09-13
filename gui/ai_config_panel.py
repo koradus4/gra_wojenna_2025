@@ -40,7 +40,46 @@ class AIConfigPanel:
             "LOGISTICS.MAX_UNITS_PER_TURN": "Maksymalna liczba jednostek które AI może kupić w jednej turze.\nOgranicza tempo rozbudowy armii - wyższa wartość = szybszy rozwój wojska.",
             "MOVEMENT.MIN_GROUP_SIZE": "Minimalny rozmiar grupy jednostek poruszających się razem.\nAI będzie grupować jednostki w większe formacje zamiast wysyłać je pojedynczo.",
             "DEPLOYMENT.GARRISON_LIMITS.default": "Domyślna liczba jednostek pozostawianych jako garnizon w zajętych punktach.\nWięcej = lepsza obrona miast, ale mniej jednostek dostępnych do ataku.",
-            "LOGISTICS.RESUPPLY_RATIOS.WOJNA": "Jaka część zasobów jest przeznaczana na zaopatrzenie podczas wojny.\nWyższa wartość = lepsze zaopatrzenie jednostek, ale mniej zasobów na nowe zakupy."
+            "LOGISTICS.RESUPPLY_RATIOS.WOJNA": "Jaka część zasobów jest przeznaczana na zaopatrzenie podczas wojny.\nWyższa wartość = lepsze zaopatrzenie jednostek, ale mniej zasobów na nowe zakupy.",
+            
+            # === AI GENERAL STRATEGY PARAMETERS ===
+            # Purchase Strategy
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.INFANTRY_PRIORITY": "Priorytet kupowania piechoty (P).\nWyższa wartość = AI chętniej kupuje piechotę. Piechota jest uniwersalna i tania.",
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.ARMOR_PRIORITY": "Priorytet kupowania czołgów (C).\nWyższa wartość = AI chętniej kupuje czołgi. Czołgi są drogie ale potężne w ataku.",
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.ARTILLERY_PRIORITY": "Priorytet kupowania artylerii (A).\nWyższa wartość = AI chętniej kupuje artylerię. Artyleria ma duży zasięg ale słabą obronę.",
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPLY_PRIORITY": "Priorytet kupowania zaopatrzenia (Z).\nWyższa wartość = AI chętniej kupuje jednostki zaopatrzenia. Zaopatrzenie jest kluczowe dla ekonomii PE.",
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.COMMAND_PRIORITY": "Priorytet kupowania dowództwa (D).\nWyższa wartość = AI chętniej kupuje jednostki dowodzenia. Dowództwo zwiększa kontrolę nad armią.",
+            "GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPORT_RATIO": "Jaka część zakupów przeznaczona na wsparcie.\nWyższa wartość = więcej jednostek wsparcia (Z,D) zamiast bojowych (P,C,A). Balans: 30% wsparcia, 70% walka.",
+            
+            # Battlefield Analysis  
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.ENEMY_THREAT_MULTIPLIER": "Jak AI postrzega zagrożenie ze strony wroga.\nWyższa wartość = AI bardziej ostrożne, uważa wroga za groźniejszego. 1.0=realista, 1.5=paranoja.",
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.FORCE_RATIO_SENSITIVITY": "Wrażliwość AI na stosunek sił własne/wrogie.\nWyższa wartość = AI bardziej reaguje na przewagę lub słabość. 1.0=normalne, 1.5=bardzo reaktywne.",
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.CASUALTY_MEMORY_TURNS": "Ile tur AI pamięta o stratach ponoszonych w walce.\nWyższa wartość = AI dłużej pamięta o straatach i jest ostrożniejsze. 3=krótka pamięć, 7=długa pamięć.",
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.STRATEGIC_RESERVE_RATIO": "Jaka część armii utrzymywana w rezerwie strategicznej.\nWyższa wartość = więcej jednostek w rezerwie, mniej na pierwszej linii. 15%=agresywne, 25%=ostrożne.",
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.OPPORTUNITY_THRESHOLD": "Jaki stosunek sił potrzebny do podjęcia ofensywy.\nNiższa wartość = AI atakuje przy mniejszej przewadze. 1.2=agresywne, 1.5=ostrożne.",
+            "GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.RETREAT_THRESHOLD": "Jaki stosunek sił wymusza odwrót.\nNiższa wartość = AI ucieka wcześniej. 0.6=tchórzliwe, 0.8=odważne.",
+            
+            # Allocation Intelligence
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.FUEL_CRISIS_WEIGHT": "Waga priorytetyzacji dowódców w kryzysie paliwowym.\nWyższa wartość = więcej PE dla dowódców z problemami paliwowymi. 2.0=wysoki priorytet, 1.0=normalny.",
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.SUPPLY_SHORTAGE_WEIGHT": "Waga priorytetyzacji dowódców bez zaopatrzenia.\nWyższa wartość = więcej PE dla dowódców bez jednostek Z. 1.8=wysoki priorytet, 1.0=normalny.",
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.UNIT_COUNT_WEIGHT": "Waga priorytetyzacji dowódców z małą liczbą jednostek.\nWyższa wartość = więcej PE dla dowódców z małymi armiami. 1.2=dbałość o równość, 1.0=normalny.",
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.BATTLEFIELD_POSITION_WEIGHT": "Waga pozycji strategicznej dowódcy.\nWyższa wartość = więcej PE dla dowódców na kluczowych pozycjach. 1.1=lekki priorytet, 1.0=normalny.",
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.COMMANDER_PERFORMANCE_WEIGHT": "Waga wydajności dowódcy w poprzednich turach.\nWyższa wartość = więcej PE dla skutecznych dowódców. 1.0=równość, 1.3=merytocracja.",
+            "GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.RESERVE_PUNISHMENT": "Kara za gromadzenie zbyt dużych rezerw PE.\nWyższa wartość = mniejsza kara, pozwala na oszczędzanie. 0.3=surowa kara, 0.8=łagodna kara.",
+            
+            # Strategic Decisions
+            "GENERAL_STRATEGY.STRATEGIC_DECISIONS.RISK_TOLERANCE": "Tolerancja ryzyka w decyzjach strategicznych.\nWyższa wartość = AI podejmuje bardziej ryzykowne decyzje. 0.3=konserwatywne, 0.8=hazardzista.",
+            "GENERAL_STRATEGY.STRATEGIC_DECISIONS.LONG_TERM_FOCUS": "Nastawienie na cele długoterminowe vs natychmiastowe.\nWyższa wartość = AI planuje daleko w przyszłość. 0.3=krótkoza wzroczne, 0.8=strategiczne.",
+            "GENERAL_STRATEGY.STRATEGIC_DECISIONS.ECONOMIC_VS_MILITARY": "Balans między rozwojem ekonomii a siły wojskowej.\nWyższa wartość = priorytet armii nad ekonomią. 0.3=ekonomia, 0.7=militaryzm.",
+            "GENERAL_STRATEGY.STRATEGIC_DECISIONS.ADAPTATION_SPEED": "Szybkość adaptacji do zmienających się warunków.\nWyższa wartość = szybkie przystosowanie do nowej sytuacji. 0.4=konserwatywne, 0.9=elastyczne.",
+            "GENERAL_STRATEGY.STRATEGIC_DECISIONS.DIVERSIFICATION_PREFERENCE": "Preferuje różnorodność vs specjalizację jednostek.\nWyższa wartość = różnorodne armie zamiast wyspecjalizowanych. 0.4=specjalizacja, 0.8=uniwersalność.",
+            
+            # Strategic Limits  
+            "GENERAL_STRATEGY.STRATEGIC_LIMITS.MAX_PURCHASES_PER_TURN": "Maksymalne zakupy jednostek na turę.\nOgranicza tempo rozbudowy armii. 2=powolny rozwój, 4=szybki rozwój.",
+            "GENERAL_STRATEGY.STRATEGIC_LIMITS.MIN_STRATEGIC_RESERVE": "Minimalna rezerwa PE utrzymywana przez AI General.\nWyższa wartość = AI zostawia więcej PE 'na czarną godzinę'. 10=ryzykowne, 30=bezpieczne.",
+            "GENERAL_STRATEGY.STRATEGIC_LIMITS.CRISIS_ESCALATION_THRESHOLD": "Próg eskalacji kryzysu - gdy sytuacja wymaga drastycznych środków.\nNiższa wartość = wcześniejsze przejście w tryb kryzysowy. 0.3=reaktywne, 0.6=spokojne.",
+            "GENERAL_STRATEGY.STRATEGIC_LIMITS.VICTORY_CONSOLIDATION_THRESHOLD": "Próg konsolidacji zwycięstwa - gdy AI skupia się na obronie przewagi.\nNiższa wartość = wcześniejsze przejście w tryb defensywy zwycięstwa. 0.5=ostrożne, 0.8=agresywne.",
+            "GENERAL_STRATEGY.STRATEGIC_LIMITS.DESPERATE_MEASURES_THRESHOLD": "Próg desperackich środków - gdy AI idzie va banque.\nNiższa wartość = wcześniejszy tryb desperacki. 0.2=panikarz, 0.4=rozsądny."
         }
         
         # Aktualny profil - pobierz z konfiguracji
@@ -93,6 +132,7 @@ class AIConfigPanel:
         self._create_economy_tab(notebook)
         self._create_combat_tab(notebook) 
         self._create_strategy_tab(notebook)
+        self._create_general_tab(notebook)
         self._create_advanced_tab(notebook)
         
         # === STATUS BAR ===
@@ -222,6 +262,42 @@ class AIConfigPanel:
         # Wyjaśnienie praktyczne
         self._add_tab_explanation(tab, len(params), "strategia")
     
+    def _create_general_tab(self, notebook: ttk.Notebook):
+        """Zakładka AI General - inteligentne parametry strategiczne"""
+        tab = ttk.Frame(notebook)
+        notebook.add(tab, text="🏛️ AI General")
+        
+        # Najważniejsze parametry strategiczne AI General
+        params = [
+            ("GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPLY_PRIORITY", "Priorytet zaopatrzenia (Z)", 0.5, 2.0, "x"),
+            ("GENERAL_STRATEGY.PURCHASE_STRATEGY.INFANTRY_PRIORITY", "Priorytet piechoty (P)", 0.5, 2.0, "x"),
+            ("GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPORT_RATIO", "Wsparcie vs bojowe", 0.1, 0.6, "%"),
+            ("GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.ENEMY_THREAT_MULTIPLIER", "Percepcja zagrożenia", 0.5, 1.5, "x"),
+            ("GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.OPPORTUNITY_THRESHOLD", "Próg ofensywy", 1.1, 1.8, "ratio"),
+            ("GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.RETREAT_THRESHOLD", "Próg odwrotu", 0.4, 1.0, "ratio"),
+            ("GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.FUEL_CRISIS_WEIGHT", "Priorytet kryzysu paliwa", 1.0, 3.0, "x"),
+            ("GENERAL_STRATEGY.STRATEGIC_DECISIONS.RISK_TOLERANCE", "Tolerancja ryzyka", 0.2, 0.9, "%"),
+            ("GENERAL_STRATEGY.STRATEGIC_DECISIONS.ECONOMIC_VS_MILITARY", "Ekonomia vs wojsko", 0.2, 0.8, "%"),
+            ("GENERAL_STRATEGY.STRATEGIC_LIMITS.MAX_PURCHASES_PER_TURN", "Max zakupów/turę", 1, 5, "szt")
+        ]
+        
+        for i, (param_path, label, min_val, max_val, unit) in enumerate(params):
+            self._create_slider_row(tab, param_path, label, min_val, max_val, unit, i)
+        
+        # Wyjaśnienie praktyczne dla AI General
+        explanation_text = """🎯 AI General - Inteligentne Strategie:
+Parametry które wpływają na podejmowanie strategicznych decyzji przez AI General. Dostrajanie tych
+wartości zmienia sposób w jaki AI kupuje jednostki, analizuje pole bitwy, przydziela zasoby
+dowódcom i reaguje na różne sytuacje taktyczne. Można stworzyć AI agresywne (wysokie ryzyko,
+szybkie ataki) lub ostrożne (bezpieczeństwo, długoterminowe planowanie)."""
+        
+        explanation_frame = ttk.Frame(tab)
+        explanation_frame.grid(row=len(params)+1, column=0, columnspan=3, pady=15, padx=10, sticky="ew")
+        
+        explanation_label = ttk.Label(explanation_frame, text=explanation_text, 
+                                    wraplength=600, justify="left", font=('TkDefaultFont', 8))
+        explanation_label.pack(anchor="w")
+
     def _create_advanced_tab(self, notebook: ttk.Notebook):
         """Zakładka zaawansowane"""
         tab = ttk.Frame(notebook)

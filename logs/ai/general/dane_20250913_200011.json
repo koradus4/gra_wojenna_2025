@@ -1,0 +1,143 @@
+[
+  {
+    "timestamp": "2025-09-13T20:00:11.644498",
+    "kategoria": "ai/general",
+    "tagi": [
+      "ai",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Analiza strategiczna - faza początkowa",
+    "szczegoly": {
+      "enemy_detected": true,
+      "threat_level": "medium"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "threat_assessment": 0.6,
+      "resource_availability": 0.9
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:00:11.677643",
+    "kategoria": "ai/general",
+    "tagi": [
+      "ai",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Tura 1: PE 100→85→70, strategia: balanced",
+    "szczegoly": {
+      "turn": 1,
+      "pe_start": 100,
+      "pe_allocated": 85,
+      "pe_spent_purchases": 70,
+      "strategy_used": "balanced",
+      "orders_issued": true,
+      "decision_metrics": {
+        "confidence": 0.85,
+        "risk_level": 0.3
+      }
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 1.0,
+      "pe_start": 100.0,
+      "pe_allocated": 85.0,
+      "pe_spent_purchases": 70.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:00:11.699044",
+    "kategoria": "ai/general",
+    "tagi": [
+      "ai",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Tura 1: PE 100→85→68, strategia: aggressive",
+    "szczegoly": {
+      "turn": 1,
+      "pe_start": 100,
+      "pe_allocated": 85,
+      "pe_spent_purchases": 68,
+      "strategy_used": "aggressive",
+      "orders_issued": true,
+      "decision_metrics": {}
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 1.0,
+      "pe_start": 100.0,
+      "pe_allocated": 85.0,
+      "pe_spent_purchases": 68.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:00:11.820613",
+    "kategoria": "ai/general",
+    "tagi": [
+      "ai",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 2,
+    "faza": null,
+    "akcja": "Tura 2: PE 110→90→76, strategia: balanced",
+    "szczegoly": {
+      "turn": 2,
+      "pe_start": 110,
+      "pe_allocated": 90,
+      "pe_spent_purchases": 76,
+      "strategy_used": "balanced",
+      "orders_issued": true,
+      "decision_metrics": {}
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 2.0,
+      "pe_start": 110.0,
+      "pe_allocated": 90.0,
+      "pe_spent_purchases": 76.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:00:11.909725",
+    "kategoria": "ai/general",
+    "tagi": [
+      "ai",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 3,
+    "faza": null,
+    "akcja": "Tura 3: PE 120→95→84, strategia: defensive",
+    "szczegoly": {
+      "turn": 3,
+      "pe_start": 120,
+      "pe_allocated": 95,
+      "pe_spent_purchases": 84,
+      "strategy_used": "defensive",
+      "orders_issued": true,
+      "decision_metrics": {}
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 3.0,
+      "pe_start": 120.0,
+      "pe_allocated": 95.0,
+      "pe_spent_purchases": 84.0
+    }
+  }
+]

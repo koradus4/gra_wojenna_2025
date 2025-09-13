@@ -1,0 +1,36 @@
+[
+  {
+    "timestamp": "2025-09-13T20:01:15.219558",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": null,
+    "tura": 0,
+    "faza": null,
+    "akcja": "Jednostka test: move z (1, 2) do (3, 4)",
+    "szczegoly": {
+      "unit_id": "test",
+      "action_type": "move",
+      "from_pos": [
+        1,
+        2
+      ],
+      "to_pos": [
+        3,
+        4
+      ],
+      "reason": "test reason"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "action_type": "move",
+      "from_pos_q": 1,
+      "from_pos_r": 2,
+      "to_pos_q": 3,
+      "to_pos_r": 4
+    }
+  }
+]

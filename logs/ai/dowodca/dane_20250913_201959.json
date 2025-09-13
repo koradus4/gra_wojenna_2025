@@ -1,0 +1,442 @@
+[
+  {
+    "timestamp": "2025-09-13T20:19:59.144530",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Inicjalizacja pozycji startowych",
+    "szczegoly": {
+      "jednostki_przemieszczone": 12,
+      "czas_wykonania": "2.3s"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "initial_strength": 0.8,
+      "deployment_efficiency": 0.95
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.167206",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Jednostka tank_01: move z (5, 3) do (6, 4)",
+    "szczegoly": {
+      "unit_id": "tank_01",
+      "action_type": "move",
+      "from_pos": [
+        5,
+        3
+      ],
+      "to_pos": [
+        6,
+        4
+      ],
+      "reason": "Advance to strategic position",
+      "threat_level": 3,
+      "mp_before": 8,
+      "mp_after": 6
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 6.0,
+      "threat_level": 3.0,
+      "action_type": "move",
+      "from_pos_q": 5,
+      "from_pos_r": 3,
+      "to_pos_q": 6,
+      "to_pos_r": 4
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.216160",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Jednostka unit_1_0: move z (2, 0) do (3, 1)",
+    "szczegoly": {
+      "unit_id": "unit_1_0",
+      "action_type": "move",
+      "from_pos": [
+        2,
+        0
+      ],
+      "to_pos": [
+        3,
+        1
+      ],
+      "reason": "Tactical maneuver 1",
+      "threat_level": 2,
+      "aggression_level": 0.7,
+      "mp_before": 8,
+      "mp_after": 6
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 6.0,
+      "threat_level": 2.0,
+      "aggression_level": 0.7,
+      "action_type": "move",
+      "from_pos_q": 2,
+      "from_pos_r": 0,
+      "to_pos_q": 3,
+      "to_pos_r": 1
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.230627",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Jednostka unit_1_1: attack z (2, 3) do (3, 4)",
+    "szczegoly": {
+      "unit_id": "unit_1_1",
+      "action_type": "attack",
+      "from_pos": [
+        2,
+        3
+      ],
+      "to_pos": [
+        3,
+        4
+      ],
+      "reason": "Tactical maneuver 2",
+      "threat_level": 2,
+      "aggression_level": 0.7,
+      "mp_before": 8,
+      "mp_after": 5
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 5.0,
+      "threat_level": 2.0,
+      "aggression_level": 0.7,
+      "action_type": "attack",
+      "from_pos_q": 2,
+      "from_pos_r": 3,
+      "to_pos_q": 3,
+      "to_pos_r": 4
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.245655",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Jednostka unit_1_2: defend z (2, 6) do (3, 7)",
+    "szczegoly": {
+      "unit_id": "unit_1_2",
+      "action_type": "defend",
+      "from_pos": [
+        2,
+        6
+      ],
+      "to_pos": [
+        3,
+        7
+      ],
+      "reason": "Tactical maneuver 3",
+      "threat_level": 2,
+      "aggression_level": 0.7,
+      "mp_before": 8,
+      "mp_after": 4
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 4.0,
+      "threat_level": 2.0,
+      "aggression_level": 0.7,
+      "action_type": "defend",
+      "from_pos_q": 2,
+      "from_pos_r": 6,
+      "to_pos_q": 3,
+      "to_pos_r": 7
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.293041",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 2,
+    "faza": null,
+    "akcja": "Jednostka unit_2_0: move z (4, 0) do (5, 1)",
+    "szczegoly": {
+      "unit_id": "unit_2_0",
+      "action_type": "move",
+      "from_pos": [
+        4,
+        0
+      ],
+      "to_pos": [
+        5,
+        1
+      ],
+      "reason": "Tactical maneuver 1",
+      "threat_level": 4,
+      "aggression_level": 0.8,
+      "mp_before": 8,
+      "mp_after": 6
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 6.0,
+      "threat_level": 4.0,
+      "aggression_level": 0.8,
+      "action_type": "move",
+      "from_pos_q": 4,
+      "from_pos_r": 0,
+      "to_pos_q": 5,
+      "to_pos_r": 1
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.312667",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 2,
+    "faza": null,
+    "akcja": "Jednostka unit_2_1: attack z (4, 3) do (5, 4)",
+    "szczegoly": {
+      "unit_id": "unit_2_1",
+      "action_type": "attack",
+      "from_pos": [
+        4,
+        3
+      ],
+      "to_pos": [
+        5,
+        4
+      ],
+      "reason": "Tactical maneuver 2",
+      "threat_level": 4,
+      "aggression_level": 0.8,
+      "mp_before": 8,
+      "mp_after": 5
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 5.0,
+      "threat_level": 4.0,
+      "aggression_level": 0.8,
+      "action_type": "attack",
+      "from_pos_q": 4,
+      "from_pos_r": 3,
+      "to_pos_q": 5,
+      "to_pos_r": 4
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.323385",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 2,
+    "faza": null,
+    "akcja": "Jednostka unit_2_2: defend z (4, 6) do (5, 7)",
+    "szczegoly": {
+      "unit_id": "unit_2_2",
+      "action_type": "defend",
+      "from_pos": [
+        4,
+        6
+      ],
+      "to_pos": [
+        5,
+        7
+      ],
+      "reason": "Tactical maneuver 3",
+      "threat_level": 4,
+      "aggression_level": 0.8,
+      "mp_before": 8,
+      "mp_after": 4
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 4.0,
+      "threat_level": 4.0,
+      "aggression_level": 0.8,
+      "action_type": "defend",
+      "from_pos_q": 4,
+      "from_pos_r": 6,
+      "to_pos_q": 5,
+      "to_pos_r": 7
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.383533",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 3,
+    "faza": null,
+    "akcja": "Jednostka unit_3_0: move z (6, 0) do (7, 1)",
+    "szczegoly": {
+      "unit_id": "unit_3_0",
+      "action_type": "move",
+      "from_pos": [
+        6,
+        0
+      ],
+      "to_pos": [
+        7,
+        1
+      ],
+      "reason": "Tactical maneuver 1",
+      "threat_level": 6,
+      "aggression_level": 0.9,
+      "mp_before": 8,
+      "mp_after": 6
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 6.0,
+      "threat_level": 6.0,
+      "aggression_level": 0.9,
+      "action_type": "move",
+      "from_pos_q": 6,
+      "from_pos_r": 0,
+      "to_pos_q": 7,
+      "to_pos_r": 1
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.394810",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 3,
+    "faza": null,
+    "akcja": "Jednostka unit_3_1: attack z (6, 3) do (7, 4)",
+    "szczegoly": {
+      "unit_id": "unit_3_1",
+      "action_type": "attack",
+      "from_pos": [
+        6,
+        3
+      ],
+      "to_pos": [
+        7,
+        4
+      ],
+      "reason": "Tactical maneuver 2",
+      "threat_level": 6,
+      "aggression_level": 0.9,
+      "mp_before": 8,
+      "mp_after": 5
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 5.0,
+      "threat_level": 6.0,
+      "aggression_level": 0.9,
+      "action_type": "attack",
+      "from_pos_q": 6,
+      "from_pos_r": 3,
+      "to_pos_q": 7,
+      "to_pos_r": 4
+    }
+  },
+  {
+    "timestamp": "2025-09-13T20:19:59.406873",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 3,
+    "faza": null,
+    "akcja": "Jednostka unit_3_2: defend z (6, 6) do (7, 7)",
+    "szczegoly": {
+      "unit_id": "unit_3_2",
+      "action_type": "defend",
+      "from_pos": [
+        6,
+        6
+      ],
+      "to_pos": [
+        7,
+        7
+      ],
+      "reason": "Tactical maneuver 3",
+      "threat_level": 6,
+      "aggression_level": 0.9,
+      "mp_before": 8,
+      "mp_after": 4
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "mp_before": 8.0,
+      "mp_after": 4.0,
+      "threat_level": 6.0,
+      "aggression_level": 0.9,
+      "action_type": "defend",
+      "from_pos_q": 6,
+      "from_pos_r": 6,
+      "to_pos_q": 7,
+      "to_pos_r": 7
+    }
+  }
+]

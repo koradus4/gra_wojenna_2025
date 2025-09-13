@@ -1,0 +1,33 @@
+[
+  {
+    "timestamp": "2025-09-13T19:59:56.779434",
+    "kategoria": "ai/zaopatrzenie",
+    "tagi": [
+      "ai",
+      "zaopatrzenie"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Zaopatrzenie tank_02: fuel_resupply, paliwo 20→80",
+    "szczegoly": {
+      "unit_id": "tank_02",
+      "action_type": "fuel_resupply",
+      "fuel_before": 20,
+      "fuel_after": 80,
+      "fuel_change": 60,
+      "supply_depot": [
+        10,
+        8
+      ],
+      "cost_pe": 3
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "fuel_before": 20.0,
+      "fuel_after": 80.0,
+      "action_type": "fuel_resupply"
+    }
+  }
+]

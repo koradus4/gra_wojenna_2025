@@ -1,13 +1,13 @@
-# Dokumentacja Projektu Gra Wojenna - Wersja 3.8
+# Dokumentacja Projektu Gra Wojenna - Wersja 4.1
 
-**AKTUALIZACJA 3.8:** Dodano dokumentację PE Validation System - kluczowego zabezpieczenia ekonomicznego.
+**AKTUALIZACJA 4.1:** Dodano Smart Log Cleaning System + AI General Intelligence. Reorganizacja dokumentacji w tematyczne katalogi.
 
 ## Struktura Dokumentacji
 
 ```
 docs/
-├── README.md                    # Ten plik - przegląd dokumentacji (UPDATED 3.8)
-├── STRUKTURA_PROJEKTU.md        # GŁÓWNY dokument - kompletna struktura
+├── README.md                    # Ten plik - przegląd dokumentacji (UPDATED 4.1)
+├── STRUKTURA_PROJEKTU.md        # GŁÓWNY dokument - kompletna struktura  
 ├── TOKEN_EDITOR_FIX.md         # Poprawki edytora tokenów
 ├── TOKEN_BALANCING_GUIDE.md    # Przewodnik balansowania
 ├── HEX_BALANCING_GUIDE.md      # Balansowanie planszy hexagonalnej
@@ -15,14 +15,43 @@ docs/
 ├── HUMAN_VISION_SYSTEM.md      # System wizji graczy
 ├── IMPLEMENTACJA_WORKFLOW_ZAKONCZONA.md # Zakończone workflow
 ├── NOWY_WORKFLOW_ZETONOW.md    # Nowy system tokenów
-└── ai/                          # Dokumentacja systemu AI
+├── logging/                     # 📊 DOKUMENTACJA SYSTEMU LOGOWANIA (NOWY 4.1)
+│   ├── README.md               # Przegląd systemu logowania
+│   ├── PODSUMOWANIE_SYSTEMU_LOGOWANIA.md # Status działania i opcje czyszczenia
+│   ├── IMPLEMENTACJA_LOGGING_SYSTEM.md   # Instrukcja techniczna wdrożenia
+│   ├── ANALIZA_LOGOWANIA_I_CZYSZCZENIA.md # Analiza obecnego stanu
+│   └── demo_logging_system.py  # Skrypt demonstracyjny i testowy
+├── cleaning/                    # 🧹 DOKUMENTACJA SYSTEMU CZYSZCZENIA (NOWY 4.1)
+│   ├── README.md               # Przegląd bezpieczeństwa czyszczenia
+│   ├── ANALIZA_BEZPIECZENSTWA_CZYSZCZENIA.md # Analiza niebezpiecznych funkcji
+│   └── FINALNY_RAPORT_BEZPIECZENSTWA.md     # Raport z napraw bezpieczeństwa
+└── ai/                          # Dokumentacja systemu AI (UPDATED 4.1)
+    ├── PLAN_ROZWOJU_AI_SYSTEMU.md # ✅ Plan rozwoju AI (przeniesiony w 4.1)
     ├── OPIS_MODULOW_AI.md      # UPDATED: Opis modułów z PE validation
     ├── defensive_strategy.md    # Strategia defensywna AI Commander
     ├── api_reference.md         # Dokumentacja API systemu AI
     └── testing_guide.md         # Przewodnik testowania AI
 ```
 
-## 🔒 PE Validation System - NOWE W 3.8
+## 🆕 NOWOŚCI WERSJA 4.1
+
+### 🧹 Smart Log Cleaning System
+**Problem**: Stare funkcje czyszczenia niszczyły bezcenne dane ML bez ostrzeżenia.
+**Rozwiązanie**: Inteligentny system z ochroną danych:
+- **3 tryby czyszczenia**: session/full/archive z ML protection
+- **Hierarchiczna struktura**: 112+ plików logów w kategorii
+- **ML Data Protection**: Automatyczna ochrona `logs/analysis/ml_ready/`
+- **Integration z launcher**: 4 przyciski czyszczenia z user dialogs
+
+### 🧠 AI General Intelligence Upgrade  
+**Problem**: AI General używał podstawowe parametry, ograniczając inteligencję.
+**Rozwiązanie**: 29 nowych parametrów strategicznych:
+- **5 modułów inteligencji**: Purchase Strategy, Battlefield Analysis, Allocation Intelligence
+- **GUI Integration**: Nowa zakładka "🏛️ AI General" z polskimi opisami
+- **4 funkcje strategiczne**: Wzbogacone o battlefield intelligence
+- **Polish UX**: Pełne polskie opisy parametrów z przykładami
+
+## 🔒 PE Validation System - WERSJA 3.8
 
 ### Problem rozwiązany
 AI mogło wydawać ujemne PE (punkty ekonomiczne), powodując destabilizację ekonomiczną.

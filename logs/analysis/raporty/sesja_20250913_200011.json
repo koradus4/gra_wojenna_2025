@@ -1,0 +1,46 @@
+{
+  "session_id": "20250913_200011",
+  "czas_trwania_sesji": "0:00:00.370038",
+  "statystyki": {
+    "wpisy_lacznie": 32,
+    "wpisy_ai": 22,
+    "wpisy_human": 8,
+    "wpisy_game": 2,
+    "bledy_lacznie": 0,
+    "sesja_start": "2025-09-13 20:00:11.640129"
+  },
+  "aktywna_gra": "demo_game_001",
+  "ostatni_gracz": "Soviet_Union",
+  "ostatnia_tura": 3,
+  "struktura_katalogow": [
+    "ai/dowodca",
+    "ai/general",
+    "ai/walka",
+    "ai/ruch",
+    "ai/zaopatrzenie",
+    "ai/strategia",
+    "human/akcje",
+    "human/decyzje",
+    "human/interfejs",
+    "game/mechanika",
+    "game/stan",
+    "game/bledy",
+    "analysis/ml_ready",
+    "analysis/raporty",
+    "analysis/statystyki"
+  ],
+  "dostepne_tagi": [
+    "walka",
+    "ruch",
+    "zaopatrzenie",
+    "strategia",
+    "decyzja",
+    "krytyczny",
+    "wazny",
+    "info",
+    "debug",
+    "ai",
+    "human",
+    "system"
+  ]
+}

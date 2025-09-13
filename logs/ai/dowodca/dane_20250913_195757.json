@@ -1,0 +1,24 @@
+[
+  {
+    "timestamp": "2025-09-13T19:57:57.414067",
+    "kategoria": "ai/dowodca",
+    "tagi": [
+      "ai",
+      "strategia"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Inicjalizacja pozycji startowych",
+    "szczegoly": {
+      "jednostki_przemieszczone": 12,
+      "czas_wykonania": "2.3s"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "initial_strength": 0.8,
+      "deployment_efficiency": 0.95
+    }
+  }
+]

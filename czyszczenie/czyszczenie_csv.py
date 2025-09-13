@@ -136,24 +136,32 @@ def clean_csv_interactive():
     """Interaktywne czyszczenie z potwierdzeniem"""
     print("🧹 CZYSZCZENIE PLIKÓW CSV Z LOGS")
     print("=" * 40)
-    print("Usuwa:")
-    print("• WSZYSTKIE pliki *.csv z logs/")
-    print("• WSZYSTKIE pliki *.csv z podkatalogów")
-    print("• ai_general/*.csv")
-    print("• garrison_issues/*.csv") 
-    print("• ai_commander/*.csv")
-    print("• ai_flow/*.csv")
-    print("• actions_*.csv")
-    print("• ai_actions_*.csv")
-    print("• ai_purchases_*.csv")
-    print()
+    print("⚠️  UWAGA! Ten skrypt NISZCZY DANE ML!")
+    print("❌ NIEBEZPIECZNE: Usuwa WSZYSTKO z logs/")
+    print("💔 UTRACISZ: Bezcenne datasety uczenia maszynowego!")
+    print("")
+    print("🔥 NISZCZENIE OBEJMUJE:")
+    print("• WSZYSTKIE pliki *.csv z logs/ (TAKŻE ML!)")
+    print("• WSZYSTKIE pliki *.json z logs/ (TAKŻE metadane ML!)")
+    print("• WSZYSTKIE pliki *.log z logs/")
+    print("• analysis/ml_ready/*.csv - BEZCENNE DATASETY!")
+    print("• analysis/raporty/sesja_*.json - RAPORTY!")
+    print("")
+    print("✅ ZALECANE BEZPIECZNE ALTERNATYWY:")
+    print("   python utils/smart_log_cleaner.py --mode session")
+    print("   python utils/smart_log_cleaner.py --mode full")
+    print("   python czyszczenie/game_cleaner.py --mode quick")
+    print("")
     
-    response = input("Czy kontynuować? (tak/nie): ").lower().strip()
+    print("⚠️  CZY JESTEŚ PEWIEN? To może zniszczyć godziny pracy AI!")
+    response = input("Napisz 'ZNISZCZ_ML' aby kontynuować (lub cokolwiek innego aby anulować): ").strip()
     
-    if response in ['tak', 't', 'yes', 'y']:
+    if response == 'ZNISZCZ_ML':
+        print("💀 Kontynuuję... (ostrzeżono Cię!)")
         return clean_csv_files()
     else:
-        print("❌ Operacja anulowana")
+        print("✅ Anulowano - dobrze zrobione!")
+        print("💡 Użyj: python utils/smart_log_cleaner.py --mode session")
         return False
 
 def main():

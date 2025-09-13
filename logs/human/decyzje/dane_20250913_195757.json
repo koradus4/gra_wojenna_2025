@@ -1,0 +1,21 @@
+[
+  {
+    "timestamp": "2025-09-13T19:57:57.432260",
+    "kategoria": "human/decyzje",
+    "tagi": [
+      "human",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Wybrana strategia defensywna",
+    "szczegoly": {
+      "strategy": "defensive",
+      "confidence": 0.8
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": null
+  }
+]

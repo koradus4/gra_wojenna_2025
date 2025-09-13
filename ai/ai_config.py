@@ -150,6 +150,58 @@ class AIConfigManager:
                 'EARLY_ROTATION_THRESHOLD_RATIO': 0.25
             },
             
+            # === AI GENERAL STRATEGIES ===
+            'GENERAL_STRATEGY': {
+                # Priorytetyzacja zakupów jednostek
+                'PURCHASE_STRATEGY': {
+                    'INFANTRY_PRIORITY': 1.0,      # Mnożnik dla piechoty (P)
+                    'ARMOR_PRIORITY': 0.8,         # Mnożnik dla czołgów (C) 
+                    'ARTILLERY_PRIORITY': 0.9,     # Mnożnik dla artylerii (A)
+                    'SUPPLY_PRIORITY': 1.5,        # Mnożnik dla zaopatrzenia (Z)
+                    'COMMAND_PRIORITY': 1.2,       # Mnożnik dla dowództwa (D)
+                    'SIZE_PREFERENCE': 'BALANCED', # SMALL/MEDIUM/LARGE/BALANCED
+                    'SUPPORT_RATIO': 0.3,          # Stosunek jednostek wsparcia do combat
+                },
+                
+                # Analiza pola bitwy i przeciwnika
+                'BATTLEFIELD_ANALYSIS': {
+                    'ENEMY_THREAT_MULTIPLIER': 1.0,      # Mnożnik percepcji zagrożenia
+                    'FORCE_RATIO_SENSITIVITY': 1.0,      # Wrażliwość na stosunek sił
+                    'CASUALTY_MEMORY_TURNS': 3,          # Ile tur pamięta o stratach
+                    'STRATEGIC_RESERVE_RATIO': 0.15,     # % sił w rezerwie strategicznej
+                    'OPPORTUNITY_THRESHOLD': 1.3,        # Stosunek sił dla okazji do ataku
+                    'RETREAT_THRESHOLD': 0.7,            # Stosunek sił dla odwrotu
+                },
+                
+                # Inteligentna alokacja punktów dowódcom
+                'ALLOCATION_INTELLIGENCE': {
+                    'FUEL_CRISIS_WEIGHT': 2.0,           # Waga kryzysu paliwa
+                    'SUPPLY_SHORTAGE_WEIGHT': 1.8,       # Waga braku zaopatrzenia  
+                    'UNIT_COUNT_WEIGHT': 1.2,            # Waga liczby jednostek
+                    'BATTLEFIELD_POSITION_WEIGHT': 1.1,  # Waga pozycji strategicznej
+                    'COMMANDER_PERFORMANCE_WEIGHT': 1.0, # Waga wydajności dowódcy
+                    'RESERVE_PUNISHMENT': 0.5,           # Kara za gromadzenie rezerw
+                },
+                
+                # Strategiczne podejmowanie decyzji  
+                'STRATEGIC_DECISIONS': {
+                    'RISK_TOLERANCE': 0.5,               # Tolerancja ryzyka (0=konserwatywny, 1=agresywny)
+                    'LONG_TERM_FOCUS': 0.6,              # Focus na długoterminowe cele vs natychmiastowe
+                    'ECONOMIC_VS_MILITARY': 0.5,         # Balans ekonomia vs militarne (0=econ, 1=military)  
+                    'ADAPTATION_SPEED': 0.7,             # Szybkość adaptacji do zmian (0=powolna, 1=szybka)
+                    'DIVERSIFICATION_PREFERENCE': 0.6,   # Preferuje różnorodność vs specjalizację
+                },
+                
+                # Limity i progi strategiczne
+                'STRATEGIC_LIMITS': {
+                    'MAX_PURCHASES_PER_TURN': 3,         # Maksymalne zakupy na turę
+                    'MIN_STRATEGIC_RESERVE': 20,         # Minimalna rezerwa PE
+                    'CRISIS_ESCALATION_THRESHOLD': 0.4,  # Próg eskalacji kryzysu
+                    'VICTORY_CONSOLIDATION_THRESHOLD': 0.6, # Próg konsolidacji zwycięstwa
+                    'DESPERATE_MEASURES_THRESHOLD': 0.3, # Próg desperackich środków
+                }
+            },
+            
             # === RUCH & MOBILNOŚĆ ===
             'MOVEMENT': {
                 'PROGRESSIVE_STEP_LIMIT': 100,

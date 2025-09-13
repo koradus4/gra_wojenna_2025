@@ -1,6 +1,112 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (13 września 2025) – WERSJA 3.9 – AI CONFIGURATION SYSTEM COMPLETE
+## 📌 STAN BIEŻĄCY (13 września 2025) – WERSJA 4.1 – SMART LOG CLEANING + AI GENERAL INTELLIGENCE
+
+**AI GENERAL INTELLIGENCE SYSTEM - NOWOŚĆ! (13.09.2025)projekt/
+├── main.py                      # GŁÓWNY LAUNCHER - zaawansowany AI launcher (main_ai.py → main.py)
+├── requirements.txt             # Zależności
+├── STRUKTURA_PROJEKTU.md        # Ten plik
+├── accessibility/               # Rozszerzenia dostępności (szkielety)
+├── backup/                      # System kopii zapasowych
+├── core/                        # Logika „biznesowa" tur, ekonomii itd.
+├── data/                        # Dane map / konfiguracja
+├── docs/                        # Dokumentacja dodatkowa
+├── edytory/                     # Edytory map / żetonów
+├── engine/                      # Silnik gry (board, token, akcje, widoczność)
+├── gui/                         # Panele interfejsu użytkownika
+├── launchers/                   # 🚀 ALTERNATYWNE LAUNCHERY
+│   ├── README.md               # Przewodnik po launcherach
+│   ├── main_basic.py           # Podstawowy launcher z EkranStartowy GUI
+│   ├── main_alternative.py     # Launcher z opcjami czyszczenia (szybki start)
+│   └── auto_test_ai.py         # Automatyczny test AI vs AI (10 tur)
+├── saves/                       # Zapisy stanu
+├── scripts/                     # Skrypty porządkowe / automatyzacja
+├── tests/                       # Testy (uporządkowane w podkatalogi):** AI General używał tylko podstawowe parametry i heurystyki, ograniczając inteligencję strategiczną.
+
+**Rozwiązanie AI General Intelligence:**
+- **29 nowych parametrów strategicznych** w kategorii `GENERAL_STRATEGY`
+- **5 modułów inteligencji:** Purchase Strategy, Battlefield Analysis, Allocation Intelligence, Strategic Decisions, Strategic Limits
+- **GUI Integration:** Nowa zakładka "🏛️ AI General" z polskimi opisami parametrów
+- **4 funkcje strategiczne** wzbogacone o inteligentne parametry
+- **Parametryzowana logika:** od zakupów jednostek po analizę battlefield
+
+**Nowe komponenty inteligencji:**
+- **Purchase Strategy:** Priorytetyzacja typów jednostek (P,C,A,Z,D) z wagami
+- **Battlefield Analysis:** Force ratio sensitivity, opportunity/retreat thresholds
+- **Allocation Intelligence:** Inteligentne wagi PE dla dowódców (fuel crisis, supply shortage)
+- **Strategic Decisions:** Risk tolerance, adaptation speed, economic vs military focus
+- **Strategic Limits:** Dynamiczne limity zakupów, progi kryzysu i zwycięstwa
+
+**Zaimplementowane funkcje:**
+- `_select_template()`: Inteligentna priorytetyzacja zakupów z battlefield intelligence
+- `allocate_points()`: Parametryzowane wagi alokacji PE (6 czynników)
+- `_determine_strategy()`: Battlefield analysis z 9 parametrami strategicznymi
+- `consider_unit_purchase()`: Dynamiczne limity z adaptation speed
+
+**Wyniki weryfikacji:**
+- **AI General inicjalizacja**: Wszystkie nowe parametry działają bez błędów ✅
+- **GUI Integration**: Zakładka AI General z 10 kluczowymi parametrami ✅
+- **Strategic Intelligence**: 29 parametrów wpływa na 4 kluczowe funkcje decyzyjne ✅
+- **Polish UX**: Pełne polskie opisy parametrów z praktycznymi przykładami ✅
+
+**Pliki:** `ai/ai_config.py` (+29 parametrów), `gui/ai_config_panel.py` (+zakładka), `ai/ai_general.py` (4 funkcje), `PLAN_ROZWOJU_AI_SYSTEMU.md` (kompletny)
+
+**LAUNCHER ORGANIZATION SYSTEM - NOWOŚĆ! (13.09.2025):**
+
+**Problem:** Cztery różne pliki główne (main.py, main_ai.py, main_alternative.py, auto_game_10_turns.py) na root level powodowały zamieszanie i duplikację funkcjonalności.
+
+**Rozwiązanie Launcher Organization:**
+- **Jeden główny launcher:** `main.py` (wcześniej main_ai.py) z najzaawansowanymi funkcjami
+- **Katalog launchers/:** Wszystkie alternatywne sposoby uruchomienia w jednym miejscu
+- **Czytelna organizacja:** README.md z przewodnikiem po dostępnych opcjach
+- **Zachowana funkcjonalność:** Wszystkie pliki działają z poprawionymi import paths
+
+**Nowa struktura launcherów:**
+- **main.py (root):** Główny zaawansowany launcher (🧠 AI, 🎚️ debug, 🧹 Smart Cleaning)
+- **launchers/main_basic.py:** Podstawowy launcher z EkranStartowy GUI
+- **launchers/main_alternative.py:** Szybki launcher z opcjami czyszczenia
+- **launchers/auto_test_ai.py:** Automatyczny test AI vs AI (10 tur)
+- **launchers/README.md:** Przewodnik po wszystkich opcjach uruchomienia
+
+**Korzyści organizacji:**
+- **Czytelny root directory:** Tylko jeden plik główny `main.py`
+- **Uporządkowane alternatywy:** Wszystkie opcje w jednym katalogu z opisem
+- **Zachowana funkcjonalność:** Każdy launcher działa niezależnie z właściwymi importami
+- **User-friendly:** README z jasnymi rekomendacjami dla różnych przypadków użycia
+
+**Wyniki weryfikacji:**
+- **Import paths:** Wszystkie launchers działają poprawnie z nowej lokalizacji ✅
+- **Funkcjonalność:** Każdy launcher zachowuje pełną kompatybilność ✅
+- **Dokumentacja:** README z jasnymi instrukcjami i rekomendacjami ✅
+- **Clean root:** Tylko jeden główny launcher w katalogu głównym ✅
+
+**Pliki:** `main.py` (główny), `launchers/main_basic.py`, `launchers/main_alternative.py`, `launchers/auto_test_ai.py`, `launchers/README.md`
+
+**SMART LOG CLEANING SYSTEM - NOWOŚĆ! (13.09.2025):**
+
+**Problem:** Stary system czyszczenia niszczył cenne dane ML (ai_decyzje_*.csv, ekonomia_ai_*.csv) bez ostrzeżenia, destabilizując system uczenia maszynowego.
+
+**Rozwiązanie Smart Log Cleaning:**
+- **Inteligentne czyszczenie** w `utils/smart_log_cleaner.py` z ochroną danych ML
+- **3 tryby bezpiecznego czyszczenia:** session (tylko sesyjne), full (zachowaj ML), archive (pełne archiwum)
+- **ML Data Protection:** Automatyczna ochrona `logs/analysis/ml_ready/` z metadanymi
+- **Hierarchiczna struktura logów:** 112+ plików w organized categories (ai/, human/, game/, analysis/)
+- **Integration z main launcher:** Nowe przyciski czyszczenia w `main_ai.py`
+
+**Nowe komponenty systemu:**
+- **Smart Session Clean:** Usuwa tylko logi sesyjne, zachowuje dane ML i analizy
+- **Smart Full Clean:** Usuwa wszystkie logi OPRÓCZ cennych danych ML (ai_decyzje, ekonomia_ai)
+- **Archive Mode:** Tworzy timestamped backup przed czyszczeniem
+- **ML Status Monitor:** Real-time tracking danych ML (3 pliki CSV, 6.3 KB)
+- **Safety Integration:** Stare skrypty czyszczenia teraz chronią dane ML
+
+**Wyniki weryfikacji:**
+- **ML Data Protection**: 100% zachowane przez wszystkie tryby czyszczenia ✅
+- **Hierarchical Cleaning**: logs/ai/, logs/human/, logs/game/, logs/analysis/ selektywnie ✅
+- **Safety Warnings**: Stare skrypty wymagają "ZNISZCZ_ML" confirmation ✅
+- **Main Launcher Integration**: 4 nowe przyciski czyszczenia z user-friendly dialogs ✅
+
+**Pliki:** `utils/smart_log_cleaner.py`, `main_ai.py` (+session/full/archive buttons), `czyszczenie/game_cleaner.py` (ML protection), `czyszczenie/czyszczenie_csv.py` (warnings)
 
 **AI CONFIGURATION SYSTEM - KOMPLETNE ROZWIĄZANIE (13.09.2025):**
 
@@ -161,7 +267,14 @@ projekt/
 │   ├── sprawdzenie_rzetelnosci_zetonow.py  # Walidacja spójności tokenów PNG/JSON
 │   ├── analizator_ai_na_zywo.py      # Real-time monitoring logów AI
 │   └── diagnostyka_key_points.py     # Diagnostyka systemu key points
-├── utils/                       # Pomocnicze moduły
+├── utils/                       # Pomocnicze moduły + Smart Log Management
+│   ├── smart_log_cleaner.py     # ✅ (NOWY) Inteligentne czyszczenie logów z ochroną ML
+│   └── [inne utility modules]   # Helper functions i narzędzia wspomagające
+├── czyszczenie/                 # System czyszczenia (UPDATED z ML protection)
+│   ├── czyszczenie_csv.py       # ✅ (UPDATED) CSV cleaning z warnings "ZNISZCZ_ML"
+│   ├── czyszczenie_wszystkich_zetonow.py  # Token cleanup utility
+│   ├── czyszczenie_zakupionych_zetonow.py # Purchased tokens cleanup
+│   └── game_cleaner.py          # ✅ (UPDATED) Multi-mode cleaner z ML data protection
 └── ai/                          # Wstępny moduł sztucznej inteligencji (Faza 1 częściowa)
 ```
 
@@ -189,7 +302,21 @@ ai/
 ├── konfiguracja_ai.py         # ⚠️ (LEGACY) Partial constants - mostly replaced by ai_config.py
 ├── log_kategorie_ai.py        # Log categories definition
 ├── test_ai_config.py          # ✅ (NOWY) Testy systemu konfiguracji
-└── logs/                      # Generated CSV logs and analysis
+└── logs/                      # Generated CSV logs and analysis - HIERARCHICAL STRUCTURE ✅
+    ├── ai/                    # AI decision logs (112+ files per session)
+    │   ├── ai_commander/      # Commander tactical decisions
+    │   ├── ai_general/        # General strategic decisions  
+    │   ├── vp_intelligence/   # Victory Points analysis
+    │   └── garrison_issues/   # Garrison management logs
+    ├── human/                 # Human player actions (session-based)
+    ├── game/                  # Game engine events (moves, combat, turns)
+    └── analysis/              # Analysis and ML-ready data ⭐ PROTECTED
+        ├── ml_ready/          # 🛡️ ML TRAINING DATA - NEVER DELETED
+        │   ├── ai_decyzje_*.csv      # AI decision patterns with metadata
+        │   ├── ekonomia_ai_*.csv     # Economic decisions with outcomes
+        │   └── [metadata_files]     # Context and analysis metadata
+        ├── reports/           # Generated analysis reports
+        └── aggregated/        # Aggregated statistics and insights
 ```
 ```
 ai/
@@ -507,6 +634,13 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 ~~3. Comprehensive PE logging - pełne śledzenie przepływu~~
 ~~4. Multi-layer protection - walidacja na wszystkich poziomach~~
 
+### **COMPLETED - SMART LOG CLEANING SYSTEM ✅**
+~~1. Smart log cleaner - inteligentne czyszczenie z ochroną ML~~
+~~2. ML Data Protection - automatyczne zabezpieczenie cennych danych~~
+~~3. Hierarchical cleaning - selektywne czyszczenie kategorii logów~~  
+~~4. Main launcher integration - user-friendly cleaning buttons~~
+~~5. Safety warnings - legacy scripts z konfirmacją "ZNISZCZ_ML"~~
+
 ### **IMMEDIATE PRIORITIES – AI OPTIMIZATION POST-PE-FIX**
 1. ✅ **AI Combat Logic Fix** - poprawiona logika oceny siły wroga (attack/defense zamiast HP)
 2. **Advanced skip_reason** implementation - rozszerzona diagnostyka stagnacji
@@ -530,6 +664,24 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 16. **Advanced economic modeling** - przewidywanie potrzeb PE based on map analysis
 
 ## 🗒 CHANGELOG
+**4.1 (13.09.2025) - SMART LOG CLEANING SYSTEM + AI GENERAL INTELLIGENCE**
+* **🧹 SMART LOG CLEANING SYSTEM** - inteligentne czyszczenie z ochroną danych ML
+* `utils/smart_log_cleaner.py` - 3 tryby czyszczenia (session/full/archive) z ML protection
+* **ML Data Protection:** Automatic protection of `logs/analysis/ml_ready/` (ai_decyzje, ekonomia_ai)
+* **Hierarchical Structure:** 112+ plików w organized categories (ai/, human/, game/, analysis/)
+* **Main Launcher Integration:** 4 nowe przyciski czyszczenia w `main_ai.py` z user dialogs
+* **Legacy Scripts Safety:** `czyszczenie/game_cleaner.py` i `czyszczenie_csv.py` z ML warnings
+* **Real-time ML Status:** Monitoring 3 CSV files, 6.3 KB danych ML w czasie rzeczywistym
+* **End-to-end Safety:** Wszystkie systemy czyszczenia chronią cenne dane treningowe ✅
+
+**4.0 (13.09.2025) - AI GENERAL INTELLIGENCE UPGRADE**
+* **🧠 AI GENERAL INTELLIGENCE SYSTEM** - 29 nowych parametrów strategicznych
+* **5 modułów inteligencji:** Purchase Strategy, Battlefield Analysis, Allocation Intelligence, Strategic Decisions, Strategic Limits
+* **GUI Integration:** Nowa zakładka "🏛️ AI General" z polskimi opisami parametrów
+* **4 funkcje strategiczne** wzbogacone: _select_template(), allocate_points(), _determine_strategy(), consider_unit_purchase()
+* **Battlefield Intelligence:** Force ratio sensitivity, opportunity/retreat thresholds, enemy threat analysis
+* **Strategic Polish UX:** Pełne polskie opisy z praktycznymi przykładami użycia ✅
+
 **3.9 (13.09.2025) - AI CONFIGURATION SYSTEM COMPLETE**
 * **🎛️ AI CONFIGURATION SYSTEM** - kompletny system centralnej konfiguracji AI
 * `ai/ai_config.py` z `AIConfigManager` - profile AI, parametry, hot-reload
@@ -598,17 +750,22 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 **3.0 (15.08.2025)** – kontrakt AI, szkic faz
 
-## ⚡ SZYBKI START (JUTRO – 5 MIN)
-1. Uruchom launcher → Start Gry (potwierdź auto‑czyszczenie). 
-2. **NOWE:** Test AI Configuration - otwórz Panel Konfiguracji AI w GUI ✅
-3. **Zmień profile AI:** Spróbuj AGGRESSIVE/DEFENSIVE/BALANCED profili ✅
-4. **Custom parameters:** Ustaw THREAT_RETREAT_THRESHOLD=99 i obserwuj wpływ ✅
-5. Włącz AI dla obu stron (generał + dowódcy), zagraj 5-10 tur.
-6. **Weryfikacja get_param():** Obserwuj logi - 29 wywołań get_param() w akcji ✅
-7. **Test PE validation:** Uruchom `tools/launcher_analizy_pe.py` 
-8. **Analiza ekonomii:** Sprawdź `tools/analizator_przeplywu_pe.py`
-9. **Weryfikacja stabilności:** PE bilanse muszą się zgadzać 100%
-10. **Test systemu artylerii:** `python tests/test_artillery_shot_limits.py`
+## ⚡ SZYBKI START (AKTUALIZOWANY 13.09.2025 - WERSJA 4.1)
+1. Uruchom launcher → Start Gry (potwierdź auto‑czyszczenie lub wybierz Smart Clean)
+2. **NOWE - Smart Cleaning:** Test nowych przycisków czyszczenia (🧹 Sesja, 🗑️ Pełne, 📚 Archiwum) ✅
+3. **NOWE - ML Protection:** Sprawdź status danych ML przyciskiem 📊 Status ML ✅
+4. **AI General Intelligence:** Test nowej zakładki "🏛️ AI General" z 29 parametrami ✅
+5. **AI Configuration:** Otwórz Panel Konfiguracji AI w GUI - spróbuj profili ✅
+6. **Custom parameters:** Ustaw THREAT_RETREAT_THRESHOLD=99 i obserwuj wpływ ✅
+7. Włącz AI dla obu stron (generał + dowódcy), zagraj 5-10 tur.
+8. **NOWE - Safe Cleaning:** Po grze użyj Smart Session Clean zachowując dane ML ✅
+9. **Weryfikacja get_param():** Obserwuj logi - 29 wywołań get_param() w akcji ✅
+10. **Test PE validation:** Uruchom `tools/launcher_analizy_pe.py`
+11. **Smart Log Status:** Sprawdź `python utils/smart_log_cleaner.py --mode ml_status` ✅
+12. **Analiza ekonomii:** Sprawdź `tools/analizator_przeplywu_pe.py`
+13. **Weryfikacja stabilności:** PE bilanse muszą się zgadzać 100%
+14. **Test systemu artylerii:** `python tests/test_artillery_shot_limits.py`
+15. **ML Data Safety:** Zweryfikuj że wszystkie tryby czyszczenia chronią dane ML ✅
 
 ## 🧪 METRYKI – STAN 3.9 (AI CONFIGURATION SYSTEM COMPLETE)
 | Metryka | Status | Cel | Wykorzystanie |

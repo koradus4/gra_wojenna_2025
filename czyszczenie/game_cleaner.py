@@ -142,7 +142,7 @@ def clean_purchased_tokens_from_start():
 
 
 def clean_ai_logs():
-    """Usuń logi AI z poprzedniej gry"""
+    """Usuń logi AI z poprzedniej gry (ZACHOWUJE dane ML!)"""
     try:
         logs_dir = Path("logs")
         deleted_files = 0
@@ -153,25 +153,34 @@ def clean_ai_logs():
             return
 
         # Rekurencyjne usuwanie plików ai_*.csv w całym drzewie logs
+        # UWAGA: CHRONIMY dane ML!
         for f in logs_dir.rglob("ai_*.csv"):
             try:
+                # OCHRONA: Pomiń pliki ML w analysis/ml_ready
+                if 'analysis' in f.parts and 'ml_ready' in f.parts:
+                    print(f"💾 Chronię dane ML: {f.relative_to(logs_dir)}")
+                    continue
+                
                 f.unlink()
                 deleted_files += 1
+                print(f"✅ Usunięto: {f.relative_to(logs_dir)}")
             except Exception as e:
                 print(f"⚠️ Nie mogę usunąć {f}: {e}")
 
-        # Usuń katalogi z logami AI (całe drzewa)
+        # Usuń katalogi z logami AI (całe drzewa) - ale NIE analysis!
         for ai_folder in ["ai_commander", "ai_general"]:
             ai_path = logs_dir / ai_folder
             if ai_path.exists() and ai_path.is_dir():
                 try:
                     shutil.rmtree(ai_path)
                     deleted_dirs += 1
+                    print(f"✅ Usunięto katalog: {ai_folder}")
                 except Exception as e:
                     print(f"⚠️ Nie mogę usunąć katalogu {ai_path}: {e}")
 
         if deleted_files or deleted_dirs:
             print(f"✅ Usunięto logi AI: pliki={deleted_files}, katalogi={deleted_dirs}")
+            print("💾 UWAGA: Dane ML zostały ZACHOWANE!")
         else:
             print("ℹ️ Brak logów AI do usunięcia (ai_*.csv i katalogi ai_*)")
             
@@ -180,7 +189,7 @@ def clean_ai_logs():
 
 
 def clean_csv_logs():
-    """Usuń wszystkie pliki CSV z folderu logs"""
+    """Usuń wszystkie pliki CSV z folderu logs (ZACHOWUJE dane ML!)"""
     try:
         logs_dir = Path("logs")
         if not logs_dir.exists():
@@ -188,6 +197,7 @@ def clean_csv_logs():
             return
 
         deleted_count = 0
+        protected_count = 0
         total_size = 0
         
         # Wzorce plików CSV do usunięcia
@@ -212,21 +222,34 @@ def clean_csv_logs():
                 except Exception as e:
                     print(f"⚠️ Nie mogę usunąć {csv_file.name}: {e}")
         
-        # Usuń WSZYSTKIE pliki CSV rekurencyjnie z logs/
+        # Usuń WSZYSTKIE pliki CSV rekurencyjnie z logs/ - ALE CHROŃ ML!
         processed_files = set()
         for csv_file in logs_dir.rglob("*.csv"):
             if csv_file not in processed_files:
                 try:
+                    # OCHRONA: Pomiń pliki ML i raporty
+                    if 'analysis' in csv_file.parts:
+                        if 'ml_ready' in csv_file.parts:
+                            print(f"💾 Chronię dane ML: {csv_file.relative_to(logs_dir)}")
+                            protected_count += 1
+                            continue
+                        elif 'raporty' in csv_file.parts or 'statystyki' in csv_file.parts:
+                            print(f"💾 Chronię raporty: {csv_file.relative_to(logs_dir)}")
+                            protected_count += 1
+                            continue
+                    
                     size = csv_file.stat().st_size
                     csv_file.unlink()
                     deleted_count += 1
                     total_size += size
                     processed_files.add(csv_file)
+                    print(f"✅ Usunięto: {csv_file.relative_to(logs_dir)}")
                 except Exception as e:
                     print(f"⚠️ Nie mogę usunąć {csv_file}: {e}")
 
-        if deleted_count > 0:
+        if deleted_count > 0 or protected_count > 0:
             print(f"✅ Usunięto {deleted_count} plików CSV ({total_size/1024:.1f} KB)")
+            print(f"💾 Zachowano {protected_count} plików ML i raportów!")
         else:
             print("ℹ️ Brak plików CSV do usunięcia")
             

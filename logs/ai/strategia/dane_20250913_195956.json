@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": "2025-09-13T19:59:56.777439",
+    "kategoria": "ai/strategia",
+    "tagi": [
+      "ai",
+      "strategia",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Tura 1: Decyzja 'expand_front' (reguła: opportunity_rule_3)",
+    "szczegoly": {
+      "turn": 1,
+      "decision": "expand_front",
+      "rule_used": "opportunity_rule_3",
+      "reasoning": "Enemy weakness detected on eastern flank"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 1.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T19:59:56.848507",
+    "kategoria": "ai/strategia",
+    "tagi": [
+      "ai",
+      "strategia",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 1,
+    "faza": null,
+    "akcja": "Tura 1: Decyzja 'strategy_shift_1' (reguła: rule_set_1)",
+    "szczegoly": {
+      "turn": 1,
+      "decision": "strategy_shift_1",
+      "rule_used": "rule_set_1",
+      "reasoning": "Adaptation for turn 1 conditions"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 1.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T19:59:56.959429",
+    "kategoria": "ai/strategia",
+    "tagi": [
+      "ai",
+      "strategia",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 2,
+    "faza": null,
+    "akcja": "Tura 2: Decyzja 'strategy_shift_2' (reguła: rule_set_2)",
+    "szczegoly": {
+      "turn": 2,
+      "decision": "strategy_shift_2",
+      "rule_used": "rule_set_2",
+      "reasoning": "Adaptation for turn 2 conditions"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 2.0
+    }
+  },
+  {
+    "timestamp": "2025-09-13T19:59:57.071726",
+    "kategoria": "ai/strategia",
+    "tagi": [
+      "ai",
+      "strategia",
+      "decyzja"
+    ],
+    "gracz": "Germany",
+    "tura": 3,
+    "faza": null,
+    "akcja": "Tura 3: Decyzja 'strategy_shift_3' (reguła: rule_set_3)",
+    "szczegoly": {
+      "turn": 3,
+      "decision": "strategy_shift_3",
+      "rule_used": "rule_set_3",
+      "reasoning": "Adaptation for turn 3 conditions"
+    },
+    "blad": null,
+    "poziom": "INFO",
+    "ml_dane": {
+      "turn": 3.0
+    }
+  }
+]

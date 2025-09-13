@@ -755,12 +755,28 @@ class AIGeneral:
             return EconAction.HOLD, metrics
     
     def _determine_strategy(self, strategic, unit_analysis, own_units):
-        """FAZA 3: Określa strategię zgodnie z planem AI Generała."""
+        """ROZSZERZONE: Określa strategię zgodnie z planem AI Generała + inteligentne parametry."""
         low_fuel_ratio = unit_analysis.get('low_fuel_ratio', 0.0)
         game_phase = strategic.get('game_phase', 1.0)
         vp_status = strategic.get('vp_status', 0)
         
-        # KROK 3 z planu: Określenie strategii
+        # ⚡ INTELIGENTNE PARAMETRY BATTLEFIELD ANALYSIS
+        force_ratio_sensitivity = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.FORCE_RATIO_SENSITIVITY', 1.0)
+        opportunity_threshold = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.OPPORTUNITY_THRESHOLD', 1.3)
+        retreat_threshold = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.RETREAT_THRESHOLD', 0.7)
+        enemy_threat_multiplier = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.ENEMY_THREAT_MULTIPLIER', 1.0)
+        
+        # ⚡ STRATEGIC DECISIONS PARAMETERS
+        risk_tolerance = get_param('GENERAL_STRATEGY.STRATEGIC_DECISIONS.RISK_TOLERANCE', 0.5)
+        long_term_focus = get_param('GENERAL_STRATEGY.STRATEGIC_DECISIONS.LONG_TERM_FOCUS', 0.6)
+        economic_vs_military = get_param('GENERAL_STRATEGY.STRATEGIC_DECISIONS.ECONOMIC_VS_MILITARY', 0.5)
+        
+        # ⚡ STRATEGIC LIMITS  
+        crisis_escalation_threshold = get_param('GENERAL_STRATEGY.STRATEGIC_LIMITS.CRISIS_ESCALATION_THRESHOLD', 0.4)
+        victory_consolidation_threshold = get_param('GENERAL_STRATEGY.STRATEGIC_LIMITS.VICTORY_CONSOLIDATION_THRESHOLD', 0.6)
+        desperate_measures_threshold = get_param('GENERAL_STRATEGY.STRATEGIC_LIMITS.DESPERATE_MEASURES_THRESHOLD', 0.3)
+        
+        # KROK 3 z planu: Określenie strategii z inteligentną analizą
         max_commander_fuel_ratio = 0.0
         commanders_analysis = unit_analysis.get('commanders_analysis', {})
         if commanders_analysis:
@@ -769,24 +785,60 @@ class AIGeneral:
                 for data in commanders_analysis.values()
             )
         
-        # Kryzys paliwa ma najwyższy priorytet
-        if max_commander_fuel_ratio > 0.3:
+        # Inteligentny próg kryzysu paliwa - zależny od parametrów
+        fuel_crisis_threshold = 0.3 * (1.0 + enemy_threat_multiplier * 0.2)  # Bardziej restrykcyjny jeśli wysoka percepcja zagrożenia
+        
+        if max_commander_fuel_ratio > fuel_crisis_threshold:
+            print(f"🛢️ Kryzys paliwowy: ratio={max_commander_fuel_ratio:.2f} > threshold={fuel_crisis_threshold:.2f}")
             return 'KRYZYS_PALIWA'
-            
-        # Późna faza gry
-        elif game_phase > 2.0:
-            if vp_status < 0:
-                return 'DESPERACJA'  # Przegrywamy VP
-            elif vp_status > 0:
-                return 'OCHRONA'     # Wygrywamy VP
-            
-        # Średnia faza gry
+        
+        # ⚡ INTELIGENTNA ANALIZA FORCE RATIO
+        enemy_units = strategic.get('enemy_units', 1)
+        force_ratio = own_units / max(1, enemy_units)
+        adjusted_force_ratio = force_ratio * force_ratio_sensitivity  # Wrażliwość na stosunek sił
+        
+        print(f"📊 Force Analysis: own={own_units}, enemy={enemy_units}, ratio={force_ratio:.2f}, adjusted={adjusted_force_ratio:.2f}")
+        
+        # Późna faza gry z inteligentnymi progami
+        if game_phase > 2.0:
+            if vp_status < 0:  # Przegrywamy VP
+                # Próg desperackich środków zależny od parametrów
+                if force_ratio < desperate_measures_threshold or risk_tolerance > 0.7:
+                    print(f"😱 Desperackie środki: force_ratio={force_ratio:.2f} < threshold={desperate_measures_threshold:.2f} lub wysokie ryzyko")
+                    return 'DESPERACJA'
+                else:
+                    return 'EKSPANSJA'  # Spróbuj odzyskać przewagę
+            elif vp_status > 0:  # Wygrywamy VP
+                # Próg konsolidacji zwycięstwa
+                if force_ratio > victory_consolidation_threshold and long_term_focus > 0.5:
+                    print(f"🏆 Konsolidacja zwycięstwa: force_ratio={force_ratio:.2f} > threshold={victory_consolidation_threshold:.2f}")
+                    return 'OCHRONA'
+                else:
+                    return 'EKSPANSJA'  # Dalsze wzmacnianie przewagi
+        
+        # Średnia faza gry - inteligentna ocena możliwości
         elif game_phase > 1.0:
-            return 'EKSPANSJA'
+            if adjusted_force_ratio > opportunity_threshold:
+                print(f"⚡ Okazja do ekspansji: adjusted_ratio={adjusted_force_ratio:.2f} > opportunity={opportunity_threshold:.2f}")
+                return 'EKSPANSJA'
+            elif adjusted_force_ratio < retreat_threshold:
+                print(f"🛡️ Wycofanie: adjusted_ratio={adjusted_force_ratio:.2f} < retreat={retreat_threshold:.2f}")
+                return 'OCHRONA'
+            else:
+                # Balans ekonomia vs military
+                if economic_vs_military < 0.4:
+                    return 'ROZWÓJ'  # Fokus na ekonomię
+                else:
+                    return 'EKSPANSJA'  # Fokus na wojsko
             
-        # Wczesna faza
+        # Wczesna faza - dynamiczna ocena
         else:
-            return 'ROZWÓJ'
+            # Kryzysowa eskalacja w early game
+            if force_ratio < crisis_escalation_threshold:
+                print(f"🚨 Early game crisis: force_ratio={force_ratio:.2f} < escalation={crisis_escalation_threshold:.2f}")
+                return 'KRYZYS_PALIWA'  # Tryb ratunkowy
+            else:
+                return 'ROZWÓJ'
 
     def allocate_points(self, player, game_engine, state=None):
         """Ważone przekazanie części punktów ekonomicznych dowódcom.
@@ -807,41 +859,82 @@ class AIGeneral:
         for c in commanders:
             data = per_c.get(c.id, {})
             base = 0.1
-            add_supply = 0.4 if not data.get('has_supply') else 0.0
-            # USUNIĘTO: add_art - sztuczna paranoja o artylerii
-            add_fuel = 0.2 if data.get('avg_fuel', 1.0) < 0.6 else 0.0
-            tu = data.get('total_units', 0)
-            add_units = 0.0
-            if tu < 3:
-                add_units = (3 - tu) * 0.1
             
-            # POPRAWIONO: Kara za niewydane punkty - uwzględnia naturalną rezerwę 10%
+            # ⚡ INTELIGENTNE WAGI ALOKACJI (NOWE PARAMETRY)
+            fuel_crisis_weight = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.FUEL_CRISIS_WEIGHT', 2.0)
+            supply_shortage_weight = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.SUPPLY_SHORTAGE_WEIGHT', 1.8)
+            unit_count_weight = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.UNIT_COUNT_WEIGHT', 1.2)
+            battlefield_position_weight = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.BATTLEFIELD_POSITION_WEIGHT', 1.1)
+            commander_performance_weight = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.COMMANDER_PERFORMANCE_WEIGHT', 1.0)
+            reserve_punishment = get_param('GENERAL_STRATEGY.ALLOCATION_INTELLIGENCE.RESERVE_PUNISHMENT', 0.5)
+            
+            # Inteligentne wagi zamiast stałych wartości
+            add_supply = (0.4 * supply_shortage_weight) if not data.get('has_supply') else 0.0
+            
+            avg_fuel = data.get('avg_fuel', 1.0)
+            if avg_fuel < 0.6:
+                # Skalowana waga kryzysu paliwowego - im gorszy fuel, tym wyższa waga
+                fuel_crisis_intensity = (0.6 - avg_fuel) / 0.6  # 0.0-1.0
+                add_fuel = 0.2 * fuel_crisis_weight * (1.0 + fuel_crisis_intensity)
+            else:
+                add_fuel = 0.0
+            
+            # Inteligentna waga dla liczby jednostek
+            tu = data.get('total_units', 0)
+            if tu < 3:
+                add_units = (3 - tu) * 0.1 * unit_count_weight
+            else:
+                add_units = 0.0
+            
+            # ⚡ NOWA: Waga pozycji battlefield (na razie placeholder - można rozwinąć)
+            # TODO: Implementować analizę pozycji strategicznej dowódcy
+            battlefield_bonus = 0.0
+            if data.get('near_keypoints', 0) > 1:  # Jeśli dowódca jest blisko ważnych punktów
+                battlefield_bonus = 0.1 * battlefield_position_weight
+            
+            # ⚡ NOWA: Waga wydajności dowódcy (na razie placeholder)
+            # TODO: Implementować śledzenie wydajności dowódców
+            performance_bonus = 0.0
+            recent_victories = data.get('recent_victories', 0)  # Można dodać do state
+            if recent_victories > 0:
+                performance_bonus = 0.05 * commander_performance_weight * recent_victories
+            
+            # POPRAWIONA: Inteligentna kara za gromadzenie rezerw
             unspent = 0
             if hasattr(getattr(c, 'economy', None), 'get_points'):
                 unspent = c.economy.get_points().get('economic_points', 0)
             else:
                 unspent = getattr(getattr(c,'economy',None), 'economic_points', 0) or 0
             
-            # Dowódca naturalnie zostawia ~10% w rezerwie, więc kara tylko od nadmiaru
-            expected_reserve_ratio = 0.1  # 10% naturalnej rezerwy
-            total_received_estimate = unspent / max(0.1, expected_reserve_ratio)  # Szacuj całkowite PE
+            # Inteligentna kara - parametryzowana
+            expected_reserve_ratio = 0.1
+            total_received_estimate = unspent / max(0.1, expected_reserve_ratio)
             excess_unspent = max(0, unspent - (total_received_estimate * expected_reserve_ratio))
-            penalty = min(0.3, excess_unspent / max(1, get_param('ECONOMY.UNSPENT_CAP', 80)))  # Zmniejszona max kara 0.4→0.3
+            penalty = min(0.3, excess_unspent / max(1, get_param('ECONOMY.UNSPENT_CAP', 80))) * reserve_punishment
             
-            w = base + add_supply + add_fuel + add_units - penalty
+            w = base + add_supply + add_fuel + add_units + battlefield_bonus + performance_bonus - penalty
             if w < 0.05:
                 w = 0.05
             weights[c.id] = round(w, 3)
             details[c.id] = {
                 'baza': round(base,2),
                 'brak_zaop': round(add_supply,2),
-                'niskie_paliwo': round(add_fuel,2),
+                'kryzys_paliwa': round(add_fuel,2),
                 'malo_jednostek': round(add_units,2),
+                'pozycja_battlefield': round(battlefield_bonus,2),
+                'wydajnosc_dowodcy': round(performance_bonus,2),
                 'kara_nadmiar': round(penalty,2),
                 'suma': round(w,3),
                 'unspent': unspent,
                 'avg_fuel': data.get('avg_fuel'),
-                'total_units': tu
+                'total_units': tu,
+                # Debug info o parametrach
+                'weights_used': {
+                    'fuel_crisis': fuel_crisis_weight,
+                    'supply_shortage': supply_shortage_weight,
+                    'unit_count': unit_count_weight,
+                    'reserve_punishment': reserve_punishment
+                }
             }
         total_w = sum(weights.values()) or 1.0
         norm_weights = {cid: round(w/total_w, 3) for cid, w in weights.items()}
@@ -1093,38 +1186,62 @@ class AIGeneral:
             priorities = self._compute_commander_priorities(state, commanders)
             purchase_plans = self.plan_purchases(purchase_budget, commanders, priorities=priorities, state=state)
             
-            # ⚡ DYNAMICZNY SYSTEM ZAKUPÓW - adaptacja do kontekstu strategicznego
+            # ⚡ INTELIGENTNY DYNAMICZNY SYSTEM ZAKUPÓW (ROZSZERZONE PARAMETRY)
             our_units = state.get('global', {}).get('total_units', 0)
             enemy_units = state.get('enemy', {}).get('total_units', 1)  # min 1 aby uniknąć dzielenia przez 0
             
+            # Pobierz parametry strategiczne
+            max_purchases_per_turn = get_param('GENERAL_STRATEGY.STRATEGIC_LIMITS.MAX_PURCHASES_PER_TURN', 3)
+            force_ratio_sensitivity = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.FORCE_RATIO_SENSITIVITY', 1.0)
+            risk_tolerance = get_param('GENERAL_STRATEGY.STRATEGIC_DECISIONS.RISK_TOLERANCE', 0.5)
+            adaptation_speed = get_param('GENERAL_STRATEGY.STRATEGIC_DECISIONS.ADAPTATION_SPEED', 0.7)
+            
             # ANALIZA KONTEKSTU STRATEGICZNEGO
             force_ratio = our_units / enemy_units
+            adjusted_force_ratio = force_ratio * force_ratio_sensitivity
             
             # Oszacuj straty z ostatnich tur (na podstawie logów lub heurystyki)
             recent_casualties = getattr(self, '_recent_casualties_estimate', 0)
+            casualty_memory_turns = int(get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.CASUALTY_MEMORY_TURNS', 3))
             
-            # ADAPTACYJNY LIMIT ZAKUPÓW
-            if force_ratio < 0.7:
-                # DEFENSYWA - jesteśmy w defensywie, potrzebujemy szybkiej odbudowy
-                dynamic_limit = min(len(purchase_plans), 4)
+            print(f"📊 Strategic Analysis: force_ratio={force_ratio:.2f}, adjusted={adjusted_force_ratio:.2f}")
+            print(f"📊 Purchase Limits: max_per_turn={max_purchases_per_turn}, risk_tolerance={risk_tolerance:.1f}")
+            
+            # ⚡ INTELIGENTNY ADAPTACYJNY LIMIT ZAKUPÓW
+            base_limit = max_purchases_per_turn
+            
+            if adjusted_force_ratio < 0.7:
+                # DEFENSYWA - zwiększ limity jeśli wysokie ryzyko i szybka adaptacja
+                multiplier = 1.0 + (risk_tolerance * 0.5) + (adaptation_speed * 0.3)
+                dynamic_limit = min(len(purchase_plans), int(base_limit * multiplier))
                 situation = "DEFENSYWA"
-                reasoning = f"Stosunek sił {force_ratio:.2f} - intensywna odbudowa"
-            elif recent_casualties > 3:
-                # ODBUDOWA - ciężkie straty, trzeba uzupełnić
-                dynamic_limit = min(len(purchase_plans), 3) 
+                reasoning = f"Adj_ratio={adjusted_force_ratio:.2f} - wzmocniona odbudowa (x{multiplier:.1f})"
+            elif recent_casualties > casualty_memory_turns:
+                # ODBUDOWA - reakcja na straty z pamięcią
+                casualty_intensity = min(2.0, recent_casualties / casualty_memory_turns)
+                multiplier = 1.0 + (casualty_intensity * adaptation_speed * 0.4)
+                dynamic_limit = min(len(purchase_plans), int(base_limit * multiplier))
                 situation = "ODBUDOWA"
-                reasoning = f"Straty {recent_casualties} jednostek - szybkie uzupełnienie"
-            elif force_ratio > 1.5:
-                # DOMINACJA - przewaga, ograniczone zakupy
-                dynamic_limit = min(len(purchase_plans), 1)
+                reasoning = f"Straty={recent_casualties} (pamięć={casualty_memory_turns}t) - kompensacja (x{multiplier:.1f})"
+            elif adjusted_force_ratio > 1.5:
+                # DOMINACJA - konserwatywne zakupy jeśli niskie ryzyko
+                multiplier = max(0.3, 1.0 - (1.0 - risk_tolerance) * 0.7)
+                dynamic_limit = min(len(purchase_plans), max(1, int(base_limit * multiplier)))
                 situation = "DOMINACJA" 
-                reasoning = f"Stosunek sił {force_ratio:.2f} - konserwacja przewagi"
+                reasoning = f"Adj_ratio={adjusted_force_ratio:.2f} - ostrożna ekspansja (x{multiplier:.1f})"
             elif our_units < 8:
-                # ROZBUDOWA - za mało jednostek bez względu na wroga
-                dynamic_limit = min(len(purchase_plans), 3)
+                # ROZBUDOWA - dynamiczna intensywność
+                size_deficit = max(0, (8 - our_units) / 8.0)  # 0.0-1.0
+                multiplier = 1.0 + (size_deficit * adaptation_speed * 0.6)
+                dynamic_limit = min(len(purchase_plans), int(base_limit * multiplier))
                 situation = "ROZBUDOWA"
-                reasoning = f"Tylko {our_units} jednostek - budowa siły"
+                reasoning = f"Mała armia ({our_units}/8) - intensywna budowa (x{multiplier:.1f})"
             else:
+                # RÓWNOWAGA - standardowe limity z lekką modyfikacją
+                multiplier = 0.8 + (risk_tolerance * 0.4)  # 0.8-1.2 range
+                dynamic_limit = min(len(purchase_plans), int(base_limit * multiplier))
+                situation = "RÓWNOWAGA"
+                reasoning = f"Normalny rozwój (x{multiplier:.1f})"
                 # RÓWNOWAGA - standardowe zakupy
                 dynamic_limit = min(len(purchase_plans), 2)
                 situation = "RÓWNOWAGA"
@@ -1509,22 +1626,23 @@ class AIGeneral:
 
     def _select_template(self, unit_templates, purchases, budget, state):
         """Heurystyczny wybór szablonu jednostki na podstawie braków.
+        ROZSZERZONE O INTELIGENTNE PARAMETRY AI GENERAL.
         Zwraca dict szablonu lub None.
         Reguły (kolejność):
           1. Brak zaopatrzenia -> Z (najmniejszy rozmiar dostępny)
-          2. Brak artylerii -> AL potem AC/AP
-          3. Wróg ma pancerz, nasze pancerne < 1 -> TL/TŚ (najtańsze)
-          4. Piechota < 3 -> P
-          5. Mobilność (brak K i TS) -> K
-          6. Dywersyfikacja – weź typ którego najmniej w ratio
+          2. Parametryzowana analiza priorytetów jednostek
+          3. Battlefield intelligence - reakcja na wroga
+          4. Dywersyfikacja – weź typ którego najmniej w ratio
         Rozmiar: dla uzupełnień krytycznych Pluton, dla piechoty jeśli budżet pozwala Kompania.
         """
         global_counts = state.get('global', {}).get('unit_counts_by_type', {})
         enemy = state.get('enemy', {})
+        
         # Dodaj do counts także planowane (purchases)
         planned_counts = global_counts.copy()
         for p in purchases:
             planned_counts[p['type']] = planned_counts.get(p['type'], 0) + 1
+            
         def find_template(types_pref, size_pref_order):
             for t in types_pref:
                 for s in size_pref_order:
@@ -1532,49 +1650,120 @@ class AIGeneral:
                     if cand:
                         return cand
             return None
-        # 1 Supply
-        if planned_counts.get('Z',0)==0:
+            
+        # KROK 1: Krytyczne braki (nadal priorytetem)
+        if planned_counts.get('Z',0) == 0:
             tpl = find_template(['Z'], ['Pluton','Kompania','Batalion'])
             if tpl:
                 print("🧪 Heurystyka: brak zaopatrzenia -> wybieram", tpl['name'])
                 return tpl
-        # 2 Artillery
-        if all(planned_counts.get(x,0)==0 for x in ('AL','AC','AP')):
-            tpl = find_template(['AL','AC','AP'], ['Pluton','Kompania'])
+                
+        # KROK 2: ⚡ INTELIGENTNE PRIORYTETY JEDNOSTEK (NOWE PARAMETRY)
+        # Pobierz parametry strategii zakupów
+        infantry_priority = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.INFANTRY_PRIORITY', 1.0)
+        armor_priority = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.ARMOR_PRIORITY', 0.8) 
+        artillery_priority = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.ARTILLERY_PRIORITY', 0.9)
+        supply_priority = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPLY_PRIORITY', 1.5)
+        command_priority = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.COMMAND_PRIORITY', 1.2)
+        support_ratio = get_param('GENERAL_STRATEGY.PURCHASE_STRATEGY.SUPPORT_RATIO', 0.3)
+        
+        # Oblicz obecny stosunek wsparcie/combat
+        support_count = planned_counts.get('Z', 0) + planned_counts.get('D', 0)
+        combat_count = sum(planned_counts.get(t, 0) for t in ['P', 'K', 'TC', 'TŚ', 'TL', 'TS', 'AC', 'AL', 'AP'])
+        total_units = support_count + combat_count
+        current_support_ratio = support_count / max(1, total_units)
+        
+        print(f"📊 Analiza zakupów: wsparcie={support_count}, combat={combat_count}, ratio={current_support_ratio:.2f}, docelowy={support_ratio:.2f}")
+        
+        # Jeśli za mało wsparcia względem parametru
+        if current_support_ratio < support_ratio and total_units > 2:
+            # Priorytet dla jednostek wsparcia
+            support_priorities = {'Z': supply_priority, 'D': command_priority}
+            best_support = max(support_priorities.items(), key=lambda x: x[1])
+            tpl = find_template([best_support[0]], ['Pluton', 'Kompania'])
             if tpl:
-                print("🧪 Heurystyka: brak artylerii ->", tpl['name'])
+                print(f"🎯 Inteligentna strategia: zwiększam wsparcie -> {tpl['name']} (priorytet {best_support[1]:.1f})")
                 return tpl
-        # 3 Enemy armor
+        
+        # KROK 3: ⚡ BATTLEFIELD INTELLIGENCE (NOWE PARAMETRY) 
+        enemy_threat_multiplier = get_param('GENERAL_STRATEGY.BATTLEFIELD_ANALYSIS.ENEMY_THREAT_MULTIPLIER', 1.0)
+        
+        # Wzmocniona reakcja na pancerz wroga
         has_enemy_armor = enemy.get('has_armor')
         own_armor = sum(planned_counts.get(x,0) for x in ('TL','TŚ','TC','TS'))
-        if has_enemy_armor and own_armor==0:
-            tpl = find_template(['TL','TŚ','TS','TC'], ['Pluton','Kompania'])
+        
+        if has_enemy_armor and own_armor == 0 and enemy_threat_multiplier > 0.7:
+            # Agresywne jednostki pancerne jeśli wysoka percepcja zagrożenia
+            armor_types = ['TC', 'TŚ', 'TL', 'TS'] if enemy_threat_multiplier > 1.2 else ['TL', 'TŚ', 'TS']
+            tpl = find_template(armor_types, ['Pluton','Kompania'])
             if tpl:
-                print("🧪 Heurystyka: reakcja na pancerz wroga ->", tpl['name'])
+                print(f"🎯 Battlefield Intelligence: reakcja na pancerz wroga -> {tpl['name']} (threat_mult={enemy_threat_multiplier:.1f})")
                 return tpl
-        # 4 Infantry baseline
-        if planned_counts.get('P',0) < 3:
-            size_order = ['Kompania','Pluton'] if budget>40 else ['Pluton']
-            tpl = find_template(['P'], size_order+['Batalion'])
+        
+        # Wzmocniona reakcja na artylerie wroga
+        has_enemy_artillery = enemy.get('has_artillery')
+        own_artillery = sum(planned_counts.get(x,0) for x in ('AL','AC','AP'))
+        
+        if has_enemy_artillery and own_artillery == 0 and enemy_threat_multiplier > 0.8:
+            artillery_types = ['AC', 'AL', 'AP'] if artillery_priority > 1.0 else ['AL', 'AP']
+            tpl = find_template(artillery_types, ['Pluton','Kompania'])
             if tpl:
-                print("🧪 Heurystyka: uzupełniam piechotę ->", tpl['name'])
+                print(f"🎯 Battlefield Intelligence: parowanie artylerii -> {tpl['name']} (art_priority={artillery_priority:.1f})")
                 return tpl
-        # 5 Mobility
-        if planned_counts.get('K',0)==0 and planned_counts.get('TS',0)==0:
-            tpl = find_template(['K','TS'], ['Pluton','Kompania'])
+        
+        # KROK 4: ⚡ PRIORYTETYZACJA WEDŁUG PARAMETRÓW
+        # Oblicz wagi dla każdego typu jednostki
+        type_priorities = {
+            'P': infantry_priority,
+            'K': infantry_priority * 0.8,  # Kawaleria jako odmiana piechoty
+            'TC': armor_priority * 1.2,    # Czołgi ciężkie premium
+            'TŚ': armor_priority,          # Czołgi średnie baseline
+            'TL': armor_priority * 0.8,    # Czołgi lekkie budget
+            'TS': armor_priority * 0.9,    # Transport pancerny
+            'AC': artillery_priority * 1.1, # Artyleria ciężka premium  
+            'AL': artillery_priority,       # Artyleria lekka baseline
+            'AP': artillery_priority * 0.9, # Artyleria plot specjalna
+            'Z': supply_priority,           # Zaopatrzenie
+            'D': command_priority,          # Dowództwo
+        }
+        
+        # Znajdź typ o najwyższej wadze względem obecnego stanu
+        best_type = None
+        best_score = 0.0
+        
+        for unit_type, priority_weight in type_priorities.items():
+            # Odwrócony efekt nasycenia - im więcej mamy, tym mniejszy priorytet
+            current_count = planned_counts.get(unit_type, 0)
+            saturation_penalty = 1.0 / (1.0 + current_count * 0.3)  # Zmniejsza się z każdą jednostką
+            
+            final_score = priority_weight * saturation_penalty
+            
+            if final_score > best_score:
+                # Sprawdź czy można kupić tę jednostkę
+                candidate = find_template([unit_type], ['Pluton', 'Kompania', 'Batalion'])
+                if candidate:
+                    best_score = final_score
+                    best_type = unit_type
+        
+        if best_type:
+            tpl = find_template([best_type], ['Kompania', 'Pluton', 'Batalion'])  # Preferuj większe rozmiary
             if tpl:
-                print("🧪 Heurystyka: potrzebna mobilność ->", tpl['name'])
+                priority_val = type_priorities[best_type]
+                current_count = planned_counts.get(best_type, 0)
+                print(f"🎯 Inteligentne priorytety: {tpl['name']} (priorytet={priority_val:.1f}, mamy={current_count}, wynik={best_score:.2f})")
                 return tpl
-        # 6 Diversity – wybierz typ o najniższym (count / (1 + waga))
+        
+        # KROK 5: Fallback - stara logika dywersyfikacji
         type_counts = {}
         for u in unit_templates:
             type_counts[u['type']] = planned_counts.get(u['type'],0)
         sorted_types = sorted(type_counts.items(), key=lambda kv: kv[1])
-        for t,_cnt in sorted_types:
+        for t, _cnt in sorted_types:
             tpl = find_template([t], ['Pluton','Kompania','Batalion'])
             if tpl:
-                print("🧪 Heurystyka: dywersyfikacja ->", tpl['name'])
+                print("🧪 Fallback: dywersyfikacja ->", tpl['name'])
                 return tpl
+                
         return None
 
     # === PRIORYTETY DOWÓDCÓW ===
