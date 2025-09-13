@@ -1,0 +1,26 @@
+{
+  "id": "nowy_TŚ_Batalion__3_Polska Czołg średni Batalion II_20250911233759",
+  "nation": "Polska",
+  "unitType": "TŚ",
+  "unitSize": "Batalion",
+  "shape": "prostokąt",
+  "label": "Polska Czołg średni Batalion II",
+  "unit_full_name": "Polska Czołg średni Batalion II",
+  "move": 4,
+  "attack": {
+    "range": 2,
+    "value": 25
+  },
+  "combat_value": 25,
+  "defense_value": 29,
+  "maintenance": 3,
+  "price": 56,
+  "sight": 5,
+  "owner": "3",
+  "support_upgrades": [
+    "obserwator"
+  ],
+  "image": "assets/tokens/nowe_dla_3/nowy_TŚ_Batalion__3_Polska Czołg średni Batalion II_20250911233759/token.png",
+  "w": 240,
+  "h": 240
+}

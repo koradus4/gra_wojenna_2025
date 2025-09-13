@@ -6,6 +6,7 @@ NOWE: Priorytetyzacja jednostek Zaopatrzenia (Z) - jedynych zbierających PE.
 from __future__ import annotations
 from typing import Any, List, Dict
 from ai.logowanie_ai import log_commander_action
+from ai.ai_config import get_param
 
 __all__ = [
     'optimize_budget','adaptive_purchase_ai','get_unit_type_priority_multiplier'
@@ -15,13 +16,8 @@ def get_unit_type_priority_multiplier(unit_type):
     """Zwraca mnożnik priorytetu dla różnych typów jednostek.
     NOWE: Jednostki Z (Zaopatrzenie) mają zwiększony priorytet jako jedyne zbierające PE.
     """
-    if unit_type == 'Z':
-        return 1.5  # Zwiększony priorytet dla zaopatrzenia - kluczowe dla ekonomii PE
-    elif unit_type == 'P':
-        return 1.1  # Lekki bonus dla piechoty - uniwersalna
-    elif unit_type == 'D':
-        return 1.2  # Dowództwo też ważne
-    return 1.0  # Standardowy priorytet dla pozostałych
+    priorities = get_param('ECONOMY.UNIT_TYPE_PRIORITIES', {})
+    return priorities.get(unit_type, 1.0)
 
 def optimize_budget(commander, game_engine):
     try:
@@ -47,17 +43,25 @@ def optimize_budget(commander, game_engine):
             if unit_cost > 0:
                 units_needing_resupply += 1
                 total_resupply_cost += unit_cost
-        if total_units < 5:
-            allocation = {"allocate":0.3, "purchase":0.6, "reserve":0.1}
+        
+        # Pobierz parametry konfiguracyjne
+        thresholds = get_param('ECONOMY.ALLOCATION_THRESHOLDS', {})
+        allocations = get_param('ECONOMY.BUDGET_ALLOCATIONS', {})
+        
+        small_army_size = thresholds.get('SMALL_ARMY_SIZE', 5)
+        high_resupply_ratio = thresholds.get('HIGH_RESUPPLY_RATIO', 0.7)
+        
+        if total_units < small_army_size:
+            allocation = allocations.get('SMALL_ARMY', {"allocate":0.3, "purchase":0.6, "reserve":0.1})
             reason = "Mała armia - priorytet nowe jednostki"
-        elif units_needing_resupply > total_units * 0.7:
-            allocation = {"allocate":0.8, "purchase":0.1, "reserve":0.1}
+        elif units_needing_resupply > total_units * high_resupply_ratio:
+            allocation = allocations.get('HIGH_RESUPPLY', {"allocate":0.8, "purchase":0.1, "reserve":0.1})
             reason = "Masowe potrzeby resupply"
         elif getattr(commander,'consecutive_losing_turns',0) >= 3:
             allocation = {"allocate":0.2, "purchase":0.7, "reserve":0.1}
             reason = "Desperacka sytuacja - wszystko w nowe jednostki"
         else:
-            allocation = getattr(commander,'budget_allocation',{"allocate":0.5,"purchase":0.4,"reserve":0.1}).copy()
+            allocation = getattr(commander,'budget_allocation', allocations.get('BALANCED', {"allocate":0.5,"purchase":0.4,"reserve":0.1})).copy()
             reason = f"Strategia {getattr(commander,'strategic_state','TIED')}"
         allocate_amount = int(current_budget * allocation['allocate'])
         purchase_amount = int(current_budget * allocation['purchase'])

@@ -1,0 +1,20 @@
+{
+  "profile": "custom",
+  "profile_info": {
+    "profile": "custom",
+    "name": "Niestandardowy Commander",
+    "description": "Konfiguracja dostosowana ręcznie przez użytkownika"
+  },
+  "custom_parameters": {
+    "COMBAT": {
+      "THREAT_RETREAT_THRESHOLD": 99
+    },
+    "ECONOMY": {
+      "MIN_BUY": 42.5
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "created_by": "AI Configuration System"
+  }
+}

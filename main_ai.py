@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+import subprocess
+import sys
 from core.tura import TurnManager
 from engine.player import Player
 from gui.panel_generala import PanelGenerala
@@ -11,6 +13,7 @@ from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
 from utils.game_cleaner import clean_all_for_new_game, quick_clean, clean_ai_logs, clean_game_logs
+from gui.ai_config_panel import AIConfigPanel
 
 # --- Safe stdout encoding (unikaj UnicodeEncodeError w konsoli cp1250) ---
 try:
@@ -54,9 +57,14 @@ class GameLauncher:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Gra Wojenna 2025 - Launcher")
-        self.root.geometry("900x820")
+        
+        # Zmaksymalizuj okno
+        self.root.state('zoomed')  # Windows maximized
+        
+        # Fallback rozmiar jeśli maximized nie działa
+        self.root.geometry("1400x1000")
         try:
-            self.root.minsize(900, 820)
+            self.root.minsize(1200, 900)
         except Exception:
             pass
         # Zmienne sterujące
@@ -70,12 +78,81 @@ class GameLauncher:
         self.victory_mode = tk.StringVar(value="turns")
         # UI
         self.setup_ui()
-        self.root.bind('<Control-Shift-L>', lambda e: self.clean_logs_only())
+        self.root.bind('<Control-Shift-L>', lambda e: self.quick_clean())
+        
+        # Metody obsługi AI panelu
+    
+    def _toggle_ai_panel(self):
+        """Pokaż/ukryj panel konfiguracji AI"""
+        expanded = self.ai_panel_expanded.get()
+        
+        if not expanded:
+            # Expand - tworzymy panel jeśli nie istnieje
+            if self.ai_panel is None:
+                try:
+                    self.ai_panel = AIConfigPanel(self.ai_panel_container, 
+                                                 compact_mode=True)  # Kompaktowy tryb
+                    self.ai_panel.pack(fill="both", expand=True, pady=(10, 0))
+                except ImportError as e:
+                    messagebox.showerror("Błąd", f"Nie można załadować panelu AI: {e}")
+                    return
+            
+            self.ai_panel_container.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+            self.ai_toggle_btn.config(text="▼ Ukryj ustawienia AI")
+            self.ai_panel_expanded.set(True)
+        else:
+            # Collapse
+            self.ai_panel_container.grid_remove()
+            self.ai_toggle_btn.config(text="▶ Pokaż ustawienia AI") 
+            self.ai_panel_expanded.set(False)
+    
+    def _quick_profile(self, profile_name):
+        """Szybkie przełączenie profilu AI"""
+        try:
+            from ai.ai_config import set_ai_profile, AIProfile
+            profile_enum = AIProfile(profile_name)
+            set_ai_profile(profile_enum)
+            
+            # Pokaż info
+            profile_icons = {"aggressive": "🔥", "defensive": "🛡️", "balanced": "🎯"}
+            icon = profile_icons.get(profile_name, "🎯")
+            
+            messagebox.showinfo("Profil AI", 
+                              f"{icon} Ustawiono profil: {profile_name.upper()}\n\n"
+                              f"Konfiguracja zostanie zastosowana w następnej grze.")
+            
+            # Odśwież panel jeśli jest otwarty
+            if hasattr(self, 'ai_panel') and self.ai_panel:
+                self.ai_panel.refresh_from_config()
+                
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie można zmienić profilu: {e}")
 
     def setup_ui(self):
-        frame = ttk.Frame(self.root, padding="20")
-        frame.grid(row=0, column=0, sticky="nsew")
-        ttk.Label(frame, text="Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
+        # Główny frame z dwoma kolumnami
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.grid(row=0, column=0, sticky="nsew")
+        
+        # Konfiguracja kolumn - lewa (opcje gry) i prawa (AI)
+        main_frame.columnconfigure(0, weight=1, minsize=500)  # Lewa kolumna - mniejsza
+        main_frame.columnconfigure(1, weight=2, minsize=800)  # Prawa kolumna (AI) - większa waga i szerokość
+        main_frame.rowconfigure(0, weight=1)
+        
+        # === LEWA KOLUMNA - OPCJE GRY ===
+        left_frame = ttk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        
+        # === PRAWA KOLUMNA - AI CONFIGURATION ===  
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+        
+        # LEWA: Tytuł i opcje gry
+        frame = left_frame
+        
+        ttk.Label(frame, text="🎮 Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
         # Konfiguracja AI
         lf = ttk.LabelFrame(frame, text="Konfiguracja AI", padding="15")
         lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
@@ -118,18 +195,76 @@ class GameLauncher:
         ttk.Button(btns, text="🧾 Czyść logi CSV", command=self.clean_logs_only).grid(row=0, column=2)
         ttk.Label(clean_frame, text="Szybkie: rozkazy + żetony (kompletne) | Pełne: wszystko + logi | Logi CSV: WSZYSTKIE *.csv", font=("Arial", 9), foreground="gray").grid(row=1, column=0, columnspan=3, pady=(5, 0))
         ttk.Label(clean_frame, text="Skrót: Ctrl+Shift+L (czyści WSZYSTKIE CSV - garrison, AI, actions)", font=("Arial", 8), foreground="gray").grid(row=2, column=0, columnspan=3)
-        # Główne przyciski
+        
+        # Główne przyciski - LEWA KOLUMNA
         main_button_frame = ttk.Frame(frame)
         main_button_frame.grid(row=4, column=0, columnspan=2, pady=20)
-        ttk.Button(main_button_frame, text="Start Gry", command=self.start_game).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(main_button_frame, text="Test AI", command=self.test_ai).grid(row=0, column=1, padx=(0, 10))
-        ttk.Button(main_button_frame, text="Wyjście", command=self.root.quit).grid(row=0, column=2)
+
+        ttk.Button(main_button_frame, text="🚀 Uruchom Grę", command=self.start_game).grid(row=0, column=0, padx=(0, 20))
+        ttk.Button(main_button_frame, text="🤖 Auto 10 Tur", command=self.auto_game).grid(row=0, column=1, padx=(0, 20))
+        ttk.Button(main_button_frame, text="⚙️ Alternatywny", command=self.alternative_mode).grid(row=0, column=2, padx=(0, 20))
+        ttk.Button(main_button_frame, text="❌ Zamknij", command=self.root.quit).grid(row=0, column=3)
+        
+        # === PRAWA KOLUMNA - PANEL KONFIGURACJI AI ===
+        ttk.Label(right_frame, text="🤖 AI Commander", font=("Arial", 16, "bold")).grid(row=0, column=0, pady=(0, 20))
+        
+        ai_config_frame = ttk.LabelFrame(right_frame, text="🎛️ Konfiguracja AI Commander", padding="10")
+        ai_config_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 20))
+        
+        # Konfiguruj right_frame żeby AI panel się rozszerzał
+        right_frame.rowconfigure(1, weight=1)
+        right_frame.columnconfigure(0, weight=1)
+        
+        # Stwórz panel AI (collapsed początkowo)
+        self.ai_panel_expanded = tk.BooleanVar(value=False)
+        
+        # Header z przyciskiem expand/collapse
+        header_frame = ttk.Frame(ai_config_frame)
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        
+        self.ai_toggle_btn = ttk.Button(header_frame, text="▶ Pokaż ustawienia AI", 
+                                       command=self._toggle_ai_panel)
+        self.ai_toggle_btn.pack(side="left")
+        
+        # Quick profile buttons
+        quick_frame = ttk.Frame(header_frame)
+        quick_frame.pack(side="right")
+        
+        ttk.Label(quick_frame, text="Profile: ").pack(side="left", padx=(0, 5))
+        ttk.Button(quick_frame, text="🎯", width=3, 
+                  command=lambda: self._quick_profile('balanced')).pack(side="left", padx=1)
+        ttk.Button(quick_frame, text="🔥", width=3,
+                  command=lambda: self._quick_profile('aggressive')).pack(side="left", padx=1) 
+        ttk.Button(quick_frame, text="🛡️", width=3,
+                  command=lambda: self._quick_profile('defensive')).pack(side="left", padx=1)
+        
+        # Container dla pełnego panelu AI (początkowo ukryty)
+        self.ai_panel_container = ttk.Frame(ai_config_frame)
+        self.ai_panel = None  # Będzie utworzony gdy potrzeba
 
     def test_ai(self):
         """Szybki test AI bez uruchamiania pełnej gry"""
         from ai.ai_commander import test_basic_safety
         result = test_basic_safety()
         messagebox.showinfo("Test AI", f"Test AI Commander: {'✓ OK' if result else '✗ Błąd'}")
+    
+    def auto_game(self):
+        """Uruchom auto grę 10 tur"""
+        try:
+            subprocess.run([sys.executable, "auto_game_10_turns.py"], cwd=".", check=True)
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("Błąd", f"Nie można uruchomić auto gry: {e}")
+        except FileNotFoundError:
+            messagebox.showerror("Błąd", "Plik auto_game_10_turns.py nie został znaleziony")
+    
+    def alternative_mode(self):
+        """Uruchom alternatywny tryb"""
+        try:
+            subprocess.run([sys.executable, "main_alternative.py"], cwd=".", check=True)
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("Błąd", f"Nie można uruchomić trybu alternatywnego: {e}")
+        except FileNotFoundError:
+            messagebox.showerror("Błąd", "Plik main_alternative.py nie został znaleziony")
     
     def quick_clean(self):
         """Szybkie czyszczenie - rozkazy strategiczne i zakupione żetony"""

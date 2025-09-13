@@ -1,4 +1,11 @@
-# 🎯 AI COMMANDER PIPELINE - Przegląd z Victory AI Integration
+# 🎯 AI COMMANDER PIPELINE - Przegląd z Victory AI Integration + AI Configuration System
+
+## -1. **🎛️ AI CONFIGURATION LAYER** ✅ **NOWY - CENTRALNE PARAMETRY**
+- **Centralna konfiguracja:** `get_param()` zamiast hardcoded wartości (29 aktywnych wywołań)
+- **Profile AI:** AGGRESSIVE (0.7x min_buy), DEFENSIVE (1.3x attack), BALANCED (1.0x all), CUSTOM
+- **GUI Integration:** Panel konfiguracji z suwakami + JSON persistence (ai/configs/ai_config.json)
+- **Dynamic Parameters:** Commander wykorzystuje `get_param('ECONOMY.MIN_BUY')`, `get_param('COMBAT.MINIMUM_ATTACK_RATIO')` etc.
+- **A/B Testing Ready:** Profile można zmieniać bez restart - natychmiastowy effect na AI behavior
 
 ## 0. **🧠 VICTORY AI STRATEGIC LAYER** ✅ **NOWE - PHASE 1-3 ACTIVE**
 - **Victory AI Phase 1:** Intelligent Scouting + Enemy Detection (72 scout checks per turn)
@@ -13,10 +20,12 @@
 - Inicjalizuje key pointy jeśli nie istnieją
 - Ustawia referencję current_player_commander dla dostępu z innych modułów
 
-## 2. **ADAPTACYJNY SYSTEM STRATEGICZNY + VICTORY AI INTEGRATION**
+## 2. **ADAPTACYJNY SYSTEM STRATEGICZNY + VICTORY AI INTEGRATION + AI CONFIGURATION**
 - Tworzy AdaptiveAICommander i analizuje stan VP (WINNING/LOSING/TIED)
 - **Victory AI Input:** Receives threat assessment and scout intelligence data
+- **Configurable Economics:** `get_param('ECONOMY.MIN_BUY')`, `get_param('ECONOMY.ALLOC_RATIO')`, `get_param('LOGISTICS.LOW_FUEL_PERCENT_THRESHOLD')`
 - Ustala poziom agresywności (0.3-0.9) i priorytety celów **enhanced by Victory AI recommendations**
+- **Profile AI Influence:** AGGRESSIVE profile = 0.7x min_buy, DEFENSIVE = 1.3x attack thresholds
 - **Enhanced Reconnaissance:** Victory AI provides 72 scout checks + enemy detection data
 - **Multi-turn Planning:** Victory AI attack plans influence strategic decisions
 
@@ -45,9 +54,10 @@
 - Przypisuje cele grupom z koordynacją (bez duplikatów) **following Victory AI strategic guidance**
 - **Victory AI Plan Validation:** Continuously validates if plans should continue or abort
 
-## 6. **FAZA WALKI**
+## 6. **FAZA WALKI + AI CONFIGURATION**
 - Każda jednostka próbuje walczyć z wrogami w zasięgu
-- Deleguje do `ai.walka_ai` ocenę stosunku sił i wykonanie ataku
+- Deleguje do `ai.walka_ai` ocenę stosunku sił i wykonanie ataku **using `get_param('COMBAT.MINIMUM_ATTACK_RATIO')`**
+- **Configurable Combat:** `get_param('COMBAT.THREAT_RETREAT_THRESHOLD')`, `get_param('COMBAT.LOW_CV_RESUPPLY_THRESHOLD')`
 - Automatyczne uzupełnienie paliwa/CV przed walką
 - **Mid-turn resupply** - uzupełnienie jednostek po walkach
 

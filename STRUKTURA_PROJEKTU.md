@@ -1,6 +1,34 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (3 września 2025) – WERSJA 3.8 – PE VALIDATION SYSTEM ZAKOŃCZONY
+## 📌 STAN BIEŻĄCY (13 września 2025) – WERSJA 3.9 – AI CONFIGURATION SYSTEM COMPLETE
+
+**AI CONFIGURATION SYSTEM - KOMPLETNE ROZWIĄZANIE (13.09.2025):**
+
+**Problem:** AI wykorzystywało hardcoded wartości rozproszone po 25+ modułach, uniemożliwiając tunowanie i A/B testing.
+
+**Rozwiązanie AI Configuration System:**
+- **Centralna konfiguracja** w `ai/ai_config.py` z `AIConfigManager`
+- **Profile AI:** AGGRESSIVE (0.7x min_buy), DEFENSIVE (1.3x attack), BALANCED (1.0x all), CUSTOM
+- **Kategorie parametrów:** ECONOMY, COMBAT, LOGISTICS, STRATEGY, MOVEMENT, DEPLOYMENT, PURCHASES
+- **GUI Integration:** Panel konfiguracji z suwakami + JSON persistence (ai/configs/ai_config.json)
+- **29 aktywnych get_param():** walka_ai.py (6), ai_general.py (19), ekonomia_ai.py (4)
+
+**Nowe komponenty systemu:**
+- `get_param('ECONOMY.MIN_BUY', 30)` - zamiast hardcoded MIN_BUY = 30
+- `set_param()`, `set_ai_profile()` - dynamiczna konfiguracja 
+- **Profile multipliers:** AGGRESSIVE profile → MIN_BUY = 21 (30 * 0.7)
+- **Custom parameters:** THREAT_RETREAT_THRESHOLD=99 z GUI → wpływa na AI behavior
+- **Hot-reload:** Zmiany parametrów bez restarta gry
+
+**Wyniki weryfikacji (End-to-End test):**
+- **Refaktoryzacja**: 29 get_param() calls zastąpiły hardcoded values ✅
+- **GUI → AI workflow**: Custom parametry z GUI wpływają na zachowanie AI ✅  
+- **Profile system**: AGGRESSIVE/DEFENSIVE/BALANCED działają poprawnie ✅
+- **A/B Testing ready**: System gotowy do tuningu i eksperymentów ✅
+
+**Pliki:** `ai/ai_config.py`, `ai/configs/ai_config.json`, `gui/ai_config_panel.py`, refaktoryzowane `ai/walka_ai.py`, `ai/ai_general.py`, `ai/ekonomia_ai.py`
+
+Aktualizacja koncentruje się na: **konfigurowaniu AI przez gracza** oraz **eliminacji hardcoded wartości z systemu**.
 
 **SYSTEM PE VALIDATION - KOMPLETNE ROZWIĄZANIE (3.09.2025):**
 
@@ -137,14 +165,18 @@ projekt/
 └── ai/                          # Wstępny moduł sztucznej inteligencji (Faza 1 częściowa)
 ```
 
-### Katalog `ai/` (stan bieżący + PE validation system)
+### Katalog `ai/` (stan bieżący + AI Configuration System + PE validation system)
 ```
 ai/
 ├── __init__.py
-├── ai_general.py              # (KOMPLETNY) Generał AI: ekonomia, alokacja, PE validation
+├── ai_config.py               # ✅ (NOWY) Centralny system konfiguracji AI z profile/parameters
+├── configs/
+│   └── ai_config.json         # ✅ (NOWY) JSON persistence custom parameters z GUI
+├── ai_general.py              # ✅ (REFAKTORYZOWANY) Generał AI: 19 get_param() calls
 ├── ai_commander.py            # (ROZSZERZONY) Dowódca AI: taktyka, ruch, PE spending controls
+├── walka_ai.py                # ✅ (REFAKTORYZOWANY) Combat system: 6 get_param() calls
+├── ekonomia_ai.py             # ✅ (REFAKTORYZOWANY) Ekonomia: 4 get_param() calls
 ├── zaopatrzenie_ai.py         # (NOWY) System PE validation i bezpiecznych transferów
-├── ekonomia_ai.py             # (ROZSZERZONY) Ekonomia z PE balance checking
 ├── logowanie_ai.py            # (ROZSZERZONY) Logi PE flow i economic tracking
 ├── wybor_celow.py             # Target selection dla jednostek
 ├── grupowanie_ai.py           # Adaptive grouping i koordinacja
@@ -152,11 +184,11 @@ ai/
 ├── okupacja_punktow.py        # Garrison management
 ├── obrona_ai.py               # Defensive positioning
 ├── rajdy_ai.py                # Opportunistic captures
-├── walka_ai.py                # Combat system z CV calculations
 ├── reakcje_ai.py              # Reaction fire system
 ├── priorytety_ai.py           # Key points scoring
-├── konfiguracja_ai.py         # AI configuration constants
+├── konfiguracja_ai.py         # ⚠️ (LEGACY) Partial constants - mostly replaced by ai_config.py
 ├── log_kategorie_ai.py        # Log categories definition
+├── test_ai_config.py          # ✅ (NOWY) Testy systemu konfiguracji
 └── logs/                      # Generated CSV logs and analysis
 ```
 ```
@@ -173,7 +205,7 @@ ai/
  └── README.md            # (PLAN) Dokumentacja modułu AI
 ```
 
-### Tabela postępu faz AI (stan na 03.09.2025)
+### Tabela postępu faz AI (stan na 13.09.2025)
 
 | Faza | Status | Pokrycie | Notatki |
 |------|--------|----------|---------|
@@ -181,25 +213,27 @@ ai/
 | 1 Szkielet modułu | ZAKOŃCZONA | 100% | AI Commander + AI General implementowane |
 | 2 Adapter stanu | ZAKOŃCZONY | 100% | PE validation + economic state management |
 | 3 Ruch taktyczny | ZAKOŃCZONY | 85% | Ruch, progresywny movement, garrison limit, opportunistic capture |
-| 4 Walka selektywna | ZAKOŃCZONY | 75% | System ograniczenia artylerii, PE-controlled combat |
-| 5 Strategia key points | ZAKOŃCZONY | 70% | Capture + bonusy + PE-based prioritization |
-| 6 Ekonomia / zakupy | ZAKOŃCZONY | 95% | PE validation system, safe transfers, economic stability |
-| 7 Poziomy trudności | CZĘŚCIOWO | 30% | Adaptive strategies, brak MCTS |
+| 4 Walka selektywna | ZAKOŃCZONY | 80% | System ograniczenia artylerii, PE-controlled combat, get_param() refactor |
+| 5 Strategia key points | ZAKOŃCZONY | 75% | Capture + bonusy + PE-based prioritization |
+| 6 Ekonomia / zakupy | ZAKOŃCZONY | 100% | ✅ **PE validation + AI Configuration System complete** |
+| 7 Poziomy trudności | ZAKOŃCZONY | 75% | ✅ **Profile AI (AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM) implemented** |
 | 8 Logowanie decyzji | ZAKOŃCZONY | 95% | Comprehensive PE flow logging, economic analysis |
-| 9 Adaptacja | CZĘŚCIOWO | 15% | Podstawowa adaptacja strategiczna |
+| 9 Adaptacja | CZĘŚCIOWO | 40% | ✅ **Profile system + hot-reload**, brak ML adaptacji |
 
-### Obecna funkcjonalność AI (3.8 - PE VALIDATION COMPLETE)
+### Obecna funkcjonalność AI (3.9 - AI CONFIGURATION SYSTEM COMPLETE)
 
-**AI GENERAL (KOMPLETNY POZIOM STRATEGICZNY + PE SECURITY):**
+**AI GENERAL (KOMPLETNY POZIOM STRATEGICZNY + AI CONFIGURATION):**
 * ✅ Pełny parytet z human generałem - VP, Key Points, faza gry
 * ✅ 5 strategii adaptacyjnych (ROZWÓJ/KRYZYS_PALIWA/DESPERACJA/OCHRONA/EKSPANSJA)
 * ✅ System budżetu 20-40-40 z elastycznym podziałem
+* ✅ **19 get_param() calls** - eliminacja hardcoded wartości (MIN_BUY, ALLOC_RATIO, BUDGET_STRATEGIES)
 * ✅ Analiza per dowódca (paliwo, combat value, typy jednostek)
 * ✅ EconAction.COMBO - kombinacja alokacji + zakupów
 * ✅ **PE VALIDATION SYSTEM** - eliminacja ujemnych PE, bezpieczne transfery
+* ✅ **AI Configuration System** - profile AI, custom parameters z GUI
 * ✅ **Economic stability** - walidacja bilansów, multi-layer protection
 * ✅ Kompletne logowanie ekonomii, Key Points, strategii, PE flow
-* ❌ **BRAK: MCTS algorithm, machine learning, poziomy trudności**
+* ❌ **BRAK: MCTS algorithm, machine learning**
 
 **AI COMMANDER (KOMPLETNY POZIOM TAKTYCZNY + PE CONTROLS):**
 * ✅ Ruch (full + progresywny) z adaptacją MP i PE validation
@@ -214,16 +248,29 @@ ai/
 * ❌ Brak pełnej rotacji garnizonów (stabilny placeholder)
 * ❌ Brak advanced retreat/reposition heurystyk
 
-### Znane ograniczenia (3.8 - POST PE VALIDATION)
+**AI CONFIGURATION SYSTEM (NOWY - 3.9):**
+* ✅ **Central Configuration:** `ai_config.py` z `AIConfigManager`
+* ✅ **Profile System:** AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM z multiplierami
+* ✅ **29 get_param() calls:** walka_ai.py (6), ai_general.py (19), ekonomia_ai.py (4)
+* ✅ **GUI Integration:** Panel konfiguracji + JSON persistence
+* ✅ **Hot-reload:** Zmiany parametrów bez restarta
+* ✅ **A/B Testing Ready:** Custom parametry wpływają na AI behavior
+* ✅ **Categories:** ECONOMY, COMBAT, LOGISTICS, STRATEGY, MOVEMENT, DEPLOYMENT, PURCHASES
 
-**AI GENERAL:**
+### Znane ograniczenia (3.9 - POST AI CONFIGURATION SYSTEM)
+
+**AI GENERAL (STABILNE - PO AI CONFIGURATION):**
+* ✅ **Hardcoded values resolved** - 19 get_param() calls implemented
+* ✅ **Profile system implemented** - AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM
+* ✅ **GUI configurable** - custom parameters from interface working
 * Brak Monte Carlo Tree Search dla trudniejszych poziomów
 * Brak machine learning adaptacji między grami  
 * Brak opponent modeling
-* Sztywne strategie bez dynamicznego dostrajania wag
+* ✅ **Parametrized strategies** - profile multipliers working, no more fixed values
 
-**AI COMMANDER (STABILNE OGRANICZENIA - PO PE VALIDATION):**
+**AI COMMANDER (STABILNE OGRANICZENIA - PO AI CONFIGURATION):**
 * ✅ **PE VALIDATION RESOLVED** - system ekonomiczny bezpieczny i stabilny
+* ✅ **Combat parameters configurable** - MINIMUM_ATTACK_RATIO, THREAT_RETREAT_THRESHOLD via get_param()
 * ✅ **Resupply system działający** - kontrola PE, walidacja wydatków
 * ✅ **Economic stability** - brak crashy ekonomicznych, poprawne bilanse
 * Brak advanced risk-based combat (cv_ratio / przewidywane straty) 
@@ -445,7 +492,14 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 ---
 
-## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – AKTUALNE 03.09.2025)
+## 🧭 NASTĘPNE KROKI (PRIORYTETY TECHNICZNE – AKTUALNE 13.09.2025)
+
+### **COMPLETED - AI CONFIGURATION SYSTEM ✅**
+~~1. AI Configuration System - eliminacja hardcoded wartości~~
+~~2. Profile AI - AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM~~
+~~3. GUI Integration - panel konfiguracji + JSON persistence~~
+~~4. Refactoring - 29 get_param() calls w 3 modułach~~
+~~5. Hot-reload system - zmiany parametrów bez restarta~~
 
 ### **COMPLETED - PE VALIDATION SYSTEM ✅**
 ~~1. PE validation system - eliminacja ujemnych PE~~
@@ -476,6 +530,18 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 16. **Advanced economic modeling** - przewidywanie potrzeb PE based on map analysis
 
 ## 🗒 CHANGELOG
+**3.9 (13.09.2025) - AI CONFIGURATION SYSTEM COMPLETE**
+* **🎛️ AI CONFIGURATION SYSTEM** - kompletny system centralnej konfiguracji AI
+* `ai/ai_config.py` z `AIConfigManager` - profile AI, parametry, hot-reload
+* **Profile System:** AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM z multiplierami
+* **GUI Integration:** Panel konfiguracji + JSON persistence (`ai/configs/ai_config.json`)
+* **29 get_param() calls:** walka_ai.py (6), ai_general.py (19), ekonomia_ai.py (4)
+* **Refactoring complete:** Eliminacja hardcoded wartości (MIN_BUY, ALLOC_RATIO, MINIMUM_ATTACK_RATIO)
+* **Custom parameters working:** THREAT_RETREAT_THRESHOLD=99 z GUI wpływa na AI behavior
+* **A/B Testing ready:** Profile można zmieniać bez restarta - natychmiastowy efekt
+* **Categories implemented:** ECONOMY, COMBAT, LOGISTICS, STRATEGY, MOVEMENT, DEPLOYMENT, PURCHASES
+* **End-to-end workflow:** GUI → JSON → AI behavior confirmed working ✅
+
 **3.8 (03.09.2025) - PE VALIDATION SYSTEM COMPLETE**
 * **🔒 SYSTEM PE VALIDATION** - kompletna implementacja zabezpieczeń ekonomicznych
 * Multi-layer protection w `ai/zaopatrzenie_ai.py` i `core/ekonomia.py`
@@ -534,17 +600,23 @@ AI musi działać w ramach tej samej informacji (brak „cheat vision”).
 
 ## ⚡ SZYBKI START (JUTRO – 5 MIN)
 1. Uruchom launcher → Start Gry (potwierdź auto‑czyszczenie). 
-2. Sprawdź `ai/ai_general.py` czy `GENERATE_ORDERS` ma oczekiwaną wartość.
-3. Włącz AI dla obu stron (generał + dowódcy), zagraj 5-10 tur.
-4. **NOWE:** Obserwuj PE flow - brak ujemnych wartości w logach ✅
-5. **Test PE validation:** Uruchom `tools/launcher_analizy_pe.py` 
-6. **Analiza ekonomii:** Sprawdź `tools/analizator_przeplywu_pe.py`
-7. **Weryfikacja stabilności:** PE bilanse muszą się zgadzać 100%
-8. **Test systemu artylerii:** `python tests/test_artillery_shot_limits.py`
+2. **NOWE:** Test AI Configuration - otwórz Panel Konfiguracji AI w GUI ✅
+3. **Zmień profile AI:** Spróbuj AGGRESSIVE/DEFENSIVE/BALANCED profili ✅
+4. **Custom parameters:** Ustaw THREAT_RETREAT_THRESHOLD=99 i obserwuj wpływ ✅
+5. Włącz AI dla obu stron (generał + dowódcy), zagraj 5-10 tur.
+6. **Weryfikacja get_param():** Obserwuj logi - 29 wywołań get_param() w akcji ✅
+7. **Test PE validation:** Uruchom `tools/launcher_analizy_pe.py` 
+8. **Analiza ekonomii:** Sprawdź `tools/analizator_przeplywu_pe.py`
+9. **Weryfikacja stabilności:** PE bilanse muszą się zgadzać 100%
+10. **Test systemu artylerii:** `python tests/test_artillery_shot_limits.py`
 
-## 🧪 METRYKI – STAN 3.8 (PE VALIDATION COMPLETE)
+## 🧪 METRYKI – STAN 3.9 (AI CONFIGURATION SYSTEM COMPLETE)
 | Metryka | Status | Cel | Wykorzystanie |
 |---------|--------|-----|---------------|
+| **ai_configuration_system** | **ZAIMPLEMENTOWANA** | **parameter management** | **eliminacja hardcoded values** |
+| **profile_ai_multipliers** | **ZAIMPLEMENTOWANA** | **AI behavior variants** | **AGGRESSIVE/DEFENSIVE/BALANCED** |
+| **get_param_refactoring** | **ZAIMPLEMENTOWANA (29 calls)** | **centralized config** | **walka/ekonomia/ai_general** |
+| **gui_integration** | **ZAIMPLEMENTOWANA** | **user customization** | **panel konfiguracji + JSON** |
 | **pe_flow_validation** | **ZAIMPLEMENTOWANA** | **economic stability** | **eliminacja ujemnych PE** |
 | **pe_transfer_safety** | **ZAIMPLEMENTOWANA** | **safe General→Commander** | **poprawne alokacje** |
 | **pe_balance_checking** | **ZAIMPLEMENTOWANA** | **bilans accuracy** | **weryfikacja operacji** |

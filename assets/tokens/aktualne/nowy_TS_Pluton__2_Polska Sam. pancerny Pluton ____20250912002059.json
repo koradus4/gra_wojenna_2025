@@ -1,0 +1,26 @@
+{
+  "id": "nowy_TS_Pluton__2_Polska Sam. pancerny Pluton ____20250912002059",
+  "nation": "Polska",
+  "unitType": "TS",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "Polska Sam. pancerny Pluton ***",
+  "unit_full_name": "Polska Sam. pancerny Pluton ***",
+  "move": 5,
+  "attack": {
+    "range": 1,
+    "value": 8
+  },
+  "combat_value": 8,
+  "defense_value": 10,
+  "maintenance": 3,
+  "price": 13,
+  "sight": 6,
+  "owner": "2",
+  "support_upgrades": [
+    "obserwator"
+  ],
+  "image": "assets/tokens/nowe_dla_2/nowy_TS_Pluton__2_Polska Sam. pancerny Pluton ____20250912002059/token.png",
+  "w": 240,
+  "h": 240
+}

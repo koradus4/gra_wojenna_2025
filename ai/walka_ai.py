@@ -3,6 +3,7 @@ Zawiera logikę wyszukiwania celów, oceny stosunku sił, flankowania, odwrotu i
 """
 from __future__ import annotations
 from typing import Any, Dict, List
+from ai.ai_config import get_param
 
 __all__ = [
     'ai_attempt_combat', 'find_enemies_in_range', 'evaluate_combat_ratio',
@@ -21,7 +22,8 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
                 if unit_token:
                     current_cv = getattr(unit_token, 'combat_value', 0)
                     max_cv = unit_token.stats.get('combat_value', 0)
-                    if max_cv > 0 and current_cv / max_cv < 0.8:
+                    low_cv_threshold = get_param('COMBAT.LOW_CV_RESUPPLY_THRESHOLD', 0.8)
+                    if max_cv > 0 and current_cv / max_cv < low_cv_threshold:
                         commander_ref.tactical_resupply(game_engine, "PRE_ATTACK")
         if attempt_retreat_low_cv(unit, game_engine):
             return False
@@ -32,9 +34,11 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
         if not enemies:
             return False
         best_enemy = None; best_ratio = 0.0
+        minimum_attack_ratio = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2)
+        
         for enemy in enemies:
             ratio = evaluate_combat_ratio(unit, enemy)
-            if ratio > best_ratio and ratio >= 1.2:
+            if ratio > best_ratio and ratio >= minimum_attack_ratio:
                 best_ratio = ratio; best_enemy = enemy
         if best_enemy:
             try_flank_before_attack(unit, best_enemy, game_engine)
@@ -86,12 +90,15 @@ def find_enemies_in_range(unit: Dict, game_engine: Any, player_id: int) -> List[
                     enemy_hp = getattr(token, 'combat_value', 0)
                     
                     # Jeśli ograniczona detekcja, użyj przybliżonych wartości
-                    if detection_level < 0.8:
+                    high_detection = get_param('COMBAT.HIGH_DETECTION_THRESHOLD', 0.8)
+                    medium_detection = get_param('COMBAT.MEDIUM_DETECTION_THRESHOLD', 0.5)
+                    
+                    if detection_level < high_detection:
                         try:
                             from engine.detection_filter import apply_detection_filter
                             enemy_info = apply_detection_filter(token, detection_level)
                             # Szacuj attack/defense na podstawie poziomu detekcji
-                            if detection_level >= 0.5:
+                            if detection_level >= medium_detection:
                                 enemy_attack = max(1, int(enemy_attack * 0.8))  # Przybliżona wartość
                                 enemy_defense = max(1, int(enemy_defense * 0.8))
                             else:
@@ -140,7 +147,7 @@ def attempt_retreat_low_cv(unit: Dict, game_engine: Any) -> bool:
         if not utok: return False
         cv = getattr(utok, 'combat_value', 0)
         base_cv = utok.stats.get('combat_value', 1)
-        if base_cv <= 0 or cv / base_cv >= 0.25: return False
+        if base_cv <= 0 or cv / base_cv >= get_param('COMBAT.MINIMUM_CV_RETREAT_RATIO', 0.25): return False
         board = getattr(game_engine, 'board', None)
         if not board: return False
         closest = None; closest_d = 999

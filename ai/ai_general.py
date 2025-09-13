@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from enum import Enum, auto
 import datetime, csv, json
+from ai.ai_config import get_param
 
 # Importujemy debug_print z głównego modułu
 try:
@@ -21,23 +22,17 @@ except ImportError:
     def debug_print(message, level="BASIC", category="INFO"):
         print(f"[AI_GENERAL] {message}")
 
-# Proste stałe progowe ekonomii (można później przenieść do config)
-MIN_BUY = 30          # Poniżej – HOLD
-MIN_ALLOCATE = 60     # Od tej wartości (i gdy mamy już trochę armii) rozważ ALLOCATE
-ALLOC_RATIO = 0.6     # Procent środków przekazywany dowódcom przy ALLOCATE
-MAX_UNITS_PER_TURN = 2  # PODSTAWOWY limit - będzie dynamicznie dostosowany do liczby istniejących jednostek
-LOW_FUEL_PERCENT_THRESHOLD = 30   # % paliwa poniżej którego jednostka uznana za low-fuel
-LOW_FUEL_UNITS_RATIO_TRIGGER = 0.30  # Jeśli >=30% jednostek ma niski poziom paliwa -> priorytet ALLOCATE (regeneracja)
-UNSPENT_CAP = 80  # Skala do kar za niewydane punkty dowódcy
+# Proste stałe progowe ekonomii - ZASTĄPIONE przez get_param()
+# MIN_BUY = 30          # UŻYWAJ: get_param('ECONOMY.MIN_BUY')
+# MIN_ALLOCATE = 60     # UŻYWAJ: get_param('ECONOMY.MIN_ALLOCATE')
+# ALLOC_RATIO = 0.6     # UŻYWAJ: get_param('ECONOMY.ALLOC_RATIO')
+# MAX_UNITS_PER_TURN = 2  # UŻYWAJ: get_param('LOGISTICS.MAX_UNITS_PER_TURN')
+# LOW_FUEL_PERCENT_THRESHOLD = 30   # UŻYWAJ: get_param('LOGISTICS.LOW_FUEL_PERCENT_THRESHOLD')
+# LOW_FUEL_UNITS_RATIO_TRIGGER = 0.30  # UŻYWAJ: get_param('LOGISTICS.LOW_FUEL_UNITS_RATIO_TRIGGER')
+# UNSPENT_CAP = 80  # UŻYWAJ: get_param('ECONOMY.UNSPENT_CAP')
 
-# FAZA 3: Strategiczne budżety zgodnie z planem (20-40-40 bazowo)
-BUDGET_STRATEGIES = {
-    'ROZWÓJ': {'reserve': 0.20, 'allocate': 0.40, 'purchase': 0.40},
-    'KRYZYS_PALIWA': {'reserve': 0.15, 'allocate': 0.50, 'purchase': 0.35},  # POPRAWIONE: więcej na zakupy!
-    'DESPERACJA': {'reserve': 0.10, 'allocate': 0.25, 'purchase': 0.65},
-    'OCHRONA': {'reserve': 0.30, 'allocate': 0.55, 'purchase': 0.15},
-    'EKSPANSJA': {'reserve': 0.20, 'allocate': 0.35, 'purchase': 0.45}
-}
+# FAZA 3: Strategiczne budżety - ZASTĄPIONE przez get_param('ECONOMY.BUDGET_STRATEGIES')
+# BUDGET_STRATEGIES = {...}  # UŻYWAJ: get_param('ECONOMY.BUDGET_STRATEGIES')
 
 # System rozkazów USUNIĘTY - autonomiczne AI tylko
 
@@ -268,7 +263,7 @@ class AIGeneral:
         
         # Faza strategiczna zależna od poziomu paliwa
         low_ratio = getattr(self, '_low_fuel_ratio', 0.0)
-        self._phase = 'REGEN' if low_ratio >= LOW_FUEL_UNITS_RATIO_TRIGGER else 'BUILD'
+        self._phase = 'REGEN' if low_ratio >= get_param('LOGISTICS.LOW_FUEL_UNITS_RATIO_TRIGGER', 0.30) else 'BUILD'
         
         # === PE PRZED DECYZJAMI STRATEGICZNYMI ===
         pe_before_decisions = current_player.economy.get_points().get('economic_points', 0)
@@ -465,7 +460,7 @@ class AIGeneral:
             
             print(f"  🎯 {unit_id_str}... - Właściciel: {owner}, Paliwo: {cur_fuel}/{max_fuel} ({fuel_percent:.0f}%), Combat: {combat_value}, Typ: {unit_type}")
             
-            if fuel_percent < LOW_FUEL_PERCENT_THRESHOLD:
+            if fuel_percent < get_param('LOGISTICS.LOW_FUEL_PERCENT_THRESHOLD', 30):
                 low_fuel_units.append(unit)
                 commanders_units[owner]['low_fuel'] += 1
             if combat_value < 3:
@@ -524,7 +519,7 @@ class AIGeneral:
             'low_fuel_ratio': self._low_fuel_ratio
         }
         
-        print(f"📈 Low fuel ratio: {self._low_fuel_ratio:.2f} (trigger {LOW_FUEL_UNITS_RATIO_TRIGGER:.2f})")
+        print(f"📈 Low fuel ratio: {self._low_fuel_ratio:.2f} (trigger {get_param('LOGISTICS.LOW_FUEL_UNITS_RATIO_TRIGGER', 0.30):.2f})")
         
     def analyze_strategic_situation(self, game_engine, player):
         """NOWA METODA - Analiza strategiczna VP, Key Points, fazy gry."""
@@ -710,7 +705,8 @@ class AIGeneral:
         
         # KROK 1: Określenie strategii zgodnie z planem
         strategy_name = self._determine_strategy(strategic, unit_analysis, own_units)
-        budget_strategy = BUDGET_STRATEGIES.get(strategy_name, BUDGET_STRATEGIES['ROZWÓJ'])
+        budget_strategies = get_param('ECONOMY.BUDGET_STRATEGIES', {})
+        budget_strategy = budget_strategies.get(strategy_name, budget_strategies.get('ROZWÓJ', {'reserve': 0.20, 'allocate': 0.40, 'purchase': 0.40}))
         
         metrics = {
             'econ': econ,
@@ -724,7 +720,7 @@ class AIGeneral:
         }
         
         # KROK 2: Sprawdź minimalne progi
-        if econ < MIN_BUY:
+        if econ < get_param('ECONOMY.MIN_BUY', 30):
             metrics['rule'] = 'econ<MIN_BUY'
             self._last_action = EconAction.HOLD
             return EconAction.HOLD, metrics
@@ -830,7 +826,7 @@ class AIGeneral:
             expected_reserve_ratio = 0.1  # 10% naturalnej rezerwy
             total_received_estimate = unspent / max(0.1, expected_reserve_ratio)  # Szacuj całkowite PE
             excess_unspent = max(0, unspent - (total_received_estimate * expected_reserve_ratio))
-            penalty = min(0.3, excess_unspent / max(1, UNSPENT_CAP))  # Zmniejszona max kara 0.4→0.3
+            penalty = min(0.3, excess_unspent / max(1, get_param('ECONOMY.UNSPENT_CAP', 80)))  # Zmniejszona max kara 0.4→0.3
             
             w = base + add_supply + add_fuel + add_units - penalty
             if w < 0.05:
@@ -849,7 +845,7 @@ class AIGeneral:
             }
         total_w = sum(weights.values()) or 1.0
         norm_weights = {cid: round(w/total_w, 3) for cid, w in weights.items()}
-        to_distribute = int(econ_points * ALLOC_RATIO)
+        to_distribute = int(econ_points * get_param('ECONOMY.ALLOC_RATIO', 0.6))
         if to_distribute <= 0:
             return 0, len(commanders), weights
         distributed = 0
@@ -1156,7 +1152,7 @@ class AIGeneral:
                     total_cost_spent += plan.get('cost', 0)
                 else:
                     print("   ❌ Nieudany zakup – przerwam dalsze jeśli brak środków")
-                    if player.economy.get_points().get('economic_points', 0) < MIN_BUY:
+                    if player.economy.get_points().get('economic_points', 0) < get_param('ECONOMY.MIN_BUY', 30):
                         break
             self._last_decision_context['units_bought'] = bought
             self._last_decision_context['total_cost_spent'] = total_cost_spent

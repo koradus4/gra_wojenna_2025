@@ -27,8 +27,17 @@ Ten dokument w prostych słowach wyjaśnia do czego służy każdy plik w folder
 ## 5. grupowanie_ai.py
 Tworzenie grup jednostek na podstawie bliskości oraz przypisywanie ich do celów. Dodatkowo potrafi ponownie przydzielić grupy gdy cel zniknął lub stał się nieaktualny.
 
-## 6. konfiguracja_ai.py
-Zbiór stałych (progi, mnożniki bonusów) – centralne miejsce na wartości liczbowo‑konfiguracyjne używane w kilku modułach. **NOWE:** Dodane stałe PE validation (progi bezpieczeństwa).
+## 6. konfiguracja_ai.py ⚠️ **LEGACY - CZĘŚCIOWO ZASTĄPIONY**
+~~Stary zbiór stałych~~ - **ZASTĄPIONY przez ai_config.py** dla większości parametrów. Pozostały tylko niektóre stałe (rotacje garnizonów, bonusy keypoints, logi). Nowy system `get_param()` w ai_config.py jest rekomendowany dla nowych parametrów.
+
+## 6a. ai_config.py ✅ **NOWY - CENTRALNY SYSTEM KONFIGURACJI**
+**"Mózg konfiguracyjny AI"**. Zaawansowany system zarządzania parametrami z `AIConfigManager`: 
+- **Profile AI:** AGGRESSIVE (0.7x min_buy), DEFENSIVE (1.3x attack), BALANCED (1.0x all), CUSTOM (ręczne)
+- **Kategorie:** ECONOMY, COMBAT, LOGISTICS, STRATEGY, MOVEMENT, DEPLOYMENT, PURCHASES
+- **API:** `get_param('ECONOMY.MIN_BUY')`, `set_param()`, `set_ai_profile()` 
+- **GUI Integration:** Panel konfiguracji z suwakami, custom parametry zapisywane do JSON
+- **29 aktywnych get_param():** walka_ai.py (6), ai_general.py (19), ekonomia_ai.py (4)
+**EFEKT:** AI jest w pełni konfigurowalne bez zmiany kodu. Gracze mogą tuning przez GUI.
 
 ## 7. logowanie_ai.py
 **ROZSZERZONY:** System logowania działań AI do plików CSV. Zapisuje każdą akcję jednostki oraz zagregowane podsumowania tur. **NOWE:** Logowanie PE flow - pełne śledzenie przepływu ekonomii między generałami i dowódcami. Ułatwia debug i analizę zachowań.
@@ -129,6 +138,20 @@ Zbiera wygenerowane pliki CSV i logi pomocnicze (np. testy ruchu, **NOWE:** PE f
 - **🚛 Logistyka → Zaopatrzenie + PE Validation + Deployment + Victory AI Logistics.**
 - **🛡️ Obrona / garnizony → Victory AI Defense Allocation + Obrona + Okupacja.**
 - **📊 Pamięć i analiza → Logi + PE Flow + Victory AI Operations + VP Intelligence + zapisane cele.**
+
+---
+### 🎛️ AI CONFIGURATION SYSTEM - KLUCZOWA REFAKTORYZACJA ✅
+**Problem rozwiązany:** Hardcoded wartości rozproszone po 25+ modułach AI.
+**Rozwiązanie:** Centralna konfiguracja z `get_param()` i profile AI.
+
+**Główne komponenty:**
+- `get_param('ECONOMY.MIN_BUY', 30)` - zamiast hardcoded MIN_BUY = 30
+- **29 aktywnych get_param():** walka_ai.py (6), ai_general.py (19), ekonomia_ai.py (4)
+- **Profile AI:** AGGRESSIVE/DEFENSIVE/BALANCED/CUSTOM z automatycznymi multiplierami
+- **GUI Integration:** Panel konfiguracji z suwakami + JSON persistence
+- **Custom Parameters:** Gracze mogą modyfikować AI przez GUI (np. THREAT_RETREAT_THRESHOLD=99)
+
+**Efekt:** AI jest w pełni konfigurowalne, testowalną A/B testing profile. ✅
 
 ---
 ### 🔒 PE VALIDATION SYSTEM - KLUCZOWE ZABEZPIECZENIE
