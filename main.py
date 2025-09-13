@@ -547,26 +547,35 @@ class GameLauncher:
             else:
                 current_player = turn_manager.get_current_player()
             game_engine.current_player_obj = current_player
-            # DODANE: Debug info o aktualnym graczu
+            # DODANE: Debug info o aktualnym graczu - ROZSZERZONE
             print(f"🔍 DEBUG: current_player = {current_player.id} ({current_player.nation} {current_player.role})")
             print(f"🔍 DEBUG: is_ai = {getattr(current_player, 'is_ai', False)}")
             print(f"🔍 DEBUG: is_ai_commander = {getattr(current_player, 'is_ai_commander', False)}")
-            print(f"🔍 DEBUG: in ai_generals = {current_player.id in ai_generals}")
-            print(f"🔍 DEBUG: in ai_commanders = {current_player.id in ai_commanders}")
+            print(f"🔍 DEBUG: in ai_generals = {current_player.id in ai_generals} (dict: {list(ai_generals.keys())})")
+            print(f"🔍 DEBUG: in ai_commanders = {current_player.id in ai_commanders} (dict: {list(ai_commanders.keys())})")
+            
+            # Sprawdź co będzie wykonane
+            if current_player.id in ai_generals:
+                print(f"✅ DEBUG: Będzie wykonana TURA AI GENERAŁA")
+            elif current_player.id in ai_commanders:
+                print(f"✅ DEBUG: Będzie wykonana TURA AI DOWÓDCY")
+            else:
+                print(f"👤 DEBUG: Będzie wykonana TURA CZŁOWIEKA")
             
             # DODANE: Logowanie stanu key pointów na początku tury
             game_engine.log_key_points_status(current_player)
             
             update_all_players_visibility(players, game_engine.tokens, game_engine.board)
-            if hasattr(current_player, 'is_ai') and current_player.is_ai and current_player.id in ai_generals:
-                print(f"🤖 AI GENERAL TURN: {current_player.nation} {current_player.role}")
+            # NAPRAWIONO: Sprawdź AI na podstawie obecności w słownikach AI zamiast flag
+            if current_player.id in ai_generals:
+                print(f"🤖 AI GENERAL TURN: {current_player.nation} {current_player.role} (id={current_player.id})")
                 ai_general = ai_generals[current_player.id]
                 if current_player.role == "Generał":
                     current_player.economy.generate_economic_points()
                     current_player.economy.add_special_points()
                 ai_general.make_turn(game_engine)
                 is_full_turn_end = turn_manager.next_turn()
-            elif hasattr(current_player, 'is_ai_commander') and current_player.is_ai_commander and current_player.id in ai_commanders:
+            elif current_player.id in ai_commanders:
                 print(f"🤖 AI COMMANDER TURN: {current_player.nation} id={current_player.id}")
                 ai_commander = ai_commanders[current_player.id]
                 

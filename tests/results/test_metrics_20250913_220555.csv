@@ -1,0 +1,9 @@
+test_id,scenario_name,start_time,end_time,duration_seconds,total_turns,winner,victory_condition,polish_vp_final,german_vp_final,polish_units_final,german_units_final,polish_pe_spent,german_pe_spent,ai_decisions_made,ai_errors_count,ai_avg_turn_time,ai_strategic_changes,engine_errors,memory_usage_mb,cpu_usage_percent,test_result,performance_score,issues_count
+1,balanced_standard,2025-09-13T22:05:55.317329,2025-09-13T22:06:02.472305,7.154976,10,,unknown,0,0,0,0,0,0,200,0,0.6927011251449585,0,0,33.81640625,0.0,PASS,105.0,0
+2,aggressive_vs_defensive,2025-09-13T22:06:02.485545,2025-09-13T22:06:09.937627,7.452082,12,,unknown,0,0,0,0,0,0,240,0,0.6116321086883545,0,0,33.48046875,0.0,PASS,105.0,0
+3,defensive_vs_aggressive,2025-09-13T22:06:09.950059,2025-09-13T22:06:16.819181,6.869122,12,,unknown,0,0,0,0,0,0,240,0,0.5669920245806376,0,0,33.60546875,0.0,PASS,105.0,0
+4,economic_warfare,2025-09-13T22:06:16.828746,2025-09-13T22:06:25.817686,8.98894,15,,unknown,0,0,0,0,0,0,300,0,0.5943952878316243,0,0,33.625,0.0,PASS,105.0,0
+5,quick_decisive,2025-09-13T22:06:25.830453,2025-09-13T22:06:30.172827,4.342374,6,,unknown,0,0,0,0,0,0,120,0,0.7124427159627279,0,0,33.71875,0.0,PASS,105.0,0
+6,endurance_test,2025-09-13T22:06:30.187651,2025-09-13T22:06:40.583233,10.395582,20,,unknown,0,0,0,0,0,0,400,0,0.5163138031959533,0,0,33.5625,0.0,PASS,105.0,0
+7,ai_adaptation_test,2025-09-13T22:06:40.603636,2025-09-13T22:06:47.785565,7.181929,10,,unknown,0,0,0,0,0,0,200,0,0.7107988357543945,0,0,33.69140625,0.0,PASS,105.0,0
+8,stress_test,2025-09-13T22:06:47.794929,2025-09-13T22:06:53.413569,5.61864,8,,unknown,0,0,0,0,0,0,160,0,0.6925008594989777,0,0,33.7109375,0.0,PASS,105.0,0

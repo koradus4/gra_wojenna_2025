@@ -1,0 +1,83 @@
+[
+  {
+    "scenario_name": "quick_balanced",
+    "start_time": "2025-09-13 21:14:12.477291",
+    "end_time": "2025-09-13 21:14:12.524109",
+    "duration_seconds": 0.046818,
+    "total_turns": 0,
+    "winner": null,
+    "victory_condition": "unknown",
+    "polish_vp_final": 0,
+    "german_vp_final": 0,
+    "polish_units_final": 0,
+    "german_units_final": 0,
+    "polish_pe_spent": 0,
+    "german_pe_spent": 0,
+    "ai_decisions_made": 0,
+    "ai_errors_count": 0,
+    "ai_avg_turn_time": 0.0,
+    "ai_strategic_changes": 0,
+    "engine_errors": 0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "test_result": "TestResult.ERROR",
+    "issues_found": [
+      "Critical error: 'GameEngine' object has no attribute 'players'"
+    ],
+    "performance_score": 0.0
+  },
+  {
+    "scenario_name": "quick_aggressive",
+    "start_time": "2025-09-13 21:14:12.538891",
+    "end_time": "2025-09-13 21:14:12.587280",
+    "duration_seconds": 0.048389,
+    "total_turns": 0,
+    "winner": null,
+    "victory_condition": "unknown",
+    "polish_vp_final": 0,
+    "german_vp_final": 0,
+    "polish_units_final": 0,
+    "german_units_final": 0,
+    "polish_pe_spent": 0,
+    "german_pe_spent": 0,
+    "ai_decisions_made": 0,
+    "ai_errors_count": 0,
+    "ai_avg_turn_time": 0.0,
+    "ai_strategic_changes": 0,
+    "engine_errors": 0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "test_result": "TestResult.ERROR",
+    "issues_found": [
+      "Critical error: 'GameEngine' object has no attribute 'players'"
+    ],
+    "performance_score": 0.0
+  },
+  {
+    "scenario_name": "quick_mixed",
+    "start_time": "2025-09-13 21:14:12.598375",
+    "end_time": "2025-09-13 21:14:12.637962",
+    "duration_seconds": 0.039587,
+    "total_turns": 0,
+    "winner": null,
+    "victory_condition": "unknown",
+    "polish_vp_final": 0,
+    "german_vp_final": 0,
+    "polish_units_final": 0,
+    "german_units_final": 0,
+    "polish_pe_spent": 0,
+    "german_pe_spent": 0,
+    "ai_decisions_made": 0,
+    "ai_errors_count": 0,
+    "ai_avg_turn_time": 0.0,
+    "ai_strategic_changes": 0,
+    "engine_errors": 0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "test_result": "TestResult.ERROR",
+    "issues_found": [
+      "Critical error: 'GameEngine' object has no attribute 'players'"
+    ],
+    "performance_score": 0.0
+  }
+]
