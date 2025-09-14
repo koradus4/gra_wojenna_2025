@@ -68,13 +68,23 @@ class GameLauncher:
             self.root.minsize(1200, 900)
         except Exception:
             pass
-        # Zmienne sterujące
+        # Zmienne sterujące - AI włączenie/wyłączenie
         self.ai_polish_general = tk.BooleanVar()
         self.ai_german_general = tk.BooleanVar()
         self.ai_polish_commander_1 = tk.BooleanVar()
         self.ai_polish_commander_2 = tk.BooleanVar()
         self.ai_german_commander_1 = tk.BooleanVar()
         self.ai_german_commander_2 = tk.BooleanVar()
+        
+        # Zmienne profili AI - indywidualne dla każdego gracza
+        self.profile_polish_general = tk.StringVar(value="🎯 Balanced")
+        self.profile_german_general = tk.StringVar(value="🎯 Balanced")
+        self.profile_polish_commander_1 = tk.StringVar(value="🎯 Balanced")
+        self.profile_polish_commander_2 = tk.StringVar(value="🎯 Balanced") 
+        self.profile_german_commander_1 = tk.StringVar(value="🎯 Balanced")
+        self.profile_german_commander_2 = tk.StringVar(value="🎯 Balanced")
+        
+        # Opcje gry
         self.max_turns = tk.StringVar(value="10")
         self.victory_mode = tk.StringVar(value="turns")
         # UI
@@ -107,6 +117,23 @@ class GameLauncher:
             self.ai_panel_container.grid_remove()
             self.ai_toggle_btn.config(text="▶ Pokaż ustawienia AI") 
             self.ai_panel_expanded.set(False)
+    
+    def _convert_display_to_value(self, display_value):
+        """Konwertuje wartość wyświetlaną na wartość systemową"""
+        conversion_map = {
+            "🎯 Balanced": "balanced",
+            "🔥 Aggressive": "aggressive", 
+            "🛡️ Defensive": "defensive"
+        }
+        return conversion_map.get(display_value, "balanced")  # domyślnie balanced
+    
+    def _update_profile_value(self, string_var, display_value, profile_options):
+        """Aktualizuje wartość profilu na podstawie wybranej opcji wyświetlania"""
+        for display, value in profile_options:
+            if display == display_value:
+                # Aktualizujemy StringVar z prawidłową wartością (balanced/aggressive/defensive)
+                string_var.set(value)
+                break
     
     def _quick_profile(self, profile_name):
         """Szybkie przełączenie profilu AI"""
@@ -158,16 +185,79 @@ class GameLauncher:
         # Konfiguracja AI
         lf = ttk.LabelFrame(frame, text="Konfiguracja AI", padding="15")
         lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+        
+        # Profile options
+        profile_options = [
+            ("🎯 Balanced", "balanced"),
+            ("🔥 Aggressive", "aggressive"), 
+            ("🛡️ Defensive", "defensive")
+        ]
+        
+        # Generałowie z profilami
         ttk.Label(lf, text="Generałowie:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
-        ttk.Checkbutton(lf, text="Polski Generał (id=1) - AI", variable=self.ai_polish_general).grid(row=1, column=0, sticky="w", padx=(20, 0))
-        ttk.Checkbutton(lf, text="Niemiecki Generał (id=4) - AI", variable=self.ai_german_general).grid(row=2, column=0, sticky="w", padx=(20, 0))
+        
+        # Polski Generał
+        pg_frame = ttk.Frame(lf)
+        pg_frame.grid(row=1, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(pg_frame, text="Polski Generał (id=1) - AI", variable=self.ai_polish_general).grid(row=0, column=0, sticky="w")
+        ttk.Label(pg_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        pg_combo = ttk.Combobox(pg_frame, textvariable=self.profile_polish_general, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        pg_combo.grid(row=0, column=2)
+        # Mapowanie wyświetlania na wartości
+        pg_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_general, pg_combo.get(), profile_options))
+        
+        # Niemiecki Generał
+        ng_frame = ttk.Frame(lf)  
+        ng_frame.grid(row=2, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(ng_frame, text="Niemiecki Generał (id=4) - AI", variable=self.ai_german_general).grid(row=0, column=0, sticky="w")
+        ttk.Label(ng_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        ng_combo = ttk.Combobox(ng_frame, textvariable=self.profile_german_general, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        ng_combo.grid(row=0, column=2)
+        ng_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_general, ng_combo.get(), profile_options))
+        
         ttk.Separator(lf, orient='horizontal').grid(row=3, column=0, sticky="ew", pady=10)
+        
+        # Dowódcy polscy z profilami
         ttk.Label(lf, text="Dowódcy polscy:", font=("Arial", 11, "bold")).grid(row=4, column=0, sticky="w", pady=(5, 5))
-        ttk.Checkbutton(lf, text="Polski Dowódca 1 (id=2) - AI", variable=self.ai_polish_commander_1).grid(row=5, column=0, sticky="w", padx=(20, 0))
-        ttk.Checkbutton(lf, text="Polski Dowódca 2 (id=3) - AI", variable=self.ai_polish_commander_2).grid(row=6, column=0, sticky="w", padx=(20, 0))
+        
+        # Polski Dowódca 1
+        pc1_frame = ttk.Frame(lf)
+        pc1_frame.grid(row=5, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(pc1_frame, text="Polski Dowódca 1 (id=2) - AI", variable=self.ai_polish_commander_1).grid(row=0, column=0, sticky="w")
+        ttk.Label(pc1_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        pc1_combo = ttk.Combobox(pc1_frame, textvariable=self.profile_polish_commander_1, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        pc1_combo.grid(row=0, column=2)
+        pc1_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_commander_1, pc1_combo.get(), profile_options))
+        
+        # Polski Dowódca 2
+        pc2_frame = ttk.Frame(lf)
+        pc2_frame.grid(row=6, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(pc2_frame, text="Polski Dowódca 2 (id=3) - AI", variable=self.ai_polish_commander_2).grid(row=0, column=0, sticky="w")
+        ttk.Label(pc2_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        pc2_combo = ttk.Combobox(pc2_frame, textvariable=self.profile_polish_commander_2, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        pc2_combo.grid(row=0, column=2)
+        pc2_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_commander_2, pc2_combo.get(), profile_options))
+        
+        # Dowódcy niemieccy z profilami
         ttk.Label(lf, text="Dowódcy niemieccy:", font=("Arial", 11, "bold")).grid(row=7, column=0, sticky="w", pady=(10, 5))
-        ttk.Checkbutton(lf, text="Niemiecki Dowódca 1 (id=5) - AI", variable=self.ai_german_commander_1).grid(row=8, column=0, sticky="w", padx=(20, 0))
-        ttk.Checkbutton(lf, text="Niemiecki Dowódca 2 (id=6) - AI", variable=self.ai_german_commander_2).grid(row=9, column=0, sticky="w", padx=(20, 0))
+        
+        # Niemiecki Dowódca 1
+        nc1_frame = ttk.Frame(lf)
+        nc1_frame.grid(row=8, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(nc1_frame, text="Niemiecki Dowódca 1 (id=5) - AI", variable=self.ai_german_commander_1).grid(row=0, column=0, sticky="w")
+        ttk.Label(nc1_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        nc1_combo = ttk.Combobox(nc1_frame, textvariable=self.profile_german_commander_1, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        nc1_combo.grid(row=0, column=2)
+        nc1_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_commander_1, nc1_combo.get(), profile_options))
+        
+        # Niemiecki Dowódca 2
+        nc2_frame = ttk.Frame(lf)
+        nc2_frame.grid(row=9, column=0, sticky="ew", padx=(20, 0))
+        ttk.Checkbutton(nc2_frame, text="Niemiecki Dowódca 2 (id=6) - AI", variable=self.ai_german_commander_2).grid(row=0, column=0, sticky="w")
+        ttk.Label(nc2_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
+        nc2_combo = ttk.Combobox(nc2_frame, textvariable=self.profile_german_commander_2, values=[opt[0] for opt in profile_options], state="readonly", width=12)
+        nc2_combo.grid(row=0, column=2)
+        nc2_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_commander_2, nc2_combo.get(), profile_options))
         # Opcje gry
         game_frame = ttk.LabelFrame(frame, text="Opcje gry", padding="15")
         game_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 20))
@@ -290,27 +380,38 @@ class GameLauncher:
             messagebox.showerror("Błąd", f"Błąd podczas szybkiego czyszczenia: {e}")
     
     def session_clean(self):
-        """Inteligentne czyszczenie sesji - zachowuje dane ML"""
+        """Inteligentne czyszczenie sesji - zachowuje dane ML + ŻETONY NA MAPIE"""
         try:
             result = messagebox.askyesno("Czyszczenie sesyjne", 
                                        "🧹 Wyczyścić bieżącą sesję gry?\n\n"
                                        "✅ USUWA:\n"
                                        "• Rozkazy strategiczne\n" 
-                                       "• Zakupione żetony\n"
+                                       "• Zakupione żetony (foldery)\n"
                                        "• Logi z dzisiejszej sesji\n\n"
                                        "💾 ZACHOWUJE:\n"
                                        "• Wszystkie dane ML\n"
+                                       "• ŻETONY NA MAPIE (start_tokens.json)\n"
                                        "• Archiwa i raporty\n"
                                        "• Statystyki długoterminowe")
             if result:
-                print("🧹 Czyszczenie sesyjne (zachowuję ML)...")
+                print("🧹 Czyszczenie sesyjne (zachowuję ML + żetony na mapie)...")
+                
+                # 1. Standardowe czyszczenie sesji (nie dotyka start_tokens.json)
                 stats = smart_clean_session()
                 
-                msg = f"✅ Sesja wyczyszczona!\n\n"
+                # 2. DODATKOWO: Wyczyść tylko zakupione żetony (foldery) - BEZ start_tokens.json
+                from utils.game_cleaner import clean_purchased_tokens, clean_purchased_tokens_from_index
+                print("🪙 Czyszczenie TYLKO zakupionych żetonów (foldery)...")
+                clean_purchased_tokens()  # czyści foldery nowe_dla_*, aktualne/
+                clean_purchased_tokens_from_index()  # czyści index.json
+                # NIE wywołujemy clean_purchased_tokens_from_start() - zachowujemy start_tokens.json!
+                
+                msg = f"✅ Sesja wyczyszczona (żetony na mapie ZACHOWANE)!\n\n"
                 msg += f"📄 Plików sesyjnych: {stats['session_files']}\n"
                 msg += f"💾 Zachowanych ML: {stats['preserved_ml']}\n" 
                 msg += f"🎯 Rozkazy: {stats['strategic_orders']}\n"
-                msg += f"🪙 Żetony: {stats['purchased_tokens']}"
+                msg += f"🪙 Żetony (foldery): WYCZYSZCZONE\n"
+                msg += f"🗺️ Żetony na mapie: ZACHOWANE"
                 
                 messagebox.showinfo("Czyszczenie sesyjne", msg)
         except Exception as e:
@@ -362,31 +463,53 @@ class GameLauncher:
             messagebox.showerror("Błąd", f"Błąd sprawdzania statusu ML:\n{e}")
     
     def full_clean(self):
-        """Pełne czyszczenie - wszystkie dane gry (zachowuje ML)"""
+        """Pełne czyszczenie - wszystkie dane gry (zachowuje ML) + ŻETONY Z MAPY"""
         try:
-            result = messagebox.askyesno("Pełne czyszczenie", 
-                                       "🗑️ Pełne czyszczenie z zachowaniem ML?\n\n"
+            result = messagebox.askyesno("Pełne czyszczenie + żetony", 
+                                       "🗑️ PEŁNE CZYSZCZENIE + ŻETONY Z MAPY?\n\n"
                                        "✅ USUWA:\n"
                                        "• Rozkazy strategiczne\n"
-                                       "• Zakupione żetony\n"
+                                       "• Zakupione żetony (foldery)\n"
+                                       "• ŻETONY Z MAPY (start_tokens.json)\n"
+                                       "• ŻETONY Z HEXÓW (map_data.json)\n"
                                        "• WSZYSTKIE logi sesyjne\n"
                                        "• Stare logi AI i game\n\n"
                                        "💾 ZACHOWUJE:\n"
                                        "• Wszystkie dane ML!\n"
-                                       "• Bezcenne datasety uczenia\n\n"
-                                       "UWAGA: Ta operacja jest nieodwracalna!")
+                                       "• Bezcenne datasety uczenia\n"
+                                       "• Strukturę mapy (tereny, punkty)\n\n"
+                                       "⚠️ UWAGA: RESET CAŁEJ GRY!")
             if result:
-                print("🗑️ Pełne czyszczenie (zachowuję ML)...")
+                print("🗑️ PEŁNE CZYSZCZENIE + ŻETONY Z MAPY...")
+                
+                # 1. Standardowe pełne czyszczenie (zachowuje ML)
                 stats = smart_clean_full()
                 
-                msg = f"✅ Pełne czyszczenie zakończone!\n\n"
+                # 2. DODATKOWO: Wyczyść żetony z mapy (tokens_soft)
+                from czyszczenie.game_cleaner import tokens_soft
+                print("🎯 Czyszczenie żetonów z mapy...")
+                tokens_soft(no_backup=True)  # bez backupu bo już robimy smart backup
+                
+                # 3. DODATKOWO: Wyczyść start_tokens.json kompletnie
+                import json
+                start_tokens_path = "assets/start_tokens.json"
+                try:
+                    with open(start_tokens_path, 'w', encoding='utf-8') as f:
+                        json.dump([], f, indent=2)
+                    print("✅ Wyczyszczono start_tokens.json -> []")
+                except Exception as e:
+                    print(f"⚠️ Błąd czyszczenia start_tokens.json: {e}")
+                
+                msg = f"✅ PEŁNE CZYSZCZENIE + ŻETONY ZAKOŃCZONE!\n\n"
                 msg += f"📄 Plików sesyjnych: {stats['session_files']}\n"
                 msg += f"🗑️ Starych plików: {stats.get('old_files', 0)}\n"
                 msg += f"💾 Zachowanych ML: {stats['preserved_ml']}\n"
                 msg += f"🎯 Rozkazy: {stats['strategic_orders']}\n"
-                msg += f"🪙 Żetony: {stats['purchased_tokens']}"
+                msg += f"🪙 Żetony folderowe: {stats['purchased_tokens']}\n"
+                msg += f"🗺️ Żetony z mapy: WYCZYSZCZONE\n"
+                msg += f"📍 start_tokens.json: WYZEROWANE"
                 
-                messagebox.showinfo("Pełne czyszczenie", msg)
+                messagebox.showinfo("Pełne czyszczenie + żetony", msg)
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
 
@@ -478,33 +601,52 @@ class GameLauncher:
             ]
         ai_generals = {}
         ai_commanders = {}
+        
+        # Importujemy system profili AI
+        from ai.ai_config import set_player_ai_profile
+        
         for player in players:
             if player.role == "Generał":
                 if player.nation == "Polska" and self.ai_polish_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("polish")
-                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id})", "BASIC", "AI_SETUP")
+                    # Ustaw profil AI na podstawie wyboru użytkownika
+                    profile_display = self.profile_polish_general.get()
+                    profile = self._convert_display_to_value(profile_display)
+                    set_player_ai_profile(player.id, profile)
+                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id}) - Profil: {profile} (z {profile_display})", "BASIC", "AI_SETUP")
                 elif player.nation == "Niemcy" and self.ai_german_general.get():
                     player.is_ai = True
                     ai_generals[player.id] = AIGeneral("german")
-                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id})", "BASIC", "AI_SETUP")
+                    # Ustaw profil AI na podstawie wyboru użytkownika
+                    profile_display = self.profile_german_general.get()
+                    profile = self._convert_display_to_value(profile_display)
+                    set_player_ai_profile(player.id, profile)
+                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id}) - Profil: {profile} (z {profile_display})", "BASIC", "AI_SETUP")
             elif player.role == "Dowódca":
                 # Sprawdź konkretnego dowódcę po ID
                 should_be_ai = False
+                selected_profile = "balanced"  # Domyślny profil
                 
                 if player.id == 2 and self.ai_polish_commander_1.get():  # Polski Dowódca 1
                     should_be_ai = True
+                    selected_profile = self._convert_display_to_value(self.profile_polish_commander_1.get())
                 elif player.id == 3 and self.ai_polish_commander_2.get():  # Polski Dowódca 2
                     should_be_ai = True
+                    selected_profile = self._convert_display_to_value(self.profile_polish_commander_2.get())
                 elif player.id == 5 and self.ai_german_commander_1.get():  # Niemiecki Dowódca 1
                     should_be_ai = True
+                    selected_profile = self._convert_display_to_value(self.profile_german_commander_1.get())
                 elif player.id == 6 and self.ai_german_commander_2.get():  # Niemiecki Dowódca 2
                     should_be_ai = True
+                    selected_profile = self._convert_display_to_value(self.profile_german_commander_2.get())
                 
                 if should_be_ai:
                     player.is_ai_commander = True
                     ai_commanders[player.id] = AICommander(player)
-                    debug_print(f"🎯 DOWÓDCA AI aktywny: {player.nation} Dowódca {player.id} (id={player.id})", "BASIC", "AI_SETUP")
+                    # Ustaw profil AI na podstawie wyboru użytkownika
+                    set_player_ai_profile(player.id, selected_profile)
+                    debug_print(f"🎯 DOWÓDCA AI aktywny: {player.nation} Dowódca {player.id} (id={player.id}) - Profil: {selected_profile}", "BASIC", "AI_SETUP")
                 else:
                     player.is_ai_commander = False
                     debug_print(f"👤 Dowódca ludzki: {player.nation} Dowódca {player.id} (id={player.id})", "FULL", "AI_SETUP")

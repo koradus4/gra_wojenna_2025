@@ -1,0 +1,2 @@
+test_id,scenario_name,start_time,end_time,duration_seconds,total_turns,winner,victory_condition,polish_vp_final,german_vp_final,polish_units_final,german_units_final,polish_pe_spent,german_pe_spent,ai_decisions_made,ai_errors_count,ai_avg_turn_time,ai_strategic_changes,engine_errors,memory_usage_mb,cpu_usage_percent,test_result,performance_score,issues_count
+1,defensive_vs_aggressive,2025-09-14T13:44:02.312193,2025-09-14T13:44:11.367662,9.055469,12,,unknown,0,0,0,0,0,0,240,0,0.7438844045003256,0,0,33.51953125,0.0,PASS,105.0,0

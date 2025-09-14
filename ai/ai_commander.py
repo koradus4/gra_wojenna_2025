@@ -1040,38 +1040,9 @@ def make_tactical_turn(game_engine, player_id=None):
         except Exception as dbg_e:
             debug_print(f"[ASSIGNMENTS DEBUG] Błąd normalizacji: {dbg_e}", "BASIC", ERROR)
         
-        # 3. COMBAT PHASE - dla każdej jednostki sprawdź możliwe ataki
-        combat_count = 0
-        for i, unit in enumerate(my_units):
-            unit_name = unit.get('id', f'unit_{i}')
-            unit_id = unit.get('id')
-            can_move_result = can_move(unit)
-
-            # Jeśli brak paliwa spróbuj taktycznego uzupełnienia
-            if not can_move_result and unit.get('fuel', 0) <= 0:
-                debug_print(f"🔧 {unit_name} potrzebuje paliwa", "FULL", FUEL)
-                commander_ref = getattr(game_engine, 'current_player_commander', None)
-                debug_print(f"[DEBUG] commander_ref: {commander_ref}", "FULL", RESUPPLY)
-                if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
-                    debug_print(f"Wywołuję tactical_resupply dla {unit_name}", "FULL", RESUPPLY)
-                    resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL", unit_id)
-                    debug_print(f"tactical_resupply result: {resupply_success}", "FULL", RESUPPLY)
-                    if resupply_success:
-                        token = unit.get('token')
-                        if token:
-                            unit['fuel'] = getattr(token, 'currentFuel', 0)
-                            unit['mp'] = getattr(token, 'currentMovePoints', 0)
-                            can_move_result = can_move(unit)
-                            debug_print(f"SUCCESS {unit_name} fuel={unit['fuel']} mp={unit['mp']}", "BASIC", RESUPPLY)
-                else:
-                    debug_print("Brak commander_ref lub tactical_resupply method", "BASIC", RESUPPLY)
-
-            if can_move_result:
-                combat_attempted = ai_attempt_combat(unit, game_engine, player_id, player_nation)
-                if combat_attempted:
-                    combat_count += 1
-        debug_print(f"COMBAT PHASE: {combat_count} ataków wykonanych", "BASIC", TACTIC)
-
+        # 3. COMBAT PHASE - PRZESUNIĘTE PO MOVEMENT PHASE (patrz linia ~1300)
+        # combat_count = 0  # PRZENIESIONE NIŻEJ
+        
         # 3.1. MID-TURN TACTICAL RESUPPLY - uzupełnij jednostki po walkach
         debug_print("=== MID-TURN RESUPPLY ===", "BASIC", RESUPPLY)
         try:
@@ -1119,6 +1090,16 @@ def make_tactical_turn(game_engine, player_id=None):
                         if success:
                             retreat_count += 1
                             debug_print(f"{unit['id']} odwrót do {target_pos}", "FULL", DEFENSE)
+                            
+                            # ===== DODANE: REACTION CHECK PO RUCHU (PARYTET Z HUMAN) =====
+                            try:
+                                unit_token = unit.get('token')
+                                if unit_token:
+                                    from ai.reakcje_ai import check_ai_reaction_attacks
+                                    check_ai_reaction_attacks(unit_token, game_engine, player_nation)
+                                    debug_print(f"✅ [AI_REACTION] Sprawdzono reakcje po ruchu {unit['id']}", "FULL", DEFENSE)
+                            except Exception as e:
+                                debug_print(f"⚠️ [AI_REACTION] Błąd sprawdzania reakcji: {e}", "BASIC", ERROR)
 
             debug_print(f"Wykonano {retreat_count} ruchów defensywnych", "BASIC", DEFENSE)
 
@@ -1270,6 +1251,17 @@ def make_tactical_turn(game_engine, player_id=None):
                         success = move_towards(unit, final_target, game_engine)
                         if success:
                             moved_count += 1
+                            
+                            # ===== DODANE: REACTION CHECK PO RUCHU (PARYTET Z HUMAN) =====
+                            try:
+                                unit_token = unit.get('token')
+                                if unit_token:
+                                    from ai.reakcje_ai import check_ai_reaction_attacks
+                                    check_ai_reaction_attacks(unit_token, game_engine, player_nation)
+                                    debug_print(f"✅ [AI_REACTION] Sprawdzono reakcje po ruchu {unit_name}", "FULL", MOVE)
+                            except Exception as e:
+                                debug_print(f"⚠️ [AI_REACTION] Błąd sprawdzania reakcji: {e}", "BASIC", ERROR)
+                            
                             # Jeśli osiągnięto cel (stanęliśmy na heksie celu) można zwolnić assigned_target
                             if (unit.get('q'), unit.get('r')) == unit.get('assigned_target'):
                                 debug_print(f"🏁 [PERSIST] {unit_name}: osiągnięto cel {unit['assigned_target']}, zwalniam", "FULL", ASSIGN)
@@ -1294,6 +1286,43 @@ def make_tactical_turn(game_engine, player_id=None):
                         debug_print(f"⚠️ [ADVANCED MOVE] {unit_name}: Nie może się ruszyć (MP={unit.get('mp', 0)}, Fuel={unit.get('fuel', 0)})", "FULL", MOVE)
 
         debug_print(f"[AI] Ruszono {moved_count} jednostek z {len(my_units)} (sukces: {moved_count/len(my_units)*100:.1f}%)", "BASIC", MOVE)
+
+        # ===== NOWA KOLEJNOŚĆ: COMBAT PHASE PO MOVEMENT PHASE =====
+        debug_print("🔥 COMBAT PHASE - ROZPOCZYNAM PO MOVEMENT", "BASIC", TACTIC)
+        combat_count = 0
+        
+        # Odśwież dane jednostek po movement (mogły się przenieść)
+        my_units_after_move = get_my_units(game_engine, player_id)
+        
+        for i, unit in enumerate(my_units_after_move):
+            unit_name = unit.get('id', f'unit_{i}')
+            unit_id = unit.get('id')
+            can_move_result = can_move(unit)
+
+            # Jeśli brak paliwa spróbuj taktycznego uzupełnienia
+            if not can_move_result and unit.get('fuel', 0) <= 0:
+                debug_print(f"🔧 {unit_name} potrzebuje paliwa w combat phase", "FULL", FUEL)
+                commander_ref = getattr(game_engine, 'current_player_commander', None)
+                if commander_ref and hasattr(commander_ref, 'tactical_resupply'):
+                    debug_print(f"Wywołuję tactical_resupply dla {unit_name}", "FULL", RESUPPLY)
+                    resupply_success = commander_ref.tactical_resupply(game_engine, "LOW_FUEL", unit_id)
+                    if resupply_success:
+                        token = unit.get('token')
+                        if token:
+                            unit['fuel'] = getattr(token, 'currentFuel', 0)
+                            unit['mp'] = getattr(token, 'currentMovePoints', 0)
+                            can_move_result = can_move(unit)
+                            debug_print(f"SUCCESS {unit_name} fuel={unit['fuel']} mp={unit['mp']}", "BASIC", RESUPPLY)
+
+            # Spróbuj atak (teraz po movement!)
+            if True:  # Usuń warunek can_move_result - jednostka może atakować bez MP
+                debug_print(f"🎯 [POST-MOVE COMBAT] Sprawdzam atak dla {unit_name}", "FULL", TACTIC)
+                combat_attempted = ai_attempt_combat(unit, game_engine, player_id, player_nation)
+                if combat_attempted:
+                    combat_count += 1
+                    debug_print(f"✅ [POST-MOVE COMBAT] {unit_name} zaatakował!", "BASIC", TACTIC)
+        
+        debug_print(f"🔥 COMBAT PHASE PO MOVEMENT: {combat_count} ataków wykonanych", "BASIC", TACTIC)
 
         # LOGUJ KONIEC TURY (szczegółowy w actions + zagregowany w turns)
         group_count = len(group_assignments)

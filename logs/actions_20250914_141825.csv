@@ -1,0 +1,10 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-09-14T14:18:25;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;19;0
+2025-09-14T14:18:28;1;2;Polska;Dowódca;move;P_Batalion__2_Batalion_Strzelc_w_20250913214005;;25;-8;27;-9;;0;0;19;0
+2025-09-14T14:18:32;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;19;0
+2025-09-14T14:18:39;1;3;Polska;Dowódca;move;P_Batalion__3_Pu_k_Piechoty;;28;11;30;9;;0;0;19;0
+2025-09-14T14:18:41;1;3;Polska;Dowódca;end_turn;;;;;;;user;0;0;19;0
+2025-09-14T14:18:48;1;4;Niemcy;Generał;end_turn;;;;;;;ok;0;0;19;62
+2025-09-14T14:18:53;1;5;Niemcy;Dowódca;move;Z_Kompania__5_Unterst_tzungs_Bataillon;;43;-15;39;-12;;0;0;19;62
+2025-09-14T14:18:55;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;0;0;19;62
+2025-09-14T14:18:59;1;6;Niemcy;Dowódca;move;P_Pluton__6_Sch_tzen_Kompanie;;38;2;36;2;;0;0;19;62

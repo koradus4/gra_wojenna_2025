@@ -1,0 +1,106 @@
+🧪 ZAAWANSOWANY TEST GRY - START: 2025-09-14 13:32:21.751148
+================================================================================
+
+[13:32:21] INFO: 
+============================================================
+[13:32:21] INFO: 🧪 TEST #1: quick_balanced
+[13:32:21] INFO: 📋 Opis: Szybki test zbalansowany
+[13:32:21] INFO: 🎯 Max tur: 6
+[13:32:21] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[13:32:21] INFO: ============================================================
+[13:32:21] INFO: 🎮 Tworzenie gry testowej: quick_balanced
+[13:32:21] INFO: 🎛️ Ustawiono profil balanced dla gracza 1 (polish)
+[13:32:21] INFO: 🎛️ Ustawiono profil balanced dla gracza 2 (polish)
+[13:32:21] INFO: 🎛️ Ustawiono profil balanced dla gracza 4 (german)
+[13:32:21] INFO: 🎛️ Ustawiono profil balanced dla gracza 5 (german)
+[13:32:21] INFO: 🤖 AI Generał: Polska (id=1)
+[13:32:21] INFO: 🎯 AI Dowódca: Polska (id=2)
+[13:32:21] INFO: 🤖 AI Generał: Niemcy (id=4)
+[13:32:21] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[13:32:21] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[13:32:21] INFO: 🎮 Start symulacji rozgrywki...
+[13:32:21] INFO: 🔄 Tura 1/6
+[13:32:23] INFO: ✅ Tura 1 zakończona w 1.22s
+[13:32:23] INFO: 🔄 Tura 2/6
+[13:32:24] INFO: ✅ Tura 2 zakończona w 1.38s
+[13:32:24] INFO: 🔄 Tura 3/6
+[13:32:25] INFO: ✅ Tura 3 zakończona w 0.73s
+[13:32:25] INFO: 🔄 Tura 4/6
+[13:32:26] INFO: ✅ Tura 4 zakończona w 0.97s
+[13:32:26] INFO: 🔄 Tura 5/6
+[13:32:26] INFO: ✅ Tura 5 zakończona w 0.74s
+[13:32:26] INFO: 🔄 Tura 6/6
+[13:32:27] INFO: ✅ Tura 6 zakończona w 0.68s
+[13:32:27] INFO: 🎮 Symulacja zakończona po 6 turach
+[13:32:27] INFO: ✅ Test quick_balanced zakończony
+[13:32:27] INFO: ⏱️ Czas: 5.8s
+[13:32:27] INFO: 🏆 Wynik: PASS
+[13:32:27] INFO: 📊 Performance: 105.0/100
+[13:32:27] INFO: 
+============================================================
+[13:32:27] INFO: 🧪 TEST #2: quick_aggressive
+[13:32:27] INFO: 📋 Opis: Szybki test agresywny
+[13:32:27] INFO: 🎯 Max tur: 5
+[13:32:27] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'aggressive'}
+[13:32:27] INFO: ============================================================
+[13:32:27] INFO: 🎮 Tworzenie gry testowej: quick_aggressive
+[13:32:27] INFO: 🎛️ Ustawiono profil aggressive dla gracza 1 (polish)
+[13:32:27] INFO: 🎛️ Ustawiono profil aggressive dla gracza 2 (polish)
+[13:32:27] INFO: 🎛️ Ustawiono profil aggressive dla gracza 4 (german)
+[13:32:27] INFO: 🎛️ Ustawiono profil aggressive dla gracza 5 (german)
+[13:32:27] INFO: 🤖 AI Generał: Polska (id=1)
+[13:32:27] INFO: 🎯 AI Dowódca: Polska (id=2)
+[13:32:27] INFO: 🤖 AI Generał: Niemcy (id=4)
+[13:32:27] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[13:32:27] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[13:32:27] INFO: 🎮 Start symulacji rozgrywki...
+[13:32:27] INFO: 🔄 Tura 1/5
+[13:32:29] INFO: ✅ Tura 1 zakończona w 1.40s
+[13:32:29] INFO: 🔄 Tura 2/5
+[13:32:30] INFO: ✅ Tura 2 zakończona w 1.30s
+[13:32:30] INFO: 🔄 Tura 3/5
+[13:32:31] INFO: ✅ Tura 3 zakończona w 0.83s
+[13:32:31] INFO: 🔄 Tura 4/5
+[13:32:31] INFO: ✅ Tura 4 zakończona w 0.77s
+[13:32:31] INFO: 🔄 Tura 5/5
+[13:32:32] INFO: ✅ Tura 5 zakończona w 0.93s
+[13:32:32] INFO: 🎮 Symulacja zakończona po 5 turach
+[13:32:32] INFO: ✅ Test quick_aggressive zakończony
+[13:32:32] INFO: ⏱️ Czas: 5.3s
+[13:32:32] INFO: 🏆 Wynik: PASS
+[13:32:32] INFO: 📊 Performance: 105.0/100
+[13:32:32] INFO: 
+============================================================
+[13:32:32] INFO: 🧪 TEST #3: quick_mixed
+[13:32:32] INFO: 📋 Opis: Szybki test mieszany
+[13:32:32] INFO: 🎯 Max tur: 6
+[13:32:32] INFO: 🤖 Profile AI: {'polish': 'defensive', 'german': 'aggressive'}
+[13:32:32] INFO: ============================================================
+[13:32:32] INFO: 🎮 Tworzenie gry testowej: quick_mixed
+[13:32:32] INFO: 🎛️ Ustawiono profil defensive dla gracza 1 (polish)
+[13:32:32] INFO: 🎛️ Ustawiono profil defensive dla gracza 2 (polish)
+[13:32:32] INFO: 🎛️ Ustawiono profil aggressive dla gracza 4 (german)
+[13:32:32] INFO: 🎛️ Ustawiono profil aggressive dla gracza 5 (german)
+[13:32:32] INFO: 🤖 AI Generał: Polska (id=1)
+[13:32:32] INFO: 🎯 AI Dowódca: Polska (id=2)
+[13:32:32] INFO: 🤖 AI Generał: Niemcy (id=4)
+[13:32:32] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[13:32:32] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[13:32:32] INFO: 🎮 Start symulacji rozgrywki...
+[13:32:32] INFO: 🔄 Tura 1/6
+[13:32:34] INFO: ✅ Tura 1 zakończona w 1.21s
+[13:32:34] INFO: 🔄 Tura 2/6
+[13:32:35] INFO: ✅ Tura 2 zakończona w 1.26s
+[13:32:35] INFO: 🔄 Tura 3/6
+[13:32:36] INFO: ✅ Tura 3 zakończona w 0.74s
+[13:32:36] INFO: 🔄 Tura 4/6
+[13:32:36] INFO: ✅ Tura 4 zakończona w 0.77s
+[13:32:36] INFO: 🔄 Tura 5/6
+[13:32:38] INFO: ✅ Tura 5 zakończona w 1.68s
+[13:32:38] INFO: 🔄 Tura 6/6
+[13:32:39] INFO: ✅ Tura 6 zakończona w 0.80s
+[13:32:39] INFO: 🎮 Symulacja zakończona po 6 turach
+[13:32:39] INFO: ✅ Test quick_mixed zakończony
+[13:32:39] INFO: ⏱️ Czas: 6.5s
+[13:32:39] INFO: 🏆 Wynik: PASS
+[13:32:39] INFO: 📊 Performance: 105.0/100

@@ -42,7 +42,7 @@ try:
     from core.zwyciestwo import VictoryConditions
     from ai.ai_general import AIGeneral
     from ai.ai_commander import AICommander
-    from ai.ai_config import get_param, set_ai_profile, AIProfile
+    from ai.ai_config import get_param, set_ai_profile, set_player_ai_profile, AIProfile
     from ai.victory_ai import log_victory_ai_csv
     from czyszczenie.game_cleaner import clean_all_for_new_game
 except ImportError as e:
@@ -242,6 +242,7 @@ class AdvancedGameTester:
             clean_all_for_new_game()
             
             # Ustaw profile AI
+            # Ustawianie profili AI per gracz
             for nation, profile in scenario.ai_profiles.items():
                 if profile == "aggressive":
                     ai_profile = AIProfile.AGGRESSIVE
@@ -251,9 +252,20 @@ class AdvancedGameTester:
                     ai_profile = AIProfile.BALANCED
                 else:
                     ai_profile = AIProfile.BALANCED
-                    
-                set_ai_profile(ai_profile)
-                self.log(f"🎛️ Ustawiono profil {profile} dla {nation}")
+                
+                # Mapowanie nation na player_ids
+                if nation == "polish":
+                    player_ids = [1, 2]  # Generał i dowódca
+                elif nation == "german":
+                    player_ids = [4, 5]  # Generał i dowódca
+                else:
+                    player_ids = []
+                
+                # Ustawiaj profile per gracz
+                for player_id in player_ids:
+                    set_player_ai_profile(player_id, ai_profile)
+                    self.log(f"🎛️ Ustawiono profil {profile} dla gracza {player_id} ({nation})")
+            
             
             # Twórz silnik gry
             game_engine = GameEngine(

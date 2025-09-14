@@ -1,0 +1,5 @@
+timestamp,turn,nation,pe_start,pe_allocated,pe_spent_purchases,pe_total_used,pe_remaining,strategy_used,action,orders_issued,low_fuel_ratio,total_units,allocate_budget,purchase_budget,econ_after,vp_own,vp_enemy,vp_status
+2025-09-14T14:22:18.178712,,Polska,26,0,0,0,26,HOLD,HOLD,0,0.0,20,0,0,26,0,0,0
+2025-09-14T14:22:22.002691,,Polska,63,15,0,15,48,COMBO,COMBO,0,0.05,20,0,0,48,0,0,0
+2025-09-14T14:22:26.568173,,Polska,150,36,0,36,114,COMBO,COMBO,0,0.15,20,0,0,114,0,0,0
+2025-09-14T14:22:32.687132,,Polska,164,39,0,39,125,COMBO,COMBO,0,0.15789473684210525,19,0,0,125,0,0,0

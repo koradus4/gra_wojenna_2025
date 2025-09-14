@@ -42,12 +42,10 @@ class SmartLogCleaner:
         # 2. Zakupione żetony
         stats['purchased_tokens'] = self._clean_purchased_tokens()
         
-        # 3. start_tokens.json → []
-        start_tokens = self.project_root / "assets" / "start_tokens.json"
-        if start_tokens.exists():
-            start_tokens.write_text('[]', encoding='utf-8')
-            stats['start_tokens'] = 1
-            print("✅ Wyczyszczono start_tokens.json")
+        # 3. SESYJNE CZYSZCZENIE: ZACHOWUJEMY start_tokens.json!
+        # (start_tokens.json NIE jest czyszczony przy sesji - tylko przy pełnym czyszczeniu)
+        print("🎯 start_tokens.json ZACHOWANY (sesja)")
+        stats['start_tokens'] = 0  # nic nie wyczyszczono - zachowane!
         
         # 4. Bieżące logi sesyjne (tylko z dzisiaj)
         if self.logs_dir.exists():

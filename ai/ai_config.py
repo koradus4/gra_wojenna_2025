@@ -42,6 +42,9 @@ class AIConfigManager:
         self.profiles = {}
         self.custom_parameters = {}  # Przechowuje custom zmiany
         
+        # Per-player profiles (player_id -> AIProfile)
+        self.player_profiles = {}  # {2: AIProfile.AGGRESSIVE, 5: AIProfile.DEFENSIVE}
+        
         # Ładowanie konfiguracji
         self._load_default_parameters()
         self._load_profiles() 
@@ -266,6 +269,7 @@ class AIConfigManager:
                     # Combat - wyższe tolerancja ryzyka
                     'COMBAT.COUNTER_ATTACK_MAX_PENALTY': 0.4,  # Mniejszy strach przed kontatakiem
                     'COMBAT.THREAT_RETREAT_THRESHOLD': 7,      # Wyższy próg odwrotu
+                    'COMBAT.MINIMUM_ATTACK_RATIO': 0.6,        # AGRESYWNY: atakuje przy 60% przewagi!
                     
                     # Logistyka - więcej jednostek bojowych
                     'LOGISTICS.MAX_UNITS_PER_TURN': 1.5,       # 3 jednostki zamiast 2
@@ -294,6 +298,7 @@ class AIConfigManager:
                     # Combat - ostrożność
                     'COMBAT.THREAT_RETREAT_THRESHOLD': 3,      # Niższy próg odwrotu
                     'COMBAT.KEYPOINT_DEFENSE_RANGE': 1.5,      # Większy zasięg obrony
+                    'COMBAT.MINIMUM_ATTACK_RATIO': 1.4,        # DEFENSYWNY: atakuje tylko przy 140% przewagi!
                     
                     # Logistyka - lepsze zaopatrzenie
                     'LOGISTICS.LOW_FUEL_UNITS_RATIO_TRIGGER': 0.8,  # 24% zamiast 30%
@@ -310,6 +315,7 @@ class AIConfigManager:
                     'ECONOMY.ALLOC_RATIO': 1.0,
                     'STRATEGY.VP_WINNING_THRESHOLD': 1.0,
                     'COMBAT.THREAT_RETREAT_THRESHOLD': 1.0,
+                    'COMBAT.MINIMUM_ATTACK_RATIO': 1.0,        # BALANCED: atakuje przy 100% przewagi (standardowo)
                     'DEPLOYMENT.DEFAULT_ECON_WEIGHT': 1.0,
                     'DEPLOYMENT.DEFAULT_VP_WEIGHT': 1.0
                 }
@@ -398,6 +404,65 @@ class AIConfigManager:
         except Exception as e:
             logger.error(f"Error getting parameter {path}: {e}")
             return default
+    
+    def get_param_for_player(self, path: str, player_id: int, default: Any = None) -> Any:
+        """
+        Pobiera parametr dla konkretnego gracza z jego profilem AI
+        
+        Args:
+            path: Ścieżka do parametru w formacie 'CATEGORY.PARAMETER'  
+            player_id: ID gracza (2=Polska, 5=Niemcy)
+            default: Wartość domyślna
+            
+        Returns:
+            Wartość parametru z zastosowanym modyfikatorem profilu gracza
+        """
+        try:
+            # Pobierz bazową wartość
+            keys = path.split('.')
+            value = self.parameters
+            
+            for key in keys:
+                if isinstance(value, dict) and key in value:
+                    value = value[key]
+                else:
+                    return default
+            
+            # Sprawdź czy gracz ma przypisany profil
+            if player_id in self.player_profiles:
+                player_profile = self.player_profiles[player_id]
+                profile_multipliers = self.profiles.get(player_profile, {}).get('multipliers', {})
+                
+                if path in profile_multipliers:
+                    multiplier = profile_multipliers[path]
+                    if isinstance(value, (int, float)):
+                        return value * multiplier
+            else:
+                # Fallback do globalnego profilu
+                profile_multipliers = self.profiles.get(self.current_profile, {}).get('multipliers', {})
+                
+                if path in profile_multipliers:
+                    multiplier = profile_multipliers[path]
+                    if isinstance(value, (int, float)):
+                        return value * multiplier
+                        
+            return value
+            
+        except Exception as e:
+            logger.error(f"Error getting parameter {path} for player {player_id}: {e}")
+            return default
+    
+    def set_player_profile(self, player_id: int, profile: Union[AIProfile, str]):
+        """Ustawia profil AI dla konkretnego gracza"""
+        if isinstance(profile, str):
+            profile = AIProfile(profile)
+            
+        self.player_profiles[player_id] = profile
+        logger.info(f"Set player {player_id} AI profile to: {profile.value}")
+    
+    def get_player_profile(self, player_id: int) -> AIProfile:
+        """Pobiera profil AI dla gracza"""
+        return self.player_profiles.get(player_id, self.current_profile)
     
     def set_parameter(self, path: str, value: Any):
         """Ustawia parametr w konfiguracji"""
@@ -509,9 +574,35 @@ def get_ai_config() -> AIConfigManager:
 
 
 # Convenience functions
-def get_param(path: str, default: Any = None) -> Any:
-    """Shortcut do pobierania parametrów"""
-    return get_ai_config().get_parameter(path, default)
+def get_param(path: str, default: Any = None, player_id: Optional[int] = None) -> Any:
+    """
+    Shortcut do pobierania parametrów
+    
+    Args:
+        path: Ścieżka parametru ('COMBAT.MINIMUM_ATTACK_RATIO')
+        default: Wartość domyślna
+        player_id: ID gracza dla per-player profiles (opcjonalne)
+    """
+    if player_id is not None:
+        return get_ai_config().get_param_for_player(path, player_id, default)
+    else:
+        return get_ai_config().get_parameter(path, default)
+
+def get_param_for_player(path: str, player_id: int, default: Any = None) -> Any:
+    """Alias dla get_param z player_id dla backward compatibility"""
+    return get_ai_config().get_param_for_player(path, player_id, default)
+
+def set_param(path: str, value: Any):
+    """Shortcut do ustawiania parametrów"""
+    get_ai_config().set_parameter(path, value)
+
+def set_player_ai_profile(player_id: int, profile: Union[AIProfile, str]):
+    """Shortcut do ustawiania profilu dla konkretnego gracza"""
+    get_ai_config().set_player_profile(player_id, profile)
+
+def get_player_ai_profile(player_id: int) -> AIProfile:
+    """Shortcut do pobierania profilu gracza"""
+    return get_ai_config().get_player_profile(player_id)
 
 def set_param(path: str, value: Any):
     """Shortcut do ustawiania parametrów"""

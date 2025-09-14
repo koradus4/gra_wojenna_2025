@@ -1,0 +1,5 @@
+timestamp,turn,nation,pe_start,pe_allocated,pe_spent_purchases,pe_total_used,pe_remaining,strategy_used,action,orders_issued,low_fuel_ratio,total_units,allocate_budget,purchase_budget,econ_after,vp_own,vp_enemy,vp_status
+2025-09-14T14:22:20.564708,,Niemcy,2,0,0,0,2,HOLD,HOLD,0,0.0,20,0,0,2,0,0,0
+2025-09-14T14:22:24.408536,,Niemcy,85,20,0,20,65,COMBO,COMBO,0,0.05,20,0,0,65,0,0,0
+2025-09-14T14:22:29.804496,,Niemcy,217,64,0,64,153,COMBO,COMBO,0,0.4,20,0,0,153,0,0,0
+2025-09-14T14:22:35.902453,,Niemcy,221,66,0,66,155,COMBO,COMBO,0,0.55,20,0,0,155,0,0,0

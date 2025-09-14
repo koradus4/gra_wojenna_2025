@@ -1,0 +1,6 @@
+timestamp,turn,nation,prediction_horizon,predicted_vp_own,predicted_vp_enemy,confidence_level,key_factors,recommendations
+2025-09-14T14:02:58.960877,1,Polska,2,0.0,0.0,0.85,historical_trend;current_velocity,AGGRESSIVE
+2025-09-14T14:02:58.960877,1,Polska,3,0.0,0.0,0.7,historical_trend;current_velocity,AGGRESSIVE
+2025-09-14T14:02:58.960877,1,Polska,4,0.0,0.0,0.55,historical_trend;current_velocity,AGGRESSIVE
+2025-09-14T14:02:58.960877,1,Polska,5,0.0,0.0,0.5,historical_trend;current_velocity,AGGRESSIVE
+2025-09-14T14:02:58.960877,1,Polska,6,0.0,0.0,0.5,historical_trend;current_velocity,AGGRESSIVE

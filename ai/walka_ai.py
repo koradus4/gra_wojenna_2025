@@ -13,6 +13,11 @@ __all__ = [
 def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_nation: str = "Unknown") -> bool:
     from ai.logowanie_ai import log_commander_action
     from .walka_ai import find_enemies_in_range, evaluate_combat_ratio, execute_ai_combat, attempt_retreat_low_cv, try_flank_before_attack
+    
+    # DEBUG: Loguj rozpoczęcie analizy walki
+    unit_name = unit.get('id', 'UNKNOWN')
+    print(f"🔍 [COMBAT DEBUG] {unit_name} sprawdza możliwość ataku...")
+    
     try:
         current_player = getattr(game_engine, 'current_player_obj', None)
         if current_player and hasattr(current_player, 'is_ai_commander'):
@@ -31,19 +36,32 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
         if utok and getattr(utok, 'currentMovePoints', 0) <= 0:
             return False
         enemies = find_enemies_in_range(unit, game_engine, player_id)
+        print(f"🎯 [COMBAT DEBUG] {unit_name} znalazł {len(enemies)} wrogów w zasięgu")
+        
         if not enemies:
+            print(f"❌ [COMBAT DEBUG] {unit_name}: Brak wrogów - koniec analizy")
             return False
         best_enemy = None; best_ratio = 0.0
-        minimum_attack_ratio = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2)
+        minimum_attack_ratio = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2, player_id=player_id)
+        print(f"⚔️ [COMBAT DEBUG] {unit_name}: Próg ataku = {minimum_attack_ratio:.2f}")
         
-        for enemy in enemies:
+        for i, enemy in enumerate(enemies):
+            enemy_name = enemy.get('id', f'enemy_{i}')
             ratio = evaluate_combat_ratio(unit, enemy)
+            print(f"🎲 [COMBAT DEBUG] {unit_name} vs {enemy_name}: ratio = {ratio:.2f}")
+            
             if ratio > best_ratio and ratio >= minimum_attack_ratio:
+                old_best = best_enemy.get('id', 'none') if best_enemy else 'none'
                 best_ratio = ratio; best_enemy = enemy
+                print(f"⭐ [COMBAT DEBUG] {unit_name}: Nowy najlepszy cel {old_best} -> {enemy_name} (ratio: {ratio:.2f})")
+                
+        print(f"🏁 [COMBAT DEBUG] {unit_name}: Najlepszy wróg = {best_enemy.get('id', 'NONE') if best_enemy else 'NONE'} (ratio: {best_ratio:.2f})")
         if best_enemy:
             try_flank_before_attack(unit, best_enemy, game_engine)
             print(f"🎯 [COMBAT] {unit.get('id')} atakuje {best_enemy.get('id')} (ratio_adj: {best_ratio:.2f})")
             return execute_ai_combat(unit, best_enemy, game_engine, player_nation)
+        else:
+            print(f"❌ [COMBAT DEBUG] {unit_name}: Żaden wróg nie spełnia progu {minimum_attack_ratio} (najlepszy: {best_ratio:.2f})")
         return False
     except Exception as e:
         print(f"❌ [COMBAT] Błąd podczas sprawdzania ataku: {e}")
@@ -66,13 +84,17 @@ def find_enemies_in_range(unit: Dict, game_engine: Any, player_id: int) -> List[
             try:
                 from engine.action_refactored_clean import VisionService
                 visible_hexes = VisionService.calculate_visible_hexes(board, unit_pos, sight)
-            except Exception:
+                print(f"🔍 [VISION DEBUG] {unit.get('id', 'UNKNOWN')}: sight={sight}, visible_hexes={len(visible_hexes)}")
+            except Exception as e:
+                print(f"❌ [VISION DEBUG] VisionService error: {e}")
                 visible_hexes = set()
         all_tokens = getattr(game_engine, 'tokens', [])
         current_player = getattr(game_engine, 'current_player_obj', None)
         for token in all_tokens:
-            if getattr(token, 'owner', '') == my_owner:
-                continue
+            # POPRAWKA: Porównuj tylko część numeryczną owner (np. "2" z "2 (Polska)")
+            token_owner_id = getattr(token, 'owner', '').split(' ')[0]
+            if token_owner_id == str(player_id):
+                continue  # Pomiń własne jednostki
             enemy_pos = (getattr(token, 'q', 0), getattr(token, 'r', 0))
             if visible_hexes and enemy_pos not in visible_hexes:
                 continue
