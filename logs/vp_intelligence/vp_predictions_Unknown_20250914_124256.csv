@@ -1,6 +1,0 @@
-timestamp,turn,nation,prediction_horizon,predicted_vp_own,predicted_vp_enemy,confidence_level,key_factors,recommendations
-2025-09-14T12:42:56.950683,1,Unknown,2,0.0,0.0,0.85,historical_trend;current_velocity,AGGRESSIVE
-2025-09-14T12:42:56.950683,1,Unknown,3,0.0,0.0,0.7,historical_trend;current_velocity,AGGRESSIVE
-2025-09-14T12:42:56.950683,1,Unknown,4,0.0,0.0,0.55,historical_trend;current_velocity,AGGRESSIVE
-2025-09-14T12:42:56.950683,1,Unknown,5,0.0,0.0,0.5,historical_trend;current_velocity,AGGRESSIVE
-2025-09-14T12:42:56.950683,1,Unknown,6,0.0,0.0,0.5,historical_trend;current_velocity,AGGRESSIVE

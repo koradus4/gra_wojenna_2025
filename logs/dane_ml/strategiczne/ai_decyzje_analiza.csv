@@ -1,0 +1,109 @@
+timestamp,player_id,decision_type,context_json,outcome,game_phase
+2025-09-15T23:51:22.623449,AI_General_1_Polska,HOLD,"{""pe_start"": 7, ""pe_allocated"": 0, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:23.241211,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:24.496562,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:24.536831,AI_General_4_Niemcy,COMBO,"{""pe_start"": 98, ""pe_allocated"": 23, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:25.086316,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:26.104162,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 5, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:26.142949,AI_General_1_Polska,COMBO,"{""pe_start"": 111, ""pe_allocated"": 26, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:27.195744,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:29.017517,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:29.061948,AI_General_4_Niemcy,COMBO,"{""pe_start"": 177, ""pe_allocated"": 42, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:30.349243,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:32.039280,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:32.082195,AI_General_1_Polska,COMBO,"{""pe_start"": 133, ""pe_allocated"": 31, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:33.218730,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:34.693771,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:34.734998,AI_General_4_Niemcy,COMBO,"{""pe_start"": 251, ""pe_allocated"": 75, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:35.887444,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:37.709126,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:37.749601,AI_General_1_Polska,COMBO,"{""pe_start"": 163, ""pe_allocated"": 48, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:38.440365,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:40.443294,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:40.488214,AI_General_4_Niemcy,COMBO,"{""pe_start"": 326, ""pe_allocated"": 97, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:42.016389,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:43.778050,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:43.817257,AI_General_1_Polska,COMBO,"{""pe_start"": 224, ""pe_allocated"": 67, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:44.750277,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:47.145621,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:47.175677,AI_General_4_Niemcy,COMBO,"{""pe_start"": 322, ""pe_allocated"": 96, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:48.484863,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:49.849231,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:49.886832,AI_General_1_Polska,COMBO,"{""pe_start"": 239, ""pe_allocated"": 71, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:51.011181,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:53.423621,AI_Strategic_3_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:53.470306,AI_General_4_Niemcy,COMBO,"{""pe_start"": 293, ""pe_allocated"": 87, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:55.494744,AI_Strategic_5_Niemcy,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:56.738380,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:56.777552,AI_General_1_Polska,COMBO,"{""pe_start"": 243, ""pe_allocated"": 72, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:51:57.590159,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:59.802780,AI_Strategic_3_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:51:59.841484,AI_General_4_Niemcy,COMBO,"{""pe_start"": 308, ""pe_allocated"": 92, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:02.092489,AI_Strategic_5_Niemcy,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:03.404059,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:03.444632,AI_General_1_Polska,COMBO,"{""pe_start"": 260, ""pe_allocated"": 78, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:04.501898,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:06.570491,AI_Strategic_3_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:06.605252,AI_General_4_Niemcy,COMBO,"{""pe_start"": 238, ""pe_allocated"": 71, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:08.163449,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:09.017193,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 4, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:09.117245,AI_General_1_Polska,COMBO,"{""pe_start"": 224, ""pe_allocated"": 67, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:09.976612,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:11.672062,AI_Strategic_3_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:11.702590,AI_General_4_Niemcy,COMBO,"{""pe_start"": 224, ""pe_allocated"": 67, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:13.442418,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:14.069863,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 4, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:34.059802,AI_General_1_Polska,HOLD,"{""pe_start"": 24, ""pe_allocated"": 0, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:34.691224,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:36.056888,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:36.089931,AI_General_4_Niemcy,HOLD,"{""pe_start"": 26, ""pe_allocated"": 0, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:36.642483,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:37.326775,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:37.376473,AI_General_1_Polska,COMBO,"{""pe_start"": 109, ""pe_allocated"": 25, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:38.444078,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:39.856903,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:39.897759,AI_General_4_Niemcy,COMBO,"{""pe_start"": 178, ""pe_allocated"": 42, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:41.537112,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:42.736107,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:42.776532,AI_General_1_Polska,COMBO,"{""pe_start"": 182, ""pe_allocated"": 43, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:43.741504,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:45.848979,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:45.888561,AI_General_4_Niemcy,COMBO,"{""pe_start"": 222, ""pe_allocated"": 66, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:47.434254,AI_Strategic_5_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:49.181291,AI_Strategic_6_Niemcy,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:49.220329,AI_General_1_Polska,COMBO,"{""pe_start"": 275, ""pe_allocated"": 82, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:50.153204,AI_Strategic_2_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:52.492779,AI_Strategic_3_Polska,TIED,"{""aggression_level"": 0.5, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:52.530157,AI_General_4_Niemcy,COMBO,"{""pe_start"": 274, ""pe_allocated"": 82, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:55.123668,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:56.303772,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:52:56.340243,AI_General_1_Polska,COMBO,"{""pe_start"": 257, ""pe_allocated"": 76, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:52:57.374767,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:00.124998,AI_Strategic_3_Polska,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:00.159203,AI_General_4_Niemcy,COMBO,"{""pe_start"": 248, ""pe_allocated"": 74, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:01.266828,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:02.773785,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:02.813501,AI_General_1_Polska,COMBO,"{""pe_start"": 272, ""pe_allocated"": 81, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:03.668645,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:05.667591,AI_Strategic_3_Polska,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:05.706165,AI_General_4_Niemcy,COMBO,"{""pe_start"": 260, ""pe_allocated"": 78, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:07.156104,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:08.362564,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:08.400762,AI_General_1_Polska,COMBO,"{""pe_start"": 302, ""pe_allocated"": 90, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:09.391203,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:11.226599,AI_Strategic_3_Polska,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:11.263177,AI_General_4_Niemcy,COMBO,"{""pe_start"": 310, ""pe_allocated"": 93, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:13.199204,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:14.515119,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 9, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:14.556692,AI_General_1_Polska,COMBO,"{""pe_start"": 278, ""pe_allocated"": 83, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:15.571036,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:17.890018,AI_Strategic_3_Polska,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:17.925993,AI_General_4_Niemcy,COMBO,"{""pe_start"": 279, ""pe_allocated"": 83, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:19.073562,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:20.587647,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 7, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:20.628345,AI_General_1_Polska,COMBO,"{""pe_start"": 228, ""pe_allocated"": 54, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:21.553347,AI_Strategic_2_Polska,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 10, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:24.054209,AI_Strategic_3_Polska,WINNING,"{""aggression_level"": 0.3, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:24.093821,AI_General_4_Niemcy,COMBO,"{""pe_start"": 326, ""pe_allocated"": 97, ""pe_spent"": 0, ""turn_number"": null, ""units_bought"": 0, ""orders_issued"": false}",completed,unknown
+2025-09-15T23:53:25.634655,AI_Strategic_5_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 6, ""high_priority_targets"": 0}",completed,unknown
+2025-09-15T23:53:27.338917,AI_Strategic_6_Niemcy,LOSING,"{""aggression_level"": 0.9, ""turn_number"": null, ""units_count"": 8, ""high_priority_targets"": 0}",completed,unknown

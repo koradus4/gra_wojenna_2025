@@ -43,40 +43,62 @@ class SmartLogCleaner:
         stats['purchased_tokens'] = self._clean_purchased_tokens()
         
         # 3. SESYJNE CZYSZCZENIE: ZACHOWUJEMY start_tokens.json!
-        # (start_tokens.json NIE jest czyszczony przy sesji - tylko przy pełnym czyszczeniu)
-        print("🎯 start_tokens.json ZACHOWANY (sesja)")
-        stats['start_tokens'] = 0  # nic nie wyczyszczono - zachowane!
+        # KRYTYCZNE: start_tokens.json NIGDY nie jest czyszczony - zawiera rozmieszczenie żetonów na mapie!
+        start_tokens_file = self.project_root / "assets" / "start_tokens.json"
+        if start_tokens_file.exists():
+            # Sprawdź czy plik ma sensowny rozmiar (powyżej 1000 bajtów = prawdziwe dane)
+            size = start_tokens_file.stat().st_size
+            if size > 1000:
+                print(f"🎯 start_tokens.json CHRONIONY (rozmiar: {size} bajtów)")
+            else:
+                print(f"⚠️  start_tokens.json podejrzanie mały ({size} bajtów) - prawdopodobnie testowy")
+        else:
+            print("⚠️  start_tokens.json BRAK - to może być problem!")
+        stats['start_tokens'] = 0  # ZAWSZE 0 - nigdy nie czyścimy tego pliku przy sesji
         
-        # 4. Bieżące logi sesyjne (tylko z dzisiaj)
+        # 4. Bieżące logi sesyjne - WSZYSTKIE PRAWDZIWE PLIKI
         if self.logs_dir.exists():
-            session_pattern = f"*{self.today}*"
-            preserved_paths = [
-                self.logs_dir / "analysis" / "ml_ready",
-                self.logs_dir / "analysis" / "raporty", 
-                self.logs_dir / "analysis" / "statystyki"
+            # NAPRAWIONE: Czyści wszystkie pliki CSV/LOG z dzisiejszą datą
+            session_files_patterns = [
+                f"*{self.today}*",           # Wzorzec daty: 20250915
+                f"*{self.today[:4]}-{self.today[4:6]}-{self.today[6:8]}*"  # Wzorzec: 2025-09-15
             ]
             
-            for log_file in self.logs_dir.rglob("dane_*.csv"):
-                if self.today in log_file.name:
-                    # Sprawdź czy to nie jest w folderze do zachowania
-                    should_preserve = any(
-                        preserved_path in log_file.parents 
-                        for preserved_path in preserved_paths
-                    )
-                    
-                    if should_preserve:
-                        stats['preserved_ml'] += 1
-                        print(f"💾 Zachowano: {log_file.relative_to(self.logs_dir)}")
-                    else:
-                        log_file.unlink()
-                        stats['session_files'] += 1
-                        print(f"✅ Usunięto: {log_file.relative_to(self.logs_dir)}")
+            # Foldery do zachowania (dane ML)
+            preserved_paths = [
+                self.logs_dir / "dane_ml",
+                self.logs_dir / "analysis" / "ml_ready",
+                self.logs_dir / "analysis" / "raporty", 
+                self.logs_dir / "analysis" / "statystyki",
+                self.logs_dir / "archiwum_sesji"
+            ]
             
-            # Usuń też puste pliki python_*.log z dzisiaj
-            for log_file in self.logs_dir.rglob("python_*.log"):
-                if self.today in log_file.name and log_file.stat().st_size == 0:
-                    log_file.unlink()
-                    print(f"🗑️ Pusty log: {log_file.relative_to(self.logs_dir)}")
+            for pattern in session_files_patterns:
+                for log_file in self.logs_dir.rglob(pattern):
+                    if log_file.is_file() and log_file.suffix in ['.csv', '.log', '.txt']:
+                        # Sprawdź czy to nie jest w folderze do zachowania
+                        should_preserve = any(
+                            preserved_path in log_file.parents or preserved_path == log_file.parent
+                            for preserved_path in preserved_paths
+                        )
+                        
+                        if should_preserve:
+                            stats['preserved_ml'] += 1
+                            print(f"💾 Zachowano ML: {log_file.relative_to(self.logs_dir)}")
+                        else:
+                            log_file.unlink()
+                            stats['session_files'] += 1
+                            print(f"✅ Usunięto: {log_file.relative_to(self.logs_dir)}")
+            
+            # Dodatkowo usuń puste foldery current_session i sesja_aktualna
+            for session_folder in ['current_session', 'sesja_aktualna']:
+                session_path = self.logs_dir / session_folder
+                if session_path.exists():
+                    # Usuń puste podfoldery
+                    for subfolder in session_path.rglob('*'):
+                        if subfolder.is_dir() and not any(subfolder.iterdir()):
+                            subfolder.rmdir()
+                            print(f"🗑️ Pusty folder: {subfolder.relative_to(self.logs_dir)}")
         
         print("-" * 50)
         print(f"✅ SESJA WYCZYSZCZONA:")

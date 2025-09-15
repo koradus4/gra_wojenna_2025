@@ -1,195 +1,211 @@
-"""Narzędzia czyszczenia projektu.
-
-Tryby CLI (python -m utils.game_cleaner --mode <tryb>):
-    quick          – szybkie: strategic_orders + purchased tokens (foldery nowe_dla_*)
-    new_game       – pełne: jak quick + logi AI + logi akcji
-    tokens_soft    – usuń TYLKO rozmieszczone żetony: assets/start_tokens.json -> [] oraz pola token w data/map_data.json (mapa / spawn / key_points zostają)
-    tokens_hard    – jak tokens_soft + PURGE assets/tokens/* (z backupem jeśli nie podasz --no-backup)
-
-Opcje:
-    --no-backup    – pomija tworzenie katalogu backup/...
-    --confirm      – wymaga dla trybu tokens_hard (bez tego odrzuci)
-
-Przykłady (PowerShell):
-    python utils/game_cleaner.py --mode quick
-    python utils/game_cleaner.py --mode tokens_soft
-    python utils/game_cleaner.py --mode tokens_hard --confirm
-    python utils/game_cleaner.py --mode tokens_hard --confirm --no-backup
 """
-from __future__ import annotations
-import os
+Główne narzędzie czyszczenia gry - działa z nową strukturą timestampingu sesji
+
+FUNKCJE CZYSZCZENIA:
+===================
+- Obsługa logs/sesja_aktualna/ z timestampami (NOWE POLSKIE NAZWY)
+- Obsługa logs/current_session/ dla kompatybilności wstecznej
+- Inteligentna ochrona danych ML i archiwów
+- Kompatybilność z main.py i całym systemem sesji
+
+TRYBY CZYSZCZENIA:
+==================
+- quick: Szybkie czyszczenie strategic_orders, purchased_tokens
+- new_game: Pełne czyszczenie przygotowujące do nowej gry
+- csv: Czyszczenie tylko plików CSV z logs/
+- tokens_soft: Usuwa rozmieszczone żetony (z backup)
+- tokens_hard: Pełne usunięcie żetonów + purge assets/tokens/
+
+BEZPIECZEŃSTWO:
+===============
+- Zawsze chroni dane ML w logs/analysis/
+- Backup przed ryzykownymi operacjami
+- Potwierdzenie dla operacji tokens_hard
+- Obsługa błędów z informacyjnymi komunikatami
+"""
+
 import shutil
-import json
-import argparse
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
+import argparse
+import json
 
 
 def clean_strategic_orders():
-    """Usuń stare rozkazy strategiczne"""
+    """Usuń pliki strategicznych rozkazów"""
     try:
-        orders_file = Path("data/strategic_orders.json")
-        if orders_file.exists():
-            orders_file.unlink()
-            print("✅ Usunięto stare rozkazy strategiczne")
+        files_to_clean = [
+            "strategic_orders.json",
+            "data/strategic_orders.json"
+        ]
+        
+        deleted_count = 0
+        for file_path in files_to_clean:
+            p = Path(file_path)
+            if p.exists():
+                p.unlink()
+                deleted_count += 1
+                print(f"✅ Usunięto: {file_path}")
+        
+        if deleted_count == 0:
+            print("ℹ️ Brak plików strategic_orders do usunięcia")
         else:
-            print("ℹ️ Brak starych rozkazów strategicznych")
+            print(f"✅ Usunięto {deleted_count} plików strategic_orders")
+            
     except Exception as e:
-        print(f"⚠️ Błąd usuwania rozkazów: {e}")
+        print(f"⚠️ Błąd usuwania strategic_orders: {e}")
 
 
 def clean_purchased_tokens():
-    """Usuń wszystkie zakupione żetony z poprzedniej gry"""
+    """Usuń zakupione żetony"""
     try:
-        tokens_dir = Path("assets/tokens")
-        deleted_count = 0
-        
-        # Usuń foldery nowe_dla_X
-        for folder in tokens_dir.glob("nowe_dla_*"):
-            if folder.is_dir():
-                shutil.rmtree(folder)
-                deleted_count += 1
-                print(f"✅ Usunięto folder: {folder.name}")
-        
-        # NOWE: Usuń zakupione zetony z folderu aktualne/
-        aktualne_dir = tokens_dir / "aktualne"
-        if aktualne_dir.exists():
-            deleted_files = 0
-            # Usuń pliki nowy_* z folderu aktualne/
-            for file_path in aktualne_dir.glob("nowy_*.json"):
-                try:
-                    # Usuń odpowiadający plik PNG
-                    png_path = file_path.with_suffix('.png')
-                    if png_path.exists():
-                        png_path.unlink()
-                        deleted_files += 1
-                    
-                    # Usuń plik JSON
-                    file_path.unlink()
-                    deleted_files += 1
-                    print(f"✅ Usunięto zakupiony zeton: {file_path.stem}")
-                except Exception as e:
-                    print(f"⚠️ Błąd usuwania {file_path.name}: {e}")
+        purchased_dir = Path("purchased_tokens")
+        if not purchased_dir.exists():
+            print("ℹ️ Brak katalogu purchased_tokens – pomijam")
+            return
             
-            if deleted_files > 0:
-                print(f"✅ Usunięto {deleted_files} plików zakupionych zetonów z aktualne/")
+        deleted_files = 0
+        deleted_dirs = 0
         
-        if deleted_count > 0:
-            print(f"✅ Usunięto {deleted_count} folderów z zakupionymi żetonami")
+        for item in purchased_dir.iterdir():
+            try:
+                if item.is_file():
+                    item.unlink()
+                    deleted_files += 1
+                elif item.is_dir():
+                    shutil.rmtree(item)
+                    deleted_dirs += 1
+            except Exception as e:
+                print(f"⚠️ Nie mogę usunąć {item}: {e}")
+        
+        if deleted_files or deleted_dirs:
+            print(f"✅ Usunięto zakupione żetony: pliki={deleted_files}, katalogi={deleted_dirs}")
         else:
             print("ℹ️ Brak zakupionych żetonów do usunięcia")
             
     except Exception as e:
-        print(f"⚠️ Błąd usuwania żetonów: {e}")
+        print(f"⚠️ Błąd usuwania zakupionych żetonów: {e}")
 
 
 def clean_purchased_tokens_from_index():
-    """Usuń zakupione zetony z assets/tokens/index.json"""
+    """Usuń zakupione żetony z index.json"""
     try:
-        index_path = Path("assets/tokens/index.json")
-        if not index_path.exists():
-            print("ℹ️ Brak pliku index.json - pomijam czyszczenie")
+        index_file = Path("index.json")
+        if not index_file.exists():
+            print("ℹ️ Brak index.json – pomijam czyszczenie")
             return
             
-        # Wczytaj index.json
-        with open(index_path, 'r', encoding='utf-8') as f:
-            index_data = json.load(f)
-        
-        # Filtruj zetony - usuń te z id zaczynającym się od "nowy_"
-        original_count = len(index_data)
-        cleaned_data = [token for token in index_data if not token.get("id", "").startswith("nowy_")]
-        removed_count = original_count - len(cleaned_data)
-        
-        if removed_count > 0:
-            # Zapisz wyczyszczony index.json
-            with open(index_path, 'w', encoding='utf-8') as f:
-                json.dump(cleaned_data, f, indent=2, ensure_ascii=False)
-            print(f"✅ Usunięto {removed_count} zakupionych zetonów z index.json")
-        else:
-            print("ℹ️ Brak zakupionych zetonów w index.json")
+        try:
+            data = json.loads(index_file.read_text(encoding='utf-8'))
+            if 'purchased_tokens' in data:
+                del data['purchased_tokens']
+                index_file.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding='utf-8')
+                print("✅ Usunięto purchased_tokens z index.json")
+            else:
+                print("ℹ️ Brak purchased_tokens w index.json")
+        except json.JSONDecodeError:
+            print("⚠️ Błędny format JSON w index.json")
             
     except Exception as e:
         print(f"⚠️ Błąd czyszczenia index.json: {e}")
 
 
 def clean_purchased_tokens_from_start():
-    """Usuń zakupione zetony z assets/start_tokens.json"""
-    try:
-        start_path = Path("assets/start_tokens.json")
-        if not start_path.exists():
-            print("ℹ️ Brak pliku start_tokens.json - pomijam czyszczenie")
-            return
-            
-        # Wczytaj start_tokens.json
-        with open(start_path, 'r', encoding='utf-8') as f:
-            start_data = json.load(f)
-        
-        # Filtruj pozycje - usuń te z id zaczynającym się od "nowy_"
-        original_count = len(start_data)
-        cleaned_data = [pos for pos in start_data if not pos.get("id", "").startswith("nowy_")]
-        removed_count = original_count - len(cleaned_data)
-        
-        if removed_count > 0:
-            # Zapisz wyczyszczony start_tokens.json
-            with open(start_path, 'w', encoding='utf-8') as f:
-                json.dump(cleaned_data, f, indent=2, ensure_ascii=False)
-            print(f"✅ Usunięto {removed_count} zakupionych zetonów z start_tokens.json")
-        else:
-            print("ℹ️ Brak zakupionych zetonów w start_tokens.json")
-            
-    except Exception as e:
-        print(f"⚠️ Błąd czyszczenia start_tokens.json: {e}")
+    """NIE CZYŚĆ start_tokens.json - zostaw rozmieszczone żetony na mapie!"""
+    print("ℹ️ start_tokens.json - CHRONIONY (rozmieszczenie żetonów)")
 
 
 def clean_ai_logs():
-    """Usuń logi AI z poprzedniej gry (ZACHOWUJE dane ML!)"""
+    """Usuń logi AI z obsługą nowej struktury timestampingu"""
     try:
         logs_dir = Path("logs")
-        deleted_files = 0
-        deleted_dirs = 0
-
         if not logs_dir.exists():
             print("ℹ️ Brak katalogu logs – pomijam logi AI")
             return
-
-        # Rekurencyjne usuwanie plików ai_*.csv w całym drzewie logs
-        # UWAGA: CHRONIMY dane ML!
-        for f in logs_dir.rglob("ai_*.csv"):
+            
+        deleted_files = 0
+        deleted_dirs = 0
+        protected_files = 0
+        
+        print("🧹 Czyszczenie logów AI z ochroną danych ML...")
+        
+        # Wzorce chronionych katalogów
+        protected_patterns = [
+            "analysis/ml_ready",
+            "analysis/raporty", 
+            "analysis/statystyki",
+            "vp_intelligence/archives"
+        ]
+        
+        # AKTUALIZACJA v4.0: Sprawdź strukturę sesji z polskimi nazwami + kompatybilność
+        # Obsługuj zarówno stary current_session jak i nowy sesja_aktualna dla kompatybilności
+        for session_folder_name in ["current_session", "sesja_aktualna"]:
+            session_folder = logs_dir / session_folder_name
+            if session_folder.exists():
+                print(f"🎯 Czyszczenie: {session_folder_name}/")
+                # Usuń wszystkie foldery timestampów (bezpieczne)
+                for timestamp_folder in session_folder.iterdir():
+                    if timestamp_folder.is_dir():
+                        try:
+                            shutil.rmtree(timestamp_folder)
+                            deleted_dirs += 1
+                            print(f"✅ Usunięto folder sesji: {session_folder_name}/{timestamp_folder.name}")
+                        except Exception as e:
+                            print(f"⚠️ Nie mogę usunąć {session_folder_name}/{timestamp_folder.name}: {e}")
+                            
+                print(f"🧹 Wyczyszczono: {session_folder_name}/")
+            else:
+                print(f"ℹ️ Brak katalogu: {session_folder_name}/")
+        
+        # Usuń pliki ai_*.csv (stare logi spoza current_session)
+        for ai_file in logs_dir.rglob("ai_*.csv"):
             try:
-                # OCHRONA: Pomiń pliki ML w analysis/ml_ready
-                if 'analysis' in f.parts and 'ml_ready' in f.parts:
-                    print(f"💾 Chronię dane ML: {f.relative_to(logs_dir)}")
+                # Sprawdź czy plik jest w chronionym obszarze
+                should_protect = any(pattern in str(ai_file) for pattern in protected_patterns)
+                
+                if should_protect:
+                    print(f"💾 Chronię: {ai_file.relative_to(logs_dir)}")
+                    protected_files += 1
                     continue
                 
-                f.unlink()
+                ai_file.unlink()
                 deleted_files += 1
-                print(f"✅ Usunięto: {f.relative_to(logs_dir)}")
+                print(f"✅ Usunięto: {ai_file.relative_to(logs_dir)}")
+                
             except Exception as e:
-                print(f"⚠️ Nie mogę usunąć {f}: {e}")
-
-        # Usuń katalogi z logami AI (całe drzewa) - ale NIE analysis!
-        for ai_folder in ["ai_commander", "ai_general"]:
-            ai_path = logs_dir / ai_folder
-            if ai_path.exists() and ai_path.is_dir():
+                print(f"⚠️ Nie mogę usunąć {ai_file}: {e}")
+        
+        # Usuń katalogi ai_* (stare logi)
+        for ai_dir in logs_dir.glob("ai_*"):
+            if ai_dir.is_dir():
                 try:
-                    shutil.rmtree(ai_path)
+                    # Sprawdź czy katalog jest chroniony
+                    should_protect = any(pattern in str(ai_dir) for pattern in protected_patterns)
+                    
+                    if should_protect:
+                        print(f"💾 Chronię katalog: {ai_dir.relative_to(logs_dir)}")
+                        protected_files += 1
+                        continue
+                    
+                    shutil.rmtree(ai_dir)
                     deleted_dirs += 1
-                    print(f"✅ Usunięto katalog: {ai_folder}")
+                    print(f"✅ Usunięto katalog: {ai_dir.name}")
+                    
                 except Exception as e:
-                    print(f"⚠️ Nie mogę usunąć katalogu {ai_path}: {e}")
-
-        if deleted_files or deleted_dirs:
-            print(f"✅ Usunięto logi AI: pliki={deleted_files}, katalogi={deleted_dirs}")
-            print("💾 UWAGA: Dane ML zostały ZACHOWANE!")
+                    print(f"⚠️ Nie mogę usunąć katalogu {ai_dir}: {e}")
+        
+        if deleted_files or deleted_dirs or protected_files:
+            print(f"✅ Czyszczenie AI zakończone: {deleted_files} plików + {deleted_dirs} katalogów")
+            print(f"💾 Chronionych plików ML: {protected_files}")
         else:
-            print("ℹ️ Brak logów AI do usunięcia (ai_*.csv i katalogi ai_*)")
+            print("ℹ️ Brak logów AI do usunięcia")
             
     except Exception as e:
-        print(f"⚠️ Błąd usuwania logów AI: {e}")
+        print(f"❌ Błąd czyszczenia logów AI: {e}")
 
 
 def clean_csv_logs():
-    """Usuń wszystkie pliki CSV z folderu logs (ZACHOWUJE dane ML!)"""
+    """Usuń wszystkie pliki CSV z folderu logs (ZACHOWUJE dane ML i archiwa!)"""
     try:
         logs_dir = Path("logs")
         if not logs_dir.exists():
@@ -200,56 +216,65 @@ def clean_csv_logs():
         protected_count = 0
         total_size = 0
         
-        # Wzorce plików CSV do usunięcia
-        csv_patterns = [
-            "actions_*.csv",
-            "ai_actions_*.csv", 
-            "ai_purchases_*.csv",
-            "garrison_*.csv",
-            "ai_*.csv",           # Wszystkie inne pliki AI CSV
-            "*_problems_*.csv",   # Pliki problemów (garrison_problems itp.)
-            "*_issues_*.csv"      # Pliki issues
+        print("🧹 Czyszczenie CSV z ochroną danych ML...")
+        
+        # ROZSZERZONA OCHRONA - wzorce ścieżek do zachowania
+        protected_patterns = [
+            "analysis/ml_ready",      # Dane ML
+            "analysis/raporty",       # Raporty sesji
+            "analysis/statystyki",    # Statystyki długoterminowe
+            "vp_intelligence/archives" # Archiwa VP Intelligence
         ]
         
-        # Usuń pliki CSV z głównego katalogu
-        for pattern in csv_patterns:
-            for csv_file in logs_dir.glob(pattern):
-                try:
-                    size = csv_file.stat().st_size
-                    csv_file.unlink()
-                    deleted_count += 1
-                    total_size += size
-                except Exception as e:
-                    print(f"⚠️ Nie mogę usunąć {csv_file.name}: {e}")
-        
-        # Usuń WSZYSTKIE pliki CSV rekurencyjnie z logs/ - ALE CHROŃ ML!
+        # Usuń WSZYSTKIE pliki CSV rekurencyjnie z logs/ - ALE CHROŃ ważne dane!
         processed_files = set()
+        
         for csv_file in logs_dir.rglob("*.csv"):
             if csv_file not in processed_files:
                 try:
-                    # OCHRONA: Pomiń pliki ML i raporty
-                    if 'analysis' in csv_file.parts:
-                        if 'ml_ready' in csv_file.parts:
-                            print(f"💾 Chronię dane ML: {csv_file.relative_to(logs_dir)}")
-                            protected_count += 1
-                            continue
-                        elif 'raporty' in csv_file.parts or 'statystyki' in csv_file.parts:
-                            print(f"💾 Chronię raporty: {csv_file.relative_to(logs_dir)}")
-                            protected_count += 1
-                            continue
+                    # SPRAWDŹ OCHRONĘ: Czy plik jest w chronionym katalogu?
+                    should_protect = any(pattern in str(csv_file) for pattern in protected_patterns)
                     
+                    if should_protect:
+                        print(f"💾 Chronię: {csv_file.relative_to(logs_dir)}")
+                        protected_count += 1
+                        continue
+                    
+                    # USUŃ plik CSV
                     size = csv_file.stat().st_size
                     csv_file.unlink()
                     deleted_count += 1
                     total_size += size
                     processed_files.add(csv_file)
                     print(f"✅ Usunięto: {csv_file.relative_to(logs_dir)}")
+                    
                 except Exception as e:
                     print(f"⚠️ Nie mogę usunąć {csv_file}: {e}")
 
+        # DODATKOWO: Usuń inne pliki logów (ale nie JSON z protected areas)
+        for pattern in ["*.log", "*.txt"]:
+            for log_file in logs_dir.rglob(pattern):
+                try:
+                    # SPRAWDŹ OCHRONĘ
+                    should_protect = any(protected_pattern in str(log_file) for protected_pattern in protected_patterns)
+                    
+                    if should_protect:
+                        protected_count += 1
+                        continue
+                    
+                    size = log_file.stat().st_size
+                    log_file.unlink()
+                    deleted_count += 1
+                    total_size += size
+                    print(f"✅ Usunięto: {log_file.relative_to(logs_dir)}")
+                    
+                except Exception as e:
+                    print(f"⚠️ Nie mogę usunąć {log_file}: {e}")
+
+        # PODSUMOWANIE
         if deleted_count > 0 or protected_count > 0:
-            print(f"✅ Usunięto {deleted_count} plików CSV ({total_size/1024:.1f} KB)")
-            print(f"💾 Zachowano {protected_count} plików ML i raportów!")
+            print(f"✅ Usunięto {deleted_count} plików ({total_size/1024:.1f} KB)")
+            print(f"💾 Zachowano {protected_count} plików ML/raportów/archiwów!")
         else:
             print("ℹ️ Brak plików CSV do usunięcia")
             
@@ -379,7 +404,7 @@ def _remove_tokens_from_map(map_obj: dict) -> int:
 
 
 def tokens_soft(no_backup: bool = False):
-    """Usuń rozmieszczone żetony (start_tokens.json + token fields) – bez ruszania katalogu assets/tokens."""
+    """UWAGA: Usuń rozmieszczone żetony (start_tokens.json + token fields) – TYLKO dla specjalnych przypadków!"""
     assets = Path('assets')
     data = Path('data')
     start_tokens = assets / 'start_tokens.json'
@@ -409,7 +434,7 @@ def tokens_soft(no_backup: bool = False):
 
 
 def tokens_hard(no_backup: bool = False, confirm: bool = False):
-    """Pełne wyczyszczenie żetonów: tokens_soft + PURGE assets/tokens/*"""
+    """UWAGA: Pełne wyczyszczenie żetonów: tokens_soft + PURGE assets/tokens/* - TYLKO dla resetów!"""
     if not confirm:
         print('❌ Odmowa: brak --confirm przy tokens_hard')
         return

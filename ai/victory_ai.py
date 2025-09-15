@@ -29,10 +29,13 @@ def log_victory_ai_csv(action, player_id, turn, **kwargs):
     """Log Victory AI actions do CSV dla analizy."""
     try:
         import os
-        os.makedirs("logs", exist_ok=True)
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        specialized_dir = get_current_session_dir() / "specialized"
+        specialized_dir.mkdir(parents=True, exist_ok=True)
         
-        csv_file = f"logs/victory_ai_phase1_{datetime.now().strftime('%Y%m%d')}.csv"
-        file_exists = os.path.exists(csv_file)
+        csv_file = specialized_dir / f"victory_ai_phase1_{datetime.now().strftime('%Y%m%d')}.csv"
+        file_exists = csv_file.exists()
         
         with open(csv_file, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)

@@ -23,6 +23,7 @@ BASE_STATS: Dict[str, Dict[str, int]] = {
     "AP": {"movement": 2, "attack_range": 2, "attack_value": 10, "combat_value": 6,  "defense_value": 8,  "sight": 4},
     "Z":  {"movement": 6, "attack_range": 1, "attack_value": 4,  "combat_value": 4,  "defense_value": 6,  "sight": 6},
     "D":  {"movement": 4, "attack_range": 1, "attack_value": 6,  "combat_value": 8,  "defense_value": 12, "sight": 5},
+    "G":  {"movement": 2, "attack_range": 0, "attack_value": 0,  "combat_value": 2,  "defense_value": 1,  "sight": 6},  # Generał
 }
 
 SIZE_MULTIPLIER = {"Pluton": 1.0, "Kompania": 1.4, "Batalion": 1.8}
@@ -192,6 +193,7 @@ def maintenance_from_cost(total_cost: int, upgrades: List[str], unit_type: str =
             'AL': 2,  # 3 MP -> 2 fuel
             'AC': 2,  # 2 MP -> 2 fuel
             'AP': 2,  # 2 MP -> 2 fuel
+            'G': 2,   # 2 MP -> 2 fuel (Generał)
         }
         return fuel_map.get(unit_type, 2)
     

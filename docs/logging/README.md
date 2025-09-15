@@ -4,6 +4,12 @@ Ten katalog zawiera kompletną dokumentację systemu logowania gry wojennej.
 
 ## 📁 Pliki w tym katalogu:
 
+### ✅ **PLAN_NOWY_SYSTEM_LOGOW_ZAKONCZONE.md**
+- **Cel**: Plan reorganizacji systemu logowania - ZAKOŃCZONY SUKCES!
+- **Zawartość**: Fazy 1-4 ukończone, polskie nazwy, rotacja sesji, separacja ML
+- **Status**: 🎉 WSZYSTKIE CELE OSIĄGNIĘTE (15-16 września 2025)
+- **Dla kogo**: Dokumentacja historyczna ukończonego projektu
+
 ### 📋 **PODSUMOWANIE_SYSTEMU_LOGOWANIA.md**
 - **Cel**: Główne podsumowanie działania systemu
 - **Zawartość**: Status działania, opcje czyszczenia, rekomendacje użycia

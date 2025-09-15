@@ -34,9 +34,10 @@ class VPIntelligenceSystem:
         self.opportunities = []
         self.predictions = {}
         
-        # CSV logging setup
-        self.logs_dir = Path("logs/vp_intelligence")
-        self.logs_dir.mkdir(exist_ok=True)
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        self.logs_dir = get_current_session_dir() / "vp_intelligence"
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.vp_trends_log = self.logs_dir / f"vp_trends_{nation}_{timestamp}.csv"

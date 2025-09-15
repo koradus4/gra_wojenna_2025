@@ -14,6 +14,14 @@ from enum import Enum, auto
 import datetime, csv, json
 from ai.ai_config import get_param
 
+# --- ML Data Collection ---
+try:
+    from utils.ml_data_collector import get_ml_collector
+except ImportError:
+    # Fallback jeśli moduł niedostępny
+    def get_ml_collector():
+        return None
+
 # Importujemy debug_print z głównego modułu
 try:
     from main_ai import debug_print
@@ -66,8 +74,9 @@ class AIGeneral:
     
     def _init_logging_system(self):
         """Inicjalizuje system logowania AI."""
-        # Ścieżki logów
-        log_dir = Path("logs/ai_general")
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        log_dir = get_current_session_dir() / "ai_general"
         log_dir.mkdir(parents=True, exist_ok=True)
         
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -333,6 +342,39 @@ class AIGeneral:
             orders_issued=orders_issued,
             decision_metrics=getattr(self, '_last_decision_metrics', {})
         )
+
+        # === ML DATA COLLECTION ===
+        try:
+            ml_collector = get_ml_collector()
+            if ml_collector and current_player:
+                # Zbieranie danych strategicznych AI General
+                ml_collector.log_strategic_decision(
+                    player_id=f"AI_General_{current_player.id}_{current_player.nation}",
+                    decision=strategy_used or "standard_turn",
+                    context={
+                        'pe_start': pe_start,
+                        'pe_allocated': pe_allocated,
+                        'pe_spent': pe_spent_purchases,
+                        'turn_number': self._current_turn,
+                        'units_bought': getattr(self, '_units_bought_this_turn', 0),
+                        'orders_issued': orders_issued
+                    },
+                    outcome="completed"
+                )
+                
+                # Zbieranie danych gameplay
+                ml_collector.log_gameplay_metrics(
+                    game_id=f"session_{self._current_turn}",
+                    metrics={
+                        'turn_duration': 0,  # TODO: Można dodać pomiar czasu
+                        'players_count': len(getattr(game_engine, 'players', [])),
+                        'ai_count': len([p for p in getattr(game_engine, 'players', []) if getattr(p, 'is_ai', False)]),
+                        'economic_activity': pe_spent_purchases,
+                        'strategic_decisions': 1
+                    }
+                )
+        except Exception as ml_error:
+            print(f"[ML_DATA] Błąd zbierania danych ML w AI General: {ml_error}")
 
         print(f"✅ AI GENERAŁ {self.display_nation.upper()} - KONIEC TURY\n")
         
@@ -978,9 +1020,10 @@ class AIGeneral:
 
     def _log_action(self, player, action: EconAction, econ_before, econ_after, metrics, allocated_total=0, units_bought=0):
         """Log ogólny akcji ekonomicznej AI (osobny od logu pojedynczych zakupów)."""
-        from pathlib import Path
-        logs_dir = Path('logs')
-        logs_dir.mkdir(exist_ok=True)
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        logs_dir = get_current_session_dir() / 'ai_general'
+        logs_dir.mkdir(parents=True, exist_ok=True)
         date_tag = datetime.datetime.now().strftime('%Y%m%d')
         path = logs_dir / f'ai_actions_{date_tag}.csv'
         is_new = not path.exists()

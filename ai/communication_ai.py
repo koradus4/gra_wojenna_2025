@@ -434,7 +434,11 @@ def _hex_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
 def _log_force_analysis_csv(analysis: Dict[str, Any]):
     """Log force analysis do CSV."""
     try:
-        csv_file = Path("logs/ai_commander/force_analysis.csv")
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        csv_dir = get_current_session_dir() / "ai_commander"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = csv_dir / "force_analysis.csv"
         csv_file.parent.mkdir(parents=True, exist_ok=True)
         
         file_exists = csv_file.exists()
@@ -637,7 +641,11 @@ def _formulate_unit_requests(force_requirements: Dict[str, Any]) -> List[Dict[st
 def _log_request_generation_csv(request: Dict[str, Any]):
     """Log request generation do CSV."""
     try:
-        csv_file = Path("logs/ai_commander/reinforcement_requests.csv")
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        csv_dir = get_current_session_dir() / "ai_commander"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = csv_dir / "reinforcement_requests.csv"
         csv_file.parent.mkdir(parents=True, exist_ok=True)
         
         file_exists = csv_file.exists()
@@ -733,7 +741,11 @@ def send_request_to_general(request: Dict[str, Any], game_engine) -> bool:
 def _log_communication_event_csv(event_type: str, commander_id: int, request_id: str, game_engine):
     """Log communication events do CSV."""
     try:
-        csv_file = Path("logs/ai_general/communication_log.csv")
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        csv_dir = get_current_session_dir() / "ai_general"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = csv_dir / "communication_log.csv"
         csv_file.parent.mkdir(parents=True, exist_ok=True)
         
         file_exists = csv_file.exists()

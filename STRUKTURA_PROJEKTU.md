@@ -1,8 +1,9 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (13 września 2025) – WERSJA 4.1 – SMART LOG CLEANING + AI GENERAL INTELLIGENCE
+## 📌 STAN BIEŻĄCY (16 września 2025) – WERSJA 4.2 – POLSKI SYSTEM LOGOWANIA + ROTACJA SESJI
 
-**AI GENERAL INTELLIGENCE SYSTEM - NOWOŚĆ! (13.09.2025)projekt/
+**POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (15-16.09.2025)**
+**Kompletna reorganizacja systemu logowania z polskimi nazwami i automatyczną rotacją sesji.**
 ├── main.py                      # GŁÓWNY LAUNCHER - zaawansowany AI launcher (main_ai.py → main.py)
 ├── requirements.txt             # Zależności
 ├── STRUKTURA_PROJEKTU.md        # Ten plik
@@ -10,7 +11,12 @@
 ├── backup/                      # System kopii zapasowych
 ├── core/                        # Logika „biznesowa" tur, ekonomii itd.
 ├── data/                        # Dane map / konfiguracja
-├── docs/                        # Dokumentacja dodatkowa
+├── docs/                        # Dokumentacja dodatkowa + System logowania
+│   ├── logging/                # ✅ (NOWY) Dokumentacja systemu logowania
+│   │   ├── PLAN_NOWY_SYSTEM_LOGOW_ZAKONCZONE.md # Plan polskiego systemu - UKOŃCZONY!
+│   │   ├── README.md          # Przewodnik po dokumentacji systemu logowania
+│   │   └── [inne pliki logging] # Analiza, implementacja, podsumowania
+│   └── [inne dokumenty]       # Dokumentacje balansingu, AI, implementacji
 ├── edytory/                     # Edytory map / żetonów
 ├── engine/                      # Silnik gry (board, token, akcje, widoczność)
 ├── gui/                         # Panele interfejsu użytkownika
@@ -81,6 +87,38 @@
 - **Clean root:** Tylko jeden główny launcher w katalogu głównym ✅
 
 **Pliki:** `main.py` (główny), `launchers/main_basic.py`, `launchers/main_alternative.py`, `launchers/auto_test_ai.py`, `launchers/README.md`
+
+**POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (15-16.09.2025):**
+
+**Problem:** System używał angielskich nazw katalogów (`current_session`) i tworzył duplikaty folderów timestampowych bez kontroli rotacji.
+
+**Rozwiązanie Polskiego Systemu Logowania:**
+- **Polskie nazwy katalogów:** `logs/sesja_aktualna/` zamiast `current_session/`
+- **SessionManager Singleton:** Zapobieganie duplikatom - jeden katalog na sesję
+- **Automatyczna rotacja:** Maksymalnie 5 sesji w `logs/archiwum_sesji/`
+- **Separacja danych ML:** Nowy katalog `logs/dane_ml/` chroniony przed czyszczeniem
+- **Inteligentne archiwizowanie:** Stare sesje automatycznie przenoszone do archiwum
+
+**Nowe komponenty systemu:**
+- **SessionManager:** Singleton zarządzający aktualną sesją z polskimi nazwami
+- **Automatyczna archiwizacja:** Przenoszenie sesji do `archiwum_sesji/` z rotacją 5 sesji
+- **Separacja ML:** Dane strategiczne/taktyczne/gameplay w oddzielnych katalogach
+- **System czyszczenia:** Aktualizowany z obsługą polskich nazw i ochroną ML
+- **Kompatybilność:** Obsługa zarówno starych jak i nowych ścieżek
+
+**Zaimplementowana struktura:**
+- `logs/sesja_aktualna/` - Bieżąca sesja z timestampem (POLSKI NAZWA)
+- `logs/archiwum_sesji/` - Ostatnie 5 zakończonych sesji
+- `logs/dane_ml/` - Dane uczenia maszynowego (strategiczne/taktyczne/gameplay)
+- Zachowana kompatybilność z `current_session` dla starych modułów
+
+**Wyniki weryfikacji:**
+- **Polskie nazwy**: System używa `sesja_aktualna/` we wszystkich nowych modułach ✅
+- **Singleton sesji**: Jeden katalog na sesję - koniec z duplikatami ✅
+- **Rotacja 5 sesji**: Automatyczne kasowanie najstarszych w archiwum ✅
+- **Separacja ML**: Dane ML chronione w osobnym katalogu `dane_ml/` ✅
+
+**Pliki:** `utils/session_manager.py` (Singleton), `ai/logowanie_ai.py` (aktualizowany), `czyszczenie/` (polskie nazwy), `main.py` (archiwizacja przy zamknięciu)
 
 **SMART LOG CLEANING SYSTEM - NOWOŚĆ! (13.09.2025):**
 
@@ -267,14 +305,17 @@ projekt/
 │   ├── sprawdzenie_rzetelnosci_zetonow.py  # Walidacja spójności tokenów PNG/JSON
 │   ├── analizator_ai_na_zywo.py      # Real-time monitoring logów AI
 │   └── diagnostyka_key_points.py     # Diagnostyka systemu key points
-├── utils/                       # Pomocnicze moduły + Smart Log Management
-│   ├── smart_log_cleaner.py     # ✅ (NOWY) Inteligentne czyszczenie logów z ochroną ML
+├── utils/                       # Pomocnicze moduły + Polski System Logowania
+│   ├── session_manager.py       # ✅ (NOWY) Singleton zarządzający sesjami z polskimi nazwami
+│   ├── smart_log_cleaner.py     # ✅ (NOWY) Inteligentne czyszczenie logów z ochroną ML  
+│   ├── ml_data_collector.py     # ✅ (NOWY) Kolektor danych ML do logs/dane_ml/
 │   └── [inne utility modules]   # Helper functions i narzędzia wspomagające
-├── czyszczenie/                 # System czyszczenia (UPDATED z ML protection)
-│   ├── czyszczenie_csv.py       # ✅ (UPDATED) CSV cleaning z warnings "ZNISZCZ_ML"
+├── czyszczenie/                 # System czyszczenia (UPDATED z polskimi nazwami + ML protection)
+│   ├── czyszczenie_csv.py       # ✅ (UPDATED) CSV cleaning z polskimi nazwami + warnings "ZNISZCZ_ML"
+│   ├── game_cleaner.py          # ✅ (UPDATED) Multi-mode cleaner z obsługą sesja_aktualna/ + ML protection
+│   ├── OPIS_NARZEDZI_CZYSZCZENIA.md # ✅ (NOWY) Kompletna dokumentacja narzędzi czyszczenia
 │   ├── czyszczenie_wszystkich_zetonow.py  # Token cleanup utility
-│   ├── czyszczenie_zakupionych_zetonow.py # Purchased tokens cleanup
-│   └── game_cleaner.py          # ✅ (UPDATED) Multi-mode cleaner z ML data protection
+│   └── czyszczenie_zakupionych_zetonow.py # Purchased tokens cleanup
 └── ai/                          # Wstępny moduł sztucznej inteligencji (Faza 1 częściowa)
 ```
 
@@ -302,21 +343,30 @@ ai/
 ├── konfiguracja_ai.py         # ⚠️ (LEGACY) Partial constants - mostly replaced by ai_config.py
 ├── log_kategorie_ai.py        # Log categories definition
 ├── test_ai_config.py          # ✅ (NOWY) Testy systemu konfiguracji
-└── logs/                      # Generated CSV logs and analysis - HIERARCHICAL STRUCTURE ✅
-    ├── ai/                    # AI decision logs (112+ files per session)
-    │   ├── ai_commander/      # Commander tactical decisions
-    │   ├── ai_general/        # General strategic decisions  
-    │   ├── vp_intelligence/   # Victory Points analysis
-    │   └── garrison_issues/   # Garrison management logs
-    ├── human/                 # Human player actions (session-based)
-    ├── game/                  # Game engine events (moves, combat, turns)
-    └── analysis/              # Analysis and ML-ready data ⭐ PROTECTED
-        ├── ml_ready/          # 🛡️ ML TRAINING DATA - NEVER DELETED
-        │   ├── ai_decyzje_*.csv      # AI decision patterns with metadata
-        │   ├── ekonomia_ai_*.csv     # Economic decisions with outcomes
-        │   └── [metadata_files]     # Context and analysis metadata
-        ├── reports/           # Generated analysis reports
-        └── aggregated/        # Aggregated statistics and insights
+└── logs/                      # NOWY POLSKI SYSTEM LOGOWANIA - ROTACJA + SEPARACJA ML ✅
+    ├── sesja_aktualna/        # 🇵🇱 BIEŻĄCA SESJA (zamiast current_session)
+    │   └── [TIMESTAMP]/       # Jeden katalog timestampowy na sesję (Singleton)
+    │       ├── ai_commander/  # Logi dowódców AI (actions, turns)
+    │       ├── ai_general/    # Logi generała AI (economy, strategy, keypoints)
+    │       ├── vp_intelligence/# Analiza Victory Points
+    │       └── specialized/   # Wyspecjalizowane logi (garrison, victory_ai)
+    ├── archiwum_sesji/        # 🗄️ ARCHIWUM OSTATNICH 5 SESJI (nowy katalog)
+    │   ├── 2025-09-16_14-30/ # Sesja zakończona #1 (najnowsza)
+    │   ├── 2025-09-16_13-45/ # Sesja zakończona #2
+    │   ├── 2025-09-16_13-20/ # Sesja zakończona #3
+    │   ├── 2025-09-16_12-15/ # Sesja zakończona #4
+    │   └── 2025-09-16_11-00/ # Sesja zakończona #5 (najstarsza, będzie usunięta)
+    ├── dane_ml/               # 🧠 DANE UCZENIA MASZYNOWEGO (nowy, chroniony)
+    │   ├── strategiczne/      # AI decision patterns, force ratios, victory patterns
+    │   │   └── ai_decyzje_analiza.csv # Strategiczne decyzje AI z kontekstem
+    │   ├── taktyczne/         # Combat decisions, terrain effects, unit effectiveness
+    │   │   └── combat_decisions.csv  # Decyzje bojowe i ich rezultaty
+    │   └── gameplay/          # Turn statistics, player actions, game flow
+    │       └── turn_statistics.csv   # Statystyki tur i flow gry
+    └── analysis/              # Analysis and reports ⭐ ZACHOWANE KOMPATYBILNIE
+        ├── ml_ready/          # 🛡️ ML TRAINING DATA - NEVER DELETED (legacy)
+        ├── raporty/           # Generated analysis reports
+        └── statystyki/        # Aggregated statistics and insights
 ```
 ```
 ai/
@@ -807,16 +857,23 @@ Plan: dodać `clean_deployed_tokens()` + wywołać w full_clean (opcjonalna flag
 ## 📚 META
 Dokument przygotowuje grunt pod implementację gracza komputerowego bez refaktoryzacji istniejących modułów. Zmiany w silniku ograniczyć do dodania (jeśli brak) jednolitego API zakupów. **System ograniczenia artylerii + metryki attrition tworzą podstawę do wdrożenia Emergency Mode.**
 
-Wersja: 3.6 (2 września 2025)
-Status: **Artyleria zbalansowana (3.5) + rozszerzone logi attrition (3.6)** – gotowe do implementacji Emergency Mode / skip_reason logic
-Autor aktualizacji: automatyczny asystent + analiza logów + implementacja systemu balansowania & metryk
+Wersja: 4.2 (16 września 2025)
+Status: **Polski System Logowania UKOŃCZONY (4.2)** – logs/sesja_aktualna/ + rotacja 5 sesji + separacja ML
+Autor aktualizacji: automatyczny asystent + implementacja polskiego systemu logowania
 
-**Najważniejsze osiągnięcia wersji 3.6:**
-- ✅ Dodane metryki attrition (casualties_turn / new_units_turn)
-- ✅ Przygotowany schemat skip_reason (pusty – nienaruszony backward compatibility)
-- ✅ Zachowana stabilność po limicie artylerii
-- ✅ Dokumentacja uaktualniona (priorytety + roadmap)
-- ✅ Gotowość do kolejnej iteracji (Emergency Mode / skip reasons)
+**Najważniejsze osiągnięcia wersji 4.2:**
+- ✅ **Polskie nazwy katalogów:** `logs/sesja_aktualna/` zamiast `current_session/`
+- ✅ **SessionManager Singleton:** Zapobieganie duplikatom timestampów
+- ✅ **Rotacja 5 sesji:** Automatyczne archiwizowanie do `logs/archiwum_sesji/`
+- ✅ **Separacja danych ML:** Nowy katalog `logs/dane_ml/` chroniony przed czyszczeniem
+- ✅ **System czyszczenia:** Aktualizowany z obsługą polskich nazw + dokumentacja
+- ✅ **Kompatybilność:** Zachowane działanie z obiema nazwami (stara/nowa)
+
+**Poprzednie osiągnięcia (4.0-4.1):**
+- ✅ AI General Intelligence System z 29 parametrami strategicznymi
+- ✅ Smart Log Cleaning z ochroną danych ML
+- ✅ Reorganizacja launcherów w katalog `launchers/`
+- ✅ System artylerii zbalansowany + metryki attrition
 
 ---
 

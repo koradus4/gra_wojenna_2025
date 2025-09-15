@@ -12,8 +12,9 @@ from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
-from utils.game_cleaner import clean_all_for_new_game, quick_clean, clean_ai_logs, clean_game_logs
+from czyszczenie.game_cleaner import clean_all_for_new_game, clean_ai_logs, clean_game_logs
 from utils.smart_log_cleaner import smart_clean_session, smart_clean_full, smart_archive_and_clean, show_ml_status
+from utils.session_archiver import archive_sessions
 from gui.ai_config_panel import AIConfigPanel
 
 # --- Safe stdout encoding (unikaj UnicodeEncodeError w konsoli cp1250) ---
@@ -58,6 +59,9 @@ class GameLauncher:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Gra Wojenna 2025 - Launcher")
+        
+        # Konfiguracja obsługi zamykania aplikacji
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Zmaksymalizuj okno
         self.root.state('zoomed')  # Windows maximized
@@ -374,7 +378,8 @@ class GameLauncher:
                                        "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
                                        "• Wpisy w index.json i start_tokens.json")
             if result:
-                quick_clean()
+                from czyszczenie.game_cleaner import quick_clean as do_quick_clean
+                do_quick_clean()
                 messagebox.showinfo("Sukces", "Szybkie czyszczenie zakończone pomyślnie!")
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd podczas szybkiego czyszczenia: {e}")
@@ -385,33 +390,51 @@ class GameLauncher:
             result = messagebox.askyesno("Czyszczenie sesyjne", 
                                        "🧹 Wyczyścić bieżącą sesję gry?\n\n"
                                        "✅ USUWA:\n"
-                                       "• Rozkazy strategiczne\n" 
+                                       "• Rozkazy strategiczne AI\n" 
                                        "• Zakupione żetony (foldery)\n"
-                                       "• Logi z dzisiejszej sesji\n\n"
+                                       "• Logi z bieżącej sesji\n"
+                                       "• Dane z poprzedniej gry\n\n"
                                        "💾 ZACHOWUJE:\n"
                                        "• Wszystkie dane ML\n"
                                        "• ŻETONY NA MAPIE (start_tokens.json)\n"
-                                       "• Archiwa i raporty\n"
-                                       "• Statystyki długoterminowe")
+                                       "• Strukturę mapy (hexów)\n"
+                                       "• Archiwa i raporty")
             if result:
-                print("🧹 Czyszczenie sesyjne (zachowuję ML + żetony na mapie)...")
+                print("🧹 Czyszczenie sesyjne (kompletne - zachowuję ML + żetony na mapie)...")
                 
-                # 1. Standardowe czyszczenie sesji (nie dotyka start_tokens.json)
+                # 1. Główne czyszczenie sesji (logi, rozkazy)
                 stats = smart_clean_session()
                 
-                # 2. DODATKOWO: Wyczyść tylko zakupione żetony (foldery) - BEZ start_tokens.json
-                from utils.game_cleaner import clean_purchased_tokens, clean_purchased_tokens_from_index
-                print("🪙 Czyszczenie TYLKO zakupionych żetonów (foldery)...")
-                clean_purchased_tokens()  # czyści foldery nowe_dla_*, aktualne/
-                clean_purchased_tokens_from_index()  # czyści index.json
-                # NIE wywołujemy clean_purchased_tokens_from_start() - zachowujemy start_tokens.json!
+                # 2. DODATKOWO: Wyczyść zakupione żetony (foldery) - BEZ start_tokens.json
+                try:
+                    from czyszczenie.game_cleaner import clean_purchased_tokens, clean_purchased_tokens_from_index, clean_csv_logs
+                    print("🪙 Czyszczenie zakupionych żetonów (foldery)...")
+                    clean_purchased_tokens()  # czyści foldery nowe_dla_*, aktualne/
+                    clean_purchased_tokens_from_index()  # czyści index.json
+                    # NIE wywołujemy clean_purchased_tokens_from_start() - zachowujemy start_tokens.json!
+                    
+                    # 3. Dodatkowo wyczyść podstawowe dane gry
+                    print("📄 Czyszczenie plików CSV...")
+                    clean_csv_logs()  # Wyczyść pliki CSV BEZ potwierdzania
+                    
+                except ImportError as ie:
+                    print(f"⚠️ Nie można zaimportować funkcji czyszczenia: {ie}")
+                except Exception as e:
+                    print(f"⚠️ Błąd podczas czyszczenia: {e}")
                 
-                msg = f"✅ Sesja wyczyszczona (żetony na mapie ZACHOWANE)!\n\n"
-                msg += f"📄 Plików sesyjnych: {stats['session_files']}\n"
-                msg += f"💾 Zachowanych ML: {stats['preserved_ml']}\n" 
-                msg += f"🎯 Rozkazy: {stats['strategic_orders']}\n"
-                msg += f"🪙 Żetony (foldery): WYCZYSZCZONE\n"
-                msg += f"🗺️ Żetony na mapie: ZACHOWANE"
+                # Wyświetl wyniki
+                session_files = stats.get('session_files', 0)
+                strategic_orders = stats.get('strategic_orders', 0) 
+                purchased_tokens = stats.get('purchased_tokens', 0)
+                preserved_ml = stats.get('preserved_ml', 0)
+                
+                msg = f"✅ SESJA KOMPLETNIE WYCZYSZCZONA!\n\n"
+                msg += f"📄 Plików sesyjnych: {session_files}\n"
+                msg += f"💾 Zachowanych ML: {preserved_ml}\n" 
+                msg += f"🎯 Rozkazy strategiczne: WYCZYSZCZONE\n"
+                msg += f"🪙 Żetony folderowe: WYCZYSZCZONE\n"
+                msg += f"🗺️ Żetony na mapie: ZACHOWANE ✅\n"
+                msg += f"� Pliki CSV: WYCZYSZCZONE"
                 
                 messagebox.showinfo("Czyszczenie sesyjne", msg)
         except Exception as e:
@@ -463,53 +486,53 @@ class GameLauncher:
             messagebox.showerror("Błąd", f"Błąd sprawdzania statusu ML:\n{e}")
     
     def full_clean(self):
-        """Pełne czyszczenie - wszystkie dane gry (zachowuje ML) + ŻETONY Z MAPY"""
+        """Pełne czyszczenie - wszystkie dane gry (zachowuje ML) - BEZ ŻETONÓW Z HEXÓW!"""
         try:
-            result = messagebox.askyesno("Pełne czyszczenie + żetony", 
-                                       "🗑️ PEŁNE CZYSZCZENIE + ŻETONY Z MAPY?\n\n"
+            result = messagebox.askyesno("Pełne czyszczenie", 
+                                       "🗑️ PEŁNE CZYSZCZENIE DANYCH GRY?\n\n"
                                        "✅ USUWA:\n"
-                                       "• Rozkazy strategiczne\n"
+                                       "• Rozkazy strategiczne AI\n"
                                        "• Zakupione żetony (foldery)\n"
-                                       "• ŻETONY Z MAPY (start_tokens.json)\n"
-                                       "• ŻETONY Z HEXÓW (map_data.json)\n"
                                        "• WSZYSTKIE logi sesyjne\n"
-                                       "• Stare logi AI i game\n\n"
+                                       "• Stare logi AI i game\n"
+                                       "• Pliki CSV\n\n"
                                        "💾 ZACHOWUJE:\n"
                                        "• Wszystkie dane ML!\n"
-                                       "• Bezcenne datasety uczenia\n"
+                                       "• ŻETONY NA MAPIE (hexach)!\n"
+                                       "• start_tokens.json\n"
                                        "• Strukturę mapy (tereny, punkty)\n\n"
-                                       "⚠️ UWAGA: RESET CAŁEJ GRY!")
+                                       "⚠️ UWAGA: RESET DANYCH GRY!")
             if result:
-                print("🗑️ PEŁNE CZYSZCZENIE + ŻETONY Z MAPY...")
+                print("🗑️ PEŁNE CZYSZCZENIE DANYCH GRY (BEZ żetonów z hexów)...")
                 
                 # 1. Standardowe pełne czyszczenie (zachowuje ML)
                 stats = smart_clean_full()
                 
-                # 2. DODATKOWO: Wyczyść żetony z mapy (tokens_soft)
-                from czyszczenie.game_cleaner import tokens_soft
-                print("🎯 Czyszczenie żetonów z mapy...")
-                tokens_soft(no_backup=True)  # bez backupu bo już robimy smart backup
-                
-                # 3. DODATKOWO: Wyczyść start_tokens.json kompletnie
-                import json
-                start_tokens_path = "assets/start_tokens.json"
+                # 2. DODATKOWO: Wyczyść zakupione żetony (foldery) 
                 try:
-                    with open(start_tokens_path, 'w', encoding='utf-8') as f:
-                        json.dump([], f, indent=2)
-                    print("✅ Wyczyszczono start_tokens.json -> []")
+                    from czyszczenie.game_cleaner import clean_purchased_tokens, clean_purchased_tokens_from_index, clean_csv_logs
+                    print("🪙 Czyszczenie zakupionych żetonów (foldery)...")
+                    clean_purchased_tokens()  # czyści foldery nowe_dla_*, aktualne/
+                    clean_purchased_tokens_from_index()  # czyści index.json
+                    # NIE wywołujemy clean_purchased_tokens_from_start() - zachowujemy start_tokens.json!
+                    
+                    # 3. Wyczyść pliki CSV
+                    print("📄 Czyszczenie plików CSV...")
+                    clean_csv_logs()  # BEZ potwierdzania w terminalu
+                    
                 except Exception as e:
-                    print(f"⚠️ Błąd czyszczenia start_tokens.json: {e}")
+                    print(f"⚠️ Błąd podczas dodatkowego czyszczenia: {e}")
                 
-                msg = f"✅ PEŁNE CZYSZCZENIE + ŻETONY ZAKOŃCZONE!\n\n"
-                msg += f"📄 Plików sesyjnych: {stats['session_files']}\n"
+                msg = f"✅ PEŁNE CZYSZCZENIE ZAKOŃCZONE!\n\n"
+                msg += f"📄 Plików sesyjnych: {stats.get('session_files', 0)}\n"
                 msg += f"🗑️ Starych plików: {stats.get('old_files', 0)}\n"
-                msg += f"💾 Zachowanych ML: {stats['preserved_ml']}\n"
-                msg += f"🎯 Rozkazy: {stats['strategic_orders']}\n"
-                msg += f"🪙 Żetony folderowe: {stats['purchased_tokens']}\n"
-                msg += f"🗺️ Żetony z mapy: WYCZYSZCZONE\n"
-                msg += f"📍 start_tokens.json: WYZEROWANE"
+                msg += f"💾 Zachowanych ML: {stats.get('preserved_ml', 0)}\n"
+                msg += f"🎯 Rozkazy: WYCZYSZCZONE ✅\n"
+                msg += f"🪙 Żetony folderowe: WYCZYSZCZONE ✅\n"
+                msg += f"🗺️ Żetony z hexów: ZACHOWANE ✅\n"
+                msg += f"📍 start_tokens.json: ZACHOWANY ✅"
                 
-                messagebox.showinfo("Pełne czyszczenie + żetony", msg)
+                messagebox.showinfo("Pełne czyszczenie", msg)
         except Exception as e:
             messagebox.showerror("Błąd", f"Błąd podczas pełnego czyszczenia: {e}")
 
@@ -537,7 +560,7 @@ class GameLauncher:
                                        "Rekomendowane dla fair start!")
             if result:
                 print("🧹 Auto-czyszczenie przed nową grą...")
-                from utils.game_cleaner import quick_clean
+                from czyszczenie.game_cleaner import quick_clean
                 quick_clean()
             else:
                 print("ℹ️ Pominięto czyszczenie - kontynuacja poprzedniej sesji")
@@ -789,6 +812,29 @@ class GameLauncher:
                 update_all_players_visibility(game_engine.players, game_engine.tokens, game_engine.board)
             just_loaded_save = False
             clear_temp_visibility(players)
+
+    def on_closing(self):
+        """Obsługuje zamykanie aplikacji z archiwizacją sesji"""
+        try:
+            print("🔚 [MAIN] Zamykanie aplikacji...")
+            
+            # Archiwizacja sesji przed zamknięciem
+            print("📦 [MAIN] Archiwizacja sesji...")
+            stats = archive_sessions()
+            
+            if stats['archived'] > 0:
+                print(f"✅ [MAIN] Zarchiwizowano {stats['archived']} sesji")
+                if stats['cleaned'] > 0:
+                    print(f"🗑️ [MAIN] Wyczyszczono {stats['cleaned']} starych sesji")
+            else:
+                print("ℹ️ [MAIN] Brak sesji do archiwizacji")
+            
+        except Exception as e:
+            print(f"⚠️ [MAIN] Błąd podczas archiwizacji: {e}")
+        finally:
+            # Zawsze zamknij aplikację
+            print("👋 [MAIN] Aplikacja zamknięta")
+            self.root.destroy()
 
     def run(self):
         self.root.mainloop()

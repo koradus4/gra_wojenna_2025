@@ -23,8 +23,13 @@ REQUEST_LOG = "REQUEST_PROCESSING"
 
 # Data paths
 REQUESTS_DIR = Path("data/requests")
-GENERAL_LOGS_DIR = Path("logs/ai_general")
-GENERAL_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+# NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+def get_general_logs_dir():
+    """Zwraca ścieżkę do folderu logów AI General dla bieżącej sesji"""
+    from utils.session_manager import get_current_session_dir
+    return get_current_session_dir() / 'ai_general'
+
+GENERAL_LOGS_DIR = None  # Dynamiczne tworzenie przy pierwszym użyciu
 
 # =============================================================================
 # MODULE 6.1: COLLECT COMMANDER REQUESTS (General Side)
@@ -105,7 +110,9 @@ def _get_current_turn(game_engine) -> int:
 def _log_request_collection_csv(nation: str, turn: int, request_count: int, requests: List[Dict]):
     """Log request collection event do CSV."""
     try:
-        csv_file = GENERAL_LOGS_DIR / "request_collection.csv"
+        logs_dir = get_general_logs_dir()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = logs_dir / "request_collection.csv"
         file_exists = csv_file.exists()
         
         with open(csv_file, 'a', newline='', encoding='utf-8') as f:
@@ -374,7 +381,9 @@ def _generate_priority_summary(purchase_plan: List[Dict]) -> Dict[str, Any]:
 def _log_priority_decision_csv(priority_result: Dict[str, Any]):
     """Log priority decision do CSV."""
     try:
-        csv_file = GENERAL_LOGS_DIR / "purchase_priorities.csv"
+        logs_dir = get_general_logs_dir()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = logs_dir / "purchase_priorities.csv"
         file_exists = csv_file.exists()
         
         with open(csv_file, 'a', newline='', encoding='utf-8') as f:
@@ -556,7 +565,9 @@ def _log_purchase_execution_csv(purchase_plan: List[Dict], purchased_units: List
                                total_spent: int, nation: str):
     """Log purchase execution do CSV."""
     try:
-        csv_file = GENERAL_LOGS_DIR / "adaptive_purchases.csv"
+        logs_dir = get_general_logs_dir()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        csv_file = logs_dir / "adaptive_purchases.csv"
         file_exists = csv_file.exists()
         
         with open(csv_file, 'a', newline='', encoding='utf-8') as f:

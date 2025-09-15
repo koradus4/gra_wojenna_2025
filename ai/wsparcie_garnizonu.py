@@ -1,4 +1,6 @@
-"""Moduł wsparcia garnizonu - automatyczne przydzielanie jednostek do ochrony punktów kluczowych.
+"""Moduł wsparcia garnizonu - automatyczn        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        specialized_dir = get_current_session_dir() / "specialized"rzydzielanie jednostek do ochrony punktów kluczowych.
 Bazuje na jakości punktu i zagrożeniu wrogami w pobliżu.
 
 NOWE: Długoterminowe wsparcie - jednostki przydzielane na cały czas garnizonu (MAX_GARRISON_TIME=3 tury).
@@ -39,12 +41,14 @@ def has_priority_task(unit, game_engine):
 def log_garrison_issue_to_csv(issue_type: str, unit_id: str, garrison_hex: str, details: dict):
     """Loguje problemy z wsparciem garnizonu do CSV dla analizy."""
     try:
-        # Ensure logs directory exists
-        os.makedirs("logs/garrison_issues", exist_ok=True)
+        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
+        from utils.session_manager import get_current_session_dir
+        specialized_dir = get_current_session_dir() / "specialized"
+        specialized_dir.mkdir(parents=True, exist_ok=True)
         
         # Create filename with current date
         today = datetime.now().strftime("%Y%m%d")
-        csv_file = f"logs/garrison_issues/garrison_problems_{today}.csv"
+        csv_file = f"{specialized_dir}/garrison_problems_{today}.csv"
         
         # Check if file exists to determine if we need headers
         file_exists = os.path.exists(csv_file)

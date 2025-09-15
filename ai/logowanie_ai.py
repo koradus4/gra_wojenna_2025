@@ -7,6 +7,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
+# NOWY IMPORT: SessionManager dla zapobiegania duplikatom katalogów
+try:
+    from utils.session_manager import SessionManager
+    NOWY_SYSTEM_SESJI = True
+except ImportError:
+    # Fallback na stary system jeśli SessionManager nie jest dostępny
+    NOWY_SYSTEM_SESJI = False
+    print("⚠️ [LOGOWANIE] Fallback na stary system sesji - brak SessionManager")
+
 LOG_COLUMNS = [
     'timestamp','turn','phase','nation','unit_id','unit_type','action_type',
     'from_q','from_r','to_q','to_r',
@@ -26,10 +35,7 @@ LOG_COLUMNS = [
     'pathfinding_failures','valid_candidates','total_candidates','unit_mp_available','unit_fuel_available'
 ]
 
-LOG_DIR = Path('logs/ai_commander')
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / f"actions_{datetime.now().strftime('%Y%m%d')}.csv"
-
+# NOWA ŚCIEŻKA: logs/current_session/TIMESTAMP/ai_commander/ dla sesji z timestampem
 # Dodatkowy plik zbiorczy podsumowań tur dowódców (łatwa analiza AI vs AI)
 TURN_LOG_COLUMNS = [
     'timestamp','turn','nation','mode','groups','units_total','units_moved','moved_pct',
@@ -45,7 +51,36 @@ TURN_LOG_COLUMNS = [
     'coordination_failures','memory_targets_used','tactical_resupply_calls',
     'notes'
 ]
-TURN_LOG_FILE = LOG_DIR / f"turns_{datetime.now().strftime('%Y%m%d')}.csv"
+
+def get_session_log_dir():
+    """
+    Zwraca ścieżkę do folderu logów AI Commander dla bieżącej sesji
+    
+    NOWY SYSTEM: Używa SessionManager - jeden katalog na całą sesję gry
+    STARY SYSTEM: Tworzył nowy timestamp za każdym wywołaniem (duplikaty)
+    """
+    if NOWY_SYSTEM_SESJI:
+        # NOWY: SessionManager zapobiega duplikatom katalogów
+        return SessionManager.get_current_session_dir() / 'ai_commander'
+    else:
+        # FALLBACK: Stary system (może tworzyć duplikaty)
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+        return Path('logs') / 'current_session' / timestamp / 'ai_commander'
+
+def get_log_files():
+    """Zwraca ścieżki do plików logów dla bieżącej sesji"""
+    log_dir = get_session_log_dir()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    log_file = log_dir / f"actions_{datetime.now().strftime('%Y%m%d')}.csv"
+    turn_log_file = log_dir / f"turns_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return log_dir, log_file, turn_log_file
+
+# Dynamiczne tworzenie plików przy pierwszym użyciu
+LOG_DIR = None
+LOG_FILE = None
+TURN_LOG_FILE = None
 
 
 def log_commander_action(unit_id: str, action_type: str, from_pos, to_pos, reason: str,
@@ -54,6 +89,9 @@ def log_commander_action(unit_id: str, action_type: str, from_pos, to_pos, reaso
     extra: dict z dodatkowymi polami zgodnymi z LOG_COLUMNS.
     """
     try:
+        # Dynamicznie uzyskaj ścieżki do plików dla bieżącej sesji
+        log_dir, log_file, turn_log_file = get_log_files()
+        
         turn = None
         phase = None
         unit_type = None
@@ -77,8 +115,8 @@ def log_commander_action(unit_id: str, action_type: str, from_pos, to_pos, reaso
             for k, v in extra.items():
                 if k in row_dict:
                     row_dict[k] = v
-        file_exists = LOG_FILE.exists()
-        with open(LOG_FILE, 'a', newline='', encoding='utf-8') as f:
+        file_exists = log_file.exists()
+        with open(log_file, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow(LOG_COLUMNS)
@@ -183,13 +221,16 @@ def log_commander_turn(data: Dict[str, Any]):
     Bezpieczne – w razie błędu pomija zapis.
     """
     try:
-        file_exists = TURN_LOG_FILE.exists()
+        # Dynamicznie uzyskaj ścieżki do plików dla bieżącej sesji
+        log_dir, log_file, turn_log_file = get_log_files()
+        
+        file_exists = turn_log_file.exists()
         row = {k: None for k in TURN_LOG_COLUMNS}
         row.update(data)
         # timestamp jeśli nie podano
         if not row.get('timestamp'):
             row['timestamp'] = datetime.now().isoformat()
-        with open(TURN_LOG_FILE, 'a', newline='', encoding='utf-8') as f:
+        with open(turn_log_file, 'a', newline='', encoding='utf-8') as f:
             w = csv.writer(f)
             if not file_exists:
                 w.writerow(TURN_LOG_COLUMNS)

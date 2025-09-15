@@ -231,6 +231,14 @@ def prioritize_targets(key_points, game_engine):
 
 from .logowanie_ai import LOG_COLUMNS, log_commander_action, log_commander_turn  # rozszerzone logowanie
 
+# --- ML Data Collection ---
+try:
+    from utils.ml_data_collector import get_ml_collector
+except ImportError:
+    # Fallback jeśli moduł niedostępny
+    def get_ml_collector():
+        return None
+
 
 def is_unit_holding(unit_dict: dict) -> bool:
     """Pomocniczo sprawdza czy jednostka ma atrybut token.hold_position == True"""
@@ -1413,6 +1421,41 @@ def make_tactical_turn(game_engine, player_id=None):
             'tactical_resupply_calls': 0,  # TODO: liczyć wywołania tactical_resupply
             'notes': f"Advanced mode: {advanced_mode}, Strategic plan: {strategic_plan is not None}"
         })
+
+        # === ML DATA COLLECTION ===
+        try:
+            ml_collector = get_ml_collector()
+            if ml_collector and player_id and player_nation:
+                # Zbieranie danych taktycznych AI Commander
+                ml_collector.log_tactical_move(
+                    commander_id=f"AI_Commander_{player_id}_{player_nation}",
+                    action=mode_type,
+                    target_info={
+                        'groups_count': group_count,
+                        'units_moved': moved_count,
+                        'units_total': len(my_units),
+                        'opportunistic_captures': opportunistic_count,
+                        'combats': combat_count,
+                        'advanced_mode': advanced_mode
+                    },
+                    success_rate=moved_count / len(my_units) if my_units else 0.0
+                )
+                
+                # Zbieranie danych strategicznych (jeśli dostępne)
+                if strategic_plan:
+                    ml_collector.log_strategic_decision(
+                        player_id=f"AI_Strategic_{player_id}_{player_nation}",
+                        decision=strategic_plan.get('state', 'unknown'),
+                        context={
+                            'aggression_level': strategic_plan.get('aggression_level', 0.5),
+                            'turn_number': turn_number,
+                            'units_count': len(my_units),
+                            'high_priority_targets': len([t for t in locals().get('prioritized_targets', [])[:5] if t.get('priority', 0) > 50])
+                        },
+                        outcome="completed"
+                    )
+        except Exception as ml_error:
+            debug_print(f"[ML_DATA] Błąd zbierania danych ML: {ml_error}", "FULL", "WARN")
 
     except Exception as e:
         debug_print(f"[AI] Błąd tury: {e}", "BASIC", ERROR)

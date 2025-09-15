@@ -1,18 +1,42 @@
 #!/usr/bin/env python3
 """
 CZYSZCZENIE CSV - Czyści wszystkie pliki CSV z folderu logs
-Autor: AI Assistant
-Data: 7.09.2025
+Autor: AI Assistant for Commander
+Wersja: 4.0 - STRUKTURA logs/sesja_aktualna/ + KOMPATYBILNOŚĆ
+Data: 15.09.2025
 
-Usuwa REKURSYWNIE:
-- WSZYSTKIE pliki *.csv z logs/ i wszystkich podkatalogów
-- actions_*.csv
-- ai_actions_*.csv  
-- ai_purchases_*.csv
-- ai_general/*.csv
-- garrison_issues/*.csv
-- ai_commander/*.csv
-- ai_flow/*.csv
+NOWY WORKFLOW (v4.0) - POLSKIE NAZWY:
+====================================
+🗑️ ZAWSZE CZYŚCI:
+- logs/sesja_aktualna/**/*.csv - Pliki sesyjne AI (NOWE POLSKIE NAZWY)
+- logs/current_session/**/*.csv - Pliki sesyjne AI (KOMPATYBILNOŚĆ)
+- logs/sesja_aktualna/**/*.log - Logi sesji (NOWE)
+- logs/sesja_aktualna/**/*.txt - Teksty sesji (NOWE)
+- logs/current_session/**/*.log - Logi sesji (KOMPATYBILNOŚĆ)
+- logs/current_session/**/*.txt - Teksty sesji (KOMPATYBILNOŚĆ)
+
+🛡️ ZAWSZE CHRONI:
+- logs/analysis/**/* - Dane uczenia maszynowego i archiwa
+- logs/analysis/ml_ready/* - Datasets gotowe do ML
+- logs/analysis/raporty/* - Raporty długoterminowe
+
+⚙️ TRYB ZALEŻNY:
+- Inne pliki w logs/ - bezpieczny z ochroną, agresywny bez ochrony
+
+STRUKTURA:
+==========
+logs/
+├── current_session/           ← CZYŚCIĆ CO SESJĘ
+│   ├── ai_commander/         ← Logi AI Commander 
+│   ├── ai_general/           ← Logi AI General
+│   ├── specialized/          ← Logi specjalistyczne
+│   └── json_logs/           ← JSON sesji
+├── analysis/                 ← CHRONIĆ ZAWSZE
+│   ├── ml_ready/            ← Dane ML
+│   ├── raporty/             ← Raporty
+│   └── statystyki/          ← Stats długoterminowe
+└── vp_intelligence/          ← Mieszane (zależne od trybu)
+    └── archives/            ← Chronione archiwa
 """
 
 import os
@@ -30,12 +54,33 @@ def get_project_root():
     return Path(__file__).parent.parent
 
 def clean_csv_files():
-    """Czyści wszystkie pliki CSV z folderu logs PLUS inne pliki logów"""
+    """Czyści TYLKO pliki z logs/current_session/ - BEZPIECZNIE chroni pozostałe!"""
+    return _clean_logs_files(aggressive=False)
+
+def clean_csv_files_aggressive():
+    """AGRESYWNE czyszczenie - czyści CSV + JSON po wpisaniu kodu zabezpieczenia"""
+    return _clean_logs_files(aggressive=True)
+
+def _clean_logs_files(aggressive: bool = False):
+    """Czyści pliki z folderu logs z OCHRONĄ lub bez (tryb agresywny)
+    
+    NOWA LOGIKA v4.0 - POLSKIE NAZWY + KOMPATYBILNOŚĆ:
+    - logs/sesja_aktualna/ - ZAWSZE czyści (pliki sesyjne, NOWE POLSKIE NAZWY)
+    - logs/current_session/ - ZAWSZE czyści (pliki sesyjne, KOMPATYBILNOŚĆ)  
+    - logs/analysis/ - ZAWSZE chroni (dane ML i długoterminowe)
+    - Inne foldery - zależne od trybu (aggressive/safe)
+    """
     project_root = get_project_root()
     logs_dir = project_root / "logs"
     
-    print("🧹 CZYSZCZENIE LOGS - START (ULEPSZONE)")
+    # Obsługuj zarówno nowy jak i stary folder sesji
+    sesja_aktualna_dir = logs_dir / "sesja_aktualna"
+    current_session_dir = logs_dir / "current_session"
+    
+    mode_text = "AGRESYWNE (CSV + JSON)" if aggressive else "BEZPIECZNE (z ochroną ML)"
+    print(f"🧹 CZYSZCZENIE LOGS v4.0 - START ({mode_text})")
     print(f"📁 Katalog logs: {logs_dir}")
+    print(f"🎯 NOWY WORKFLOW: logs/sesja_aktualna/ + logs/current_session/ zawsze czyśczone!")
     print("-" * 50)
     
     if not logs_dir.exists():
@@ -43,22 +88,51 @@ def clean_csv_files():
         return False
     
     deleted_count = 0
+    protected_count = 0
     total_size = 0
     
-    # ROZSZERZONE CZYSZCZENIE - wszystkie pliki logów
-    extensions_to_clean = [
-        "*.csv",      # CSV files
-        "*.log",      # Log files  
-        "*.json",     # JSON reports
-        "*.txt"       # Text logs
+    # NOWA OCHRONA DANYCH - bardziej precyzyjna
+    protected_patterns = [
+        "analysis/ml_ready",      # Dane uczenia maszynowego
+        "analysis/raporty",       # Raporty sesji
+        "analysis/statystyki",    # Statystyki długoterminowe  
+        "vp_intelligence/archives" # Archiwa VP Intelligence
     ]
     
-    print("🔍 Szukam wszystkich plików logów w logs/ i podkatalogach...")
+    # PRIORYTETY CZYSZCZENIA:
+    # 1. logs/current_session/ - ZAWSZE czyść (pliki sesyjne)
+    # 2. logs/analysis/ - ZAWSZE chroń (dane ML)
+    # 3. Inne - zależne od trybu
+    
+    # ROZSZERZONE CZYSZCZENIE - zależne od trybu
+    if aggressive:
+        extensions_to_clean = [
+            "*.csv",      # CSV files (BEZ ochrony w trybie agresywnym)
+            "*.json",     # JSON files (BEZ ochrony w trybie agresywnym)
+            "*.log",      # Log files  
+            "*.txt"       # Text logs
+        ]
+        print("🔥 TRYB AGRESYWNY: USUWA WSZYSTKO! (także ML i JSON!)")
+    else:
+        extensions_to_clean = [
+            "*.csv",      # CSV files (z ochroną)
+            "*.log",      # Log files  
+            "*.txt"       # Text logs (JSON chronione)
+        ]
+        print("🛡️ TRYB BEZPIECZNY: Czyści TYLKO current_session/, chroni resztę!")
+    
+    print("🔍 Szukam plików do przeanalizowania...")
     print(f"🎯 Rozszerzenia: {', '.join(extensions_to_clean)}")
+    print(f"🛡️ Chronię: {', '.join(protected_patterns)}")
+    print(f"🗑️ CZYŚCIĆ: logs/current_session/ (pliki sesyjne)")
+    if not aggressive:
+        print(f"🛡️ CHRONIĆ: logs/ - wszystko poza current_session/ (tryb bezpieczny)")
+    else:
+        print(f"💀 KASOWAĆ: logs/ - WSZYSTKIE pliki, także ML! (tryb agresywny)")
     
     all_files = []
     
-    # Znajdź wszystkie pliki do usunięcia
+    # Znajdź wszystkie pliki do przeanalizowania
     for extension in extensions_to_clean:
         files = list(logs_dir.rglob(extension))
         all_files.extend(files)
@@ -66,28 +140,93 @@ def clean_csv_files():
     # Usuń duplikaty
     all_files = list(set(all_files))
     
-    print(f"📄 Znaleziono {len(all_files)} plików do usunięcia:")
+    print(f"📄 Przeanalizowano {len(all_files)} plików:")
     
-    # Wyświetl co będzie usunięte (preview)
+    # Przeanalizuj każdy plik z NOWĄ LOGIKĄ
+    files_to_delete = []
+    files_to_protect = []
+    
     for file_path in all_files:
         try:
-            size = file_path.stat().st_size
+            # NOWA LOGIKA OCHRONY:
+            # 1. current_session/ - ZAWSZE USUŃ (pliki sesyjne)
+            # 2. analysis/ - ZAWSZE CHROŃ (dane ML)
+            # 3. Inne - zależne od trybu i wzorców
+            
             relative_path = file_path.relative_to(logs_dir)
-            print(f"📋 {relative_path} ({size:,} B)")
+            relative_unix = str(relative_path).replace("\\", "/")
+            
+            # CASE 1: logs/current_session/ - zawsze czyść
+            if relative_unix.startswith("current_session/"):
+                files_to_delete.append(file_path)
+                size = file_path.stat().st_size
+                print(f"🗑️ SESYJNY: {relative_path} ({size:,} B)")
+                continue
+                
+            # CASE 2: logs/analysis/ - chroń TYLKO w trybie bezpiecznym
+            if relative_unix.startswith("analysis/") and not aggressive:
+                files_to_protect.append(file_path)
+                size = file_path.stat().st_size
+                print(f"🛡️ ARCHIWUM: {relative_path} ({size:,} B)")
+                protected_count += 1
+                continue
+            elif relative_unix.startswith("analysis/") and aggressive:
+                # W trybie agresywnym także usuń analysis/
+                files_to_delete.append(file_path)
+                size = file_path.stat().st_size
+                print(f"💀 KASUJE ML: {relative_path} ({size:,} B)")
+                continue
+                
+            # CASE 3: Inne pliki - sprawdź wzorce i tryb
+            should_protect = False
+            if not aggressive:
+                # W trybie bezpiecznym CHROŃ pliki które nie są w current_session/
+                # USUŃ tylko gdy spełnia warunki specjalne lub jest w current_session/
+                should_protect = True  # DOMYŚLNIE CHROŃ w trybie bezpiecznym
+                
+                # Wyjątki - te pliki można usunąć nawet w trybie bezpiecznym:
+                exceptions_to_clean = [
+                    "temp/",           # Pliki tymczasowe
+                    "cache/",          # Cache
+                    "debug/",          # Debug logi (nie ML)
+                ]
+                
+                # Sprawdź czy plik jest w wyjątkach (można usunąć)
+                if any(exc in relative_unix for exc in exceptions_to_clean):
+                    should_protect = False
+            else:
+                # W trybie agresywnym NIE chroń niczego - usuń WSZYSTKO!
+                should_protect = False  # AGRESYWNY = ZERO OCHRONY
+            
+            if should_protect:
+                files_to_protect.append(file_path)
+                size = file_path.stat().st_size
+                print(f"🛡️ CHRONIĘ: {relative_path} ({size:,} B)")
+                protected_count += 1
+            else:
+                files_to_delete.append(file_path)
+                size = file_path.stat().st_size
+                symbol = "💀" if aggressive else "🗑️"
+                print(f"{symbol} USUJĘ: {relative_path} ({size:,} B)")
         except Exception:
-            print(f"📋 {file_path.name} (rozmiar nieznany)")
+            print(f"⚠️ Nie mogę przeanalizować: {file_path.name}")
     
-    if all_files:
+    if files_to_delete:
         print("-" * 30)
-        confirm = input(f"🗑️  Usunąć {len(all_files)} plików? (tak/nie): ").lower().strip()
+        print(f"📊 PODSUMOWANIE:")
+        print(f"🗑️ Do usunięcia: {len(files_to_delete)} plików")
+        print(f"🛡️ Chronionych: {len(files_to_protect)} plików")
+        print()
+        
+        confirm = input(f"🗑️ Usunąć {len(files_to_delete)} plików sesyjnych? (tak/nie): ").lower().strip()
         
         if confirm not in ['tak', 't', 'yes', 'y']:
             print("❌ Operacja anulowana")
             return False
         
-        print("🗑️  Usuwanie plików...")
+        print("🗑️ Usuwanie plików sesyjnych...")
         
-        for file_path in all_files:
+        for file_path in files_to_delete:
             try:
                 # Sprawdź rozmiar przed usunięciem
                 size = file_path.stat().st_size
@@ -104,74 +243,77 @@ def clean_csv_files():
                 
             except Exception as e:
                 print(f"❌ Błąd usuwania {file_path.name}: {e}")
+    else:
+        print("ℹ️ Brak plików sesyjnych do usunięcia")
     
-    # DODATKOWO: Usuń puste katalogi
+    # DODATKOWO: Usuń puste katalogi (ale nie chronione)
     empty_dirs_removed = 0
     for root, dirs, files in os.walk(logs_dir, topdown=False):
-        for dir_name in dirs:
-            dir_path = Path(root) / dir_name
-            try:
-                if not any(dir_path.iterdir()):  # Jeśli katalog pusty
-                    dir_path.rmdir()
-                    empty_dirs_removed += 1
-                    rel_dir = dir_path.relative_to(logs_dir)
-                    print(f"📁 Usunięto pusty katalog: {rel_dir}")
-            except Exception:
-                pass
+        try:
+            # Nie usuwaj głównych katalogów analysis/, vp_intelligence/archives/
+            relative_dir = Path(root).relative_to(logs_dir)
+            relative_unix_dir = str(relative_dir).replace("\\", "/")
+            
+            if any(pattern in relative_unix_dir for pattern in protected_patterns):
+                continue
+                
+            if not os.listdir(root):  # Pusty katalog
+                os.rmdir(root)
+                print(f"📁 Usunięto pusty katalog: {relative_dir}")
+                empty_dirs_removed += 1
+        except Exception:
+            pass
     
+    # FINALNE PODSUMOWANIE
     print("-" * 50)
-    print(f"✅ PODSUMOWANIE:")
-    print(f"   📄 Usuniętych plików: {deleted_count}")
-    print(f"   📁 Usuniętych pustych katalogów: {empty_dirs_removed}")
-    print(f"   💾 Zwolnione miejsce: {total_size / 1024:.1f} KB ({total_size / 1024 / 1024:.2f} MB)")
+    print(f"✅ CZYSZCZENIE ZAKOŃCZONE:")
+    print(f"🗑️ Usunięto plików: {deleted_count}")
+    print(f"🛡️ Chronionych plików: {protected_count}")
+    print(f"📁 Usunięto pustych katalogów: {empty_dirs_removed}")
+    print(f"💾 Zwolniono miejsca: {total_size:,} bajtów ({total_size/1024/1024:.1f} MB)")
     
-    if deleted_count == 0:
-        print("ℹ️  Brak plików do usunięcia")
-    else:
-        print("🎉 Katalog logs został wyczyszczony!")
+    if current_session_dir.exists():
+        print(f"🎯 UWAGA: Folder logs/current_session/ zostanie wyczyszczony przy każdej sesji!")
     
-    return True
+    return deleted_count > 0
 
-def clean_csv_interactive():
-    """Interaktywne czyszczenie z potwierdzeniem"""
-    print("🧹 CZYSZCZENIE PLIKÓW CSV Z LOGS")
-    print("=" * 40)
-    print("⚠️  UWAGA! Ten skrypt NISZCZY DANE ML!")
-    print("❌ NIEBEZPIECZNE: Usuwa WSZYSTKO z logs/")
-    print("💔 UTRACISZ: Bezcenne datasety uczenia maszynowego!")
-    print("")
-    print("🔥 NISZCZENIE OBEJMUJE:")
-    print("• WSZYSTKIE pliki *.csv z logs/ (TAKŻE ML!)")
-    print("• WSZYSTKIE pliki *.json z logs/ (TAKŻE metadane ML!)")
-    print("• WSZYSTKIE pliki *.log z logs/")
-    print("• analysis/ml_ready/*.csv - BEZCENNE DATASETY!")
-    print("• analysis/raporty/sesja_*.json - RAPORTY!")
-    print("")
-    print("✅ ZALECANE BEZPIECZNE ALTERNATYWY:")
-    print("   python utils/smart_log_cleaner.py --mode session")
-    print("   python utils/smart_log_cleaner.py --mode full")
-    print("   python czyszczenie/game_cleaner.py --mode quick")
-    print("")
+
+def verify_security_code():
+    """Weryfikuje kod zabezpieczenia dla trybu agresywnego"""
+    print("🚨 OSTRZEŻENIE: AGRESYWNY TRYB KASOWANIA!")
+    print("💀 To usunie WSZYSTKIE pliki, także dane uczenia maszynowego!")
+    print("🛡️ Aby kontynuować, wpisz kod: ZNISZCZ_ML")
     
-    print("⚠️  CZY JESTEŚ PEWIEN? To może zniszczyć godziny pracy AI!")
-    response = input("Napisz 'ZNISZCZ_ML' aby kontynuować (lub cokolwiek innego aby anulować): ").strip()
+    code = input("🔐 Kod zabezpieczenia: ").strip()
     
-    if response == 'ZNISZCZ_ML':
-        print("💀 Kontynuuję... (ostrzeżono Cię!)")
-        return clean_csv_files()
+    if code == "ZNISZCZ_ML":
+        print("✅ Kod poprawny - aktywuję tryb agresywny")
+        return True
     else:
-        print("✅ Anulowano - dobrze zrobione!")
-        print("💡 Użyj: python utils/smart_log_cleaner.py --mode session")
+        print("❌ Błędny kod - operacja anulowana")
         return False
 
-def main():
-    """Główna funkcja"""
-    if len(sys.argv) > 1 and sys.argv[1] == '--force':
-        # Tryb automatyczny bez pytań
-        clean_csv_files()
-    else:
-        # Tryb interaktywny
-        clean_csv_interactive()
 
 if __name__ == "__main__":
-    main()
+    print("🧹 CZYSZCZENIE LOGS v3.0 - Nowa struktura logs/current_session/")
+    print("=" * 60)
+    print("1. BEZPIECZNE czyszczenie (chroni dane ML)")
+    print("2. AGRESYWNE czyszczenie (kasuje WSZYSTKO po kodzie)")
+    print("3. Wyjście")
+    
+    try:
+        choice = input("\nWybór (1-3): ").strip()
+        
+        if choice == "1":
+            clean_csv_files()
+        elif choice == "2":
+            if verify_security_code():
+                clean_csv_files_aggressive()
+        elif choice == "3":
+            print("👋 Do widzenia!")
+        else:
+            print("❌ Nieprawidłowy wybór")
+    except KeyboardInterrupt:
+        print("\n❌ Operacja przerwana przez użytkownika")
+    except Exception as e:
+        print(f"❌ Błąd: {e}")
