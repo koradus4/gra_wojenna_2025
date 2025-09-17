@@ -206,6 +206,29 @@ class SessionManager:
         
         if cleaned > 0:
             print(f"✅ [SESSION] Wyczyszczono {cleaned} pustych sesji")
+    
+    @classmethod
+    def get_specialized_ai_logs_dir(cls) -> dict:
+        """Zwraca ścieżki do specjalistycznych logów AI"""
+        from typing import Dict
+        
+        base = cls.get_current_session_dir() / "ai_commander_zaawansowany"
+        base.mkdir(parents=True, exist_ok=True)
+        
+        dirs = {
+            'strategiczne': base / 'decyzje_strategiczne',
+            'taktyczne': base / 'akcje_taktyczne', 
+            'ekonomiczne': base / 'decyzje_ekonomiczne',
+            'wywiad': base / 'analiza_wywiadu',
+            'wydajnosc': base / 'wydajnosc_ai',
+            'zwyciestwo': base / 'analiza_zwyciestwa'
+        }
+        
+        # Tworzenie wszystkich katalogów
+        for nazwa, sciezka in dirs.items():
+            sciezka.mkdir(parents=True, exist_ok=True)
+        
+        return dirs
 
 
 # Funkcje pomocnicze dla kompatybilności z istniejącym kodem

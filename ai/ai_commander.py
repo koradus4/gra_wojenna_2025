@@ -37,6 +37,15 @@ from ai.log_kategorie_ai import (
     DEFENSE, RESUPPLY, MOVE, ADAPTIVE, ASSIGN, SAVE
 )
 
+# --- Import zaawansowanego loggera AI ---
+try:
+    from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+    from utils.session_manager import SessionManager
+    ADVANCED_LOGGING_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ [AI_COMMANDER] Nie można załadować zaawansowanego loggera: {e}")
+    ADVANCED_LOGGING_AVAILABLE = False
+
 # --- Refaktoryzacja etap 3: zewnętrzne moduły ruchu i okupacji ---
 try:
     from ai.ruch_jednostek import move_towards, choose_movement_mode  # type: ignore
@@ -229,7 +238,7 @@ def prioritize_targets(key_points, game_engine):
 # (delegacja) grouping -> ai.grupowanie_ai
 
 
-from .logowanie_ai import LOG_COLUMNS, log_commander_action, log_commander_turn  # rozszerzone logowanie
+from .logowanie_ai import log_commander_action, log_commander_turn  # rozszerzone logowanie
 
 # --- ML Data Collection ---
 try:
@@ -424,11 +433,39 @@ def execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_i
     if not base_target or len(base_target) < 2:
         return base_target
     
+    # LOGOWANIE AKCJI TAKTYCZNEJ - pobierz AI Commander dla logowania
+    try:
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        if current_player and hasattr(current_player, 'ai_commander'):
+            ai_commander = current_player.ai_commander
+            if hasattr(ai_commander, '_loguj_akcje_taktyczna'):
+                unit_pos = (unit.get('q', 0), unit.get('r', 0))
+                target_pos = (base_target[0], base_target[1])
+                ai_commander._loguj_akcje_taktyczna(
+                    f"TAKTYKA_{mission_type}", 
+                    unit.get('id', 'UNKNOWN'),
+                    unit_pos,
+                    target_pos
+                )
+    except Exception as log_e:
+        debug_print(f"[LOG] Błąd logowania taktyki: {log_e}", "BASIC", "WARN")
+    
+    # NOWE: Przygotowanie danych do logowania akcji taktycznej
+    start_time = __import__('time').time()
+    
     base_q, base_r = base_target[0], base_target[1]
     unit_pos = (unit['q'], unit['r'])
     
     # Pobierz board dla pathfinding
     board = getattr(game_engine, 'board', None)
+    
+    # NOWE: Przygotowanie danych logowania
+    tactical_context = {
+        'mission_type': mission_type,
+        'unit_index': unit_index,
+        'total_units': total_units,
+        'formation_coordination': total_units > 1
+    }
     if not board:
         return base_target
     
@@ -553,6 +590,26 @@ def execute_mission_tactics(unit, base_target, mission_type, game_engine, unit_i
             # UNKNOWN mission type - fallback z alternatywą
             final_target = find_alternative_target_around(unit, base_target, game_engine)
             debug_print(f"[TACTIC] UNKNOWN: {mission_type} -> {final_target}", "FULL", TACTIC)
+            
+            # NOWE: Logowanie akcji taktycznej na końcu funkcji
+            try:
+                execution_time = (__import__('time').time() - start_time) * 1000  # ms
+                
+                # Pobierz AI Commander instance dla logowania
+                current_player = getattr(game_engine, 'current_player_obj', None)
+                if current_player and hasattr(current_player, 'ai_commander'):
+                    ai_commander = current_player.ai_commander
+                    if hasattr(ai_commander, '_loguj_akcje_taktyczna'):
+                        ai_commander._loguj_akcje_taktyczna(
+                            game_engine, 
+                            unit, 
+                            mission_type,
+                            kontekst=f"Formation: {tactical_context.get('formation_coordination', False)}, "
+                                    f"Index: {unit_index}/{total_units}"
+                        )
+            except Exception as log_e:
+                debug_print(f"[LOG] Błąd logowania akcji taktycznej: {log_e}", "BASIC", "WARN")
+            
             return final_target
             
     except Exception as e:
@@ -693,7 +750,24 @@ class AdaptiveAICommander:
 
     def analyze_strategic_state(self, game_engine):
             from ai.strategia_ai import analyze_strategic_state as _an_strat
-            return _an_strat(self, game_engine)
+            
+            # NOWE: Logowanie decyzji strategicznych
+            previous_state = getattr(self, 'strategic_state', 'UNKNOWN')
+            result = _an_strat(self, game_engine)
+            current_state = getattr(self, 'strategic_state', 'UNKNOWN')
+            
+            # Loguj tylko jeśli był to rzeczywisty proces decyzyjny
+            if previous_state != current_state or getattr(self, '_force_strategic_log', False):
+                self._loguj_decyzje_strategiczna(
+                    game_engine,
+                    typ_decyzji='Analiza_Stanu_Strategicznego',
+                    poprzedni_stan=previous_state,
+                    obecny_stan=current_state,
+                    kontekst="Rutynowa analiza sytuacji strategicznej"
+                )
+                self._force_strategic_log = False
+            
+            return result
 
     def _adapt_strategy_to_state(self):
             from ai.strategia_ai import _adapt_strategy_to_state as _ad_str
@@ -789,7 +863,7 @@ def make_tactical_turn(game_engine, player_id=None):
 
         # ===== PHASE 5: VP INTELLIGENCE SYSTEM INTEGRATION =====
         try:
-            from ai.victory_ai import integrate_vp_intelligence_system, integrate_victory_ai_complete_system, log_victory_ai_csv
+            from ai.victory_ai import integrate_vp_intelligence_system, integrate_victory_ai_complete_system
             # Pobierz gracza dla Victory AI
             current_player = None
             all_players = getattr(game_engine, 'players', [])
@@ -802,12 +876,33 @@ def make_tactical_turn(game_engine, player_id=None):
                 debug_print(f"❌ [VICTORY AI] Nie znaleziono gracza {player_id}", "BASIC", ERROR)
                 return
             
-            # Log start stanu przed Victory AI
+            # Log start stanu przed Victory AI - polski system
             current_turn = getattr(game_engine, 'current_turn', 1)
-            log_victory_ai_csv("TURN_START", player_id, current_turn,
-                             player_nation=player_nation, 
-                             total_tokens=len(getattr(current_player, 'tokens', [])),
-                             captured_kps=len(getattr(current_player, 'captured_kps', [])))
+            try:
+                from utils.session_manager import SessionManager
+                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                
+                session_manager = SessionManager()
+                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                
+                strategia_dane = {
+                    'decision_type': 'TURN_START_VICTORY_AI',
+                    'decision_scope': 'STRATEGIC_INITIALIZATION',
+                    'priority_level': 'CRITICAL',
+                    'context_factors': f'nation={player_nation}, tokens={len(getattr(current_player, "tokens", []))}, captured_kps={len(getattr(current_player, "captured_kps", []))}',
+                    'expected_outcome': 'VICTORY_AI_ACTIVATION',
+                    'confidence_level': 'HIGH',
+                    'time_horizon': 'SINGLE_TURN',
+                    'resource_commitment': 'HIGH',
+                    'decision_rationale': f'Inicjalizacja Victory AI dla gracza {player_id} ({player_nation}) w turze {current_turn}',
+                    'vp_impact_projection': 'STRATEGIC_POSITIVE',
+                    'strategic_goal_alignment': 'CRITICAL',
+                    'turn': str(current_turn),
+                    'nation': player_nation
+                }
+                logger.loguj_decyzje_strategiczna(strategia_dane)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania w ai_commander: {e}", "BASIC", "ERROR")
             
             # PHASE 5: VP Intelligence Analysis (NOWE!)
             my_units = getattr(current_player, 'tokens', [])
@@ -1468,6 +1563,26 @@ class AICommander:
         """Inicjalizacja prostych pól konfiguracyjnych dowódcy AI."""
         try:
             self.player = player
+            
+            # --- NOWE: Inicjalizacja zaawansowanego loggera ---
+            if ADVANCED_LOGGING_AVAILABLE:
+                try:
+                    session_dir = SessionManager.get_current_session_dir()
+                    self.zaawansowany_logger = ZaawansowanyLoggerAI(session_dir)
+                    print(f"✅ [AI_COMMANDER] Zaawansowany logger zainicjalizowany")
+                    # Alias zgodny z Victory AI i innymi modułami
+                    try:
+                        self.logger = self.zaawansowany_logger  # zgodność API: commander.logger
+                    except Exception:
+                        pass
+                except Exception as e:
+                    print(f"⚠️ [AI_COMMANDER] Błąd inicjalizacji zaawansowanego loggera: {e}")
+                    self.zaawansowany_logger = None
+                    self.logger = None
+            else:
+                self.zaawansowany_logger = None
+                self.logger = None
+            
             # Garrisony i limity
             self.garrisons = {}
             self.min_garrison_size = 1
@@ -1526,6 +1641,60 @@ class AICommander:
         player_id = getattr(self.player, 'id', None)
         debug_print(f"[AICommander] Tura dla {self.player.nation} (id={player_id})", "BASIC", INFO)
         make_tactical_turn(game_engine, player_id)
+
+    # === METODY ZAAWANSOWANEGO LOGOWANIA ===
+    def _loguj_decyzje_strategiczna(self, typ: str, szczegoly: dict):
+        """Loguje decyzje strategiczne AI Commandera"""
+        if hasattr(self, 'zaawansowany_logger') and self.zaawansowany_logger:
+            self.zaawansowany_logger.loguj_decyzje_strategiczna(szczegoly)
+
+    def _loguj_akcje_taktyczna(self, akcja: str, unit_id: str, pozycja: tuple, cel: tuple = None):
+        """Loguje akcje taktyczne jednostek"""
+        if hasattr(self, 'zaawansowany_logger') and self.zaawansowany_logger:
+            szczegoly = {
+                'action_type': akcja,
+                'unit_id': unit_id,
+                'start_position_q': pozycja[0],
+                'start_position_r': pozycja[1],
+                'target_position_q': cel[0] if cel else None,
+                'target_position_r': cel[1] if cel else None,
+                'commander_nation': self.player.nation
+            }
+            self.zaawansowany_logger.loguj_akcje_taktyczna(szczegoly)
+
+    def _loguj_wydajnosc_ai(self, metryka: str, wartosc: float, kontekst: str = ""):
+        """Loguje metryki wydajności AI"""
+        if hasattr(self, 'zaawansowany_logger') and self.zaawansowany_logger:
+            dane = {
+                'performance_metric': metryka,
+                'metric_value': wartosc,
+                'measurement_context': kontekst,
+                'nation': self.player.nation
+            }
+            self.zaawansowany_logger.loguj_wydajnosc(dane)
+
+    def analyze_strategic_state(self, game_engine):
+        """Analizuje stan strategiczny i loguje decyzje"""
+        # Zbierz dane strategiczne
+        my_units = get_my_units(game_engine, getattr(self.player, 'id', None))
+        key_points = get_all_key_points(game_engine)
+        
+        # Analizuj sytuację
+        analiza = {
+            'decision_type': 'STRATEGIC_ANALYSIS',
+            'nation': self.player.nation,
+            'units_count': len(my_units),
+            'controlled_points': len([kp for kp in key_points if kp.get('controlled_by') == self.player.nation]),
+            'threatened_units': 0,
+            'strategic_priority': 'DEFENSE' if len(my_units) < 3 else 'ATTACK',
+            'confidence_level': 'HIGH',
+            'context_factors': f"Units:{len(my_units)}, KeyPoints:{len(key_points)}"
+        }
+        
+        # Loguj decyzję strategiczną
+        self._loguj_decyzje_strategiczna("ANALIZA_STRATEGICZNA", analiza)
+        
+        return analiza
 
     # === USUNIĘTO SYSTEM ROZKAZÓW ===
     # AI Dowódcy działają autonomicznie bez rozkazów od AI Generała

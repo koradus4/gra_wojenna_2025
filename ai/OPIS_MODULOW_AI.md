@@ -40,7 +40,10 @@ Tworzenie grup jednostek na podstawie bliskości oraz przypisywanie ich do celó
 **EFEKT:** AI jest w pełni konfigurowalne bez zmiany kodu. Gracze mogą tuning przez GUI.
 
 ## 7. logowanie_ai.py
-**ROZSZERZONY:** System logowania działań AI do plików CSV. Zapisuje każdą akcję jednostki oraz zagregowane podsumowania tur. **NOWE:** Logowanie PE flow - pełne śledzenie przepływu ekonomii między generałami i dowódcami. Ułatwia debug i analizę zachowań.
+**ROZSZERZONY (PL SYSTEM):** Cienka warstwa kompatybilności przekierowująca wszystkie wywołania na polski ZaawansowanyLoggerAI. Stary system CSV został usunięty. Logowane kategorie:
+- decyzje_strategiczne, akcje_taktyczne, decyzje_ekonomiczne,
+- analiza_wywiadu (z intelligence_type), wydajnosc_ai, analiza_zwyciestwa.
+Logger tworzy pliki w `logs/sesja_aktualna/.../ai_commander_zaawansowany/`. Commander udostępnia alias `commander.logger` wskazujący na ten logger.
 
 ## 8. log_kategorie_ai.py
 Lista nazw kategorii / tagów używanych w logach (np. TACTIC, MOVE, ERROR, **NOWE:** PE_VALIDATION, ECONOMIC_SAFETY). Pozwala filtrować logi.
@@ -64,7 +67,7 @@ Ataki reakcyjne: gdy przeciwnik się poruszy, AI sprawdza czy któraś z jego je
 Generuje listę prostych rekomendacji (np. "kup szybkie jednostki" albo "utrzymaj ekonomię") i może (w przyszłości) pół‑automatycznie wykonywać plan.
 
 ## 15. rozpoznanie_ai.py
-System rozpoznania: zbiera dane o widocznych wrogach, grupuje ich w klastry, ocenia zagrożenia dla punktów kluczowych i zapisuje do pamięci AI.
+System rozpoznania: zbiera dane o widocznych wrogach, grupuje ich w klastry, ocenia zagrożenia dla punktów kluczowych i zapisuje do pamięci AI. **NOWE:** Logi wywiadu zapisują `intelligence_type` dla pełniejszych podsumowań „Analiza wywiadu”.
 
 ## 16. ruch_adaptacyjny_ai.py
 Dodatkowe zasady ruchu zależne od stanu strategicznego (wygrywamy → bezpiecznie; przegrywamy → agresywnie; remis → balans). Wybiera np. bezpieczniejsze hexy obok celu.
@@ -100,7 +103,7 @@ Plik techniczny – pozwala traktować folder `ai` jako moduł Pythona.
 - **Phase 3:** Balanced Defense + KP Security (60% defense, 30% attack, 10% reserve + PE collection protection)
 - **Phase 4:** Advanced Logistics AI (Commander-General Communication + Force Requirements Analysis)
 - **Phase 5:** VP Intelligence System (Victory Points optimization + predictive modeling)
-**NOWE:** Comprehensive CSV logging, plan validation, defense allocation. Integruje się z ai_commander.py.
+**NOWE:** Kompletne logowanie przez polski ZaawansowanyLoggerAI (wydajność, analiza zwycięstwa, decyzje). Przestarzały writer CSV został usunięty. Integruje się z ai_commander.py (alias `commander.logger`).
 
 ## 26. vp_intelligence.py ✅ **NOWY - PHASE 5 COMPLETE**
 **"VP Intelligence System"**. Zaawansowany system analizy Victory Points:

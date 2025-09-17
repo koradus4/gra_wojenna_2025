@@ -458,6 +458,7 @@ def tokens_hard(no_backup: bool = False, confirm: bool = False):
     # PURGE katalog tokens
     if assets_tokens.exists():
         removed_dirs = 0
+        removed_files = 0
         for item in assets_tokens.iterdir():
             if item.is_dir():
                 shutil.rmtree(item)
@@ -465,9 +466,10 @@ def tokens_hard(no_backup: bool = False, confirm: bool = False):
             else:
                 try:
                     item.unlink()
+                    removed_files += 1
                 except Exception:
                     pass
-        print(f'✅ Usunięto {removed_dirs} katalogów w assets/tokens')
+        print(f'✅ Usunięto {removed_dirs} katalogów i {removed_files} plików w assets/tokens')
     else:
         print('ℹ️ Brak assets/tokens – pomijam purge')
     print('🏁 tokens_hard zakończone.')

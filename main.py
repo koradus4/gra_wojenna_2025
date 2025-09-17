@@ -13,7 +13,7 @@ from core.zwyciestwo import VictoryConditions
 from ai.ai_general import AIGeneral
 from ai.ai_commander import AICommander
 from czyszczenie.game_cleaner import clean_all_for_new_game, clean_ai_logs, clean_game_logs
-from utils.smart_log_cleaner import smart_clean_session, smart_clean_full, smart_archive_and_clean, show_ml_status
+from tools.maintenance.smart_log_cleaner import smart_clean_session, smart_clean_full, smart_archive_and_clean, show_ml_status
 from utils.session_archiver import archive_sessions
 from gui.ai_config_panel import AIConfigPanel
 
@@ -465,7 +465,7 @@ class GameLauncher:
     def show_ml_status(self):
         """Pokaż status danych ML"""
         try:
-            from utils.smart_log_cleaner import SmartLogCleaner
+            from tools.maintenance.smart_log_cleaner import SmartLogCleaner
             cleaner = SmartLogCleaner()
             stats = cleaner.get_ml_stats()
             

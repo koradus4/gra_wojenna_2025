@@ -88,7 +88,7 @@
 
 **Pliki:** `main.py` (główny), `launchers/main_basic.py`, `launchers/main_alternative.py`, `launchers/auto_test_ai.py`, `launchers/README.md`
 
-**POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (15-16.09.2025):**
+**POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (17.09.2025):**
 
 **Problem:** System używał angielskich nazw katalogów (`current_session`) i tworzył duplikaty folderów timestampowych bez kontroli rotacji.
 
@@ -118,7 +118,15 @@
 - **Rotacja 5 sesji**: Automatyczne kasowanie najstarszych w archiwum ✅
 - **Separacja ML**: Dane ML chronione w osobnym katalogu `dane_ml/` ✅
 
-**Pliki:** `utils/session_manager.py` (Singleton), `ai/logowanie_ai.py` (aktualizowany), `czyszczenie/` (polskie nazwy), `main.py` (archiwizacja przy zamknięciu)
+**Aktualizacja 17.09.2025 (doprecyzowania):**
+- **Ujednolicony logger:** Wszystkie logi AI przechodzą przez ZaawansowanyLoggerAI, a moduły korzystają z aliasu `commander.logger` dla spójności.
+- **Mapowanie starych wywołań:** Warstwa `ai/logowanie_ai.py` przekierowuje legacy funkcje do nowych metod loggera.
+- **Kategorie CSV:** `decyzje_strategiczne`, `akcje_taktyczne`, `decyzje_ekonomiczne`, `analiza_wywiadu`, `wydajnosc_ai`, `analiza_zwyciestwa`.
+- **Rozpoznanie:** Logi wzbogacone o `intelligence_type` (obok `information_type`) dla lepszych podsumowań końcowych.
+- **Usunięty legacy CSV:** Z `ai/victory_ai.py` usunięto stary writer CSV; metryki wydajności i analiza zwycięstwa trafiają do nowych kategorii przez `commander.logger`.
+- **Test dymny:** `tests/test_polish_logging.py` potwierdza tworzenie struktury sesji i CSV dla kluczowych kategorii.
+
+**Pliki:** `utils/session_manager.py` (Singleton), `ai/logowanie_ai.py` (adapter legacy→nowy logger), `ai/victory_ai.py` (legacy CSV usunięty, loguje przez alias), `czyszczenie/` (polskie nazwy), `main.py` (archiwizacja przy zamknięciu), `tests/test_polish_logging.py` (test dymny)
 
 **SMART LOG CLEANING SYSTEM - NOWOŚĆ! (13.09.2025):**
 

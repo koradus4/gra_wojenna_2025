@@ -89,9 +89,9 @@ def clean_old_data():
     print("="*50)
     print()
 
-def auto_game_10_turns():
-    """Automatyczna gra 10 tur, wszyscy gracze to AI"""
-    print("🚀 ROZPOCZYNANIE 10-RUNDOWEJ GRY AI vs AI")
+def auto_game_10_turns(max_turns: int = 10):
+    """Automatyczna gra N tur (domyślnie 10), wszyscy gracze to AI"""
+    print(f"🚀 ROZPOCZYNANIE {max_turns}-RUNDOWEJ GRY AI vs AI")
     print("="*60)
     
     # GameEngine
@@ -144,10 +144,10 @@ def auto_game_10_turns():
     turn_manager.ai_generals = ai_generals
     turn_manager.ai_commanders = ai_commanders
     
-    # Victory Conditions - 10 tur dla pełnego testu
-    victory_conditions = VictoryConditions(max_turns=10, victory_mode="turns")
+    # Victory Conditions - liczba tur konfigurowalna
+    victory_conditions = VictoryConditions(max_turns=max_turns, victory_mode="turns")
     
-    print("🎯 POCZĄTEK GRY - 10 TUR PEŁNY TEST")
+    print(f"🎯 POCZĄTEK GRY - {max_turns} TUR TEST")
     print("="*60)
     
     # === PE TRACKING - STAN POCZĄTKOWY ===
@@ -163,7 +163,7 @@ def auto_game_10_turns():
     
     # Główna pętla gry
     turn_count = 0
-    while turn_count < 10:
+    while turn_count < max_turns:
         current_player = turn_manager.get_current_player()
         game_engine.current_player_obj = current_player
         
@@ -358,7 +358,7 @@ def auto_game_10_turns():
             
             game_engine.process_key_points(players)
             turn_count += 1
-            print(f"🔄 KONIEC RUNDY {turn_count}/10")
+            print(f"🔄 KONIEC RUNDY {turn_count}/{max_turns}")
             
             # === PE TRACKING - KONIEC RUNDY ===
             print("💰 [PE SUMMARY] STAN PE NA KONIEC RUNDY:")
@@ -457,68 +457,163 @@ def auto_game_10_turns():
     else:
         print("  🏰 GARRISON SUPPORT: Brak logów ❌")
     
-    pe_csv = next((f for f in csv_files if 'pe_' in f[0].lower() or 'economic' in f[0].lower()), None)
+    # Szukaj logów ekonomicznych zarówno w starych jak i nowych nazwach (economy/economic/decyzje_ekonomiczne)
+    pe_csv = next((
+        f for f in csv_files 
+        if (
+            'pe_' in f[0].lower() 
+            or 'economic' in f[0].lower() 
+            or 'economy' in f[0].lower() 
+            or 'decyzje_ekonomiczne' in f[0].lower()
+        )
+    ), None)
     if pe_csv:
         print(f"  💰 PE COLLECTION: {pe_csv[0]} ({pe_csv[1]} operacji)")
     else:
         print("  💰 PE COLLECTION: Brak logów ❌")
     
     # VICTORY AI ANALYSIS
+    # Rozszerzone wykrywanie logów Victory AI: stary plik 'victory_ai' lub nowy polski 'analiza_zwyciestwa'
     victory_csv = next((f for f in csv_files if 'victory_ai' in f[0].lower()), None)
-    if victory_csv:
-        print(f"  🎯 VICTORY AI PHASE 1: {victory_csv[0]} ({victory_csv[1]} akcji)")
-        # Sprawdź próbkę Victory AI logs
-        try:
-            with open(victory_csv[0], 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                
-            # Zlicz różne typy akcji
-            action_counts = {}
-            for line in lines[1:]:  # Skip header
-                parts = line.strip().split(',')
-                if len(parts) >= 4:
-                    action = parts[3]
-                    action_counts[action] = action_counts.get(action, 0) + 1
-            
-            print(f"    └─ ANALIZA AKCJI:")
-            for action, count in sorted(action_counts.items()):
-                print(f"       • {action}: {count}x")
-                
-            # Sprawdź czy scouts były aktywne
-            scout_actions = action_counts.get('SCOUT_MOVEMENT', 0) + action_counts.get('SCOUT_IDENTIFICATION', 0)
-            if scout_actions > 0:
-                print(f"    ✅ SCOUTING AKTYWNY: {scout_actions} akcji zwiadu")
-            else:
-                print(f"    ❌ SCOUTING NIEAKTYWNY: Brak ruchu scouts")
-                
-            # Sprawdź wykrywanie wrogów
-            enemy_detections = action_counts.get('ENEMY_DETECTION', 0)
-            if enemy_detections > 0:
-                print(f"    ✅ ENEMY DETECTION: {enemy_detections} skanów")
-            else:
-                print(f"    ❌ ENEMY DETECTION: Brak wykrywania wrogów")
-                
-            # Sprawdź oceny bojowe
-            combat_assessments = action_counts.get('COMBAT_ASSESSMENT', 0) + action_counts.get('CLUSTER_ASSESSMENT', 0)
-            if combat_assessments > 0:
-                print(f"    ✅ COMBAT ANALYSIS: {combat_assessments} ocen bojowych")
-            else:
-                print(f"    ❌ COMBAT ANALYSIS: Brak analizy bojowej")
-                
-        except Exception as e:
-            print(f"    ⚠️ Błąd analizy Victory AI CSV: {e}")
+    advanced_victory_csv = next((f for f in csv_files if 'analiza_zwyciestwa' in f[0].lower()), None)
+    strategic_csv = next((f for f in csv_files if 'decyzje_strategiczne' in f[0].lower()), None)
+    if victory_csv or advanced_victory_csv or strategic_csv:
+        if victory_csv:
+            print(f"  🎯 VICTORY AI PHASE 1: {victory_csv[0]} ({victory_csv[1]} akcji)")
+            # Sprawdź próbkę Victory AI logs (stary format)
+            try:
+                with open(victory_csv[0], 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                action_counts = {}
+                for line in lines[1:]:  # Skip header
+                    parts = line.strip().split(',')
+                    if len(parts) >= 4:
+                        action = parts[3]
+                        action_counts[action] = action_counts.get(action, 0) + 1
+                print(f"    └─ ANALIZA AKCJI:")
+                for action, count in sorted(action_counts.items()):
+                    print(f"       • {action}: {count}x")
+            except Exception as e:
+                print(f"    ⚠️ Błąd analizy Victory AI CSV: {e}")
+
+        if advanced_victory_csv:
+            # Nowe polskie logi analizy zwycięstwa
+            print(f"  🎯 VICTORY AI ANALIZA (PL): {advanced_victory_csv[0]} ({advanced_victory_csv[1]} wpisów)")
+            # Opcjonalnie: pokaż średnią przewidywaną szansę zwycięstwa
+            try:
+                import csv as _csv
+                with open(advanced_victory_csv[0], 'r', encoding='utf-8') as f:
+                    reader = _csv.DictReader(f)
+                    # Wsparcie zarówno dla angielskich jak i polskich nagłówków
+                    rows = list(reader)
+                    def _float_or_none(v):
+                        try:
+                            return float(str(v).replace(',', '.'))
+                        except Exception:
+                            return None
+                    probs = []
+                    for row in rows:
+                        val = row.get('victory_probability')
+                        if val is None:
+                            val = row.get('prawdopodobienstwo_zwyciestwa')
+                        x = _float_or_none(val)
+                        if x is not None:
+                            probs.append(x)
+                if probs:
+                    avg_prob = sum(probs) / len(probs)
+                    print(f"    └─ Średnia victory_probability: {avg_prob:.2f}")
+            except Exception:
+                pass
+
+        if strategic_csv:
+            # Wyciągnij informacje dot. scoutów z decyzji strategicznych (SCOUT_*)
+            try:
+                import csv as _csv
+                with open(strategic_csv[0], 'r', encoding='utf-8') as f:
+                    reader = _csv.DictReader(f)
+                    scout_count = 0
+                    for row in reader:
+                        dt = (row.get('decision_type') or '').upper()
+                        if dt.startswith('SCOUT_'):
+                            scout_count += 1
+                if scout_count > 0:
+                    print(f"  🧭 SCOUTING (z decyzji strategicznych): {scout_count} akcji")
+            except Exception:
+                pass
     else:
         print("  🎯 VICTORY AI PHASE 1: Brak logów ❌")
+
+    # DODATKOWE: WYDAJNOŚĆ AI i ANALIZA WYWIADU (nowe polskie kategorie)
+    perf_csv = next((f for f in csv_files if 'wydajnosc_ai' in f[0].lower()), None)
+    intel_csv = next((f for f in csv_files if 'analiza_wywiadu' in f[0].lower()), None)
+
+    if perf_csv:
+        print(f"  ⚡ WYDAJNOŚĆ AI: {perf_csv[0]} ({perf_csv[1]} wpisów)")
+        # Pokaż proste metryki: średnie opóźnienie decyzji i użycie CPU jeśli są
+        try:
+            import csv as _csv
+            with open(perf_csv[0], 'r', encoding='utf-8') as f:
+                reader = _csv.DictReader(f)
+                latencies = []
+                cpu_usages = []
+                def _float_or_none(v):
+                    try:
+                        return float(str(v).replace(',', '.'))
+                    except Exception:
+                        return None
+                for row in reader:
+                    # Polskie nazwy: 'opoznienie_decyzji_ms', 'wykorzystanie_cpu_proc'
+                    lat = row.get('opoznienie_decyzji_ms') or row.get('decision_latency_ms')
+                    cpu = row.get('wykorzystanie_cpu_proc') or row.get('cpu_utilization_pct')
+                    fl = _float_or_none(lat)
+                    fc = _float_or_none(cpu)
+                    if fl is not None:
+                        latencies.append(fl)
+                    if fc is not None:
+                        cpu_usages.append(fc)
+            if latencies:
+                print(f"    └─ Średnie opóźnienie decyzji: {sum(latencies)/len(latencies):.1f} ms")
+            if cpu_usages:
+                print(f"    └─ Średnie użycie CPU: {sum(cpu_usages)/len(cpu_usages):.1f}%")
+        except Exception:
+            pass
+    else:
+        print("  ⚡ WYDAJNOŚĆ AI: Brak logów ❌")
+
+    if intel_csv:
+        print(f"  🕵️ ANALIZA WYWIADU: {intel_csv[0]} ({intel_csv[1]} wpisów)")
+        # Pokaż najczęstsze typy informacji wywiadowczych
+        try:
+            import csv as _csv
+            with open(intel_csv[0], 'r', encoding='utf-8') as f:
+                reader = _csv.DictReader(f)
+                counts = {}
+                for row in reader:
+                    typ = row.get('typ_informacji') or row.get('intelligence_type')
+                    if not typ:
+                        continue
+                    counts[typ] = counts.get(typ, 0) + 1
+            if counts:
+                by_freq = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+                top_show = by_freq[:3]
+                pretty = ', '.join([f"{k}: {v}" for k, v in top_show])
+                print(f"    └─ Najczęstsze typy: {pretty}")
+        except Exception:
+            pass
+    else:
+        print("  🕵️ ANALIZA WYWIADU: Brak logów ❌")
     
     print("="*60)
 
 if __name__ == "__main__":
     # Obsługa argumentów wiersza poleceń
-    parser = argparse.ArgumentParser(description="Auto-test 10-rundowej gry AI vs AI")
+    parser = argparse.ArgumentParser(description="Auto-test gry AI vs AI (domyślnie 10 tur)")
     parser.add_argument('--clean', action='store_true', 
                        help='Wyczyść stare CSV i żetony przed testem')
     parser.add_argument('--clean-only', action='store_true',
                        help='Tylko wyczyść dane (nie uruchamiaj gry)')
+    parser.add_argument('--turns', type=int, default=10,
+                       help='Liczba tur do zagrania (domyślnie 10)')
     
     args = parser.parse_args()
     
@@ -531,4 +626,4 @@ if __name__ == "__main__":
             sys.exit(0)
     
     # Uruchom test gry
-    auto_game_10_turns()
+    auto_game_10_turns(max_turns=args.turns)

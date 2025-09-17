@@ -54,8 +54,8 @@ python game_cleaner.py --mode tokens_hard --confirm
 - **`logs/*/archives/`** - Wszystkie archiwa
 
 ### Czyszczone Bezpiecznie:
-- **`logs/sesja_aktualna/`** - Bieżąca sesja
-- **`logs/current_session/`** - Sesja (kompatybilność)
+- **`logs/sesja_aktualna/`** - Bieżąca sesja (polskie nazwy)
+- **`logs/current_session/`** - Sesja (kompatybilność wsteczna)
 - **`strategic_orders.json`** - Rozkazy strategiczne
 - **`purchased_tokens/`** - Zakupione żetony
 
@@ -103,9 +103,14 @@ python czyszczenie_csv.py  # tryb 2 z kodem ZNISZCZ_ML
 ### Problem: Przypadkowe usunięcie danych ML
 **Rozwiązanie:** Sprawdź folder `backup/` - wszystkie ważne operacje tworzą kopie
 
+### Problem: Nieakturalny folder current_session
+**Przyczyna:** Stary system nazewnictwa  
+**Rozwiązanie:** Narzędzia obsługują oba systemy (`sesja_aktualna/` i `current_session/`)
+
 ## 📝 Historia Wersji
 
-- **v4.0** - Wsparcie dla `logs/sesja_aktualna/` (polskie nazwy)
+- **v4.1** - Fix liczenia plików w tokens_hard, zaktualizowana struktura folderów
+- **v4.0** - Wsparcie dla `logs/sesja_aktualna/` (polskie nazwy) + kompatybilność
 - **v3.0** - System ochrony danych ML
 - **v2.0** - Automatyczne backupy
 - **v1.0** - Podstawowe czyszczenie

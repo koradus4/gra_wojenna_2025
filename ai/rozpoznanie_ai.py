@@ -5,9 +5,52 @@ from __future__ import annotations
 from typing import Any, List, Dict, Tuple
 from ai.obrona_ai import calculate_hex_distance
 
+# Import dla logowania wywiadu
+try:
+    from utils.session_manager import SessionManager
+    from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+    ADVANCED_LOGGING_AVAILABLE = True
+except ImportError:
+    ADVANCED_LOGGING_AVAILABLE = False
+
 __all__ = [
-    'gather_reconnaissance','analyze_enemy_clusters','assess_keypoint_threats'
+    'gather_reconnaissance','analyze_enemy_clusters','assess_keypoint_threats', 'log_intelligence_analysis'
 ]
+
+def log_intelligence_analysis(commander, analysis_type: str, intelligence_data: Dict[str, Any]):
+    """Loguje analizę wywiadowczą AI"""
+    if not ADVANCED_LOGGING_AVAILABLE:
+        return
+    
+    try:
+        session_manager = SessionManager()
+        katalog_sesji = session_manager.get_current_session_dir()
+        logger = ZaawansowanyLoggerAI(katalog_sesji)
+        
+        # Przygotowanie danych wywiadu
+        intelligence_log_data = {
+            'intelligence_type': analysis_type,
+            'information_type': analysis_type,
+            'nation': getattr(commander.player, 'nation', 'Unknown'),
+            'source_reliability': intelligence_data.get('source_reliability', 0.8),
+            'information_freshness': intelligence_data.get('information_freshness', 'CURRENT'),
+            'enemy_units_spotted': intelligence_data.get('enemy_units_spotted', 0),
+            'predicted_enemy_moves': intelligence_data.get('predicted_enemy_moves', 'UNKNOWN'),
+            'threat_assessment_change': intelligence_data.get('threat_assessment_change', 'NO_CHANGE'),
+            'counter_intelligence_detected': intelligence_data.get('counter_intelligence_detected', False),
+            'surprise_probability': intelligence_data.get('surprise_probability', 0.1),
+            'information_gaps': intelligence_data.get('information_gaps', 'MINIMAL'),
+            'intelligence_confidence': intelligence_data.get('intelligence_confidence', 0.7),
+            'actionable_intelligence': intelligence_data.get('actionable_intelligence', True),
+            'intelligence_sharing': intelligence_data.get('intelligence_sharing', 'INTERNAL_ONLY'),
+            'historical_prediction_accuracy': intelligence_data.get('historical_prediction_accuracy', 0.75),
+            'enemy_pattern_recognition': intelligence_data.get('enemy_pattern_recognition', 'PARTIAL'),
+            'deception_probability': intelligence_data.get('deception_probability', 0.05)
+        }
+        
+        logger.loguj_analize_wywiadu(intelligence_log_data)
+    except Exception as e:
+        print(f"[LOG] Błąd logowania analizy wywiadu: {e}")
 
 def gather_reconnaissance(commander, game_engine: Any):
     try:
@@ -52,6 +95,28 @@ def gather_reconnaissance(commander, game_engine: Any):
             'keypoint_threats': keypoint_threats,
             'last_update': getattr(game_engine,'turn_number',1)
         }
+        
+        # LOGOWANIE ANALIZY ROZPOZNANIA
+        avg_detection_level = sum(e.get('detection_level', 1.0) for e in visible_enemies) / len(visible_enemies) if visible_enemies else 0
+        total_enemy_strength = sum(e.get('combat_strength', 0) for e in visible_enemies)
+        
+        log_intelligence_analysis(commander, 'RECONNAISSANCE_SCAN', {
+            'source_reliability': avg_detection_level,
+            'information_freshness': 'CURRENT',
+            'enemy_units_spotted': len(visible_enemies),
+            'predicted_enemy_moves': f"Clusters: {len(enemy_clusters)}",
+            'threat_assessment_change': 'UPDATED' if keypoint_threats else 'NO_CHANGE',
+            'counter_intelligence_detected': avg_detection_level < 0.8,  # Niska wykrywalność = możliwy kontrwywiad
+            'surprise_probability': 0.3 if len(enemy_clusters) > 2 else 0.1,
+            'information_gaps': 'SIGNIFICANT' if len(visible_enemies) < 3 else 'MINIMAL',
+            'intelligence_confidence': avg_detection_level,
+            'actionable_intelligence': len(keypoint_threats) > 0 or len(enemy_clusters) > 0,
+            'intelligence_sharing': 'INTERNAL_ONLY',
+            'historical_prediction_accuracy': 0.75,  # Default - można poprawić z historii
+            'enemy_pattern_recognition': 'PARTIAL' if enemy_clusters else 'NONE',
+            'deception_probability': 0.05 if avg_detection_level > 0.9 else 0.15
+        })
+        
         print(f"🔍 [RECON] Wykryto {len(visible_enemies)} wrogów w {len(enemy_clusters)} klastrach")
         if keypoint_threats:
             print(f"🚨 [RECON] {len(keypoint_threats)} punktów kluczowych zagrożonych")
@@ -120,4 +185,27 @@ def assess_keypoint_threats(commander, enemies: List[Dict], game_engine: Any):
                 'enemy_count': len(nearby_enemies),
                 'closest_enemy_distance': min(e['distance'] for e in nearby_enemies)
             }
+    
+    # LOGOWANIE ANALIZY ZAGROŻEŃ PUNKTÓW KLUCZOWYCH
+    if threats:
+        max_threat = max(t['threat_level'] for t in threats.values())
+        avg_threat = sum(t['threat_level'] for t in threats.values()) / len(threats)
+        
+        log_intelligence_analysis(commander, 'KEYPOINT_THREAT_ANALYSIS', {
+            'source_reliability': 0.9,  # Bezpośrednia obserwacja = wysoka wiarygodność
+            'information_freshness': 'CURRENT',
+            'enemy_units_spotted': sum(t['enemy_count'] for t in threats.values()),
+            'predicted_enemy_moves': 'KEYPOINT_ASSAULT',
+            'threat_assessment_change': 'HEIGHTENED' if max_threat > 5 else 'MODERATE',
+            'counter_intelligence_detected': False,
+            'surprise_probability': min(0.8, max_threat / 10),  # Wyższa szansa na atak przy większym zagrożeniu
+            'information_gaps': 'MINIMAL',
+            'intelligence_confidence': 0.85,
+            'actionable_intelligence': True,
+            'intelligence_sharing': 'HIGH_PRIORITY',
+            'historical_prediction_accuracy': 0.8,
+            'enemy_pattern_recognition': 'KEYPOINT_FOCUS',
+            'deception_probability': 0.1
+        })
+    
     return threats

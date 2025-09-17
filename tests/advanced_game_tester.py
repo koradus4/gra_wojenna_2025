@@ -43,7 +43,7 @@ try:
     from ai.ai_general import AIGeneral
     from ai.ai_commander import AICommander
     from ai.ai_config import get_param, set_ai_profile, set_player_ai_profile, AIProfile
-    from ai.victory_ai import log_victory_ai_csv
+    # Migracja: usunięto przestarzałą funkcję log_victory_ai_csv – korzystamy z polskiego loggera
     from czyszczenie.game_cleaner import clean_all_for_new_game
 except ImportError as e:
     print(f"❌ BŁĄD IMPORTU: {e}")

@@ -14,47 +14,91 @@ Implementuje:
 from __future__ import annotations
 from typing import List, Dict, Any, Tuple, Optional
 import math
+import time
+import psutil
 
+def debug_print(msg, level="BASIC", category="INFO"):
+    print(f"[VICTORY_AI] {msg}")
+
+# Import dla zaawansowanego logowania
 try:
-    from main_ai import debug_print
-except Exception:
-    def debug_print(msg, level="BASIC", category="INFO"):
-        print(f"[VICTORY_AI] {msg}")
+    from utils.session_manager import SessionManager
+    from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+    ADVANCED_LOGGING_AVAILABLE = True
+except ImportError:
+    ADVANCED_LOGGING_AVAILABLE = False
 
-# CSV Logging dla analizy
-import csv
-from datetime import datetime
+# Usunięto przestarzałe logowanie CSV (log_victory_ai_csv) – cały system korzysta z ZaawansowanyLoggerAI
 
-def log_victory_ai_csv(action, player_id, turn, **kwargs):
-    """Log Victory AI actions do CSV dla analizy."""
+def log_performance_metrics(commander, performance_data: Dict[str, Any]):
+    """Loguje metryki wydajności AI"""
+    if not ADVANCED_LOGGING_AVAILABLE:
+        return
+    
     try:
-        import os
-        # NAPRAWIONE: używaj SessionManager dla polskich nazw folderów
-        from utils.session_manager import get_current_session_dir
-        specialized_dir = get_current_session_dir() / "specialized"
-        specialized_dir.mkdir(parents=True, exist_ok=True)
+        # Użyj istniejący logger z commander
+        logger = commander.logger if hasattr(commander, 'logger') else None
+        if not logger:
+            return
         
-        csv_file = specialized_dir / f"victory_ai_phase1_{datetime.now().strftime('%Y%m%d')}.csv"
-        file_exists = csv_file.exists()
+        # Zbierz dane o systemie
+        process = psutil.Process()
+        memory_mb = process.memory_info().rss / 1024 / 1024
+        cpu_percent = psutil.cpu_percent()
         
-        with open(csv_file, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            
-            if not file_exists:
-                # Header
-                writer.writerow(['timestamp', 'turn', 'player_id', 'action', 'details'])
-            
-            # Data
-            details = "|".join([f"{k}={v}" for k, v in kwargs.items()])
-            writer.writerow([
-                datetime.now().strftime('%H:%M:%S'),
-                turn,
-                player_id,
-                action,
-                details
-            ])
+        performance_log_data = {
+            'decision_delay_ms': performance_data.get('decision_delay_ms', 0),
+            'calculations_performed': performance_data.get('calculations_performed', 0),
+            'algorithms_used': performance_data.get('algorithms_used', ''),
+            'memory_usage_mb': memory_mb,
+            'cpu_utilization_percent': cpu_percent,
+            'decision_tree_depth': performance_data.get('decision_tree_depth', 0),
+            'alternatives_evaluated': performance_data.get('alternatives_evaluated', 0),
+            'optimization_iterations': performance_data.get('optimization_iterations', 0),
+            'ai_confidence': performance_data.get('ai_confidence', 0.5),
+            'applied_learning_rate': performance_data.get('applied_learning_rate', 0.1),
+            'current_model_accuracy': performance_data.get('current_model_accuracy', 0.75),
+            'success_prediction_indicator': performance_data.get('success_prediction_indicator', 0.5),
+            'triggered_adaptive_behavior': performance_data.get('triggered_adaptive_behavior', False),
+            'error_recovery_attempts': performance_data.get('error_recovery_attempts', 0),
+            'system_stability_indicator': performance_data.get('system_stability_indicator', 1.0),
+            'nation': getattr(commander.player if hasattr(commander, 'player') else None, 'nation', 'Unknown')
+        }
+        
+        logger.loguj_wydajnosc(performance_log_data)
     except Exception as e:
-        debug_print(f"CSV LOG ERROR: {e}", "BASIC", "ERROR")
+        debug_print(f"[LOG] Błąd logowania wydajności: {e}", "BASIC", "ERROR")
+
+def log_victory_analysis(commander, victory_data: Dict[str, Any]):
+    """Loguje analizę stanu zwycięstwa"""
+    if not ADVANCED_LOGGING_AVAILABLE:
+        return
+    
+    try:
+        # Użyj istniejący logger z commander
+        logger = commander.logger if hasattr(commander, 'logger') else None
+        if not logger:
+            return
+        
+        victory_log_data = {
+            'vp_trajectory': victory_data.get('vp_trajectory', 'STABLE'),
+            'vp_gap_analysis': victory_data.get('vp_gap_analysis', 0),
+            'victory_probability': victory_data.get('victory_probability', 0.5),
+            'identified_victory_path': victory_data.get('identified_victory_path', 'UNKNOWN'),
+            'victory_conditions_progress': victory_data.get('victory_conditions_progress', 0.0),
+            'time_pressure_factor': victory_data.get('time_pressure_factor', 0.5),
+            'active_endgame_strategy': victory_data.get('active_endgame_strategy', False),
+            'victory_point_opportunities': victory_data.get('victory_point_opportunities', 0),
+            'elimination_target_priorities': victory_data.get('elimination_target_priorities', ''),
+            'strategic_keypoint_value': victory_data.get('strategic_keypoint_value', 0),
+            'predicted_victory_timeline': victory_data.get('predicted_victory_timeline', 'UNKNOWN'),
+            'defeat_risk_assessment': victory_data.get('defeat_risk_assessment', 0.1),
+            'nation': getattr(commander.player if hasattr(commander, 'player') else None, 'nation', 'Unknown')
+        }
+        
+        logger.loguj_analize_zwyciestwa(victory_log_data)
+    except Exception as e:
+        debug_print(f"[LOG] Błąd logowania analizy zwycięstwa: {e}", "BASIC", "ERROR")
 
 # Logging categories
 VICTORY_LOG = "VICTORY"
@@ -112,10 +156,32 @@ def identify_scout_units(my_units: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     
     debug_print(f"[SCOUT IDENTIFICATION] Znaleziono {len(scouts)} jednostek zwiadu z {total_units} dostępnych", "BASIC", SCOUT_LOG)
     
-    # CSV Log
-    log_victory_ai_csv("SCOUT_IDENTIFICATION", "UNKNOWN", "UNKNOWN", 
-                      total_units=total_units, scouts_found=len(scouts),
-                      scout_ids=",".join([s['unit_id'] for s in scouts]))
+    # Polski log strategiczny - identyfikacja scoutów
+    if ADVANCED_LOGGING_AVAILABLE:
+        try:
+            from utils.session_manager import SessionManager
+            from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+            
+            session_manager = SessionManager()
+            logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+            
+            strategia_dane = {
+                'decision_type': 'SCOUT_IDENTIFICATION',
+                'decision_scope': 'UNIT_ANALYSIS',
+                'priority_level': 'MEDIUM',
+                'context_factors': f'total_units={total_units}, scouts_found={len(scouts)}',
+                'expected_outcome': 'EFFICIENT_RECONNAISSANCE',
+                'confidence_level': 'HIGH',
+                'time_horizon': 'IMMEDIATE',
+                'resource_commitment': 'LOW',
+                'decision_rationale': f'Identyfikacja {len(scouts)} jednostek zwiadu z {total_units} dostępnych',
+                'vp_impact_projection': 'INDIRECT_POSITIVE',
+                'turn': 'UNKNOWN',
+                'nation': 'UNKNOWN'
+            }
+            logger.loguj_decyzje_strategiczna(strategia_dane)
+        except Exception as e:
+            debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
     
     for scout in scouts:
         debug_print(f"[SCOUT] {scout['unit_id']} ({scout['unit_type']}) na {scout['position']}, zasięg: {scout['max_range']}", "FULL", SCOUT_LOG)
@@ -233,11 +299,32 @@ def assign_patrol_zones(scouts: List[Dict[str, Any]], game_engine) -> Dict[str, 
     
     debug_print(f"[PATROL SUMMARY] Przypisano {len(assignments)} patrol zones", "BASIC", SCOUT_LOG)
     
-    # CSV Log patrol assignments
-    log_victory_ai_csv("PATROL_ASSIGNMENT", "UNKNOWN", "UNKNOWN",
-                      scouts_count=len(scouts), assignments_made=len(assignments),
-                      center_zones=len(center_zones), high_value_kps=len(high_value_kps),
-                      buffer_zones_available=len(buffer_zones))
+    # Polski log strategiczny - przypisanie patrol zones
+    if ADVANCED_LOGGING_AVAILABLE:
+        try:
+            from utils.session_manager import SessionManager
+            from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+            
+            session_manager = SessionManager()
+            logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+            
+            strategia_dane = {
+                'decision_type': 'PATROL_ASSIGNMENT',
+                'decision_scope': 'TACTICAL_DEPLOYMENT',
+                'priority_level': 'HIGH',
+                'context_factors': f'scouts={len(scouts)}, assignments={len(assignments)}, center_zones={len(center_zones)}, high_value_kps={len(high_value_kps)}, buffer_zones={len(buffer_zones)}',
+                'expected_outcome': 'EFFICIENT_AREA_COVERAGE',
+                'confidence_level': 'HIGH',
+                'time_horizon': 'MULTI_TURN',
+                'resource_commitment': 'MEDIUM',
+                'decision_rationale': f'Przypisano {len(assignments)} patrol zones dla efektywnego zwiadu',
+                'vp_impact_projection': 'DIRECT_POSITIVE',
+                'turn': 'UNKNOWN',
+                'nation': 'UNKNOWN'
+            }
+            logger.loguj_decyzje_strategiczna(strategia_dane)
+        except Exception as e:
+            debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
     
     return assignments
 
@@ -407,11 +494,35 @@ def scan_visible_enemies(my_units: List[Dict[str, Any]], game_engine) -> List[Di
     
     debug_print(f"[ENEMY SCAN] Wykryto {len(visible_enemies)} wrogich jednostek", "BASIC", THREAT_LOG)
     
-    # CSV Log enemy detection
-    log_victory_ai_csv("ENEMY_DETECTION", "UNKNOWN", "UNKNOWN",
-                      vision_positions=len(my_positions), total_tokens_checked=min(len(all_tokens), 200),
-                      enemies_detected=len(visible_enemies),
-                      enemy_nations=",".join(set(e['owner'].split('_')[0] for e in visible_enemies if '_' in e['owner'])))
+    # Polski log strategiczny - detekcja wrogów
+    if ADVANCED_LOGGING_AVAILABLE:
+        try:
+            from utils.session_manager import SessionManager
+            from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+            
+            session_manager = SessionManager()
+            logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+            
+            enemy_nations = list(set(e['owner'].split('_')[0] for e in visible_enemies if '_' in e['owner']))
+            
+            strategia_dane = {
+                'decision_type': 'ENEMY_DETECTION',
+                'decision_scope': 'INTELLIGENCE_GATHERING',
+                'priority_level': 'CRITICAL',
+                'context_factors': f'vision_positions={len(my_positions)}, tokens_checked={min(len(all_tokens), 200)}, enemies_detected={len(visible_enemies)}',
+                'expected_outcome': 'THREAT_IDENTIFICATION',
+                'confidence_level': 'HIGH',
+                'time_horizon': 'IMMEDIATE',
+                'resource_commitment': 'LOW',
+                'decision_rationale': f'Wykryto {len(visible_enemies)} wrogich jednostek z {len(my_positions)} pozycji obserwacji',
+                'vp_impact_projection': 'DIRECT_POSITIVE',
+                'strategic_goal_alignment': 'HIGH',
+                'turn': 'UNKNOWN',
+                'nation': 'UNKNOWN'
+            }
+            logger.loguj_decyzje_strategiczna(strategia_dane)
+        except Exception as e:
+            debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
     
     for enemy in visible_enemies[:5]:  # Log first 5
         debug_print(f"[ENEMY DETECTED] {enemy['unit_id']} ({enemy['unit_type']}) na {enemy['position']}, HP: {enemy.get('combat_value', 'N/A')}, Combat: {enemy.get('combat_strength', 'N/A')}", "FULL", THREAT_LOG)
@@ -544,7 +655,9 @@ def evaluate_combat_opportunity(enemy_cluster: List[Dict[str, Any]], my_availabl
     except Exception as e:
         # Log błędy szczegółowo
         debug_print(f"[COMBAT ASSESSMENT ERROR] {e}", "BASIC", "ERROR")
-        log_victory_ai_csv("PHASE1_ERROR", "UNKNOWN", "UNKNOWN", error=f"force_ratio: {e}")
+        
+        # Ten błąd nie ma dostępu do commander, więc logujemy lokalnie
+        debug_print(f"[LOG] Błąd w combat assessment - brak dostępu do polskiego loggera: {e}", "BASIC", "ERROR")
         return {
             'recommendation': 'ERROR',
             'reason': f'Error in combat assessment: {e}',
@@ -596,13 +709,33 @@ def evaluate_combat_opportunity(enemy_cluster: List[Dict[str, Any]], my_availabl
     debug_print(f"[COMBAT ASSESSMENT] {recommendation} - Ratio: {force_ratio:.2f}/{required_ratio:.2f}, "
                f"VP: {vp_potential}, Cost: {estimated_pe_cost}, Confidence: {confidence:.2f}", "BASIC", THREAT_LOG)
     
-    # CSV Log combat assessment
-    log_victory_ai_csv("COMBAT_ASSESSMENT", "UNKNOWN", "UNKNOWN",
-                      recommendation=recommendation, force_ratio=f"{force_ratio:.2f}",
-                      required_ratio=f"{required_ratio:.2f}", my_cv=my_total_cv, 
-                      enemy_cv=enemy_total_cv, vp_potential=vp_potential,
-                      confidence=f"{confidence:.2f}",
-                      cluster_size=len(enemy_cluster), available_forces=len(my_available_forces))
+    # Polski log strategiczny - ocena walki
+    if ADVANCED_LOGGING_AVAILABLE:
+        try:
+            from utils.session_manager import SessionManager
+            from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+            
+            session_manager = SessionManager()
+            logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+            
+            strategia_dane = {
+                'decision_type': 'COMBAT_ASSESSMENT',
+                'decision_scope': 'TACTICAL_ANALYSIS',
+                'priority_level': 'HIGH',
+                'context_factors': f'force_ratio={force_ratio:.2f}, required={required_ratio:.2f}, my_cv={my_total_cv}, enemy_cv={enemy_total_cv}',
+                'expected_outcome': recommendation,
+                'confidence_level': 'HIGH' if confidence > 0.7 else 'MEDIUM' if confidence > 0.4 else 'LOW',
+                'time_horizon': 'SHORT_TERM',
+                'resource_commitment': 'HIGH' if recommendation == 'ATTACK_RECOMMENDED' else 'LOW',
+                'decision_rationale': f'Analiza walki: {recommendation} z confience {confidence:.2f}',
+                'vp_impact_projection': f'{vp_potential}_VP',
+                'risk_assessment': f'PE_cost_{estimated_pe_cost}',
+                'turn': 'UNKNOWN',
+                'nation': 'UNKNOWN'
+            }
+            logger.loguj_decyzje_strategiczna(strategia_dane)
+        except Exception as e:
+            debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
     
     return assessment
 
@@ -661,6 +794,9 @@ def victory_ai_phase1_controller(game_engine, my_units: List[Dict[str, Any]], pl
     Returns:
         Action summary report
     """
+    start_time = time.time()
+    calculations_performed = 0
+    
     debug_print(f"[VICTORY AI] PHASE 1 START - Player {player_id}", "BASIC", VICTORY_LOG)
     
     # Pobierz current turn z game_engine
@@ -673,7 +809,8 @@ def victory_ai_phase1_controller(game_engine, my_units: List[Dict[str, Any]], pl
         'combat_opportunities': 0,
         'recommended_actions': [],
         'patrol_assignments': {},
-        'threat_clusters': []
+        'threat_clusters': [],
+        'calculations_count': 0
     }
     
     try:
@@ -691,15 +828,61 @@ def victory_ai_phase1_controller(game_engine, my_units: List[Dict[str, Any]], pl
                     patrol_zone = patrol_assignments[scout_id]
                     if execute_intelligent_patrol(scout, patrol_zone, game_engine):
                         scouts_moved += 1
-                        # CSV Log successful scout movement
-                        log_victory_ai_csv("SCOUT_MOVEMENT", player_id, current_turn,
-                                         scout_id=scout_id, from_pos=f"{scout['position'][0]},{scout['position'][1]}",
-                                         to_zone=f"{patrol_zone[0]},{patrol_zone[1]}", success=True)
+                        # Polski log strategiczny - udany ruch scouta
+                        if ADVANCED_LOGGING_AVAILABLE:
+                            try:
+                                from utils.session_manager import SessionManager
+                                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                                
+                                session_manager = SessionManager()
+                                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                                
+                                strategia_dane = {
+                                    'decision_type': 'SCOUT_MOVEMENT',
+                                    'decision_scope': 'UNIT_DEPLOYMENT',
+                                    'priority_level': 'MEDIUM',
+                                    'context_factors': f'scout={scout_id}, from={scout["position"]}, to_zone={patrol_zone}',
+                                    'expected_outcome': 'SUCCESSFUL_DEPLOYMENT',
+                                    'actual_outcome': 'SUCCESS',
+                                    'confidence_level': 'HIGH',
+                                    'time_horizon': 'IMMEDIATE',
+                                    'resource_commitment': 'LOW',
+                                    'decision_rationale': f'Udany ruch scouta {scout_id} na patrol zone {patrol_zone}',
+                                    'vp_impact_projection': 'INDIRECT_POSITIVE',
+                                    'turn': str(current_turn),
+                                    'nation': player_id
+                                }
+                                logger.loguj_decyzje_strategiczna(strategia_dane)
+                            except Exception as e:
+                                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
                     else:
-                        # CSV Log failed scout movement
-                        log_victory_ai_csv("SCOUT_MOVEMENT", player_id, current_turn,
-                                         scout_id=scout_id, from_pos=f"{scout['position'][0]},{scout['position'][1]}",
-                                         to_zone=f"{patrol_zone[0]},{patrol_zone[1]}", success=False)
+                        # Polski log strategiczny - nieudany ruch scouta
+                        if ADVANCED_LOGGING_AVAILABLE:
+                            try:
+                                from utils.session_manager import SessionManager
+                                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                                
+                                session_manager = SessionManager()
+                                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                                
+                                strategia_dane = {
+                                    'decision_type': 'SCOUT_MOVEMENT',
+                                    'decision_scope': 'UNIT_DEPLOYMENT',
+                                    'priority_level': 'MEDIUM',
+                                    'context_factors': f'scout={scout_id}, from={scout["position"]}, to_zone={patrol_zone}',
+                                    'expected_outcome': 'SUCCESSFUL_DEPLOYMENT',
+                                    'actual_outcome': 'FAILED',
+                                    'confidence_level': 'LOW',
+                                    'time_horizon': 'IMMEDIATE',
+                                    'resource_commitment': 'LOW',
+                                    'decision_rationale': f'Nieudany ruch scouta {scout_id} na patrol zone {patrol_zone}',
+                                    'vp_impact_projection': 'NEUTRAL',
+                                    'turn': str(current_turn),
+                                    'nation': player_id
+                                }
+                                logger.loguj_decyzje_strategiczna(strategia_dane)
+                            except Exception as e:
+                                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
             
             report['scouts_deployed'] = scouts_moved
             debug_print(f"[VICTORY AI] Wysłano {scouts_moved}/{len(scouts)} scouts na patrol", "BASIC", VICTORY_LOG)
@@ -723,15 +906,37 @@ def victory_ai_phase1_controller(game_engine, my_units: List[Dict[str, Any]], pl
                                not u.get('moved_capture', False)][:8]  # Limit to 8 units max
                 
                 assessment = evaluate_combat_opportunity(cluster, combat_units, current_vp_status)
+                calculations_performed += 1
                 
-                # CSV Log each cluster assessment
-                cluster_center = cluster[0]['position'] if cluster else (0, 0)
-                log_victory_ai_csv("CLUSTER_ASSESSMENT", player_id, current_turn,
-                                 cluster_id=i, cluster_size=len(cluster),
-                                 cluster_center=f"{cluster_center[0]},{cluster_center[1]}",
-                                 recommendation=assessment['recommendation'],
-                                 force_ratio=f"{assessment['force_ratio']:.2f}",
-                                 confidence=f"{assessment['confidence']:.2f}")
+                # Polski log strategiczny - ocena klastra wrogów
+                if ADVANCED_LOGGING_AVAILABLE:
+                    try:
+                        from utils.session_manager import SessionManager
+                        from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                        
+                        session_manager = SessionManager()
+                        logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                        
+                        cluster_center = cluster[0]['position'] if cluster else (0, 0)
+                        
+                        strategia_dane = {
+                            'decision_type': 'CLUSTER_ASSESSMENT',
+                            'decision_scope': 'TACTICAL_ANALYSIS',
+                            'priority_level': 'HIGH' if assessment['recommendation'] == 'ATTACK' else 'MEDIUM',
+                            'context_factors': f'cluster_id={i}, size={len(cluster)}, center={cluster_center}, units_available={len(combat_units)}',
+                            'expected_outcome': assessment['recommendation'],
+                            'confidence_level': 'HIGH' if assessment['confidence'] > 0.7 else 'MEDIUM' if assessment['confidence'] > 0.4 else 'LOW',
+                            'time_horizon': 'SHORT_TERM',
+                            'resource_commitment': 'HIGH' if assessment['recommendation'] == 'ATTACK' else 'LOW',
+                            'decision_rationale': f'Analiza klastra {i}: {assessment["recommendation"]} z force_ratio {assessment["force_ratio"]:.2f}',
+                            'vp_impact_projection': 'DIRECT_POSITIVE' if assessment['recommendation'] == 'ATTACK' else 'NEUTRAL',
+                            'success_probability': assessment['confidence'],
+                            'turn': str(current_turn),
+                            'nation': player_id
+                        }
+                        logger.loguj_decyzje_strategiczna(strategia_dane)
+                    except Exception as e:
+                        debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
                 
                 if assessment['recommendation'] == 'ATTACK':
                     combat_opportunities += 1
@@ -744,20 +949,94 @@ def victory_ai_phase1_controller(game_engine, my_units: List[Dict[str, Any]], pl
                     debug_print(f"[VICTORY AI] Opportunity: Atak na cluster {i}, confidence: {assessment['confidence']:.2f}", "BASIC", VICTORY_LOG)
             
             report['combat_opportunities'] = combat_opportunities
+            calculations_performed += len(enemy_clusters)
         
-        # Final summary CSV log
-        log_victory_ai_csv("PHASE1_SUMMARY", player_id, current_turn,
-                          total_units=len(my_units), scouts_identified=len(scouts) if scouts else 0,
-                          scouts_deployed=report['scouts_deployed'], enemies_detected=report['enemies_detected'],
-                          combat_opportunities=report['combat_opportunities'],
-                          threat_clusters=len(report['threat_clusters']))
+        # Dodaj licznik obliczeń do raportu
+        report['calculations_count'] = calculations_performed
+        
+        # Polski log strategiczny - podsumowanie fazy 1
+        if ADVANCED_LOGGING_AVAILABLE:
+            try:
+                from utils.session_manager import SessionManager
+                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                
+                session_manager = SessionManager()
+                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                
+                strategia_dane = {
+                    'decision_type': 'PHASE1_SUMMARY',
+                    'decision_scope': 'STRATEGIC_PLANNING',
+                    'priority_level': 'CRITICAL',
+                    'context_factors': f'units={len(my_units)}, scouts_id={len(scouts) if scouts else 0}, scouts_deployed={report["scouts_deployed"]}, enemies={report["enemies_detected"]}',
+                    'expected_outcome': 'INTELLIGENCE_GATHERED',
+                    'actual_outcome': f'{report["combat_opportunities"]}_OPPORTUNITIES_IDENTIFIED',
+                    'confidence_level': 'HIGH',
+                    'time_horizon': 'MULTI_TURN',
+                    'resource_commitment': 'MEDIUM',
+                    'decision_rationale': f'Faza 1 zakończona: {report["scouts_deployed"]} scoutów, {report["enemies_detected"]} wrogów, {report["combat_opportunities"]} okazji',
+                    'vp_impact_projection': 'STRATEGIC_FOUNDATION',
+                    'strategic_goal_alignment': 'HIGH',
+                    'turn': str(current_turn),
+                    'nation': player_id
+                }
+                logger.loguj_decyzje_strategiczna(strategia_dane)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
         
         debug_print(f"[VICTORY AI] PHASE 1 COMPLETE - {report['scouts_deployed']} scouts, "
                    f"{report['enemies_detected']} enemies, {report['combat_opportunities']} opportunities", "BASIC", VICTORY_LOG)
         
+        # LOGOWANIE WYDAJNOŚCI PHASE 1
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                execution_time = time.time() - start_time
+                
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': execution_time * 1000,
+                    'calculations_performed': calculations_performed,
+                    'algorithms_used': 'Scouting,ThreatAssessment,EnemyClustering',
+                    'decision_tree_depth': 3,  # Scout->Scan->Evaluate
+                    'alternatives_evaluated': len(report['recommended_actions']),
+                    'optimization_iterations': 1,
+                    'ai_confidence': sum(a.get('confidence', 0) for a in report['recommended_actions']) / max(len(report['recommended_actions']), 1),
+                    'applied_learning_rate': 0.05,
+                    'current_model_accuracy': 0.75,
+                    'success_prediction_indicator': report['combat_opportunities'] / max(report['enemies_detected'], 1) if report['enemies_detected'] > 0 else 0,
+                    'triggered_adaptive_behavior': report['scouts_deployed'] > 0,
+                    'error_recovery_attempts': 0,
+                    'system_stability_indicator': 1.0 if execution_time < 0.5 else 0.8
+                })
+        except Exception as e:
+            debug_print(f"Błąd logowania wydajności Phase 1: {e}", "BASIC", "ERROR")
+        
     except Exception as e:
         debug_print(f"[VICTORY AI] PHASE 1 ERROR: {e}", "BASIC", VICTORY_LOG)
-        log_victory_ai_csv("PHASE1_ERROR", player_id, current_turn, error=str(e))
+        
+        # Polski log wydajności - błąd Phase 1
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 0,
+                    'calculations_performed': 0,
+                    'algorithms_used': 'PHASE1_ERROR_RECOVERY',
+                    'decision_tree_depth': 0,
+                    'alternatives_evaluated': 0,
+                    'optimization_iterations': 0,
+                    'ai_confidence': 0.0,
+                    'applied_learning_rate': 0.0,
+                    'current_model_accuracy': 0.0,
+                    'success_prediction_indicator': 0.0,
+                    'triggered_adaptive_behavior': True,
+                    'error_recovery_attempts': 1,
+                    'system_stability_indicator': 0.0
+                })
+        except Exception as err:
+            debug_print(f"Błąd logowania wydajności Phase 1 ERROR: {err}", "BASIC", "ERROR")
+        
         report['error'] = str(e)
     
     return report
@@ -803,13 +1082,28 @@ def integrate_vp_intelligence_system(game_engine, my_units: List[Dict[str, Any]]
                        f"Trend: {vp_analysis.get('trend_direction', 'STABLE')}, "
                        f"Opportunities: {len(vp_analysis.get('opportunities', []))}", "BASIC", VICTORY_LOG)
             
-            # CSV Log VP intelligence integration
-            log_victory_ai_csv("VP_INTELLIGENCE", player_id, getattr(game_engine, 'current_turn', 1),
-                             vp_status=vp_analysis.get('current_status', 'UNKNOWN'),
-                             trend_direction=vp_analysis.get('trend_direction', 'STABLE'),
-                             threat_level=vp_analysis.get('primary_threat_level', 'LOW'),
-                             opportunities_count=len(vp_analysis.get('opportunities', [])),
-                             recommendations_count=len(vp_analysis.get('strategic_recommendations', [])))
+            # Polski log analizy zwycięstwa
+            try:
+                current_player = getattr(game_engine, 'current_player_obj', None)
+                if current_player and hasattr(current_player, 'ai_commander'):
+                    ai_commander = current_player.ai_commander
+                    victory_log_data = {
+                        'vp_trajectory': vp_analysis.get('trend_direction', 'STABLE'),
+                        'vp_gap_analysis': vp_analysis.get('vp_gap', 0),
+                        'victory_probability': vp_analysis.get('victory_probability', 0.5),
+                        'identified_victory_path': vp_analysis.get('primary_strategy', 'UNKNOWN'),
+                        'victory_conditions_progress': vp_analysis.get('progress_percentage', 0.0),
+                        'time_pressure_factor': vp_analysis.get('time_pressure', 0.5),
+                        'active_endgame_strategy': vp_analysis.get('current_status') == 'ENDGAME',
+                        'victory_point_opportunities': len(vp_analysis.get('opportunities', [])),
+                        'elimination_target_priorities': str(vp_analysis.get('threat_targets', [])),
+                        'strategic_keypoint_value': vp_analysis.get('keypoint_value', 0),
+                        'predicted_victory_timeline': vp_analysis.get('estimated_timeline', 'UNKNOWN'),
+                        'defeat_risk_assessment': vp_analysis.get('primary_threat_level', 0.1)
+                    }
+                    log_victory_analysis(ai_commander, victory_log_data)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania analizy zwycięstwa: {e}", "BASIC", "ERROR")
             
             return vp_analysis
         else:
@@ -821,7 +1115,30 @@ def integrate_vp_intelligence_system(game_engine, my_units: List[Dict[str, Any]]
         return {}
     except Exception as e:
         debug_print(f"[VP INTELLIGENCE] Error: {e}", "BASIC", "ERROR")
-        log_victory_ai_csv("VP_INTELLIGENCE_ERROR", player_id, getattr(game_engine, 'current_turn', 1), error=str(e))
+        
+        # Polski log wydajności - błąd VP Intelligence
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 0,
+                    'calculations_performed': 0,
+                    'algorithms_used': 'VP_INTELLIGENCE_ERROR_RECOVERY',
+                    'decision_tree_depth': 0,
+                    'alternatives_evaluated': 0,
+                    'optimization_iterations': 0,
+                    'ai_confidence': 0.0,
+                    'applied_learning_rate': 0.0,
+                    'current_model_accuracy': 0.0,
+                    'success_prediction_indicator': 0.0,
+                    'triggered_adaptive_behavior': True,
+                    'error_recovery_attempts': 1,
+                    'system_stability_indicator': 0.3  # Low stability due to VP analysis failure
+                })
+        except Exception as err:
+            debug_print(f"Błąd logowania wydajności VP Intelligence ERROR: {err}", "BASIC", "ERROR")
+        
         return {}
 
 
@@ -913,11 +1230,34 @@ def create_attack_plan(target_cluster: List[Dict[str, Any]], available_forces: L
     # Zapisz plan w cache
     ATTACK_PLAN_CACHE[plan_id] = attack_plan
     
-    # CSV Log plan creation
-    log_victory_ai_csv("ATTACK_PLAN_CREATED", player_id, current_turn,
-                      plan_id=plan_id, target_center=f"{target_center[0]},{target_center[1]}",
-                      assigned_forces=len(available_forces), target_cluster_size=len(target_cluster),
-                      estimated_duration="4-5_turns")
+    # Polski log strategiczny - utworzenie planu ataku
+    if ADVANCED_LOGGING_AVAILABLE:
+        try:
+            from utils.session_manager import SessionManager
+            from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+            
+            session_manager = SessionManager()
+            logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+            
+            strategia_dane = {
+                'decision_type': 'ATTACK_PLAN_CREATED',
+                'decision_scope': 'OPERATIONAL_PLANNING',
+                'priority_level': 'CRITICAL',
+                'context_factors': f'plan_id={plan_id}, target={target_center}, forces={len(available_forces)}, cluster_size={len(target_cluster)}',
+                'expected_outcome': 'SUCCESSFUL_ATTACK_SEQUENCE',
+                'confidence_level': 'HIGH',
+                'time_horizon': 'LONG_TERM',
+                'resource_commitment': 'VERY_HIGH',
+                'decision_rationale': f'Stworzony plan ataku {plan_id} na klaster {target_center} z {len(available_forces)} jednostkami',
+                'vp_impact_projection': 'MAJOR_POSITIVE',
+                'strategic_goal_alignment': 'CRITICAL',
+                'predicted_victory_timeline': '4-5_TURNS',
+                'turn': str(current_turn),
+                'nation': player_id
+            }
+            logger.loguj_decyzje_strategiczna(strategia_dane)
+        except Exception as e:
+            debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
     
     debug_print(f"[ATTACK PLANNING] Created plan {plan_id} for cluster at {target_center}, "
                f"{len(available_forces)} forces assigned", "BASIC", "PLANNING")
@@ -948,8 +1288,36 @@ def execute_attack_phase(plan_id: str, current_turn: int, game_engine, my_units:
     # Validate plan continuation
     if not validate_plan_continuation(plan, my_units, game_engine):
         plan['status'] = 'ABORTED'
-        log_victory_ai_csv("ATTACK_PLAN_ABORTED", player_id, current_turn,
-                          plan_id=plan_id, reason="validation_failed")
+        
+        # Polski log strategiczny - przerwanie planu ataku
+        if ADVANCED_LOGGING_AVAILABLE:
+            try:
+                from utils.session_manager import SessionManager
+                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                
+                session_manager = SessionManager()
+                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                
+                strategia_dane = {
+                    'decision_type': 'ATTACK_PLAN_ABORTED',
+                    'decision_scope': 'OPERATIONAL_PLANNING',
+                    'priority_level': 'HIGH',
+                    'context_factors': f'plan_id={plan_id}, reason=validation_failed',
+                    'expected_outcome': 'PLAN_CONTINUATION',
+                    'actual_outcome': 'PLAN_ABORTED',
+                    'confidence_level': 'HIGH',
+                    'time_horizon': 'IMMEDIATE',
+                    'resource_commitment': 'NONE',
+                    'decision_rationale': f'Plan {plan_id} przerwany - walidacja nie przeszła',
+                    'vp_impact_projection': 'NEGATIVE',
+                    'risk_assessment': 'AVOIDED_MAJOR_LOSSES',
+                    'turn': str(current_turn),
+                    'nation': player_id
+                }
+                logger.loguj_decyzje_strategiczna(strategia_dane)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
+        
         debug_print(f"[ATTACK EXECUTION] Plan {plan_id} aborted - validation failed", "BASIC", "PLANNING")
         return "ABORTED"
     
@@ -984,9 +1352,34 @@ def execute_attack_phase(plan_id: str, current_turn: int, game_engine, my_units:
         plan['phases'][current_phase]['status'] = 'COMPLETED'
         plan['current_phase'] = current_phase
         
-        # CSV Log phase completion
-        log_victory_ai_csv("ATTACK_PHASE_COMPLETED", player_id, current_turn,
-                          plan_id=plan_id, phase=current_phase, result=execution_result)
+        # Polski log strategiczny - ukończenie fazy ataku
+        if ADVANCED_LOGGING_AVAILABLE:
+            try:
+                from utils.session_manager import SessionManager
+                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                
+                session_manager = SessionManager()
+                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                
+                strategia_dane = {
+                    'decision_type': 'ATTACK_PHASE_COMPLETED',
+                    'decision_scope': 'OPERATIONAL_EXECUTION',
+                    'priority_level': 'HIGH',
+                    'context_factors': f'plan_id={plan_id}, phase={current_phase}, result={execution_result}',
+                    'expected_outcome': 'PHASE_SUCCESS',
+                    'actual_outcome': str(execution_result),
+                    'confidence_level': 'HIGH',
+                    'time_horizon': 'IMMEDIATE',
+                    'resource_commitment': 'HIGH',
+                    'decision_rationale': f'Faza {current_phase} planu {plan_id} zakończona z wynikiem {execution_result}',
+                    'vp_impact_projection': 'DIRECT_POSITIVE',
+                    'strategic_goal_alignment': 'HIGH',
+                    'turn': str(current_turn),
+                    'nation': player_id
+                }
+                logger.loguj_decyzje_strategiczna(strategia_dane)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
         
         debug_print(f"[ATTACK EXECUTION] Phase {current_phase} completed for plan {plan_id}: {execution_result}", 
                    "BASIC", "PLANNING")
@@ -1242,6 +1635,9 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
     Returns:
         Action summary report
     """
+    start_time = time.time()
+    calculations_performed = 0
+    
     debug_print(f"[VICTORY AI] PHASE 2 START - Player {player_id}", "BASIC", VICTORY_LOG)
     
     current_turn = getattr(game_engine, 'current_turn', 1)
@@ -1252,7 +1648,8 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
         'new_plans_created': 0,
         'plans_executed': 0,
         'plans_aborted': 0,
-        'phase_actions': []
+        'phase_actions': [],
+        'calculations_count': 0
     }
     
     try:
@@ -1264,6 +1661,7 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
         
         for plan_id in active_plan_ids:
             execution_status = execute_attack_phase(plan_id, current_turn, game_engine, my_units, player_id)
+            calculations_performed += 1
             
             if execution_status == "ABORTED":
                 report['plans_aborted'] += 1
@@ -1277,6 +1675,7 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
         
         # STEP 2: Check for new attack opportunities (from Phase 1 results)
         phase1_results = victory_ai_phase1_controller(game_engine, my_units, player_id)
+        calculations_performed += phase1_results.get('calculations_count', 0)
         
         new_opportunities = [action for action in phase1_results.get('recommended_actions', []) 
                            if action['action'] == 'PLAN_ATTACK']
@@ -1289,6 +1688,7 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
                 
                 if cluster_id < len(threat_clusters):
                     target_cluster = threat_clusters[cluster_id]
+                    calculations_performed += 1
                     
                     # Select forces for attack (not all units)
                     available_forces = [u for u in my_units 
@@ -1317,17 +1717,63 @@ def victory_ai_phase2_controller(game_engine, my_units: List[Dict[str, Any]], pl
         # STEP 4: Plan maintenance - cleanup completed/old plans
         cleanup_old_plans(player_id, current_turn)
         
-        # CSV Log Phase 2 summary
-        log_victory_ai_csv("PHASE2_SUMMARY", player_id, current_turn,
-                          active_plans=report['active_plans'], new_plans=report['new_plans_created'],
-                          executed_plans=report['plans_executed'], aborted_plans=report['plans_aborted'])
+        # Dodaj licznik obliczeń do raportu
+        report['calculations_count'] = calculations_performed
         
         debug_print(f"[VICTORY AI] PHASE 2 COMPLETE - {report['active_plans']} active, "
                    f"{report['new_plans_created']} new, {report['plans_executed']} executed", "BASIC", VICTORY_LOG)
         
+        # LOGOWANIE WYDAJNOŚCI PHASE 2
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                execution_time = time.time() - start_time
+                
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': execution_time * 1000,
+                    'calculations_performed': calculations_performed,
+                    'algorithms_used': 'AttackPlanning,MultiTurnExecution,PlanOptimization',
+                    'decision_tree_depth': 4,  # Plan->Execute->Optimize->Cleanup
+                    'alternatives_evaluated': report['active_plans'],
+                    'optimization_iterations': 1,
+                    'ai_confidence': 0.8 if report['plans_executed'] > 0 else 0.6,
+                    'applied_learning_rate': 0.1,
+                    'current_model_accuracy': 0.85,
+                    'success_prediction_indicator': report['plans_executed'] / max(report['active_plans'], 1) if report['active_plans'] > 0 else 0,
+                    'triggered_adaptive_behavior': report['new_plans_created'] > 0,
+                    'error_recovery_attempts': report['plans_aborted'],
+                    'system_stability_indicator': 1.0 if execution_time < 1.0 else 0.7
+                })
+        except Exception as e:
+            debug_print(f"Błąd logowania wydajności Phase 2: {e}", "BASIC", "ERROR")
+        
     except Exception as e:
         debug_print(f"[VICTORY AI] PHASE 2 ERROR: {e}", "BASIC", VICTORY_LOG)
-        log_victory_ai_csv("PHASE2_ERROR", player_id, current_turn, error=str(e))
+        
+        # Polski log wydajności - błąd Phase 2
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 0,
+                    'calculations_performed': 0,
+                    'algorithms_used': 'PHASE2_ERROR_RECOVERY',
+                    'decision_tree_depth': 0,
+                    'alternatives_evaluated': 0,
+                    'optimization_iterations': 0,
+                    'ai_confidence': 0.0,
+                    'applied_learning_rate': 0.0,
+                    'current_model_accuracy': 0.0,
+                    'success_prediction_indicator': 0.0,
+                    'triggered_adaptive_behavior': True,
+                    'error_recovery_attempts': 1,
+                    'system_stability_indicator': 0.0
+                })
+        except Exception as err:
+            debug_print(f"Błąd logowania wydajności Phase 2 ERROR: {err}", "BASIC", "ERROR")
+        
         report['error'] = str(e)
     
     return report
@@ -1358,11 +1804,47 @@ def integrate_victory_ai_full(game_engine, my_units: List[Dict[str, Any]], playe
     
     Wywołaj to w ai_commander.py jako replacement dla integrate_victory_ai_phase1.
     """
+    start_time = time.time()
+    calculations_performed = 0
+    
     # Execute Phase 1 (scouting + threat assessment)
+    phase1_start = time.time()
     phase1_results = victory_ai_phase1_controller(game_engine, my_units, player_id)
+    phase1_time = time.time() - phase1_start
+    calculations_performed += phase1_results.get('calculations_count', 0)
     
     # Execute Phase 2 (multi-turn attack planning)  
+    phase2_start = time.time()
     phase2_results = victory_ai_phase2_controller(game_engine, my_units, player_id)
+    phase2_time = time.time() - phase2_start
+    calculations_performed += phase2_results.get('calculations_count', 0)
+    
+    total_execution_time = time.time() - start_time
+    
+    # LOGOWANIE WYDAJNOŚCI AI
+    try:
+        # Pobierz AI Commander
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        if current_player and hasattr(current_player, 'ai_commander'):
+            ai_commander = current_player.ai_commander
+            
+            log_performance_metrics(ai_commander, {
+                'decision_delay_ms': total_execution_time * 1000,
+                'calculations_performed': calculations_performed,
+                'algorithms_used': 'Phase1_Scouting,Phase2_AttackPlanning',
+                'decision_tree_depth': 2,  # Phase1 + Phase2
+                'alternatives_evaluated': len(phase1_results.get('recommended_actions', [])) + len(phase2_results.get('phase_actions', [])),
+                'optimization_iterations': 1,
+                'ai_confidence': min(phase1_results.get('confidence', 0.5), phase2_results.get('confidence', 0.5)),
+                'applied_learning_rate': 0.1,
+                'current_model_accuracy': 0.8,
+                'success_prediction_indicator': phase1_results.get('success_probability', 0.5),
+                'triggered_adaptive_behavior': phase2_results.get('active_plans', 0) > 0,
+                'error_recovery_attempts': 0,
+                'system_stability_indicator': 1.0 if total_execution_time < 1.0 else 0.8
+            })
+    except Exception as e:
+        debug_print(f"Błąd logowania wydajności Victory AI: {e}", "BASIC", "ERROR")
     
     # Combined results
     combined_results = {
@@ -1374,6 +1856,30 @@ def integrate_victory_ai_full(game_engine, my_units: List[Dict[str, Any]], playe
         'recommended_actions': phase1_results.get('recommended_actions', []) + 
                              phase2_results.get('phase_actions', [])
     }
+    
+    # LOGOWANIE ANALIZY ZWYCIĘSTWA
+    try:
+        # Pobierz AI Commander
+        current_player = getattr(game_engine, 'current_player_obj', None)
+        if current_player and hasattr(current_player, 'ai_commander'):
+            ai_commander = current_player.ai_commander
+            
+            log_victory_analysis(ai_commander, {
+                'vp_trajectory': 'STABLE',
+                'vp_gap_analysis': 0,
+                'victory_probability': phase2_results.get('success_probability', 0.5),
+                'identified_victory_path': 'Phase1_Phase2_Integration',
+                'victory_conditions_progress': combined_results['total_opportunities'] / 10.0,  # Znormalizowane
+                'time_pressure_factor': phase2_results.get('estimated_turns_to_victory', 10) / 20.0,  # Znormalizowane
+                'active_endgame_strategy': combined_results['total_opportunities'] > 0,
+                'victory_point_opportunities': combined_results['total_opportunities'],
+                'elimination_target_priorities': str(phase1_results.get('advantages', [])),
+                'strategic_keypoint_value': combined_results['total_opportunities'],
+                'predicted_victory_timeline': f"Estimated {phase2_results.get('estimated_turns_to_victory', 10)} turns",
+                'defeat_risk_assessment': 1.0 - phase2_results.get('success_probability', 0.5)
+            })
+    except Exception as e:
+        debug_print(f"Błąd logowania analizy zwycięstwa Victory AI: {e}", "BASIC", "ERROR")
     
     return combined_results
 
@@ -1806,12 +2312,35 @@ def victory_ai_phase3_controller(game_engine, my_units: List[Dict[str, Any]], pl
     try:
         current_turn = getattr(game_engine, 'current_turn', 1)
         
-        # Log Phase 3 start
+        # Log Phase 3 start - polski log strategiczny
         player_nation = "Niemcy" if player_id in [4, 5, 6] else "Polska"  # Simple mapping
-        log_victory_ai_csv("TURN_START", player_id, current_turn, 
-                          player_nation=player_nation, 
-                          total_units=len(my_units), 
-                          available_units=len([u for u in my_units if u.get('MP', 0) > 0]))
+        
+        if ADVANCED_LOGGING_AVAILABLE:
+            try:
+                from utils.session_manager import SessionManager
+                from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI
+                
+                session_manager = SessionManager()
+                logger = ZaawansowanyLoggerAI(session_manager.get_current_session_dir())
+                
+                strategia_dane = {
+                    'decision_type': 'TURN_START',
+                    'decision_scope': 'STRATEGIC_INITIALIZATION',
+                    'priority_level': 'CRITICAL',
+                    'context_factors': f'nation={player_nation}, total_units={len(my_units)}, available_units={len([u for u in my_units if u.get("MP", 0) > 0])}',
+                    'expected_outcome': 'PHASE3_EXECUTION',
+                    'confidence_level': 'HIGH',
+                    'time_horizon': 'SINGLE_TURN',
+                    'resource_commitment': 'HIGH',
+                    'decision_rationale': f'Rozpoczęcie tury {current_turn} dla {player_nation} z {len(my_units)} jednostkami',
+                    'vp_impact_projection': 'STRATEGIC_POSITIONING',
+                    'strategic_goal_alignment': 'CRITICAL',
+                    'turn': str(current_turn),
+                    'nation': player_nation
+                }
+                logger.loguj_decyzje_strategiczna(strategia_dane)
+            except Exception as e:
+                debug_print(f"[LOG] Błąd polskiego logowania strategicznego: {e}", "BASIC", "ERROR")
         
         # 1. Pobierz active attack plans
         active_plans = []
@@ -1852,13 +2381,28 @@ def victory_ai_phase3_controller(game_engine, my_units: List[Dict[str, Any]], pl
         # 8. Generate recommendations
         recommendations = generate_defense_recommendations(allocation, kp_defense, pe_security, threat_level)
         
-        # 9. Log Phase 3 summary
-        log_victory_ai_csv("PHASE3_SUMMARY", player_id, current_turn,
-                          defenders_assigned=kp_defense['total_defenders_assigned'],
-                          kps_covered=kp_defense['total_kps_covered'],
-                          pe_secure=pe_security['pe_secure'],
-                          threat_level=round(threat_level, 2),
-                          active_plans=len(active_plans))
+        # 9. Log Phase 3 summary - polski log wydajności
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 500,  # Estimation for Phase 3
+                    'calculations_performed': kp_defense['total_kps_covered'] + len(active_plans),
+                    'algorithms_used': 'PHASE3_DEFENSE_ALLOCATION',
+                    'decision_tree_depth': 3,
+                    'alternatives_evaluated': max(len(active_plans), 1),
+                    'optimization_iterations': kp_defense['total_defenders_assigned'],
+                    'ai_confidence': 0.9 if pe_security['pe_secure'] else 0.6,
+                    'applied_learning_rate': 0.1,
+                    'current_model_accuracy': 0.85,
+                    'success_prediction_indicator': kp_defense['total_kps_covered'] / max(len(active_plans) + 5, 1),
+                    'triggered_adaptive_behavior': threat_level > 0.7,
+                    'error_recovery_attempts': 0,
+                    'system_stability_indicator': 1.0 if pe_security['pe_secure'] else 0.7
+                })
+        except Exception as e:
+            debug_print(f"Błąd logowania wydajności Phase 3: {e}", "BASIC", "ERROR")
         
         phase3_results = {
             'phase3_active': True,
@@ -1880,8 +2424,29 @@ def victory_ai_phase3_controller(game_engine, my_units: List[Dict[str, Any]], pl
         
     except Exception as e:
         debug_print(f"[PHASE3] ERROR w victory_ai_phase3_controller: {e}", "BASIC", VICTORY_LOG)
-        log_victory_ai_csv("PHASE3_ERROR", player_id, getattr(game_engine, 'current_turn', 1),
-                          error=str(e))
+        
+        # Polski log wydajności - błąd Phase 3
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 0,
+                    'calculations_performed': 0,
+                    'algorithms_used': 'PHASE3_ERROR_RECOVERY',
+                    'decision_tree_depth': 0,
+                    'alternatives_evaluated': 0,
+                    'optimization_iterations': 0,
+                    'ai_confidence': 0.0,
+                    'applied_learning_rate': 0.0,
+                    'current_model_accuracy': 0.0,
+                    'success_prediction_indicator': 0.0,
+                    'triggered_adaptive_behavior': True,
+                    'error_recovery_attempts': 1,
+                    'system_stability_indicator': 0.0
+                })
+        except Exception as err:
+            debug_print(f"Błąd logowania wydajności Phase 3 ERROR: {err}", "BASIC", "ERROR")
         
         return {
             'phase3_active': False,
@@ -2131,12 +2696,28 @@ def victory_ai_phase4_controller(game_engine, my_units: List[Dict[str, Any]], pl
         
         debug_print(f"[VICTORY AI PHASE 4] Complete - Request: {phase4_results['request_generated']}, Urgency: {phase4_results['urgency_level']}, Requirements: {phase4_results['total_requirements']}", "BASIC", VICTORY_LOG)
         
-        # CSV Logging
-        log_victory_ai_csv("PHASE_4_COMPLETE", player_id, "UNKNOWN",
-                          request_generated=phase4_results['request_generated'],
-                          urgency=phase4_results['urgency_level'],
-                          requirements=phase4_results['total_requirements'],
-                          priority_areas=",".join(phase4_results['priority_areas']))
+        # Polski log wydajności - ukończenie Phase 4
+        try:
+            current_player = getattr(game_engine, 'current_player_obj', None)
+            if current_player and hasattr(current_player, 'ai_commander'):
+                ai_commander = current_player.ai_commander
+                log_performance_metrics(ai_commander, {
+                    'decision_delay_ms': 200,
+                    'calculations_performed': len(phase4_results['priority_areas']),
+                    'algorithms_used': 'PHASE4_LOGISTICS_COMMUNICATION',
+                    'decision_tree_depth': 2,
+                    'alternatives_evaluated': phase4_results['total_requirements'],
+                    'optimization_iterations': 1,
+                    'ai_confidence': 0.9 if phase4_results['request_generated'] else 0.5,
+                    'applied_learning_rate': 0.1,
+                    'current_model_accuracy': 0.85,
+                    'success_prediction_indicator': 1.0 if phase4_results['request_generated'] else 0.0,
+                    'triggered_adaptive_behavior': phase4_results['urgency_level'] == 'HIGH',
+                    'error_recovery_attempts': 0,
+                    'system_stability_indicator': 1.0
+                })
+        except Exception as e:
+            debug_print(f"Błąd logowania wydajności Phase 4: {e}", "BASIC", "ERROR")
         
         return phase4_results
         

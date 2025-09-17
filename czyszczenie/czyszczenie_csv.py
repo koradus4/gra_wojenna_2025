@@ -26,15 +26,18 @@ NOWY WORKFLOW (v4.0) - POLSKIE NAZWY:
 STRUKTURA:
 ==========
 logs/
-├── current_session/           ← CZYŚCIĆ CO SESJĘ
+├── sesja_aktualna/           ← CZYŚCIĆ CO SESJĘ (NOWE POLSKIE NAZWY)
 │   ├── ai_commander/         ← Logi AI Commander 
 │   ├── ai_general/           ← Logi AI General
 │   ├── specialized/          ← Logi specjalistyczne
-│   └── json_logs/           ← JSON sesji
+│   └── vp_intelligence/      ← VP Intelligence sesji
+├── current_session/          ← CZYŚCIĆ CO SESJĘ (KOMPATYBILNOŚĆ)
+├── archiwum_sesji/           ← CHRONIĆ ZAWSZE (archiwa sesji)
 ├── analysis/                 ← CHRONIĆ ZAWSZE
 │   ├── ml_ready/            ← Dane ML
 │   ├── raporty/             ← Raporty
 │   └── statystyki/          ← Stats długoterminowe
+├── dane_ml/                  ← CHRONIĆ ZAWSZE (dane uczenia)
 └── vp_intelligence/          ← Mieszane (zależne od trybu)
     └── archives/            ← Chronione archiwa
 """
@@ -54,7 +57,7 @@ def get_project_root():
     return Path(__file__).parent.parent
 
 def clean_csv_files():
-    """Czyści TYLKO pliki z logs/current_session/ - BEZPIECZNIE chroni pozostałe!"""
+    """Czyści TYLKO pliki z logs/sesja_aktualna/ - BEZPIECZNIE chroni pozostałe!"""
     return _clean_logs_files(aggressive=False)
 
 def clean_csv_files_aggressive():
@@ -66,7 +69,8 @@ def _clean_logs_files(aggressive: bool = False):
     
     NOWA LOGIKA v4.0 - POLSKIE NAZWY + KOMPATYBILNOŚĆ:
     - logs/sesja_aktualna/ - ZAWSZE czyści (pliki sesyjne, NOWE POLSKIE NAZWY)
-    - logs/current_session/ - ZAWSZE czyści (pliki sesyjne, KOMPATYBILNOŚĆ)  
+    - logs/sesja_aktualna/ - ZAWSZE czyści (pliki sesyjne, NOWY SYSTEM)  
+    - logs/current_session/ - TAKŻE czyści (pliki sesyjne, KOMPATYBILNOŚĆ)  
     - logs/analysis/ - ZAWSZE chroni (dane ML i długoterminowe)
     - Inne foldery - zależne od trybu (aggressive/safe)
     """
@@ -80,7 +84,7 @@ def _clean_logs_files(aggressive: bool = False):
     mode_text = "AGRESYWNE (CSV + JSON)" if aggressive else "BEZPIECZNE (z ochroną ML)"
     print(f"🧹 CZYSZCZENIE LOGS v4.0 - START ({mode_text})")
     print(f"📁 Katalog logs: {logs_dir}")
-    print(f"🎯 NOWY WORKFLOW: logs/sesja_aktualna/ + logs/current_session/ zawsze czyśczone!")
+    print(f"🎯 NOWY WORKFLOW: logs/sesja_aktualna/ zawsze czyśczona w trybie bezpiecznym!")
     print("-" * 50)
     
     if not logs_dir.exists():
@@ -100,7 +104,7 @@ def _clean_logs_files(aggressive: bool = False):
     ]
     
     # PRIORYTETY CZYSZCZENIA:
-    # 1. logs/current_session/ - ZAWSZE czyść (pliki sesyjne)
+    # 1. logs/sesja_aktualna/ + logs/current_session/ - ZAWSZE czyść (pliki sesyjne)
     # 2. logs/analysis/ - ZAWSZE chroń (dane ML)
     # 3. Inne - zależne od trybu
     
@@ -119,14 +123,14 @@ def _clean_logs_files(aggressive: bool = False):
             "*.log",      # Log files  
             "*.txt"       # Text logs (JSON chronione)
         ]
-        print("🛡️ TRYB BEZPIECZNY: Czyści TYLKO current_session/, chroni resztę!")
+        print("🛡️ TRYB BEZPIECZNY: Czyści TYLKO sesja_aktualna/, chroni resztę!")
     
     print("🔍 Szukam plików do przeanalizowania...")
     print(f"🎯 Rozszerzenia: {', '.join(extensions_to_clean)}")
     print(f"🛡️ Chronię: {', '.join(protected_patterns)}")
-    print(f"🗑️ CZYŚCIĆ: logs/current_session/ (pliki sesyjne)")
+    print(f"🗑️ CZYŚCIĆ: logs/sesja_aktualna/ (pliki sesyjne)")
     if not aggressive:
-        print(f"🛡️ CHRONIĆ: logs/ - wszystko poza current_session/ (tryb bezpieczny)")
+        print(f"🛡️ CHRONIĆ: logs/ - wszystko poza sesja_aktualna/ (tryb bezpieczny)")
     else:
         print(f"💀 KASOWAĆ: logs/ - WSZYSTKIE pliki, także ML! (tryb agresywny)")
     
@@ -149,15 +153,15 @@ def _clean_logs_files(aggressive: bool = False):
     for file_path in all_files:
         try:
             # NOWA LOGIKA OCHRONY:
-            # 1. current_session/ - ZAWSZE USUŃ (pliki sesyjne)
+            # 1. sesja_aktualna/ - ZAWSZE USUŃ (pliki sesyjne)
             # 2. analysis/ - ZAWSZE CHROŃ (dane ML)
             # 3. Inne - zależne od trybu i wzorców
             
             relative_path = file_path.relative_to(logs_dir)
             relative_unix = str(relative_path).replace("\\", "/")
             
-            # CASE 1: logs/current_session/ - zawsze czyść
-            if relative_unix.startswith("current_session/"):
+            # CASE 1: logs/sesja_aktualna/ lub logs/current_session/ - zawsze czyść
+            if relative_unix.startswith("sesja_aktualna/") or relative_unix.startswith("current_session/"):
                 files_to_delete.append(file_path)
                 size = file_path.stat().st_size
                 print(f"🗑️ SESYJNY: {relative_path} ({size:,} B)")
@@ -180,8 +184,8 @@ def _clean_logs_files(aggressive: bool = False):
             # CASE 3: Inne pliki - sprawdź wzorce i tryb
             should_protect = False
             if not aggressive:
-                # W trybie bezpiecznym CHROŃ pliki które nie są w current_session/
-                # USUŃ tylko gdy spełnia warunki specjalne lub jest w current_session/
+                # W trybie bezpiecznym CHROŃ pliki które nie są w sesja_aktualna/
+                # USUŃ tylko gdy spełnia warunki specjalne lub jest w sesja_aktualna/
                 should_protect = True  # DOMYŚLNIE CHROŃ w trybie bezpiecznym
                 
                 # Wyjątki - te pliki można usunąć nawet w trybie bezpiecznym:
@@ -246,7 +250,7 @@ def _clean_logs_files(aggressive: bool = False):
     else:
         print("ℹ️ Brak plików sesyjnych do usunięcia")
     
-    # DODATKOWO: Usuń puste katalogi (ale nie chronione)
+    # DODATKOWO: Usuń puste katalogi sesyjne (ale nie chronione)
     empty_dirs_removed = 0
     for root, dirs, files in os.walk(logs_dir, topdown=False):
         try:
@@ -256,7 +260,26 @@ def _clean_logs_files(aggressive: bool = False):
             
             if any(pattern in relative_unix_dir for pattern in protected_patterns):
                 continue
+            
+            # NOWE: Czyść katalogi sesyjne nawet jeśli zawierają .session_lock
+            if relative_unix_dir.startswith("sesja_aktualna/") or relative_unix_dir.startswith("current_session/"):
+                try:
+                    # Usuń wszystkie pliki w katalogu sesyjnym (włączając .session_lock)
+                    for file_in_dir in Path(root).iterdir():
+                        if file_in_dir.is_file():
+                            file_in_dir.unlink()
+                            print(f"🗑️ SESYJNY PLIK: {file_in_dir.relative_to(logs_dir)}")
+                    
+                    # Usuń katalog jeśli jest pusty
+                    if not os.listdir(root):
+                        os.rmdir(root)
+                        print(f"📁 Usunięto pusty katalog sesyjny: {relative_dir}")
+                        empty_dirs_removed += 1
+                except Exception as e:
+                    print(f"⚠️ Nie można wyczyścić katalogu sesyjnego {relative_dir}: {e}")
+                continue
                 
+            # Standardowe usuwanie pustych katalogów
             if not os.listdir(root):  # Pusty katalog
                 os.rmdir(root)
                 print(f"📁 Usunięto pusty katalog: {relative_dir}")
@@ -273,7 +296,7 @@ def _clean_logs_files(aggressive: bool = False):
     print(f"💾 Zwolniono miejsca: {total_size:,} bajtów ({total_size/1024/1024:.1f} MB)")
     
     if current_session_dir.exists():
-        print(f"🎯 UWAGA: Folder logs/current_session/ zostanie wyczyszczony przy każdej sesji!")
+        print(f"🎯 UWAGA: Foldery logs/sesja_aktualna/ i logs/current_session/ zostają wyczyszczone!")
     
     return deleted_count > 0
 
@@ -295,7 +318,7 @@ def verify_security_code():
 
 
 if __name__ == "__main__":
-    print("🧹 CZYSZCZENIE LOGS v3.0 - Nowa struktura logs/current_session/")
+    print("🧹 CZYSZCZENIE LOGS v4.1 - Nowa struktura logs/sesja_aktualna/")
     print("=" * 60)
     print("1. BEZPIECZNE czyszczenie (chroni dane ML)")
     print("2. AGRESYWNE czyszczenie (kasuje WSZYSTKO po kodzie)")
