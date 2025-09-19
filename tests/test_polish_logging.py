@@ -114,6 +114,11 @@ def test_polish_logging():
         csv_files = list(zwyciestwo_dir.glob("*.csv"))
         assert csv_files, "Brak plików CSV w analizie zwycięstwa"
 
+        # Sprawdź logger walki
+        walka_dir = ai_dir / "walka_ai"
+        # Logger walki może nie mieć danych bez zdarzenia, ale katalog powinien istnieć po inicjalizacji
+        assert walka_dir.exists(), "Katalog loggera walki nie istnieje"
+
     except Exception as e:
         import traceback
         traceback.print_exc()

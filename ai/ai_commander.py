@@ -1640,7 +1640,22 @@ class AICommander:
         """Wykonaj turę taktyczną - używa prostych funkcji"""
         player_id = getattr(self.player, 'id', None)
         debug_print(f"[AICommander] Tura dla {self.player.nation} (id={player_id})", "BASIC", INFO)
-        make_tactical_turn(game_engine, player_id)
+        # Ustaw kontekst tury dla loggera PL
+        try:
+            turn_number = getattr(game_engine, 'turn_number', getattr(game_engine, 'current_turn', None))
+            from utils.turn_context import set_current_turn
+            set_current_turn(turn_number)
+        except Exception:
+            pass
+        try:
+            make_tactical_turn(game_engine, player_id)
+        finally:
+            # Opcjonalnie wyczyść kontekst po turze gracza
+            try:
+                from utils.turn_context import clear_current_turn
+                clear_current_turn()
+            except Exception:
+                pass
 
     # === METODY ZAAWANSOWANEGO LOGOWANIA ===
     def _loguj_decyzje_strategiczna(self, typ: str, szczegoly: dict):

@@ -3,6 +3,8 @@ Zawiera logikę wyboru trybu ruchu oraz funkcję move_towards z progressive move
 """
 from __future__ import annotations
 from typing import Any, Tuple
+from ai.ai_config import get_param
+from utils.turn_context import set_correlation_id, clear_correlation_id
 
 __all__ = ["choose_movement_mode", "move_towards"]
 
@@ -86,6 +88,7 @@ def choose_movement_mode(unit: dict, target: Tuple[int,int], game_engine: Any) -
 
 def move_towards(unit: dict, target: Tuple[int,int], game_engine: Any) -> bool:
     print(f"🚀 [AI TEST] MOVE_TOWARDS WYWOŁANE! {unit['id']}: ({unit['q']},{unit['r']}) -> {target}")
+    from ai.logowanie_ai import log_move_aborted, log_path_planned
     from ai.ai_commander import HEX_MISSING_LOG_PREFIX  # lokalny import aby uniknąć cykli przy starcie
     import os
     os.makedirs('logs', exist_ok=True)
@@ -94,11 +97,19 @@ def move_towards(unit: dict, target: Tuple[int,int], game_engine: Any) -> bool:
     board = getattr(game_engine, 'board', None)
     if not board:
         print(f"[AI] Brak board w game_engine")
+        try:
+            log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), (unit['q'], unit['r']), tuple(target) if isinstance(target, list) else target, 'fail', 'NO_BOARD', 'Brak planszy')
+        except Exception:
+            pass
         return False
     unit_pos = (unit['q'], unit['r'])
     token = unit.get('token', None)
     if token is None:
         print(f"[AI] Brak tokenu w unit dict")
+        try:
+            log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), (unit['q'], unit['r']), tuple(target) if isinstance(target, list) else target, 'fail', 'NO_TOKEN', 'Brak tokenu')
+        except Exception:
+            pass
         return False
     if isinstance(token, str):
         all_tokens = getattr(game_engine, 'tokens', [])
@@ -108,6 +119,10 @@ def move_towards(unit: dict, target: Tuple[int,int], game_engine: Any) -> bool:
                 break
         else:
             print(f"[AI] Nie znaleziono obiektu tokenu dla id: {token}")
+            try:
+                log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), (unit['q'], unit['r']), tuple(target) if isinstance(target, list) else target, 'fail', 'TOKEN_NOT_FOUND', 'Nie znaleziono instancji tokenu')
+            except Exception:
+                pass
             return False
     target_tuple = tuple(target) if isinstance(target, list) else target
     print(f"[AI Pathfinding] Konwersja: {target} -> {target_tuple}")
@@ -174,6 +189,12 @@ def move_towards(unit: dict, target: Tuple[int,int], game_engine: Any) -> bool:
     
     base_path = board.find_path(unit_pos, target_tuple, max_mp=effective_mp, max_fuel=effective_fuel)
     print(f"[AI Pathfinding] Bazowa ścieżka (MP={effective_mp}, Fuel={effective_fuel}): {base_path}")
+    try:
+        if base_path:
+            from ai.logowanie_ai import log_path_planned as _lpp
+            _lpp(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), unit_pos, target_tuple, len(base_path), effective_mp, effective_fuel)
+    except Exception:
+        pass
     if not base_path or len(base_path) < 2:
         # Adaptacja: skrócony ruch w promieniu
         print(f"[AI Pathfinding][DIAG] Brak ścieżki bazowej do {target_tuple} | terrain={getattr(board.get_tile(target_tuple[0], target_tuple[1]), 'terrain', None) if hasattr(board,'get_tile') else None} occupied=False neighbors={ [str(n) for n in getattr(board,'neighbors', lambda *_:[]) (target_tuple[0], target_tuple[1])] if hasattr(board,'neighbors') else []}")
@@ -185,17 +206,93 @@ def move_towards(unit: dict, target: Tuple[int,int], game_engine: Any) -> bool:
             if fallback and fallback != unit_pos:
                 print(f"[AI Pathfinding][ADAPT] Brak ścieżki do {target_tuple}, używam krótszego {fallback} (frac={(max_reach/hex_distance if hex_distance else 1):.2f})")
                 base_path = board.find_path(unit_pos, fallback, max_mp=effective_mp, max_fuel=effective_fuel)
+        # Nowe: jeśli nadal brak ścieżki, spróbuj znaleźć najbliższy osiągalny heks wokół celu (pierścienie)
+        nearest_reachable = None
+        nearest_dist = None
+        obstacle_hint = None
+        if (not base_path or len(base_path) < 2) and hasattr(board, 'neighbors') and hasattr(board, 'find_path'):
+            # przeszukaj pierścienie do 4 pól od celu
+            try:
+                max_ring = 4
+                visited = set()
+                frontier = [(target_tuple, 0)]
+                while frontier:
+                    (hq, hr), d = frontier.pop(0)
+                    if (hq, hr) in visited or d > max_ring:
+                        continue
+                    visited.add((hq, hr))
+                    path_try = board.find_path(unit_pos, (hq, hr), max_mp=effective_mp, max_fuel=effective_fuel)
+                    if path_try and len(path_try) >= 2:
+                        nearest_reachable = (hq, hr)
+                        nearest_dist = d
+                        break
+                    # rozszerz sąsiedztwo
+                    for n in board.neighbors(hq, hr):
+                        frontier.append((n, d+1))
+            except Exception:
+                pass
+            # podpowiedź przeszkody
+            try:
+                tile = board.get_tile(target_tuple[0], target_tuple[1]) if hasattr(board, 'get_tile') else None
+                if tile and getattr(tile, 'occupied', False):
+                    obstacle_hint = 'occupied'
+                elif tile and getattr(tile, 'terrain', '') in ('water', 'mountain'):
+                    obstacle_hint = f"terrain:{getattr(tile,'terrain','')}"
+                else:
+                    obstacle_hint = 'unknown'
+            except Exception:
+                obstacle_hint = None
+        # Nowe: jeśli mamy najbliższy osiągalny heks, potraktuj jako waypoint i spróbuj ponownie
+        if (not base_path or len(base_path) < 2) and nearest_reachable:
+            print(f"[AI Pathfinding][WAYPOINT] Próbuję waypoint {nearest_reachable} (dist_ring={nearest_dist})")
+            base_path = board.find_path(unit_pos, nearest_reachable, max_mp=effective_mp, max_fuel=effective_fuel)
+        # Nowe: jeśli nadal brak, spróbuj side-step na sąsiednie dostępne heksy zbliżające do celu
+        if not base_path or len(base_path) < 2:
+            try:
+                candidates = []
+                for nq, nr in (board.neighbors(unit_pos[0], unit_pos[1]) if hasattr(board, 'neighbors') else []):
+                    if board.hex_distance((nq, nr), target_tuple) < board.hex_distance(unit_pos, target_tuple):
+                        p = board.find_path((nq, nr), target_tuple, max_mp=effective_mp, max_fuel=effective_fuel)
+                        if p and len(p) >= 1:
+                            candidates.append(((nq, nr), len(p)))
+                if candidates:
+                    candidates.sort(key=lambda x: x[1])
+                    side_step = candidates[0][0]
+                    print(f"[AI Pathfinding][SIDESTEP] Próba obejścia przez {side_step}")
+                    base_path = [unit_pos, side_step]
+                    target_tuple = side_step
+            except Exception:
+                pass
         if not base_path or len(base_path) < 2:
             print(f"[AI Pathfinding] ❌ Brak ścieżki po adaptacji!")
+            try:
+                # logowanie rozszerzone o najbliższy osiągalny i wskazówkę przeszkody
+                nrd_q = nearest_reachable[0] if nearest_reachable else None
+                nrd_r = nearest_reachable[1] if nearest_reachable else None
+                log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), unit_pos, target_tuple, 'fail', 'NO_PATH', 'Brak ścieżki',
+                                 nearest_reachable_dist=nearest_dist,
+                                 nearest_reachable_hex_q=nrd_q,
+                                 nearest_reachable_hex_r=nrd_r,
+                                 obstacle_hint=obstacle_hint)
+            except Exception:
+                pass
             return False
     # Wykonanie ruchu - używamy token.set_position() jak w głównym silniku
     try:
         # Sprawdź czy mamy wystarczające zasoby
         if getattr(token, 'currentMovePoints', 0) <= 0:
             print(f"[AI Move] ❌ Brak punktów ruchu: {getattr(token, 'currentMovePoints', 0)}")
+            try:
+                log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), unit_pos, target_tuple, 'blocked', 'NO_MP', 'Brak punktów ruchu')
+            except Exception:
+                pass
             return False
         if getattr(token, 'currentFuel', 0) <= 0:
             print(f"[AI Move] ❌ Brak paliwa: {getattr(token, 'currentFuel', 0)}")
+            try:
+                log_move_aborted(unit.get('id','UNKNOWN'), getattr(game_engine,'current_player_nation','Unknown'), unit_pos, target_tuple, 'blocked', 'NO_FUEL', 'Brak paliwa')
+            except Exception:
+                pass
             return False
         
         # Wykonaj ruch używając tej samej metody co główny silnik

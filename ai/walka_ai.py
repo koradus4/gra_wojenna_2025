@@ -4,6 +4,7 @@ Zawiera logikę wyszukiwania celów, oceny stosunku sił, flankowania, odwrotu i
 from __future__ import annotations
 from typing import Any, Dict, List
 from ai.ai_config import get_param
+from utils.turn_context import set_correlation_id, clear_correlation_id
 
 __all__ = [
     'ai_attempt_combat', 'find_enemies_in_range', 'evaluate_combat_ratio',
@@ -11,7 +12,7 @@ __all__ = [
 ]
 
 def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_nation: str = "Unknown") -> bool:
-    from ai.logowanie_ai import log_commander_action
+    from ai.logowanie_ai import log_commander_action, log_attack_opportunity_scan, log_combat_precheck, log_combat_decision
     from .walka_ai import find_enemies_in_range, evaluate_combat_ratio, execute_ai_combat, attempt_retreat_low_cv, try_flank_before_attack
     
     # DEBUG: Loguj rozpoczęcie analizy walki
@@ -19,6 +20,9 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
     print(f"🔍 [COMBAT DEBUG] {unit_name} sprawdza możliwość ataku...")
     
     try:
+        # correlation_id dla całego cyklu walki tej jednostki w tej turze
+        corr_id = f"combat:{unit.get('id','UNKNOWN')}:{getattr(game_engine,'turn_number', getattr(game_engine,'current_turn', 'X'))}"
+        set_correlation_id(corr_id)
         current_player = getattr(game_engine, 'current_player_obj', None)
         if current_player and hasattr(current_player, 'is_ai_commander'):
             commander_ref = getattr(game_engine, 'current_player_commander', None)
@@ -37,10 +41,18 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
             return False
         enemies = find_enemies_in_range(unit, game_engine, player_id)
         print(f"🎯 [COMBAT DEBUG] {unit_name} znalazł {len(enemies)} wrogów w zasięgu")
+        # Log skanu okazji do ataku
+        try:
+            preview = ",".join([e.get('id','?') for e in enemies[:5]])
+            min_ratio = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2, player_id=player_id)
+            log_attack_opportunity_scan(unit.get('id','UNKNOWN'), player_nation, len(enemies), min_ratio, preview)
+        except Exception:
+            pass
         
         if not enemies:
             print(f"❌ [COMBAT DEBUG] {unit_name}: Brak wrogów - koniec analizy")
             return False
+
         best_enemy = None; best_ratio = 0.0
         minimum_attack_ratio = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2, player_id=player_id)
         print(f"⚔️ [COMBAT DEBUG] {unit_name}: Próg ataku = {minimum_attack_ratio:.2f}")
@@ -49,8 +61,32 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
             enemy_name = enemy.get('id', f'enemy_{i}')
             ratio = evaluate_combat_ratio(unit, enemy)
             print(f"🎲 [COMBAT DEBUG] {unit_name} vs {enemy_name}: ratio = {ratio:.2f}")
+            # Precheck log
+            try:
+                threshold_tmp = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2, player_id=player_id)
+                decision_tmp = 'consider' if ratio >= threshold_tmp else 'skip'
+                log_combat_precheck(unit.get('id','UNKNOWN'), player_nation, enemy_name, ratio, threshold_tmp, decision_tmp)
+            except Exception:
+                pass
             
-            if ratio > best_ratio and ratio >= minimum_attack_ratio:
+            # Adaptacyjny próg: jeśli ryzyko kontrataku niskie i teren nie wzmacnia obrony, pozwól na łagodniejszy próg
+            threshold_local = minimum_attack_ratio
+            try:
+                enemy_token = enemy.get('token')
+                unit_token = unit.get('token')
+                board = getattr(game_engine, 'board', None)
+                counter_range = enemy_token.stats.get('attack', {}).get('range', 1) if enemy_token else 1
+                dist = board.hex_distance((unit.get('q'), unit.get('r')), (enemy.get('q'), enemy.get('r'))) if board else 99
+                low_counter_risk = dist > counter_range
+                terrain_penalty = 0
+                if board and enemy_token and hasattr(board, 'get_tile'):
+                    tile = board.get_tile(enemy.get('q'), enemy.get('r'))
+                    terrain_penalty = getattr(tile, 'defense_mod', 0) if tile else 0
+                if low_counter_risk and terrain_penalty <= 0:
+                    threshold_local = min(threshold_local, 1.10)
+            except Exception:
+                pass
+            if ratio > best_ratio and ratio >= threshold_local:
                 old_best = best_enemy.get('id', 'none') if best_enemy else 'none'
                 best_ratio = ratio; best_enemy = enemy
                 print(f"⭐ [COMBAT DEBUG] {unit_name}: Nowy najlepszy cel {old_best} -> {enemy_name} (ratio: {ratio:.2f})")
@@ -59,13 +95,26 @@ def ai_attempt_combat(unit: Dict, game_engine: Any, player_id: int, player_natio
         if best_enemy:
             try_flank_before_attack(unit, best_enemy, game_engine)
             print(f"🎯 [COMBAT] {unit.get('id')} atakuje {best_enemy.get('id')} (ratio_adj: {best_ratio:.2f})")
+            try:
+                # Ustal czy próg był obniżony
+                base_thr = get_param('COMBAT.MINIMUM_ATTACK_RATIO', 1.2, player_id=player_id)
+                thr_adj = 1 if best_ratio < base_thr else 0
+                log_combat_decision(unit.get('id','UNKNOWN'), player_nation, best_enemy.get('id','unknown'), best_ratio, base_thr, 'attack', reason=('low_counterattack_risk' if thr_adj else ''), extra=({'threshold_adjusted': True} if thr_adj else None))
+            except Exception:
+                pass
             return execute_ai_combat(unit, best_enemy, game_engine, player_nation)
         else:
             print(f"❌ [COMBAT DEBUG] {unit_name}: Żaden wróg nie spełnia progu {minimum_attack_ratio} (najlepszy: {best_ratio:.2f})")
+            try:
+                log_combat_decision(unit.get('id','UNKNOWN'), player_nation, 'NONE', best_ratio, minimum_attack_ratio, 'skip', reason='no_enemy_above_threshold')
+            except Exception:
+                pass
         return False
     except Exception as e:
         print(f"❌ [COMBAT] Błąd podczas sprawdzania ataku: {e}")
         return False
+    finally:
+        clear_correlation_id()
 
 def find_enemies_in_range(unit: Dict, game_engine: Any, player_id: int) -> List[Dict]:
     enemies: List[Dict] = []
@@ -239,6 +288,9 @@ def execute_ai_combat(unit: Dict, enemy: Dict, game_engine: Any, player_nation: 
         from engine.action_refactored_clean import CombatAction
         current_player = getattr(game_engine, 'current_player_obj', None)
         action = CombatAction(unit_token.id, enemy_token.id)
+        # Zmierz CV przed
+        atk_cv_before = getattr(unit_token, 'combat_value', unit_token.stats.get('combat_value', 0))
+        def_cv_before = getattr(enemy_token, 'combat_value', enemy_token.stats.get('combat_value', 0))
         result = game_engine.execute_action(action, player=current_player)
         if getattr(result,'success',False):
             print(f"⚔️ [COMBAT] Sukces: {getattr(result,'message','OK')}")
@@ -250,9 +302,61 @@ def execute_ai_combat(unit: Dict, enemy: Dict, game_engine: Any, player_nation: 
                 )
             except Exception:
                 pass
+            # LOGER WALKI (CV przed/po)
+            try:
+                atk_cv_after = getattr(unit_token, 'combat_value', unit_token.stats.get('combat_value', 0))
+                def_cv_after = getattr(enemy_token, 'combat_value', enemy_token.stats.get('combat_value', 0))
+                # Nacje atakującego/obrońcy
+                def_owner = getattr(enemy_token, 'owner', '')
+                def_nation = def_owner.split('(')[-1].replace(')','').strip() if '(' in def_owner else 'Unknown'
+                # Spróbuj użyć aliasu zaawansowanego loggera
+                commander_ref = getattr(game_engine, 'current_player_commander', None)
+                adv = getattr(commander_ref, 'zaawansowany_logger', None)
+                if adv:
+                    adv.loguj_walke({
+                        'nation': player_nation,
+                        'attacker_nation': player_nation,
+                        'defender_nation': def_nation,
+                        'attacker_id': unit.get('id','unknown'),
+                        'defender_id': enemy.get('id','unknown'),
+                        'attacker_cv_before': atk_cv_before,
+                        'attacker_cv_after': atk_cv_after,
+                        'defender_cv_before': def_cv_before,
+                        'defender_cv_after': def_cv_after,
+                        'outcome': 'success',
+                        'hex_q': enemy.get('q'),
+                        'hex_r': enemy.get('r'),
+                        'notes': getattr(result, 'message', '')
+                    })
+            except Exception:
+                pass
             return True
         else:
             print(f"❌ [COMBAT] Błąd: {getattr(result,'message','Brak danych')}")
+            # Nawet przy niepowodzeniu zaloguj zdarzenie walki, jeśli możliwe
+            try:
+                commander_ref = getattr(game_engine, 'current_player_commander', None)
+                adv = getattr(commander_ref, 'zaawansowany_logger', None)
+                if adv:
+                    def_owner = getattr(enemy_token, 'owner', '')
+                    def_nation = def_owner.split('(')[-1].replace(')','').strip() if '(' in def_owner else 'Unknown'
+                    adv.loguj_walke({
+                        'nation': player_nation,
+                        'attacker_nation': player_nation,
+                        'defender_nation': def_nation,
+                        'attacker_id': unit.get('id','unknown'),
+                        'defender_id': enemy.get('id','unknown'),
+                        'attacker_cv_before': atk_cv_before,
+                        'attacker_cv_after': getattr(unit_token, 'combat_value', unit_token.stats.get('combat_value', 0)),
+                        'defender_cv_before': def_cv_before,
+                        'defender_cv_after': getattr(enemy_token, 'combat_value', enemy_token.stats.get('combat_value', 0)),
+                        'outcome': 'fail',
+                        'hex_q': enemy.get('q'),
+                        'hex_r': enemy.get('r'),
+                        'notes': getattr(result, 'message', '')
+                    })
+            except Exception:
+                pass
             return False
     except Exception as e:
         print(f"❌ [COMBAT] Błąd wykonania ataku: {e}")

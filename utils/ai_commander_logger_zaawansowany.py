@@ -78,6 +78,9 @@ class LoggerDecyzjiStrategicznych(PolskiLoggerBazowy):
     def __init__(self, katalog_sesji: Path):
         super().__init__(katalog_sesji)
         self.katalog = self.przygotuj_katalog('decyzje_strategiczne')
+        # Prosty cache do deduplikacji wpisów strategicznych (klucz -> ostatnia_tura lub timestamp)
+        self._dedupe_cache: Dict[str, Any] = {}
+        self._dedupe_size_limit = 512
         
     def loguj(self, dane: Dict[str, Any]):
         """Loguje decyzję strategiczną"""
@@ -88,12 +91,48 @@ class LoggerDecyzjiStrategicznych(PolskiLoggerBazowy):
         # Dodanie timestamp jeśli brak
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
         
         # Tłumaczenie enum values
         if 'decision_type' in dane:
             dane['decision_type'] = self.tlumacz_wartosc_enum('typy_decyzji', dane['decision_type'])
         if 'confidence_level' in dane:
             dane['confidence_level'] = self.tlumacz_wartosc_enum('poziomy_pewnosci', dane['confidence_level'])
+
+        # DEDUPLIKACJA: pomiń duplikaty w obrębie tej samej tury dla tego samego klucza
+        try:
+            key_fields = (
+                str(dane.get('decision_type', '')),
+                str(dane.get('decision_scope', '')),
+                str(dane.get('nation', '')),
+                str(dane.get('context_factors', ''))
+            )
+            key = "|".join(key_fields)
+            tura = dane.get('turn')
+            last_val = self._dedupe_cache.get(key)
+            if last_val is not None and (tura is not None and last_val == tura):
+                # Duplikat w tej samej turze – pomijamy zapis
+                return
+            # Aktualizacja cache, ograniczenie rozmiaru
+            self._dedupe_cache[key] = tura if tura is not None else dane.get('timestamp')
+            if len(self._dedupe_cache) > self._dedupe_size_limit:
+                # Proste czyszczenie: usuń 1/3 najstarszych kluczy
+                try:
+                    for k in list(self._dedupe_cache.keys())[: self._dedupe_size_limit // 3]:
+                        self._dedupe_cache.pop(k, None)
+                except Exception:
+                    self._dedupe_cache.clear()
+        except Exception:
+            pass
         
         self.zapisz_wiersz_csv(sciezka, dane, self.KOLUMNY)
 
@@ -102,11 +141,22 @@ class LoggerAkcjiTaktycznych(PolskiLoggerBazowy):
     """Logger dla akcji taktycznych"""
     
     KOLUMNY = [
-        'timestamp', 'turn', 'phase', 'nation', 'action_category', 'unit_primary', 
+        'timestamp', 'turn', 'correlation_id', 'phase', 'nation', 'action_category', 'unit_primary', 
         'units_supporting', 'action_complexity', 'coordination_required', 'formation_type',
         'terrain_advantage', 'enemy_response_expected', 'success_indicators', 
         'execution_time_ms', 'micro_decisions_count', 'unit_synergy_score',
-        'tactical_innovation', 'risk_mitigation', 'fallback_plan_ready'
+        'tactical_innovation', 'risk_mitigation', 'fallback_plan_ready',
+        # DODATKOWE POLA DOT. ZAOPATRZENIA/PE (strukturalne)
+        'resupply_budget_available', 'resupply_pe_spent', 'pe_spent_fuel', 'pe_spent_combat',
+        'before_fuel', 'after_fuel', 'before_cv', 'after_cv', 'global_pe_remaining',
+        'resupply_total_need',
+        # Pola diagnostyczne
+        'action_type', 'validate_status', 'error_code', 'human_rules_check',
+        'unit_id', 'target_id', 'from_hex_q', 'from_hex_r', 'to_hex_q', 'to_hex_r',
+        'ratio', 'threshold', 'decision', 'reason',
+        # Nowe pola diagnostyczne ruchu i walki
+        'nearest_reachable_dist', 'nearest_reachable_hex_q', 'nearest_reachable_hex_r', 'obstacle_hint',
+        'threshold_adjusted', 'resupply_reason'
     ]
     
     def __init__(self, katalog_sesji: Path):
@@ -121,6 +171,24 @@ class LoggerAkcjiTaktycznych(PolskiLoggerBazowy):
         
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
+        # WSTRZYKNIĘCIE correlation_id (jeśli dostępny)
+        try:
+            from utils.turn_context import get_correlation_id
+            corr = get_correlation_id()
+            if corr and 'correlation_id' not in dane:
+                dane['correlation_id'] = corr
+        except Exception:
+            pass
         
         # Tłumaczenie kategorii akcji
         if 'action_category' in dane:
@@ -152,6 +220,16 @@ class LoggerDecyzjiEkonomicznych(PolskiLoggerBazowy):
         
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
         
         # Tłumaczenie kategorii wydatków
         if 'spending_category' in dane:
@@ -184,6 +262,16 @@ class LoggerAnalizyWywiadu(PolskiLoggerBazowy):
         
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
         
         # Tłumaczenie typu informacji
         if 'intelligence_type' in dane:
@@ -215,6 +303,16 @@ class LoggerWydajnosci(PolskiLoggerBazowy):
         
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
         
         self.zapisz_wiersz_csv(sciezka, dane, self.KOLUMNY)
 
@@ -242,7 +340,60 @@ class LoggerAnalizyZwyciestwa(PolskiLoggerBazowy):
         
         if 'timestamp' not in dane:
             dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
         
+        self.zapisz_wiersz_csv(sciezka, dane, self.KOLUMNY)
+
+
+class LoggerWalk(PolskiLoggerBazowy):
+    """Logger dla zdarzeń walki (CV przed/po)"""
+
+    KOLUMNY = [
+        'timestamp', 'turn', 'correlation_id', 'nation', 'attacker_id', 'defender_id',
+        'attacker_cv_before', 'attacker_cv_after', 'defender_cv_before', 'defender_cv_after',
+        'outcome', 'hex_q', 'hex_r', 'notes'
+    ]
+
+    def __init__(self, katalog_sesji: Path):
+        super().__init__(katalog_sesji)
+        self.katalog = self.przygotuj_katalog('walka_ai')
+
+    def loguj(self, dane: Dict[str, Any]):
+        """Loguje zdarzenie walki z CV przed/po"""
+        dzisiaj = datetime.now().strftime("%Y%m%d")
+        nazwa_pliku = f"walka_ai_{dzisiaj}.csv"
+        sciezka = self.katalog / nazwa_pliku
+
+        if 'timestamp' not in dane:
+            dane['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # WSTRZYKNIĘCIE NUMERU TURY (jeśli brak) z kontekstu
+        if 'turn' not in dane or dane.get('turn') in (None, ''):
+            try:
+                from utils.turn_context import get_current_turn
+                turn_no = get_current_turn()
+                if turn_no:
+                    dane['turn'] = turn_no
+            except Exception:
+                pass
+        # WSTRZYKNIĘCIE correlation_id (jeśli dostępny)
+        try:
+            from utils.turn_context import get_correlation_id
+            corr = get_correlation_id()
+            if corr and 'correlation_id' not in dane:
+                dane['correlation_id'] = corr
+        except Exception:
+            pass
+
         self.zapisz_wiersz_csv(sciezka, dane, self.KOLUMNY)
 
 
@@ -259,7 +410,8 @@ class ZaawansowanyLoggerAI:
             'ekonomiczne': LoggerDecyzjiEkonomicznych(katalog_sesji),
             'wywiad': LoggerAnalizyWywiadu(katalog_sesji),
             'wydajnosc': LoggerWydajnosci(katalog_sesji),
-            'zwyciestwo': LoggerAnalizyZwyciestwa(katalog_sesji)
+            'zwyciestwo': LoggerAnalizyZwyciestwa(katalog_sesji),
+            'walka': LoggerWalk(katalog_sesji)
         }
     
     def loguj_decyzje_strategiczna(self, dane: Dict[str, Any]):
@@ -285,6 +437,10 @@ class ZaawansowanyLoggerAI:
     def loguj_analize_zwyciestwa(self, dane: Dict[str, Any]):
         """Loguje analizę zwycięstwa"""
         self.loggery['zwyciestwo'].loguj(dane)
+
+    def loguj_walke(self, dane: Dict[str, Any]):
+        """Loguje zdarzenie walki (CV przed/po)"""
+        self.loggery['walka'].loguj(dane)
     
     def pobierz_statystyki(self) -> Dict[str, Dict[str, Any]]:
         """Zwraca statystyki wszystkich logów"""

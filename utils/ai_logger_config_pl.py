@@ -10,12 +10,14 @@ NAZWY_PLIKOW = {
     'ekonomiczne': 'decyzje_ekonomiczne',
     'wywiad': 'analiza_wywiadu',
     'wydajnosc': 'wydajnosc_ai',
-    'zwyciestwo': 'analiza_zwyciestwa'
+    'zwyciestwo': 'analiza_zwyciestwa',
+    'walka': 'walka_ai'
 }
 
 # 🗺️ MAPOWANIE KOLUMN ANGIELSKI -> POLSKI
 POLISH_COLUMN_MAPPING = {
     'timestamp': 'data_czas',
+    'correlation_id': 'korelacja_id',
     'turn': 'tura',
     'phase': 'faza',
     'nation': 'nacja',
@@ -107,7 +109,73 @@ POLISH_COLUMN_MAPPING = {
     'key_points_strategic_value': 'wartosc_strategiczna_kluczowych_punktow',
     'victory_timeline_projection': 'przewidywany_harmonogram_zwyciestwa',
     'defeat_risk_assessment': 'ocena_ryzyka_porazki'
+    ,
+    # DODATKOWE POLA DOT. ZAOPATRZENIA/PE I WALKI
+    'resupply_budget_available': 'budzet_resupply_dostepny',
+    'resupply_pe_spent': 'wydane_pe_resupply',
+    'pe_spent_fuel': 'pe_na_paliwo',
+    'pe_spent_combat': 'pe_na_cv',
+    'before_fuel': 'paliwo_przed',
+    'after_fuel': 'paliwo_po',
+    'before_cv': 'cv_przed',
+    'after_cv': 'cv_po',
+    'global_pe_remaining': 'globalne_pe_pozostalo',
+    'resupply_total_need': 'calkowita_potrzeba_resupply',
+    # Logger walki (CV before/after)
+    'attacker_id': 'atakujacy_id',
+    'defender_id': 'broniacy_id',
+    'attacker_cv_before': 'atak_cv_przed',
+    'attacker_cv_after': 'atak_cv_po',
+    'defender_cv_before': 'obr_cv_przed',
+    'defender_cv_after': 'obr_cv_po',
+    'outcome': 'wynik_walki',
+    'hex_q': 'hex_q',
+    'hex_r': 'hex_r',
+    'notes': 'notatki'
 }
+
+# 🔧 DODATKOWE KOLUMNY DIAGNOSTYCZNE DLA AKCJI TAKTYCZNYCH
+# Te nazwy uzupełniają mapping powyżej i będą użyte w LoggerAkcjiTaktycznych
+POLA_DIAGNOSTYCZNE_TAKTYCZNE = [
+    'action_type',              # typ akcji/etapu np. scan/precheck/decision/move
+    'validate_status',          # ok/fail/blocked
+    'error_code',               # kod błędu (jeśli fail)
+    'human_rules_check',        # zgodnosc/niezgodnosc
+    'unit_id',                  # identyfikator jednostki
+    'target_id',                # identyfikator celu (jednostka/hex)
+    'from_hex_q', 'from_hex_r', # współrzędne startowe
+    'to_hex_q', 'to_hex_r',     # współrzędne docelowe
+    'ratio',                    # stosunek sił
+    'threshold',                # próg decyzyjny
+    'decision',                 # podjęta decyzja
+    'reason'                    # uzasadnienie
+]
+
+# Mapowanie nowych pól diagnostycznych na polskie nagłówki
+POLISH_COLUMN_MAPPING.update({
+    'action_type': 'typ_akcji',
+    'validate_status': 'status_walidacji',
+    'error_code': 'kod_bledu',
+    'human_rules_check': 'zgodnosc_z_regulami',
+    'unit_id': 'id_jednostki',
+    'target_id': 'id_celu',
+    'from_hex_q': 'z_hex_q',
+    'from_hex_r': 'z_hex_r',
+    'to_hex_q': 'do_hex_q',
+    'to_hex_r': 'do_hex_r',
+    'ratio': 'stosunek_sil',
+    'threshold': 'prog',
+    'decision': 'decyzja',
+    'reason': 'powod',
+    # Dodatkowe pola diagnostyczne ruchu (NO_PATH redukcja)
+    'nearest_reachable_dist': 'najblizszy_osiagalny_dystans',
+    'nearest_reachable_hex_q': 'najblizszy_osiagalny_hex_q',
+    'nearest_reachable_hex_r': 'najblizszy_osiagalny_hex_r',
+    'obstacle_hint': 'podpowiedz_przeszkody',
+    # Dodatkowe pola decyzyjne walki i resupply
+    'threshold_adjusted': 'prog_dostosowany',
+    'resupply_reason': 'powod_resupply'
+})
 
 # 🎯 TYPY DECYZJI STRATEGICZNYCH
 TYPY_DECYZJI_STRATEGICZNYCH = {

@@ -57,6 +57,28 @@ def log_commander_action(unit_id: str, action_type: str, from_pos, to_pos, reaso
                 # Uzasadnienie ruchu jako wskaźniki sukcesu (teksty)
                 'success_indicators': reason,
             }
+            # Jeżeli extra zawiera szczegóły PE z resupply, zmapuj do nowych pól
+            if extra and isinstance(extra, dict):
+                if 'resupply_budget_available' in extra:
+                    dane['resupply_budget_available'] = extra.get('resupply_budget_available')
+                if 'resupply_pe_spent' in extra:
+                    dane['resupply_pe_spent'] = extra.get('resupply_pe_spent')
+                if 'pe_spent_fuel' in extra:
+                    dane['pe_spent_fuel'] = extra.get('pe_spent_fuel')
+                if 'pe_spent_combat' in extra:
+                    dane['pe_spent_combat'] = extra.get('pe_spent_combat')
+                if 'before_fuel' in extra:
+                    dane['before_fuel'] = extra.get('before_fuel')
+                if 'after_fuel' in extra:
+                    dane['after_fuel'] = extra.get('after_fuel')
+                if 'before_cv' in extra:
+                    dane['before_cv'] = extra.get('before_cv')
+                if 'after_cv' in extra:
+                    dane['after_cv'] = extra.get('after_cv')
+                if 'global_pe_remaining' in extra:
+                    dane['global_pe_remaining'] = extra.get('global_pe_remaining')
+                if 'resupply_total_need' in extra:
+                    dane['resupply_total_need'] = extra.get('resupply_total_need')
             if from_pos:
                 # Pozycje nie mają dedykowanych kolumn w loggerze taktycznym – pomijamy
                 pass
@@ -193,3 +215,161 @@ def log_commander_turn(data: Dict[str, Any]):
     return
 
 __all__.append("log_commander_turn")
+
+# --- Nowe adaptery diagnostyczne ---
+
+def _log_tactical_diag(payload: Dict[str, Any]) -> None:
+    adv = _get_adv_logger()
+    if adv is None:
+        return
+    try:
+        adv.loguj_akcje_taktyczna(payload)
+    except Exception:
+        pass
+
+
+def log_attack_opportunity_scan(unit_id: str, player_nation: str, candidates_count: int, min_ratio: float, enemies_preview: str = "", extra: Dict[str, Any] | None = None) -> None:
+    payload = {
+        'nation': player_nation,
+        'phase': 'combat',
+        'action_category': 'Rozpoznanie_Bojowe',
+        'action_type': 'attack_opportunity_scan',
+        'unit_id': unit_id,
+        'micro_decisions_count': candidates_count,
+        'threshold': min_ratio,
+        'success_indicators': enemies_preview[:200]
+    }
+    if extra:
+        payload.update(extra)
+    _log_tactical_diag(payload)
+
+
+def log_combat_precheck(unit_id: str, player_nation: str, enemy_id: str, ratio: float, threshold: float, decision: str, reason: str = "") -> None:
+    payload = {
+        'nation': player_nation,
+        'phase': 'combat',
+        'action_category': 'Skoordynowany_Atak',
+        'action_type': 'combat_precheck',
+        'unit_id': unit_id,
+        'target_id': enemy_id,
+        'ratio': ratio,
+        'threshold': threshold,
+        'decision': decision,
+        'reason': reason
+    }
+    _log_tactical_diag(payload)
+
+
+def log_combat_decision(unit_id: str, player_nation: str, enemy_id: str, ratio: float, threshold: float, decision: str, reason: str = "", extra: Dict[str, Any] | None = None) -> None:
+    payload = {
+        'nation': player_nation,
+        'phase': 'combat',
+        'action_category': 'Skoordynowany_Atak',
+        'action_type': 'combat_decision',
+        'unit_id': unit_id,
+        'target_id': enemy_id,
+        'ratio': ratio,
+        'threshold': threshold,
+        'decision': decision,
+        'reason': reason
+    }
+    if extra and isinstance(extra, dict):
+        payload.update(extra)
+    _log_tactical_diag(payload)
+
+
+def log_move_aborted(unit_id: str, player_nation: str, from_pos: tuple, to_pos: tuple, validate_status: str, error_code: str = "", reason: str = "",
+                     nearest_reachable_dist: int | None = None,
+                     nearest_reachable_hex_q: int | None = None,
+                     nearest_reachable_hex_r: int | None = None,
+                     obstacle_hint: str | None = None) -> None:
+    payload = {
+        'nation': player_nation,
+        'phase': 'movement',
+        'action_category': 'Manewry_Odwrotu',
+        'action_type': 'move_aborted',
+        'unit_id': unit_id,
+        'from_hex_q': from_pos[0],
+        'from_hex_r': from_pos[1],
+        'to_hex_q': to_pos[0],
+        'to_hex_r': to_pos[1],
+        'validate_status': validate_status,
+        'error_code': error_code,
+        'reason': reason
+    }
+    # Nowe pola diagnostyczne (opcjonalne)
+    if nearest_reachable_dist is not None:
+        payload['nearest_reachable_dist'] = nearest_reachable_dist
+    if nearest_reachable_hex_q is not None:
+        payload['nearest_reachable_hex_q'] = nearest_reachable_hex_q
+    if nearest_reachable_hex_r is not None:
+        payload['nearest_reachable_hex_r'] = nearest_reachable_hex_r
+    if obstacle_hint:
+        payload['obstacle_hint'] = obstacle_hint
+    _log_tactical_diag(payload)
+
+
+def log_path_planned(unit_id: str, player_nation: str, from_pos: tuple, to_pos: tuple, length: int, mp: int, fuel: int) -> None:
+    payload = {
+        'nation': player_nation,
+        'phase': 'movement',
+        'action_category': 'Manewry_Odwrotu',
+        'action_type': 'path_planned',
+        'unit_id': unit_id,
+        'from_hex_q': from_pos[0],
+        'from_hex_r': from_pos[1],
+        'to_hex_q': to_pos[0],
+        'to_hex_r': to_pos[1],
+        'action_complexity': length,
+        'execution_time_ms': 0,
+        'micro_decisions_count': mp,
+        'unit_synergy_score': fuel
+    }
+    _log_tactical_diag(payload)
+
+
+def log_kp_vacate_attempt(unit_id: str, player_nation: str, hex_id: str, ratio: float, turns_stationed: int, reason: str) -> None:
+    try:
+        q, r = (int(hex_id.split(',')[0]), int(hex_id.split(',')[1])) if ',' in hex_id else (None, None)
+    except Exception:
+        q, r = (None, None)
+    payload = {
+        'nation': player_nation,
+        'phase': 'garrison',
+        'action_category': 'Przegrupowanie_Zasobow',
+        'action_type': 'kp_vacate_attempt',
+        'unit_id': unit_id,
+        'to_hex_q': q,
+        'to_hex_r': r,
+        'ratio': ratio,
+        'micro_decisions_count': turns_stationed,
+        'reason': reason
+    }
+    _log_tactical_diag(payload)
+
+
+def log_kp_vacate_blocked(unit_id: str, player_nation: str, hex_id: str, ratio: float, turns_stationed: int, reason: str) -> None:
+    try:
+        q, r = (int(hex_id.split(',')[0]), int(hex_id.split(',')[1])) if ',' in hex_id else (None, None)
+    except Exception:
+        q, r = (None, None)
+    payload = {
+        'nation': player_nation,
+        'phase': 'garrison',
+        'action_category': 'Przygotowanie_Obrony',
+        'action_type': 'kp_vacate_blocked',
+        'unit_id': unit_id,
+        'to_hex_q': q,
+        'to_hex_r': r,
+        'ratio': ratio,
+        'micro_decisions_count': turns_stationed,
+        'validate_status': 'blocked',
+        'reason': reason
+    }
+    _log_tactical_diag(payload)
+
+
+__all__ += [
+    'log_attack_opportunity_scan', 'log_combat_precheck', 'log_combat_decision',
+    'log_move_aborted', 'log_path_planned', 'log_kp_vacate_attempt', 'log_kp_vacate_blocked'
+]
