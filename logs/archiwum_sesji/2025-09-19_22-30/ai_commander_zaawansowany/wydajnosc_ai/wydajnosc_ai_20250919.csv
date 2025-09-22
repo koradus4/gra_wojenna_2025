@@ -1,0 +1,20 @@
+data_czas,tura,nacja,opoznienie_decyzji_ms,wykonane_obliczenia,uzyte_algorytmy,zuzycie_pamieci_mb,wykorzystanie_cpu_proc,glebokosc_drzewa_decyzji,ocenione_alternatywy,iteracje_optymalizacji,pewnosc_ai,zastosowana_szybkosc_uczenia,obecna_dokladnosc_modelu,wskaznik_sukcesu_przewidywan,wyzwolone_zachowanie_adaptacyjne,proby_odzyskania_po_bledzie,wskaznik_stabilnosci_systemu
+2025-09-19 22:34:27,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,55.6,False,0,1.0
+2025-09-19 22:34:28,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,100.0,False,0,1.0
+2025-09-19 22:38:34,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,83.3,False,0,1.0
+2025-09-19 22:38:37,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 22:49:38,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 22:49:40,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,20.0,False,0,1.0
+2025-09-19 22:57:02,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,83.3,False,0,1.0
+2025-09-19 22:57:03,,Niemcy,N/A,0,turn_summary,N/A,N/A,4,N/A,N/A,N/A,N/A,N/A,100.0,False,0,1.0
+2025-09-19 23:01:04,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:05,,Niemcy,N/A,0,turn_summary,N/A,N/A,4,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:09,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:10,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:15,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:16,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:20,,Niemcy,N/A,0,turn_summary,N/A,N/A,4,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:21,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:26,,Niemcy,N/A,0,turn_summary,N/A,N/A,5,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:27,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 23:01:33,,Niemcy,N/A,0,turn_summary,N/A,N/A,5,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0

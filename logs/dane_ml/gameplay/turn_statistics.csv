@@ -1,0 +1,27 @@
+timestamp,game_id,metrics_json,players_count,ai_count,turn_duration_seconds
+2025-09-19T21:25:18.754631,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0
+2025-09-19T21:36:15.972270,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0
+2025-09-19T21:49:44.121256,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0
+2025-09-19T22:34:26.166794,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T22:38:30.922247,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T22:49:36.443961,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T22:57:01.007283,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:02.977164,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:08.537875,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:13.939444,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:19.010017,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:24.581555,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:01:30.030548,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:10.078733,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:17.941810,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:27.212636,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:35.273941,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:45.234554,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:06:55.984132,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:07:08.097968,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:07:25.887735,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:07:38.619334,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:08:38.346967,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 0, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,0,0
+2025-09-19T23:10:13.948329,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0
+2025-09-19T23:10:32.588411,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0
+2025-09-19T23:10:48.837685,session_None,"{""turn_duration"": 0, ""players_count"": 6, ""ai_count"": 1, ""economic_activity"": 0, ""strategic_decisions"": 1}",6,1,0

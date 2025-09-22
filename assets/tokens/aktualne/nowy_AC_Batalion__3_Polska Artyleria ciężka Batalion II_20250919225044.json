@@ -1,0 +1,30 @@
+{
+  "id": "nowy_AC_Batalion__3_Polska Artyleria ciężka Batalion II_20250919225044",
+  "nation": "Polska",
+  "unitType": "AC",
+  "unitSize": "Batalion",
+  "shape": "prostokąt",
+  "label": "Polska Artyleria ciężka Batalion II",
+  "unit_full_name": "Polska Artyleria ciężka Batalion II",
+  "move": 6,
+  "attack": {
+    "range": 5,
+    "value": 38
+  },
+  "combat_value": 14,
+  "defense_value": 19,
+  "maintenance": 2,
+  "price": 82,
+  "sight": 7,
+  "owner": "3",
+  "support_upgrades": [
+    "drużyna granatników",
+    "sekcja km.ppanc",
+    "sekcja ckm",
+    "sam.ciezarowy Praga Rv",
+    "obserwator"
+  ],
+  "image": "assets/tokens/nowe_dla_3/nowy_AC_Batalion__3_Polska Artyleria ciężka Batalion II_20250919225044/token.png",
+  "w": 240,
+  "h": 240
+}

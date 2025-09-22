@@ -1,20 +1,36 @@
 {
-  "profile": "custom",
+  "profile": "aggressive",
   "profile_info": {
-    "profile": "custom",
-    "name": "Niestandardowy Commander",
-    "description": "Konfiguracja dostosowana ręcznie przez użytkownika"
+    "profile": "aggressive",
+    "name": "Agresywny Commander",
+    "description": "Maksymalny nacisk na atak, wysokie ryzyko, szybkie tempo"
   },
   "custom_parameters": {
     "COMBAT": {
-      "THREAT_RETREAT_THRESHOLD": 99
+      "MINIMUM_ATTACK_RATIO": 1.01,
+      "LOW_CV_RESUPPLY_THRESHOLD": 1.5,
+      "COUNTER_ATTACK_MAX_PENALTY": 0.0,
+      "THREAT_RETREAT_THRESHOLD": 999,
+      "LOW_COUNTERATTACK_ADJUST_ENABLED": true,
+      "LOW_COUNTERATTACK_ADJUST_TO": 1.0
     },
-    "ECONOMY": {
-      "MIN_BUY": 42.5
+    "LOGISTICS": {
+      "LOW_FUEL_PERCENT_THRESHOLD": 0.7,
+      "MAX_UNITS_PER_TURN": 99,
+      "RESUPPLY_RATIOS": {
+        "WOJNA": 2.0,
+        "KRYZYS": 2.0
+      },
+      "NEAR_TARGET_CRITICAL_OVERRIDE": true
+    },
+    "DEPLOYMENT": {
+      "DEFAULT_VP_WEIGHT": 2.0,
+      "DEFAULT_ECON_WEIGHT": 0.5
     }
   },
   "metadata": {
     "version": "1.0",
-    "created_by": "AI Configuration System"
+    "created_by": "AI Configuration System",
+    "note": "Forced aggressive profile for human vs AI match"
   }
 }

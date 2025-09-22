@@ -1,0 +1,7 @@
+data_czas,tura,korelacja_id,nacja,atakujacy_id,broniacy_id,atak_cv_przed,atak_cv_po,obr_cv_przed,obr_cv_po,wynik_walki,hex_q,hex_r,notatki
+2025-09-19 22:38:34,N/A,combat:Z_Pluton__5_Unterst_tzungs_Bataillon_20250913214038:X,Niemcy,Z_Pluton__5_Unterst_tzungs_Bataillon_20250913214038,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214048,4,0,4,0,success,51,-13,"Obrońca został zniszczony!
+Atakujący został zniszczony!"
+2025-09-19 23:01:15,N/A,combat:AC_Kompania__5_schwere_Artillerie:X,Niemcy,AC_Kompania__5_schwere_Artillerie,P_Kompania__2_Pu_k_Piechoty,11,11,11,1,success,33,-3,"Obrońca przeżył z 1 punktem i cofnął się na (32, -3)!"
+2025-09-19 23:01:33,N/A,combat:P_Pluton__5_Infanterie_Regiment:X,Niemcy,P_Pluton__5_Infanterie_Regiment,P_Pluton__6_Sch_tzen_Kompanie,8,0,8,1,success,48,7,"Obrońca przeżył z 1 punktem i cofnął się na (47, 7)!
+Atakujący został zniszczony!"
+2025-09-19 23:01:33,N/A,combat:AC_Kompania__5_schwere_Artillerie:X,Niemcy,AC_Kompania__5_schwere_Artillerie,P_Kompania__6_Sch_tzen_Kompanie,11,11,11,1,success,51,3,"Obrońca przeżył z 1 punktem i cofnął się na (52, 3)!"

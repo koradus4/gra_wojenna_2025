@@ -1,0 +1,7 @@
+data_czas,tura,nacja,opoznienie_decyzji_ms,wykonane_obliczenia,uzyte_algorytmy,zuzycie_pamieci_mb,wykorzystanie_cpu_proc,glebokosc_drzewa_decyzji,ocenione_alternatywy,iteracje_optymalizacji,pewnosc_ai,zastosowana_szybkosc_uczenia,obecna_dokladnosc_modelu,wskaznik_sukcesu_przewidywan,wyzwolone_zachowanie_adaptacyjne,proby_odzyskania_po_bledzie,wskaznik_stabilnosci_systemu
+2025-09-19 21:25:20,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,55.6,False,0,1.0
+2025-09-19 21:25:21,,Niemcy,N/A,0,turn_summary,N/A,N/A,3,N/A,N/A,N/A,N/A,N/A,100.0,False,0,1.0
+2025-09-19 21:36:17,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,83.3,False,0,1.0
+2025-09-19 21:36:19,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,50.0,False,0,1.0
+2025-09-19 21:49:45,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0
+2025-09-19 21:49:46,,Niemcy,N/A,0,turn_summary,N/A,N/A,2,N/A,N/A,N/A,N/A,N/A,0.0,False,0,1.0

@@ -36,6 +36,13 @@ Ten katalog zawiera alternatywne sposoby uruchamiania gry wojennej. Główny lau
 - 📊 Szczegółowa analiza wyników
 - 🎯 Idealny do testowania AI
 
+### 🧨 **main_ai_vs_human.py** (katalog główny)
+**Pojedynek: AI Niemcy vs Polska (Human)**
+- 🇩🇪 AI kontroluje Niemcy: Generał + 2 Dowódców
+- 🇵🇱 Polska w pełni sterowana przez człowieka (GUI)
+- 🎚️ Wykorzystuje aktualną konfigurację profilu AI (np. aggressive) z `ai/configs/ai_config.json`
+- 🧹 Opcjonalne czyszczenie sesji (`--clean`)
+
 ## 🚀 Jak uruchomić?
 
 ```bash
@@ -50,6 +57,9 @@ python launchers/main_alternative.py
 
 # Test AI vs AI
 python launchers/auto_test_ai.py
+
+# AI Niemcy vs Polska (Human)
+python main_ai_vs_human.py --turns 20 --victory turns --clean
 ```
 
 ## 💡 Rekomendacje

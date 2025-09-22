@@ -1,0 +1,189 @@
+timestamp,issue_type,unit_id,garrison_hex,unit_mp,unit_fuel,unit_position,distance_to_garrison,pathfinding_failed,target_blocked,threat_level,kp_value,available_units,details
+2025-09-19T23:06:18.621466,NO_MOVEMENT_POINTS,P_Pluton__5_Infanterie_Regiment,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:18.622463,NO_FUEL,P_Pluton__5_Infanterie_Regiment,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:18.623460,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:18.625581,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:18.626710,NO_MOVEMENT_POINTS,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:18.627707,NO_FUEL,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"35,-15",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:18.628834,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"36,-15",7,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:18.629892,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"36,-15",7,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:18.630891,NO_MOVEMENT_POINTS,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"36,-16",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:18.631777,NO_FUEL,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"36,-16",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:18.633855,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 2, 'shortage': 2}"
+2025-09-19T23:06:28.878957,NO_MOVEMENT_POINTS,P_Pluton__5_Infanterie_Regiment,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:28.879965,NO_FUEL,P_Pluton__5_Infanterie_Regiment,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:28.880969,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:28.882080,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:28.883076,NO_MOVEMENT_POINTS,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:28.884074,NO_FUEL,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:28.884074,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:28.885294,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"35,-14",7,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:28.886729,NO_MOVEMENT_POINTS,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"35,-16",9,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:28.886729,NO_FUEL,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"35,-16",9,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:28.889188,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 2, 'shortage': 2}"
+2025-09-19T23:06:30.340364,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"37,4",4,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:30.343376,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"37,4",4,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:30.345502,NO_MOVEMENT_POINTS,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"33,5",0,0,"38,5",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:30.345502,NO_FUEL,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"33,5",0,0,"38,5",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:30.345502,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"41,10",13,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:30.345502,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"41,10",13,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:30.345502,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"50,-9",17,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:30.352046,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"50,-9",17,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:30.352046,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"50,-9",17,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:30.352046,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"50,-9",17,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:30.352046,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"33,5",N/A,N/A,N/A,N/A,N/A,N/A,0,75,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:06:36.696206,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"39,-12",3,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:36.775044,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"39,-12",3,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:36.777049,NO_MOVEMENT_POINTS,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"37,-12",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:36.777049,NO_FUEL,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"37,-12",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:36.780902,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"37,-14",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:36.784893,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"37,-14",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:36.788275,NO_MOVEMENT_POINTS,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"41,-16",3,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:36.790923,NO_FUEL,AL_Batalion__5_Artillerie_Abteilung,"42,-14",0,0,"41,-16",3,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:36.793921,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 2, 'shortage': 2}"
+2025-09-19T23:06:40.160101,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"43,4",11,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:40.161143,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"43,4",11,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:40.161143,NO_MOVEMENT_POINTS,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"32,6",0,0,"38,5",6,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:40.163278,NO_FUEL,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"32,6",0,0,"38,5",6,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:40.163278,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:40.164310,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:40.164310,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"52,-5",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:40.164310,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"52,-5",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:40.164310,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"50,-7",18,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:40.168795,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"50,-7",18,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:40.169808,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"32,6",N/A,N/A,N/A,N/A,N/A,N/A,0,75,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:06:46.471083,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"38,-12",4,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:46.472217,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"38,-12",4,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:46.473220,NO_MOVEMENT_POINTS,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"37,-11",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:46.473220,NO_FUEL,P_Pluton__5_Sch_tzen_Kompanie,"42,-14",0,0,"37,-11",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:46.475569,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"36,-14",6,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:46.476206,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"36,-14",6,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:46.477313,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,3,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:06:49.438845,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"44,4",12,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.440072,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"44,4",12,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.441433,NO_MOVEMENT_POINTS,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"32,6",0,0,"38,5",6,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.442775,NO_FUEL,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"32,6",0,0,"38,5",6,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.444769,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"38,12",12,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.445765,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"38,12",12,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.447092,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"53,-5",21,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.449508,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"53,-5",21,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.450507,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"49,-7",17,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.451503,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"49,-7",17,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.453497,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"32,6",N/A,N/A,N/A,N/A,N/A,N/A,0,75,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:06:49.455801,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"44,4",16,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.456810,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"44,4",16,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.457812,NO_MOVEMENT_POINTS,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"51,-12",0,0,"38,5",17,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.457812,NO_FUEL,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214051,"51,-12",0,0,"38,5",17,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.459056,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"38,12",24,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.460493,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"38,12",24,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.462522,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"53,-5",9,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.462522,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"53,-5",9,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.463626,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"49,-7",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:49.464631,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"49,-7",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:49.466642,INSUFFICIENT_SUPPORT,Z_Pluton__6_Unterst_tzungs_Bataillon_20250913214048,"51,-12",N/A,N/A,N/A,N/A,N/A,N/A,0,70,5,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:06:57.971048,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"37,-10",5,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:57.972182,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"37,-10",5,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:57.973633,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"39,-12",3,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:06:57.974997,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"39,-12",3,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:06:57.977488,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,2,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:00.270927,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"49,5",16,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.272113,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"49,5",16,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.273436,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"41,12",15,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.274434,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"41,12",15,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.275753,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"50,2",17,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.277826,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"50,2",17,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.278823,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"54,-5",21,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.279837,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"54,-5",21,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.280835,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"33,5",N/A,N/A,N/A,N/A,N/A,N/A,0,75,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:00.281832,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"51,-13",0,0,"49,5",18,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.283153,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"51,-13",0,0,"49,5",18,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.285385,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"51,-13",0,0,"41,12",25,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.286383,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"51,-13",0,0,"41,12",25,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.287380,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"51,-13",0,0,"50,2",15,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.288378,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"51,-13",0,0,"50,2",15,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.291156,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"51,-13",0,0,"54,-5",11,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:00.292154,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"51,-13",0,0,"54,-5",11,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:00.294148,INSUFFICIENT_SUPPORT,Z_Pluton__6_Versorgungs_Kompanie,"51,-13",N/A,N/A,N/A,N/A,N/A,N/A,0,60,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:10.137659,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"34,-6",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:10.137659,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"34,-6",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:10.140080,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"34,-8",8,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:10.141077,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"34,-8",8,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:10.142075,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,2,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:12.575827,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"50,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.575827,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"50,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.575827,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"40,12",14,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.579819,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"40,12",14,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.581825,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"45,8",15,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.581825,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"45,8",15,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.583828,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"55,-3",22,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.585831,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"55,-3",22,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.585831,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"33,5",N/A,N/A,N/A,N/A,N/A,N/A,0,75,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:12.587835,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"52,-13",0,0,"50,7",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.589838,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"52,-13",0,0,"50,7",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.591842,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"52,-13",0,0,"40,12",25,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.593845,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"52,-13",0,0,"40,12",25,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.593845,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"52,-13",0,0,"45,8",21,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.595588,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"52,-13",0,0,"45,8",21,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.597591,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"52,-13",0,0,"55,-3",13,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:12.599594,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"52,-13",0,0,"55,-3",13,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:12.599594,INSUFFICIENT_SUPPORT,Z_Pluton__6_Unterst_tzungs_Bataillon,"52,-13",N/A,N/A,N/A,N/A,N/A,N/A,0,90,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 2, 'shortage': 2}"
+2025-09-19T23:07:27.235246,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"39,-4",10,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:27.237240,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"39,-4",10,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:27.238257,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"38,-5",9,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:27.239230,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"38,-5",9,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:27.241225,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,2,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:30.159689,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"51,7",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:30.160709,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"51,7",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:30.160709,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:30.160709,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:30.160709,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"44,8",14,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:30.160709,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"44,8",14,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:30.164462,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"53,4",21,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:30.165488,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"53,4",21,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:30.166812,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"32,6",N/A,N/A,N/A,N/A,N/A,N/A,0,75,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:40.159782,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"44,-2",14,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:40.160776,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"44,-2",14,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:40.162772,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"42,-2",12,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:40.165095,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"42,-2",12,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:40.166093,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,2,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:42.597220,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"50,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.611831,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"33,5",0,0,"50,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.615500,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"40,12",14,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.616744,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"33,5",0,0,"40,12",14,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.618740,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"45,8",15,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.619738,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"33,5",0,0,"45,8",15,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.620734,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"52,6",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.621733,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"33,5",0,0,"52,6",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.624045,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"33,5",N/A,N/A,N/A,N/A,N/A,N/A,0,75,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:07:42.625049,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"50,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.626092,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"50,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.627445,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"40,12",24,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.628484,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"40,12",24,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.630478,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"45,8",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.631477,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"45,8",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.632473,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"52,6",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:07:42.633511,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"52,6",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:07:42.634563,INSUFFICIENT_SUPPORT,Z_Pluton__6_Versorgungs_Kompanie,"51,-12",N/A,N/A,N/A,N/A,N/A,N/A,0,30,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:08:39.833893,NO_MOVEMENT_POINTS,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"49,0",21,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:39.833893,NO_FUEL,P_Kompania__5_Infanterie_Regiment,"42,-14",0,0,"49,0",21,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:39.834897,NO_MOVEMENT_POINTS,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"47,0",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:39.835946,NO_FUEL,AC_Kompania__5_schwere_Artillerie,"42,-14",0,0,"47,0",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:39.837197,INSUFFICIENT_SUPPORT,P_Pluton__5_Sch_tzen_Kompanie_20250913214034,"42,-14",N/A,N/A,N/A,N/A,N/A,N/A,0,150,2,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:08:41.278699,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"51,7",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.279798,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"32,6",0,0,"51,7",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.281235,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.281745,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"32,6",0,0,"39,12",13,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.282766,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"44,8",14,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.284117,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"32,6",0,0,"44,8",14,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.284117,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"50,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.284117,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"32,6",0,0,"50,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.287295,INSUFFICIENT_SUPPORT,P_Pluton__6_Infanterie_Regiment,"32,6",N/A,N/A,N/A,N/A,N/A,N/A,0,75,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"
+2025-09-19T23:08:41.288308,NO_MOVEMENT_POINTS,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"51,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.288308,NO_FUEL,P_Pluton__6_Sch_tzen_Kompanie,"51,-12",0,0,"51,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.289718,NO_MOVEMENT_POINTS,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"39,12",24,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.290991,NO_FUEL,P_Batalion__6_Infanterie_Regiment,"51,-12",0,0,"39,12",24,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.294049,NO_MOVEMENT_POINTS,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"44,8",20,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.294049,NO_FUEL,P_Pluton__6_Grenadier_Bataillon,"51,-12",0,0,"44,8",20,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.295295,NO_MOVEMENT_POINTS,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"50,7",19,False,False,N/A,N/A,N/A,{'no_mp': True}
+2025-09-19T23:08:41.296299,NO_FUEL,P_Kompania__6_Sch_tzen_Kompanie,"51,-12",0,0,"50,7",19,False,False,N/A,N/A,N/A,"{'no_mp': True, 'no_fuel': True}"
+2025-09-19T23:08:41.297458,INSUFFICIENT_SUPPORT,Z_Pluton__6_Versorgungs_Kompanie,"51,-12",N/A,N/A,N/A,N/A,N/A,N/A,0,20,4,"{'enemies_list': [], 'units_found': 0, 'units_needed': 1, 'shortage': 1}"

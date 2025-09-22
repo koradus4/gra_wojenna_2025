@@ -24,7 +24,9 @@ class VictoryConditions:
             return True
             
         # Sprawdzenie limitu tur
-        if current_turn >= self.max_turns:
+        # Uwaga: używamy '>' zamiast '>=' aby zakończenie następowało PO pełnej turze,
+        # czyli dopiero gdy licznik tury został zwiększony na początku kolejnego cyklu.
+        if current_turn > self.max_turns:
             self.game_over = True
             self.victory_reason = f"Osiągnięto maksymalną liczbę tur ({self.max_turns})"
             
