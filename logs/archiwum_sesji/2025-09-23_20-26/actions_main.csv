@@ -1,6 +1,0 @@
-timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
-2025-09-23T20:26:03;1;3;Polska;Dowódca;move;K_Pluton__3_Oddzia_Jazdy;;35;11;39;7;;0;0;471;484
-2025-09-23T20:26:26;1;3;Polska;Dowódca;resupply;K_Pluton__3_Oddzia_Jazdy;;;;36;10;fuel+1, combat+0;0;0;588;647
-2025-09-23T20:26:28;1;3;Polska;Dowódca;move;K_Pluton__3_Oddzia_Jazdy;;36;10;40;6;;0;0;588;647
-2025-09-23T20:26:34;1;3;Polska;Dowódca;move;Z_Kompania__3_Kompania_Zaopatrzeniowa;;34;11;38;7;;0;0;588;647
-2025-09-23T20:26:37;1;3;Polska;Dowódca;move;Z_Kompania__3_Kompania_Zaopatrzeniowa;;35;10;38;7;;0;0;588;647
