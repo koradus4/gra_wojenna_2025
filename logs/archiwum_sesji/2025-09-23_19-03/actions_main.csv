@@ -1,0 +1,12 @@
+timestamp;turn;player_id;player_nation;player_role;action;token_id;target_token_id;from_q;from_r;to_q;to_r;result;vp_pl;vp_de;pe_pl;pe_de
+2025-09-23T19:03:31;1;1;Polska;Generał;end_turn;;;;;;;ok;0;0;44;0
+2025-09-23T19:03:35;1;2;Polska;Dowódca;end_turn;;;;;;;user;0;0;44;0
+2025-09-23T19:03:45;1;3;Polska;Dowódca;move;K_Pluton__3_Oddzia_Jazdy;;35;11;38;9;OK;0;0;44;0
+2025-09-23T19:03:50;1;3;Polska;Dowódca;move;K_Pluton__3_Oddzia_Jazdy;;36;10;38;9;OK;0;0;44;0
+2025-09-23T19:03:54;1;3;Polska;Dowódca;move;K_Pluton__3_Oddzia_Jazdy;;37;9;38;9;OK;0;0;44;0
+2025-09-23T19:03:54;1;6;Niemcy;Dowódca;reaction_attack;P_Batalion__6_Infanterie_Regiment;K_Pluton__3_Oddzia_Jazdy;39;8;38;9;"Obrońca został zniszczony!
+Atakujący stracił 10 punktów, pozostało: 4";-21;21;44;0
+2025-09-23T19:04:04;1;3;Polska;Dowódca;end_turn;;;;;;;user;-21;21;44;0
+2025-09-23T19:04:13;1;4;Niemcy;Generał;end_turn;;;;;;;ok;-21;21;44;64
+2025-09-23T19:04:18;1;5;Niemcy;Dowódca;end_turn;;;;;;;user;-21;21;44;64
+2025-09-23T19:04:26;1;6;Niemcy;Dowódca;move;P_Batalion__6_Infanterie_Regiment;;39;8;37;9;;-21;21;44;64

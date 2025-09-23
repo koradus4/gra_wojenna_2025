@@ -82,6 +82,8 @@ core/
 - Zarządzanie kolejnością graczy i turami
 - Reset zasobów jednostek (MP, fuel, akcje artylerii)
 - Integracja z systemem pogody
+- System czasu: 6 tur = 1 doba, pory dnia (rano/dzień/wieczór/noc)
+- Raport do UI: `get_ui_weather_report()` (Data/Dzień | Pora dnia | Pogoda)
 - Kontrola limitów tur (domyślnie 10)
 
 **Kluczowe metody:**
@@ -89,6 +91,9 @@ core/
 - `rozpocznij_nowa_ture()` - inicjuje nową turę z pogodą
 - `get_current_player()` - zwraca aktywnego gracza
 - `is_game_over(max_turns)` - kontrola końca gry
+ - `get_day_number(turn)`, `get_day_phase(turn)` - pomocnicze funkcje czasu
+ - `get_current_date()` - (opcjonalnie) data scenariusza
+ - `get_ui_weather_report()` - zwięzły raport dla GUI
 
 **Integracja:**
 - Używany przez główne pliki gry (`main.py`, `main_ai.py`)

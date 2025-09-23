@@ -151,6 +151,13 @@ Koordynacja systemu fog of war.
 - Realistyczne rozpoznanie battlefield
 - Taktyczna wartość jednostek zwiadowczych
 
+### ⏱️ Pory dnia i wpływ na widoczność (NOWE 23.09.2025)
+- Kadencja: 6 tur = 1 doba (1=rano, 2–3=dzień, 4=wieczór, 5–6=noc).
+- `TurnManager` udostępnia pomocnicze funkcje czasu oraz zwięzły raport dla UI.
+- `VisionService` stosuje mnożniki detekcji: wieczór ×0.9, noc ×0.7; rano/dzień ×1.0.
+- GUI mapy przyciemnia planszę wieczorem i nocą (nakładka Canvas – efekt wizualny).
+- Logika FoW, zatrzymania ruchu przy wykryciu i progi FULL/PARTIAL/MINIMAL pozostają bez zmian (poza niższym detection_level w nocy).
+
 ---
 
 ## 🎯 **2. ACTION_REFACTORED_CLEAN.PY - SYSTEM AKCJI**

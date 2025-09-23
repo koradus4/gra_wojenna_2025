@@ -1,10 +1,10 @@
 # STRUKTURA PROJEKTU KAMPANIA 1939
 
-## 📌 STAN BIEŻĄCY (16 września 2025) – WERSJA 4.2 – POLSKI SYSTEM LOGOWANIA + ROTACJA SESJI
+## 📌 STAN BIEŻĄCY (23 września 2025) – WERSJA 4.3 – PROJEKT BEZ AI + POLSKI SYSTEM LOGOWANIA
 
 **POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (15-16.09.2025)**
 **Kompletna reorganizacja systemu logowania z polskimi nazwami i automatyczną rotacją sesji.**
-├── main.py                      # GŁÓWNY LAUNCHER - zaawansowany AI launcher (main_ai.py → main.py)
+├── main.py                      # GŁÓWNY LAUNCHER gry HvsH (bez AI)
 ├── requirements.txt             # Zależności
 ├── STRUKTURA_PROJEKTU.md        # Ten plik
 ├── accessibility/               # Rozszerzenia dostępności (szkielety)
@@ -24,40 +24,22 @@
 │   ├── README.md               # Przewodnik po launcherach
 │   ├── main_basic.py           # Podstawowy launcher z EkranStartowy GUI
 │   ├── main_alternative.py     # Launcher z opcjami czyszczenia (szybki start)
-│   └── auto_test_ai.py         # Automatyczny test AI vs AI (10 tur)
+│   └── [usunięto] auto_test_ai.py         # (usunięte wraz z AI)
 ├── saves/                       # Zapisy stanu
 ├── scripts/                     # Skrypty porządkowe / automatyzacja
-├── tests/                       # Testy (uporządkowane w podkatalogi):** AI General używał tylko podstawowe parametry i heurystyki, ograniczając inteligencję strategiczną.
+├── tests/                       # Testy (uporządkowane w podkatalogi) — testy AI zostały usunięte
 
-**Rozwiązanie AI General Intelligence:**
-- **29 nowych parametrów strategicznych** w kategorii `GENERAL_STRATEGY`
-- **5 modułów inteligencji:** Purchase Strategy, Battlefield Analysis, Allocation Intelligence, Strategic Decisions, Strategic Limits
-- **GUI Integration:** Nowa zakładka "🏛️ AI General" z polskimi opisami parametrów
-- **4 funkcje strategiczne** wzbogacone o inteligentne parametry
-- **Parametryzowana logika:** od zakupów jednostek po analizę battlefield
+UWAGA: Cały rozdział dot. AI oraz powyższe wpisy są archiwalne i nieaktualne — system AI został usunięty.
 
-**Nowe komponenty inteligencji:**
-- **Purchase Strategy:** Priorytetyzacja typów jednostek (P,C,A,Z,D) z wagami
-- **Battlefield Analysis:** Force ratio sensitivity, opportunity/retreat thresholds
-- **Allocation Intelligence:** Inteligentne wagi PE dla dowódców (fuel crisis, supply shortage)
-- **Strategic Decisions:** Risk tolerance, adaptation speed, economic vs military focus
-- **Strategic Limits:** Dynamiczne limity zakupów, progi kryzysu i zwycięstwa
+**AKTUALIZACJA 23.09.2025 – SYSTEM CZASU I PÓR DNIA + PRZYCIEMNIENIE MAPY**
+- 6 tur = 1 doba. Mapowanie: 1=rano, 2–3=dzień, 4=wieczór, 5–6=noc.
+- `TurnManager` udostępnia: `get_day_number(turn)`, `get_day_phase(turn)`, `get_current_date()` (opcjonalna data scenariusza) oraz `get_ui_weather_report()` – zwraca zwięzły raport do panelu pogody: „Data/Dzień | Pora dnia | Pogoda”.
+- Panel pogodowy (generał/dowódca) wyświetla datę i porę dnia; logika FOW nie ulega zmianie.
+- Delikatny globalny wpływ pory dnia na detekcję: wieczór ×0.9, noc ×0.7 (VisionService – bez zmian API wywołań).
+- W GUI mapy (`PanelMapa`) dodano półprzezroczystą nakładkę przyciemniającą: wieczór (szary wzór gray25), noc (gray50). To efekt wizualny – nie zmienia mechaniki.
+- Kontekst tury jest publikowany globalnie (utils.turn_context) dla serwisów zależnych od pory dnia.
 
-**Zaimplementowane funkcje:**
-- `_select_template()`: Inteligentna priorytetyzacja zakupów z battlefield intelligence
-- `allocate_points()`: Parametryzowane wagi alokacji PE (6 czynników)
-- `_determine_strategy()`: Battlefield analysis z 9 parametrami strategicznymi
-- `consider_unit_purchase()`: Dynamiczne limity z adaptation speed
-
-**Wyniki weryfikacji:**
-- **AI General inicjalizacja**: Wszystkie nowe parametry działają bez błędów ✅
-- **GUI Integration**: Zakładka AI General z 10 kluczowymi parametrami ✅
-- **Strategic Intelligence**: 29 parametrów wpływa na 4 kluczowe funkcje decyzyjne ✅
-- **Polish UX**: Pełne polskie opisy parametrów z praktycznymi przykładami ✅
-
-**Pliki:** `ai/ai_config.py` (+29 parametrów), `gui/ai_config_panel.py` (+zakładka), `ai/ai_general.py` (4 funkcje), `PLAN_ROZWOJU_AI_SYSTEMU.md` (kompletny)
-
-**LAUNCHER ORGANIZATION SYSTEM - NOWOŚĆ! (13.09.2025):**
+**LAUNCHER ORGANIZATION SYSTEM (aktualne):**
 
 **Problem:** Cztery różne pliki główne (main.py, main_ai.py, main_alternative.py, auto_game_10_turns.py) na root level powodowały zamieszanie i duplikację funkcjonalności.
 
@@ -68,10 +50,10 @@
 - **Zachowana funkcjonalność:** Wszystkie pliki działają z poprawionymi import paths
 
 **Nowa struktura launcherów:**
-- **main.py (root):** Główny zaawansowany launcher (🧠 AI, 🎚️ debug, 🧹 Smart Cleaning)
+- **main.py (root):** Główny launcher HvsH (bez AI) + przyciski czyszczenia/archiwizacji
 - **launchers/main_basic.py:** Podstawowy launcher z EkranStartowy GUI
 - **launchers/main_alternative.py:** Szybki launcher z opcjami czyszczenia
-- **launchers/auto_test_ai.py:** Automatyczny test AI vs AI (10 tur)
+- [usunięto] `launchers/auto_test_ai.py`
 - **launchers/README.md:** Przewodnik po wszystkich opcjach uruchomienia
 
 **Korzyści organizacji:**
@@ -81,12 +63,12 @@
 - **User-friendly:** README z jasnymi rekomendacjami dla różnych przypadków użycia
 
 **Wyniki weryfikacji:**
-- **Import paths:** Wszystkie launchers działają poprawnie z nowej lokalizacji ✅
-- **Funkcjonalność:** Każdy launcher zachowuje pełną kompatybilność ✅
-- **Dokumentacja:** README z jasnymi instrukcjami i rekomendacjami ✅
-- **Clean root:** Tylko jeden główny launcher w katalogu głównym ✅
+- **Import paths:** Launchery HvsH działają poprawnie ✅
+- **Funkcjonalność:** Brak zależności od AI ✅
+- **Dokumentacja:** Zaktualizowana do stanu bez AI ✅
+- **Clean root:** Jeden główny launcher w katalogu głównym ✅
 
-**Pliki:** `main.py` (główny), `launchers/main_basic.py`, `launchers/main_alternative.py`, `launchers/auto_test_ai.py`, `launchers/README.md`
+**Pliki:** `main.py` (główny), `launchers/main_basic.py`, `launchers/main_alternative.py`, `launchers/README.md`
 
 **POLSKI SYSTEM LOGOWANIA - NOWOŚĆ! (17.09.2025):**
 
@@ -126,7 +108,7 @@
 - **Usunięty legacy CSV:** Z `ai/victory_ai.py` usunięto stary writer CSV; metryki wydajności i analiza zwycięstwa trafiają do nowych kategorii przez `commander.logger`.
 - **Test dymny:** `tests/test_polish_logging.py` potwierdza tworzenie struktury sesji i CSV dla kluczowych kategorii.
 
-**Pliki:** `utils/session_manager.py` (Singleton), `ai/logowanie_ai.py` (adapter legacy→nowy logger), `ai/victory_ai.py` (legacy CSV usunięty, loguje przez alias), `czyszczenie/` (polskie nazwy), `main.py` (archiwizacja przy zamknięciu), `tests/test_polish_logging.py` (test dymny)
+**Pliki:** `utils/session_manager.py` (Singleton), `czyszczenie/` (polskie nazwy), `main.py` (archiwizacja przy zamknięciu), `tests/test_polish_logging.py` (test dymny)
 
 **SMART LOG CLEANING SYSTEM - NOWOŚĆ! (13.09.2025):**
 
@@ -152,7 +134,7 @@
 - **Safety Warnings**: Stare skrypty wymagają "ZNISZCZ_ML" confirmation ✅
 - **Main Launcher Integration**: 4 nowe przyciski czyszczenia z user-friendly dialogs ✅
 
-**Pliki:** `utils/smart_log_cleaner.py`, `main_ai.py` (+session/full/archive buttons), `czyszczenie/game_cleaner.py` (ML protection), `czyszczenie/czyszczenie_csv.py` (warnings)
+**Pliki:** `utils/smart_log_cleaner.py`, `main.py` (przyciski czyszczenia/archiwizacji), `czyszczenie/game_cleaner.py` (ML protection), `czyszczenie/czyszczenie_csv.py` (warnings)
 
 **AI CONFIGURATION SYSTEM - KOMPLETNE ROZWIĄZANIE (13.09.2025):**
 
@@ -272,6 +254,12 @@ Cel: przygotowanie sygnałów do przyszłego Emergency Mode oraz analizy tempa o
 
 AI musi działać w ramach tej samej informacji (brak „cheat vision").
 
+**NOWE (23.09.2025): Pory dnia i ich wpływ na widoczność**
+- 6-taktowa doba z porami dnia (rano/dzień/wieczór/noc) sterowana przez `TurnManager`.
+- `VisionService` stosuje mnożniki detekcji: wieczór 0.9, noc 0.7 – reszta bez zmian.
+- GUI mapy przyciemnia planszę wieczorem i nocą (nakładka Canvas – wyłącznie UI).
+- FoW, zatrzymania ruchu przy wykryciu i progi FULL/PARTIAL/MINIMAL działają jak w dzień (z uwzględnieniem niższego detection_level w nocy).
+
 Najważniejsze zmiany od 3.3 → 3.5:
 1. **System ograniczenia strzałów artylerii** - kompletny z testami i dokumentacją
 2. **Aktualizacja dokumentacji** - nowe przewodniki balansowania TOKEN i HEX
@@ -324,58 +312,12 @@ projekt/
 │   ├── OPIS_NARZEDZI_CZYSZCZENIA.md # ✅ (NOWY) Kompletna dokumentacja narzędzi czyszczenia
 │   ├── czyszczenie_wszystkich_zetonow.py  # Token cleanup utility
 │   └── czyszczenie_zakupionych_zetonow.py # Purchased tokens cleanup
-└── ai/                          # Wstępny moduł sztucznej inteligencji (Faza 1 częściowa)
+└── [usunięto] ai/               # Pakiet AI został usunięty (projekt bez AI)
 ```
 
-### Katalog `ai/` (stan bieżący + AI Configuration System + PE validation system)
-```
-ai/
-├── __init__.py
-├── ai_config.py               # ✅ (NOWY) Centralny system konfiguracji AI z profile/parameters
-├── configs/
-│   └── ai_config.json         # ✅ (NOWY) JSON persistence custom parameters z GUI
-├── ai_general.py              # ✅ (REFAKTORYZOWANY) Generał AI: 19 get_param() calls
-├── ai_commander.py            # (ROZSZERZONY) Dowódca AI: taktyka, ruch, PE spending controls
-├── walka_ai.py                # ✅ (REFAKTORYZOWANY) Combat system: 6 get_param() calls
-├── ekonomia_ai.py             # ✅ (REFAKTORYZOWANY) Ekonomia: 4 get_param() calls
-├── zaopatrzenie_ai.py         # (NOWY) System PE validation i bezpiecznych transferów
-├── logowanie_ai.py            # (ROZSZERZONY) Logi PE flow i economic tracking
-├── wybor_celow.py             # Target selection dla jednostek
-├── grupowanie_ai.py           # Adaptive grouping i koordinacja
-├── ruch_jednostek.py          # Movement system z MP validation
-├── okupacja_punktow.py        # Garrison management
-├── obrona_ai.py               # Defensive positioning
-├── rajdy_ai.py                # Opportunistic captures
-├── reakcje_ai.py              # Reaction fire system
-├── priorytety_ai.py           # Key points scoring
-├── konfiguracja_ai.py         # ⚠️ (LEGACY) Partial constants - mostly replaced by ai_config.py
-├── log_kategorie_ai.py        # Log categories definition
-├── test_ai_config.py          # ✅ (NOWY) Testy systemu konfiguracji
-└── logs/                      # NOWY POLSKI SYSTEM LOGOWANIA - ROTACJA + SEPARACJA ML ✅
-    ├── sesja_aktualna/        # 🇵🇱 BIEŻĄCA SESJA (zamiast current_session)
-    │   └── [TIMESTAMP]/       # Jeden katalog timestampowy na sesję (Singleton)
-    │       ├── ai_commander/  # Logi dowódców AI (actions, turns)
-    │       ├── ai_general/    # Logi generała AI (economy, strategy, keypoints)
-    │       ├── vp_intelligence/# Analiza Victory Points
-    │       └── specialized/   # Wyspecjalizowane logi (garrison, victory_ai)
-    ├── archiwum_sesji/        # 🗄️ ARCHIWUM OSTATNICH 5 SESJI (nowy katalog)
-    │   ├── 2025-09-16_14-30/ # Sesja zakończona #1 (najnowsza)
-    │   ├── 2025-09-16_13-45/ # Sesja zakończona #2
-    │   ├── 2025-09-16_13-20/ # Sesja zakończona #3
-    │   ├── 2025-09-16_12-15/ # Sesja zakończona #4
-    │   └── 2025-09-16_11-00/ # Sesja zakończona #5 (najstarsza, będzie usunięta)
-    ├── dane_ml/               # 🧠 DANE UCZENIA MASZYNOWEGO (nowy, chroniony)
-    │   ├── strategiczne/      # AI decision patterns, force ratios, victory patterns
-    │   │   └── ai_decyzje_analiza.csv # Strategiczne decyzje AI z kontekstem
-    │   ├── taktyczne/         # Combat decisions, terrain effects, unit effectiveness
-    │   │   └── combat_decisions.csv  # Decyzje bojowe i ich rezultaty
-    │   └── gameplay/          # Turn statistics, player actions, game flow
-    │       └── turn_statistics.csv   # Statystyki tur i flow gry
-    └── analysis/              # Analysis and reports ⭐ ZACHOWANE KOMPATYBILNIE
-        ├── ml_ready/          # 🛡️ ML TRAINING DATA - NEVER DELETED (legacy)
-        ├── raporty/           # Generated analysis reports
-        └── statystyki/        # Aggregated statistics and insights
-```
+### Katalog `ai/`
+
+Pakiet AI został usunięty z projektu. Wszelkie wcześniejsze odniesienia traktować jako archiwalne.
 ```
 ai/
 ├── __init__.py
@@ -390,14 +332,9 @@ ai/
  └── README.md            # (PLAN) Dokumentacja modułu AI
 ```
 
-### Tabela postępu faz AI (stan na 13.09.2025)
+### Uwaga o AI
 
-| Faza | Status | Pokrycie | Notatki |
-|------|--------|----------|---------|
-| 0 Dokumentacja kontraktu | ZAKOŃCZONA | 100% | API zidentyfikowane w wersji 3.0 |
-| 1 Szkielet modułu | ZAKOŃCZONA | 100% | AI Commander + AI General implementowane |
-| 2 Adapter stanu | ZAKOŃCZONY | 100% | PE validation + economic state management |
-| 3 Ruch taktyczny | ZAKOŃCZONY | 85% | Ruch, progresywny movement, garrison limit, opportunistic capture |
+Tabela faz AI i opisy modułów zostały usunięte. Projekt nie zawiera AI.
 | 4 Walka selektywna | ZAKOŃCZONY | 80% | System ograniczenia artylerii, PE-controlled combat, get_param() refactor |
 | 5 Strategia key points | ZAKOŃCZONY | 75% | Capture + bonusy + PE-based prioritization |
 | 6 Ekonomia / zakupy | ZAKOŃCZONY | 100% | ✅ **PE validation + AI Configuration System complete** |

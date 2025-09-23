@@ -194,6 +194,12 @@ def run_game(max_turns=10, victory_mode="turns"):
     # Pętla tur
     last_loaded_player_info = None  # Przechowuj info o aktywnym graczu po wczytaniu save
     while True:
+        # Ustaw kontekst tury dla mnożników pory dnia
+        try:
+            from utils.turn_context import set_current_turn
+            set_current_turn(turn_manager.current_turn)
+        except Exception:
+            pass
         # Jeśli po wczytaniu save jest info o aktywnym graczu, przełącz na niego
         if last_loaded_player_info:
             found = None
@@ -257,7 +263,7 @@ def run_game(max_turns=10, victory_mode="turns"):
 
         # Aktualizacja pogody dla panelu
         if hasattr(app, 'update_weather'):
-            app.update_weather(turn_manager.current_weather)
+            app.update_weather(turn_manager.get_ui_weather_report())
         # Aktualizacja punktów ekonomicznych dla paneli generałów
         if isinstance(app, PanelGenerala):
             # Debug: bilans przed losowaniem
@@ -284,6 +290,11 @@ def run_game(max_turns=10, victory_mode="turns"):
 
         # Przejście do następnej tury/podtury        # Przejście do kolejnego gracza i zwrócenie informacji czy zakończyła się pełna tura
         is_full_turn_end = turn_manager.next_turn()
+        try:
+            from utils.turn_context import set_current_turn
+            set_current_turn(turn_manager.current_turn)
+        except Exception:
+            pass
           # --- ROZDZIEL PUNKTY Z KEY_POINTS tylko na koniec pełnej tury ---
         if is_full_turn_end:
             game_engine.process_key_points(players)  # Ignoruj zwracaną wartość

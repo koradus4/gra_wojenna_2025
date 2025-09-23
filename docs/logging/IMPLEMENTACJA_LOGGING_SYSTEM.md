@@ -11,7 +11,7 @@ System logowania został pomyślnie wdrożony i przetestowany. Wszystkie kompone
 
 **Stary import:**
 ```python
-from ai.logowanie_ai import log_commander_action, log_commander_turn
+<!-- ARCHIWUM: dawne funkcje logowania AI (logowanie_ai) – system AI usunięty. -->
 ```
 
 **Nowy import:**

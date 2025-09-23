@@ -1,4 +1,0 @@
-data_czas,tura,korelacja_id,nacja,atakujacy_id,broniacy_id,atak_cv_przed,atak_cv_po,obr_cv_przed,obr_cv_po,wynik_walki,hex_q,hex_r,notatki
-2025-09-19 21:36:17,N/A,combat:AL_Batalion__5_Artillerie_Abteilung:X,Niemcy,AL_Batalion__5_Artillerie_Abteilung,nowy_Z_Pluton__2_Polska Zaopatrzenie Pluton ____20250919212554,11,11,4,1,success,32,-16,"Obrońca przeżył z 1 punktem i cofnął się na (31, -15)!"
-2025-09-19 21:49:46,N/A,combat:Z_Batalion__6_Versorgungs_Kompanie:X,Niemcy,Z_Batalion__6_Versorgungs_Kompanie,Z_Pluton__5_Unterst_tzungs_Bataillon_20250913214038,7,0,4,0,success,52,-13,"Obrońca został zniszczony!
-Atakujący został zniszczony!"

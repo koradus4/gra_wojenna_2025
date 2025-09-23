@@ -1,4 +1,0 @@
-timestamp,turn,nation,decision,rule_used,low_fuel_ratio,game_phase,total_units,commanders_count,reasoning,context
-2025-09-19T21:25:18.698996,,Niemcy,HOLD,econ<MIN_BUY,0.0,0.1,20,2,Za mało punktów – oszczędzam | Faza: BUILD (rozbudowa armii),"{""units"": 20, ""fuel_ratio"": 0.0, ""phase"": ""WCZESNA"", ""vp_situation"": ""REMIS""}"
-2025-09-19T21:36:15.780737,,Niemcy,COMBO,strategic_combo_ROZWÓJ,0.10526315789473684,0.1,19,2,Strategia ROZWÓJ – kombinacja alokacji i zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 19, ""fuel_ratio"": 0.10526315789473684, ""phase"": ""WCZESNA"", ""vp_situation"": ""PRZEGRYWAMY""}"
-2025-09-19T21:49:44.062153,,Niemcy,COMBO,strategic_combo_KRYZYS_PALIWA,0.5,0.1,18,2,Strategia KRYZYS PALIWA – priorytet uzupełnień + minimum zakupów | Faza: BUILD (rozbudowa armii),"{""units"": 18, ""fuel_ratio"": 0.5, ""phase"": ""WCZESNA"", ""vp_situation"": ""PRZEGRYWAMY""}"

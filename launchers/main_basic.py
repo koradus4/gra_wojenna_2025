@@ -14,26 +14,6 @@ from core.zwyciestwo import VictoryConditions
 from utils.game_cleaner import clean_all_for_new_game, quick_clean
 import tkinter as tk
 
-# AI GENERAŁ I DOWÓDCA IMPORT (odporny na brak modułu ai)
-try:
-    from ai import AIGeneral, is_ai_general, set_ai_general_enabled  # type: ignore
-    from ai.ai_commander import AICommander  # Import AI Commander
-except Exception:  # brak modułu lub klasy – degradacja łagodna
-    class AIGeneral:  # minimalny stub
-        def __init__(self, *_args, **_kwargs):
-            pass
-        def make_turn_decisions(self):
-            print("[AI-STUB] Pomijam decyzje – brak implementacji AI.")
-    class AICommander:  # minimalny stub
-        def __init__(self, *_args, **_kwargs):
-            pass
-        def make_turn(self, engine):
-            print("[AI-STUB] Pomijam turę AI Commander – brak implementacji.")
-    def is_ai_general(_p):
-        return False
-    def set_ai_general_enabled(_flag):
-        print("[AI-STUB] Flaga AI zignorowana – brak modułu ai.")
-
 
 
 
@@ -50,7 +30,6 @@ def main():
             game_data = ekran_startowy.get_game_data()
             miejsca = game_data["miejsca"]
             czasy = game_data["czasy"]
-            use_ai_general = game_data.get("use_ai_general", False)  # Odczytanie opcji AI
             max_turns = game_data.get("max_turns", 10)  # Nowe opcje gry
             victory_mode = game_data.get("victory_mode", "turns")
             
@@ -61,8 +40,7 @@ def main():
             quick_clean()
             print("✅ Czyszczenie zakończone\n")
             
-            # Ustawienie konfiguracji AI na podstawie wyboru użytkownika
-            set_ai_general_enabled(use_ai_general)
+            # AI usunięte – brak ustawień AI
         except AttributeError:
             print("❌ Nie wybrano danych gry - kończę")
             return
@@ -144,8 +122,7 @@ def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victo
     print(f"🎯 Opcje: {max_turns} tur, tryb: {victory_mode}")
     print(f"   Utworzono {len(players)} graczy:")
     for p in players:
-        ai_status = " [AI]" if is_ai_general(p) else ""
-        print(f"   - {p.name} ({p.nation}, {p.role}){ai_status}")
+        print(f"   - {p.name} ({p.nation}, {p.role})")
     
     # --- WARUNKI ZWYCIĘSTWA z nowymi opcjami ---
     victory_conditions = VictoryConditions(max_turns=max_turns, victory_mode=victory_mode)
@@ -154,6 +131,12 @@ def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victo
     
     # Pętla tur - używamy logiki z main_alternative.py
     while True:
+        # Ustaw kontekst tury przed logiką UI/engine
+        try:
+            from utils.turn_context import set_current_turn
+            set_current_turn(turn_manager.current_turn)
+        except Exception:
+            pass
         # Jeśli po wczytaniu save jest info o aktywnym graczu, przełącz na niego
         if last_loaded_player_info:  # obsługa wczytania save na początku iteracji
             # Po load_game lista graczy mogła się zmienić – zsynchronizuj
@@ -188,21 +171,9 @@ def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victo
             current_player.economy.add_special_points()
             available_points = current_player.economy.get_points()['economic_points']
             print(f"  💰 Generowanie ekonomii: {start_points} → {available_points} punktów")
-            if is_ai_general(current_player):
-                ai_general = AIGeneral(current_player, game_engine, players)
-                ai_general.make_turn_decisions()
-                app = None
-            else:
-                app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
+            app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
         elif current_player.role == "Dowódca":
-            # Sprawdź czy dowódca jest AI
-            if hasattr(current_player, 'is_ai_commander') and current_player.is_ai_commander:
-                print(f"🤖 AI Commander {current_player.id} wykonuje turę...")
-                ai_commander = AICommander(current_player)
-                ai_commander.make_turn(game_engine)
-                app = None
-            else:
-                app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
+            app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
         
         # Patch dla save/load funkcjonalności - tylko dla paneli graficznych
         if app is not None:
@@ -247,7 +218,7 @@ def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victo
 
         # Aktualizacja pogody dla panelu - tylko dla paneli graficznych
         if app is not None and hasattr(app, 'update_weather'):
-            app.update_weather(turn_manager.current_weather)
+            app.update_weather(turn_manager.get_ui_weather_report())
             
         # Aktualizacja punktów ekonomicznych dla paneli generałów - tylko dla paneli graficznych
         if app is not None and isinstance(app, PanelGenerala):
@@ -275,6 +246,11 @@ def run_human_vs_human_game(game_engine, players, turn_manager, max_turns, victo
 
         # Przejście do kolejnego gracza i zwrócenie informacji czy zakończyła się pełna tura
         is_full_turn_end = turn_manager.next_turn()
+        try:
+            from utils.turn_context import set_current_turn
+            set_current_turn(turn_manager.current_turn)
+        except Exception:
+            pass
         
         # --- ROZDZIEL PUNKTY Z KEY_POINTS tylko na koniec pełnej tury ---
         if is_full_turn_end:

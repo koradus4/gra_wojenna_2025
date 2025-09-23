@@ -20,7 +20,7 @@ IMPLEMENTACJA INDYWIDUALNYCH PROFILI AI - PODSUMOWANIE
    - Czytelna organizacja: Generałowie → Dowódcy polscy → Dowódcy niemieccy
    
 🔧 3. INTEGRACJA Z SYSTEMEM GRY
-   - Dodano import ai.ai_config.set_player_ai_profile w main.py
+   - [ARCHIWUM] Dokument dotyczył systemu AI (profile, ai_config). System AI został usunięty; wpisy zachowane dla historii.
    - Modyfikacja launch_game_with_settings() do ustawienia profili
    - Profile są ustawiane przed stworzeniem AI (AIGeneral/AICommander)
    - Zachowywane są indywidualnie dla każdego gracza

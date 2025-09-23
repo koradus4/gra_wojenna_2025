@@ -30,6 +30,10 @@ class PanelMapa(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        # Nakładka przyciemnienia zależna od pory dnia (inicjalizacja w __init__)
+        self._daylight_overlay_id = None
+        self._current_phase_for_overlay = None
+
         # tło mapy - jeśli nie podano lub plik nie istnieje, nie ustawiaj tła
         if bg_path and os.path.exists(bg_path):
             bg = Image.open(bg_path)
@@ -69,6 +73,68 @@ class PanelMapa(tk.Frame):
                     self.token_info_panel.set_player(self.player)
                 self._setup_hover_binding()
         except Exception:
+            pass
+
+    def _ensure_daylight_overlay_top(self):
+        """Utrzymuje nakładkę przyciemnienia nad innymi elementami Canvas."""
+        if self._daylight_overlay_id is not None:
+            try:
+                self.canvas.tag_raise(self._daylight_overlay_id)
+            except Exception:
+                pass
+
+    def update_daylight_overlay(self, phase: str | None):
+        """Aktualizuje nakładkę przyciemniającą mapę zależnie od pory dnia.
+
+        phase: 'rano' | 'dzień' | 'wieczór' | 'noc' (inne wartości wyłączają przyciemnienie)
+        """
+        try:
+            # Jeśli nic się nie zmieniło – tylko upewnij się, że nakładka jest na wierzchu
+            if phase == self._current_phase_for_overlay and self._daylight_overlay_id is not None:
+                self._ensure_daylight_overlay_top()
+                return
+
+            # Usuń poprzednią nakładkę
+            if self._daylight_overlay_id is not None:
+                try:
+                    self.canvas.delete(self._daylight_overlay_id)
+                except Exception:
+                    pass
+                self._daylight_overlay_id = None
+
+            self._current_phase_for_overlay = phase
+
+            # Mapowanie pory dnia na stopień przyciemnienia (stipple)
+            # Uwaga: Canvas nie wspiera alfa dla figur – używamy wzorków (stipple)
+            stipple = None
+            fill_color = "#000000"
+            if phase in ("rano", "dzień"):
+                stipple = None  # brak nakładki
+            elif phase == "wieczór":
+                stipple = "gray25"   # delikatne przyciemnienie
+            elif phase == "noc":
+                stipple = "gray50"   # wyraźniejsze przyciemnienie
+            else:
+                stipple = None
+
+            if stipple is None:
+                # Bez nakładki
+                return
+
+            # Wymiary płótna odpowiadające całej mapie (scrollregion)
+            w = getattr(self, "_bg_width", self.canvas.winfo_width() or 800)
+            h = getattr(self, "_bg_height", self.canvas.winfo_height() or 600)
+
+            self._daylight_overlay_id = self.canvas.create_rectangle(
+                0, 0, w, h,
+                fill=fill_color,
+                outline="",
+                stipple=stipple,
+                tags=("daylight_overlay",)
+            )
+            self._ensure_daylight_overlay_top()
+        except Exception:
+            # Bezpieczny fallback – brak przyciemnienia
             pass
 
     def set_active_commander(self, commander_id):
@@ -301,6 +367,8 @@ class PanelMapa(tk.Frame):
                         stipple='gray25',  # bardzo delikatna mgiełka
                         tags='special_point_overlay'
                     )
+        # Po narysowaniu siatki upewnij się, że nakładka dnia/nocy jest na wierzchu
+        self._ensure_daylight_overlay_top()
 
     def _draw_tokens_on_map(self):
         self._sync_player_from_engine()
@@ -398,6 +466,8 @@ class PanelMapa(tk.Frame):
         # Kod spełnia wymagania: synchronizacja żetonów, tagowanie, poprawna mgiełka i widoczność.
         # Po narysowaniu żetonów zaktualizuj markery statusu ruchu
         self._refresh_move_status_markers()
+        # Upewnij się, że nakładka dnia/nocy pozostaje na wierzchu
+        self._ensure_daylight_overlay_top()
 
     def _get_token_image_path(self, token):
         """Zwraca ścieżkę do obrazu tokena z uwzględnieniem detection_level dla wrogów"""

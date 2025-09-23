@@ -143,6 +143,19 @@ class PanelDowodcy:
 
     def update_weather(self, weather_report):
         self.weather_panel.update_weather(weather_report)
+        # Przyciemnianie mapy zależnie od pory dnia
+        try:
+            phase = None
+            if isinstance(weather_report, str):
+                for part in weather_report.split('|'):
+                    part = part.strip()
+                    if part.lower().startswith('pora dnia:'):
+                        phase = part.split(':', 1)[1].strip().lower()
+                        break
+            if hasattr(self, 'panel_mapa') and self.panel_mapa is not None:
+                self.panel_mapa.update_daylight_overlay(phase)
+        except Exception:
+            pass
 
     def update_economy(self, points):
         self.points_frame.config(text=f"Punkty do odbioru: {points}")

@@ -78,7 +78,7 @@ ls ai/smart_deployment.py
 ls engine/token.py
 
 # Test importów
-python -c "from ai.unified_deployment import unified_deploy_purchased_units"
+<!-- ARCHIWUM: dotyczy nieaktualnego systemu AI. -->
 ```
 
 ### **Problem: Mock errors w full test**

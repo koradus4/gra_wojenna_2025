@@ -10,12 +10,9 @@ from core.ekonomia import EconomySystem
 from engine.engine import GameEngine, update_all_players_visibility, clear_temp_visibility
 from gui.panel_gracza import PanelGracza
 from core.zwyciestwo import VictoryConditions
-from ai.ai_general import AIGeneral
-from ai.ai_commander import AICommander
 from czyszczenie.game_cleaner import clean_all_for_new_game, clean_ai_logs, clean_game_logs
 from tools.maintenance.smart_log_cleaner import smart_clean_session, smart_clean_full, smart_archive_and_clean, show_ml_status
 from utils.session_archiver import archive_sessions
-from gui.ai_config_panel import AIConfigPanel
 
 # --- Safe stdout encoding (unikaj UnicodeEncodeError w konsoli cp1250) ---
 try:
@@ -35,7 +32,7 @@ def debug_print(message, level="BASIC", category="INFO"):
     elif DEBUG_LEVEL == "BASIC" and level == "BASIC":
         print(f"🎯 {message}")
 
-print("🚀 GRA WOJENNA - GŁÓWNY LAUNCHER Z AI")
+print("🚀 GRA WOJENNA - GŁÓWNY LAUNCHER")
 print(f"🎚️ Poziom debugowania: {DEBUG_LEVEL}")
 print("💡 Zmiana debug: w konsoli wpisz 'BASIC' lub 'FULL'")
 print("-" * 50)
@@ -72,22 +69,6 @@ class GameLauncher:
             self.root.minsize(1200, 900)
         except Exception:
             pass
-        # Zmienne sterujące - AI włączenie/wyłączenie
-        self.ai_polish_general = tk.BooleanVar()
-        self.ai_german_general = tk.BooleanVar()
-        self.ai_polish_commander_1 = tk.BooleanVar()
-        self.ai_polish_commander_2 = tk.BooleanVar()
-        self.ai_german_commander_1 = tk.BooleanVar()
-        self.ai_german_commander_2 = tk.BooleanVar()
-        
-        # Zmienne profili AI - indywidualne dla każdego gracza
-        self.profile_polish_general = tk.StringVar(value="🎯 Balanced")
-        self.profile_german_general = tk.StringVar(value="🎯 Balanced")
-        self.profile_polish_commander_1 = tk.StringVar(value="🎯 Balanced")
-        self.profile_polish_commander_2 = tk.StringVar(value="🎯 Balanced") 
-        self.profile_german_commander_1 = tk.StringVar(value="🎯 Balanced")
-        self.profile_german_commander_2 = tk.StringVar(value="🎯 Balanced")
-        
         # Opcje gry
         self.max_turns = tk.StringVar(value="10")
         self.victory_mode = tk.StringVar(value="turns")
@@ -95,173 +76,25 @@ class GameLauncher:
         self.setup_ui()
         self.root.bind('<Control-Shift-L>', lambda e: self.quick_clean())
         self.root.bind('<Control-Shift-S>', lambda e: self.session_clean())  # Nowy skrót dla sesji
-        
-        # Metody obsługi AI panelu
-    
-    def _toggle_ai_panel(self):
-        """Pokaż/ukryj panel konfiguracji AI"""
-        expanded = self.ai_panel_expanded.get()
-        
-        if not expanded:
-            # Expand - tworzymy panel jeśli nie istnieje
-            if self.ai_panel is None:
-                try:
-                    self.ai_panel = AIConfigPanel(self.ai_panel_container, 
-                                                 compact_mode=True)  # Kompaktowy tryb
-                    self.ai_panel.pack(fill="both", expand=True, pady=(10, 0))
-                except ImportError as e:
-                    messagebox.showerror("Błąd", f"Nie można załadować panelu AI: {e}")
-                    return
-            
-            self.ai_panel_container.grid(row=1, column=0, sticky="ew", pady=(10, 0))
-            self.ai_toggle_btn.config(text="▼ Ukryj ustawienia AI")
-            self.ai_panel_expanded.set(True)
-        else:
-            # Collapse
-            self.ai_panel_container.grid_remove()
-            self.ai_toggle_btn.config(text="▶ Pokaż ustawienia AI") 
-            self.ai_panel_expanded.set(False)
-    
-    def _convert_display_to_value(self, display_value):
-        """Konwertuje wartość wyświetlaną na wartość systemową"""
-        conversion_map = {
-            "🎯 Balanced": "balanced",
-            "🔥 Aggressive": "aggressive", 
-            "🛡️ Defensive": "defensive"
-        }
-        return conversion_map.get(display_value, "balanced")  # domyślnie balanced
-    
-    def _update_profile_value(self, string_var, display_value, profile_options):
-        """Aktualizuje wartość profilu na podstawie wybranej opcji wyświetlania"""
-        for display, value in profile_options:
-            if display == display_value:
-                # Aktualizujemy StringVar z prawidłową wartością (balanced/aggressive/defensive)
-                string_var.set(value)
-                break
-    
-    def _quick_profile(self, profile_name):
-        """Szybkie przełączenie profilu AI"""
-        try:
-            from ai.ai_config import set_ai_profile, AIProfile
-            profile_enum = AIProfile(profile_name)
-            set_ai_profile(profile_enum)
-            
-            # Pokaż info
-            profile_icons = {"aggressive": "🔥", "defensive": "🛡️", "balanced": "🎯"}
-            icon = profile_icons.get(profile_name, "🎯")
-            
-            messagebox.showinfo("Profil AI", 
-                              f"{icon} Ustawiono profil: {profile_name.upper()}\n\n"
-                              f"Konfiguracja zostanie zastosowana w następnej grze.")
-            
-            # Odśwież panel jeśli jest otwarty
-            if hasattr(self, 'ai_panel') and self.ai_panel:
-                self.ai_panel.refresh_from_config()
-                
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można zmienić profilu: {e}")
 
     def setup_ui(self):
-        # Główny frame z dwoma kolumnami
+        # Główny frame (jedna kolumna – bez AI)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.grid(row=0, column=0, sticky="nsew")
         
-        # Konfiguracja kolumn - lewa (opcje gry) i prawa (AI)
-        main_frame.columnconfigure(0, weight=1, minsize=500)  # Lewa kolumna - mniejsza
-        main_frame.columnconfigure(1, weight=2, minsize=800)  # Prawa kolumna (AI) - większa waga i szerokość
+        # Pojedyncza kolumna
+        main_frame.columnconfigure(0, weight=1, minsize=800)
         main_frame.rowconfigure(0, weight=1)
         
-        # === LEWA KOLUMNA - OPCJE GRY ===
-        left_frame = ttk.Frame(main_frame)
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        
-        # === PRAWA KOLUMNA - AI CONFIGURATION ===  
-        right_frame = ttk.Frame(main_frame)
-        right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
-        
-        # LEWA: Tytuł i opcje gry
-        frame = left_frame
+        # Tytuł i opcje gry
+        frame = ttk.Frame(main_frame)
+        frame.grid(row=0, column=0, sticky="nsew")
         
         ttk.Label(frame, text="🎮 Gra Wojenna 2025", font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 20))
-        # Konfiguracja AI
-        lf = ttk.LabelFrame(frame, text="Konfiguracja AI", padding="15")
-        lf.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 20))
-        
-        # Profile options
-        profile_options = [
-            ("🎯 Balanced", "balanced"),
-            ("🔥 Aggressive", "aggressive"), 
-            ("🛡️ Defensive", "defensive")
-        ]
-        
-        # Generałowie z profilami
-        ttk.Label(lf, text="Generałowie:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
-        
-        # Polski Generał
-        pg_frame = ttk.Frame(lf)
-        pg_frame.grid(row=1, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(pg_frame, text="Polski Generał (id=1) - AI", variable=self.ai_polish_general).grid(row=0, column=0, sticky="w")
-        ttk.Label(pg_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        pg_combo = ttk.Combobox(pg_frame, textvariable=self.profile_polish_general, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        pg_combo.grid(row=0, column=2)
-        # Mapowanie wyświetlania na wartości
-        pg_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_general, pg_combo.get(), profile_options))
-        
-        # Niemiecki Generał
-        ng_frame = ttk.Frame(lf)  
-        ng_frame.grid(row=2, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(ng_frame, text="Niemiecki Generał (id=4) - AI", variable=self.ai_german_general).grid(row=0, column=0, sticky="w")
-        ttk.Label(ng_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        ng_combo = ttk.Combobox(ng_frame, textvariable=self.profile_german_general, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        ng_combo.grid(row=0, column=2)
-        ng_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_general, ng_combo.get(), profile_options))
-        
-        ttk.Separator(lf, orient='horizontal').grid(row=3, column=0, sticky="ew", pady=10)
-        
-        # Dowódcy polscy z profilami
-        ttk.Label(lf, text="Dowódcy polscy:", font=("Arial", 11, "bold")).grid(row=4, column=0, sticky="w", pady=(5, 5))
-        
-        # Polski Dowódca 1
-        pc1_frame = ttk.Frame(lf)
-        pc1_frame.grid(row=5, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(pc1_frame, text="Polski Dowódca 1 (id=2) - AI", variable=self.ai_polish_commander_1).grid(row=0, column=0, sticky="w")
-        ttk.Label(pc1_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        pc1_combo = ttk.Combobox(pc1_frame, textvariable=self.profile_polish_commander_1, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        pc1_combo.grid(row=0, column=2)
-        pc1_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_commander_1, pc1_combo.get(), profile_options))
-        
-        # Polski Dowódca 2
-        pc2_frame = ttk.Frame(lf)
-        pc2_frame.grid(row=6, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(pc2_frame, text="Polski Dowódca 2 (id=3) - AI", variable=self.ai_polish_commander_2).grid(row=0, column=0, sticky="w")
-        ttk.Label(pc2_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        pc2_combo = ttk.Combobox(pc2_frame, textvariable=self.profile_polish_commander_2, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        pc2_combo.grid(row=0, column=2)
-        pc2_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_polish_commander_2, pc2_combo.get(), profile_options))
-        
-        # Dowódcy niemieccy z profilami
-        ttk.Label(lf, text="Dowódcy niemieccy:", font=("Arial", 11, "bold")).grid(row=7, column=0, sticky="w", pady=(10, 5))
-        
-        # Niemiecki Dowódca 1
-        nc1_frame = ttk.Frame(lf)
-        nc1_frame.grid(row=8, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(nc1_frame, text="Niemiecki Dowódca 1 (id=5) - AI", variable=self.ai_german_commander_1).grid(row=0, column=0, sticky="w")
-        ttk.Label(nc1_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        nc1_combo = ttk.Combobox(nc1_frame, textvariable=self.profile_german_commander_1, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        nc1_combo.grid(row=0, column=2)
-        nc1_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_commander_1, nc1_combo.get(), profile_options))
-        
-        # Niemiecki Dowódca 2
-        nc2_frame = ttk.Frame(lf)
-        nc2_frame.grid(row=9, column=0, sticky="ew", padx=(20, 0))
-        ttk.Checkbutton(nc2_frame, text="Niemiecki Dowódca 2 (id=6) - AI", variable=self.ai_german_commander_2).grid(row=0, column=0, sticky="w")
-        ttk.Label(nc2_frame, text="Profil:").grid(row=0, column=1, padx=(10, 5))
-        nc2_combo = ttk.Combobox(nc2_frame, textvariable=self.profile_german_commander_2, values=[opt[0] for opt in profile_options], state="readonly", width=12)
-        nc2_combo.grid(row=0, column=2)
-        nc2_combo.bind('<<ComboboxSelected>>', lambda e: self._update_profile_value(self.profile_german_commander_2, nc2_combo.get(), profile_options))
+        # (Konfiguracja AI usunięta)
         # Opcje gry
         game_frame = ttk.LabelFrame(frame, text="Opcje gry", padding="15")
         game_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 20))
@@ -303,70 +136,10 @@ class GameLauncher:
         main_button_frame.grid(row=4, column=0, columnspan=2, pady=20)
 
         ttk.Button(main_button_frame, text="🚀 Uruchom Grę", command=self.start_game).grid(row=0, column=0, padx=(0, 20))
-        ttk.Button(main_button_frame, text="🤖 Auto 10 Tur", command=self.auto_game).grid(row=0, column=1, padx=(0, 20))
-        ttk.Button(main_button_frame, text="⚙️ Alternatywny", command=self.alternative_mode).grid(row=0, column=2, padx=(0, 20))
-        ttk.Button(main_button_frame, text="❌ Zamknij", command=self.root.quit).grid(row=0, column=3)
-        
-        # === PRAWA KOLUMNA - PANEL KONFIGURACJI AI ===
-        ttk.Label(right_frame, text="🤖 AI Commander", font=("Arial", 16, "bold")).grid(row=0, column=0, pady=(0, 20))
-        
-        ai_config_frame = ttk.LabelFrame(right_frame, text="🎛️ Konfiguracja AI Commander", padding="10")
-        ai_config_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 20))
-        
-        # Konfiguruj right_frame żeby AI panel się rozszerzał
-        right_frame.rowconfigure(1, weight=1)
-        right_frame.columnconfigure(0, weight=1)
-        
-        # Stwórz panel AI (collapsed początkowo)
-        self.ai_panel_expanded = tk.BooleanVar(value=False)
-        
-        # Header z przyciskiem expand/collapse
-        header_frame = ttk.Frame(ai_config_frame)
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        
-        self.ai_toggle_btn = ttk.Button(header_frame, text="▶ Pokaż ustawienia AI", 
-                                       command=self._toggle_ai_panel)
-        self.ai_toggle_btn.pack(side="left")
-        
-        # Quick profile buttons
-        quick_frame = ttk.Frame(header_frame)
-        quick_frame.pack(side="right")
-        
-        ttk.Label(quick_frame, text="Profile: ").pack(side="left", padx=(0, 5))
-        ttk.Button(quick_frame, text="🎯", width=3, 
-                  command=lambda: self._quick_profile('balanced')).pack(side="left", padx=1)
-        ttk.Button(quick_frame, text="🔥", width=3,
-                  command=lambda: self._quick_profile('aggressive')).pack(side="left", padx=1) 
-        ttk.Button(quick_frame, text="🛡️", width=3,
-                  command=lambda: self._quick_profile('defensive')).pack(side="left", padx=1)
-        
-        # Container dla pełnego panelu AI (początkowo ukryty)
-        self.ai_panel_container = ttk.Frame(ai_config_frame)
-        self.ai_panel = None  # Będzie utworzony gdy potrzeba
+        ttk.Button(main_button_frame, text="❌ Zamknij", command=self.root.quit).grid(row=0, column=1)
+        # (Panel AI usunięty)
 
-    def test_ai(self):
-        """Szybki test AI bez uruchamiania pełnej gry"""
-        from ai.ai_commander import test_basic_safety
-        result = test_basic_safety()
-        messagebox.showinfo("Test AI", f"Test AI Commander: {'✓ OK' if result else '✗ Błąd'}")
-    
-    def auto_game(self):
-        """Uruchom auto grę 10 tur"""
-        try:
-            subprocess.run([sys.executable, "auto_game_10_turns.py"], cwd=".", check=True)
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror("Błąd", f"Nie można uruchomić auto gry: {e}")
-        except FileNotFoundError:
-            messagebox.showerror("Błąd", "Plik auto_game_10_turns.py nie został znaleziony")
-    
-    def alternative_mode(self):
-        """Uruchom alternatywny tryb"""
-        try:
-            subprocess.run([sys.executable, "main_alternative.py"], cwd=".", check=True)
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror("Błąd", f"Nie można uruchomić trybu alternatywnego: {e}")
-        except FileNotFoundError:
-            messagebox.showerror("Błąd", "Plik main_alternative.py nie został znaleziony")
+    # (Tryby test/auto/alternatywny usunięte)
     
     def quick_clean(self):
         """Szybkie czyszczenie - rozkazy strategiczne i zakupione żetony (stary system)"""
@@ -622,57 +395,10 @@ class GameLauncher:
                 Player(5, "Niemcy", "Dowódca", czasy[niemcy_dow1]),
                 Player(6, "Niemcy", "Dowódca", czasy[niemcy_dow2]),
             ]
-        ai_generals = {}
-        ai_commanders = {}
-        
-        # Importujemy system profili AI
-        from ai.ai_config import set_player_ai_profile
-        
+        # Tryb human vs human – brak AI
         for player in players:
-            if player.role == "Generał":
-                if player.nation == "Polska" and self.ai_polish_general.get():
-                    player.is_ai = True
-                    ai_generals[player.id] = AIGeneral("polish")
-                    # Ustaw profil AI na podstawie wyboru użytkownika
-                    profile_display = self.profile_polish_general.get()
-                    profile = self._convert_display_to_value(profile_display)
-                    set_player_ai_profile(player.id, profile)
-                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id}) - Profil: {profile} (z {profile_display})", "BASIC", "AI_SETUP")
-                elif player.nation == "Niemcy" and self.ai_german_general.get():
-                    player.is_ai = True
-                    ai_generals[player.id] = AIGeneral("german")
-                    # Ustaw profil AI na podstawie wyboru użytkownika
-                    profile_display = self.profile_german_general.get()
-                    profile = self._convert_display_to_value(profile_display)
-                    set_player_ai_profile(player.id, profile)
-                    debug_print(f"🤖 GENERAŁ AI aktywny: {player.nation} (id={player.id}) - Profil: {profile} (z {profile_display})", "BASIC", "AI_SETUP")
-            elif player.role == "Dowódca":
-                # Sprawdź konkretnego dowódcę po ID
-                should_be_ai = False
-                selected_profile = "balanced"  # Domyślny profil
-                
-                if player.id == 2 and self.ai_polish_commander_1.get():  # Polski Dowódca 1
-                    should_be_ai = True
-                    selected_profile = self._convert_display_to_value(self.profile_polish_commander_1.get())
-                elif player.id == 3 and self.ai_polish_commander_2.get():  # Polski Dowódca 2
-                    should_be_ai = True
-                    selected_profile = self._convert_display_to_value(self.profile_polish_commander_2.get())
-                elif player.id == 5 and self.ai_german_commander_1.get():  # Niemiecki Dowódca 1
-                    should_be_ai = True
-                    selected_profile = self._convert_display_to_value(self.profile_german_commander_1.get())
-                elif player.id == 6 and self.ai_german_commander_2.get():  # Niemiecki Dowódca 2
-                    should_be_ai = True
-                    selected_profile = self._convert_display_to_value(self.profile_german_commander_2.get())
-                
-                if should_be_ai:
-                    player.is_ai_commander = True
-                    ai_commanders[player.id] = AICommander(player)
-                    # Ustaw profil AI na podstawie wyboru użytkownika
-                    set_player_ai_profile(player.id, selected_profile)
-                    debug_print(f"🎯 DOWÓDCA AI aktywny: {player.nation} Dowódca {player.id} (id={player.id}) - Profil: {selected_profile}", "BASIC", "AI_SETUP")
-                else:
-                    player.is_ai_commander = False
-                    debug_print(f"👤 Dowódca ludzki: {player.nation} Dowódca {player.id} (id={player.id})", "FULL", "AI_SETUP")
+            player.is_ai = False
+            player.is_ai_commander = False
         for p in players:
             if not hasattr(p, 'economy') or p.economy is None:
                 p.economy = EconomySystem()
@@ -691,14 +417,17 @@ class GameLauncher:
         print(f"🎯 Ustawienia gry: {max_turns_val} tur, tryb: {victory_mode_val}")
         
         victory_conditions = VictoryConditions(max_turns=max_turns_val, victory_mode=victory_mode_val)
-        turn_manager.ai_generals = ai_generals
-        turn_manager.ai_commanders = ai_commanders
-        self.main_game_loop(players, turn_manager, victory_conditions, game_engine, ai_generals, ai_commanders)
-
-    def main_game_loop(self, players, turn_manager, victory_conditions, game_engine, ai_generals, ai_commanders):
+        self.main_game_loop(players, turn_manager, victory_conditions, game_engine)
+    def main_game_loop(self, players, turn_manager, victory_conditions, game_engine):
         just_loaded_save = False
         last_loaded_player_info = None
         while True:
+            # Ustaw kontekst tury (dla pór dnia/mnożników widoczności)
+            try:
+                from utils.turn_context import set_current_turn
+                set_current_turn(turn_manager.current_turn)
+            except Exception:
+                pass
             if last_loaded_player_info:
                 found = None
                 for p in players:
@@ -712,71 +441,44 @@ class GameLauncher:
             else:
                 current_player = turn_manager.get_current_player()
             game_engine.current_player_obj = current_player
-            # DODANE: Debug info o aktualnym graczu - ROZSZERZONE
-            print(f"🔍 DEBUG: current_player = {current_player.id} ({current_player.nation} {current_player.role})")
-            print(f"🔍 DEBUG: is_ai = {getattr(current_player, 'is_ai', False)}")
-            print(f"🔍 DEBUG: is_ai_commander = {getattr(current_player, 'is_ai_commander', False)}")
-            print(f"🔍 DEBUG: in ai_generals = {current_player.id in ai_generals} (dict: {list(ai_generals.keys())})")
-            print(f"🔍 DEBUG: in ai_commanders = {current_player.id in ai_commanders} (dict: {list(ai_commanders.keys())})")
-            
-            # Sprawdź co będzie wykonane
-            if current_player.id in ai_generals:
-                print(f"✅ DEBUG: Będzie wykonana TURA AI GENERAŁA")
-            elif current_player.id in ai_commanders:
-                print(f"✅ DEBUG: Będzie wykonana TURA AI DOWÓDCY")
-            else:
-                print(f"👤 DEBUG: Będzie wykonana TURA CZŁOWIEKA")
+            # Prosty debug – zawsze tura człowieka
+            print(f"👤 TURA CZŁOWIEKA: {current_player.id} ({current_player.nation} {current_player.role})")
             
             # DODANE: Logowanie stanu key pointów na początku tury
             game_engine.log_key_points_status(current_player)
             
             update_all_players_visibility(players, game_engine.tokens, game_engine.board)
-            # NAPRAWIONO: Sprawdź AI na podstawie obecności w słownikach AI zamiast flag
-            if current_player.id in ai_generals:
-                print(f"🤖 AI GENERAL TURN: {current_player.nation} {current_player.role} (id={current_player.id})")
-                ai_general = ai_generals[current_player.id]
-                if current_player.role == "Generał":
-                    current_player.economy.generate_economic_points()
-                    current_player.economy.add_special_points()
-                ai_general.make_turn(game_engine)
-                is_full_turn_end = turn_manager.next_turn()
-            elif current_player.id in ai_commanders:
-                print(f"🤖 AI COMMANDER TURN: {current_player.nation} id={current_player.id}")
-                ai_commander = ai_commanders[current_player.id]
-                
-                # NOWE: Automatyczne uzupełnianie przed turą taktyczną
-                print(f"[AI] Resupply faza dla {current_player.nation}")
-                ai_commander.pre_resupply(game_engine)
-                
-                # Tura taktyczna
-                print(f"[AI] Tactical turn dla {current_player.nation}")
-                ai_commander.make_tactical_turn(game_engine)
-                is_full_turn_end = turn_manager.next_turn()
+            # Tylko gałąź człowieka
+            if current_player.role == "Generał":
+                app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
+            elif current_player.role == "Dowódca":
+                app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
             else:
-                if current_player.role == "Generał":
-                    app = PanelGenerala(turn_number=turn_manager.current_turn, ekonomia=current_player.economy, gracz=current_player, gracze=players, game_engine=game_engine)
-                elif current_player.role == "Dowódca":
-                    app = PanelDowodcy(turn_number=turn_manager.current_turn, remaining_time=current_player.time_limit * 60, gracz=current_player, game_engine=game_engine)
-                else:
-                    app = None
-                if app and hasattr(app, 'update_weather'):
-                    app.update_weather(turn_manager.current_weather)
-                if isinstance(app, PanelGenerala):
-                    current_player.economy.generate_economic_points()
-                    current_player.economy.add_special_points()
-                    available_points = current_player.economy.get_points()['economic_points']
-                    app.update_economy(available_points)
-                    app.zarzadzanie_punktami(available_points)
-                if isinstance(app, PanelDowodcy):
-                    przydzielone_punkty = current_player.economy.get_points()['economic_points']
-                    app.update_economy(przydzielone_punkty)
-                    current_player.punkty_ekonomiczne = przydzielone_punkty
-                if app:
-                    try:
-                        app.mainloop()
-                    except Exception as e:
-                        print(f"Błąd: {e}")
-                is_full_turn_end = turn_manager.next_turn()
+                app = None
+            if app and hasattr(app, 'update_weather'):
+                app.update_weather(turn_manager.get_ui_weather_report())
+            if isinstance(app, PanelGenerala):
+                current_player.economy.generate_economic_points()
+                current_player.economy.add_special_points()
+                available_points = current_player.economy.get_points()['economic_points']
+                app.update_economy(available_points)
+                app.zarzadzanie_punktami(available_points)
+            if isinstance(app, PanelDowodcy):
+                przydzielone_punkty = current_player.economy.get_points()['economic_points']
+                app.update_economy(przydzielone_punkty)
+                current_player.punkty_ekonomiczne = przydzielone_punkty
+            if app:
+                try:
+                    app.mainloop()
+                except Exception as e:
+                    print(f"Błąd: {e}")
+            is_full_turn_end = turn_manager.next_turn()
+            # Zaktualizuj kontekst tury po zmianie
+            try:
+                from utils.turn_context import set_current_turn
+                set_current_turn(turn_manager.current_turn)
+            except Exception:
+                pass
             if is_full_turn_end:
                 game_engine.process_key_points(players)
             game_engine.update_all_players_visibility(players)

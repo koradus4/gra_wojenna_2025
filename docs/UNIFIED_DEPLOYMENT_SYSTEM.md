@@ -60,12 +60,12 @@ def unified_deploy_purchased_units(game_engine, player_id):
 
 **ZAMIENIONO:**
 ```python
-from ai.deployment_ai import deploy_purchased_units as _dpu
+<!-- UWAGA: System AI został usunięty. Poniższe przykłady dotyczą archiwalnego systemu i nie obowiązują w aktualnej wersji projektu. -->
 ```
 
 **NA:**
 ```python
-from ai.unified_deployment import unified_deploy_purchased_units
+<!-- ARCHIWUM: unified_deployment był częścią systemu AI (usunięty). -->
 ```
 
 ## 🎯 **ZALETY UJEDNOLICENIA**
@@ -103,8 +103,8 @@ from ai.unified_deployment import unified_deploy_purchased_units
 ### **Weryfikacja systemu:**
 ```python
 # Test imports
-python -c "from ai.unified_deployment import unified_deploy_purchased_units; print('OK')"
-python -c "from ai.ai_commander import deploy_purchased_units; print('OK')"
+<!-- ARCHIWUM: test importu unified_deployment (AI) – nie dotyczy aktualnej wersji. -->
+<!-- ARCHIWUM: test importu ai_commander (AI) – nie dotyczy aktualnej wersji. -->
 ```
 
 ## 🧪 **TESTOWANIE SYSTEMU**

@@ -1,75 +1,82 @@
 import tkinter as tk
 from engine.detection_filter import apply_detection_filter
 
+
 class TooltipTokenInfo(tk.Toplevel):
     """
     Tooltip wyświetlający informacje o żetonie po najechaniu myszą.
     Automatycznie znika po 5 sekundach lub gdy mysz opuści obszar.
     """
-    
+
     def __init__(self, parent, token, player=None, x=0, y=0):
         super().__init__(parent)
-        
+
         # Konfiguracja okna tooltip
         self.overrideredirect(True)  # Usuń ramkę okna
         self.wm_attributes("-topmost", True)  # Zawsze na wierzchu
         self.config(bg="lightyellow", relief="solid", borderwidth=1)
-        
+
         self.token = token
         self.player = player
         self.timer_id = None
-        
+
         # Szerszy panel - miejsce na wszystkie dane (zmniejszona wysokość)
         self.config(width=450, height=200)
-        
+
         # Główna ramka z padding
         main_frame = tk.Frame(self, bg="lightyellow", padx=10, pady=8)
         main_frame.pack(fill="both", expand=True)
-        
+
         # Nagłówek z nazwą jednostki
         header_frame = tk.Frame(main_frame, bg="lightyellow")
         header_frame.pack(fill="x", pady=(0, 5))
-        
+
         unit_name = token.stats.get('unit_full_name') or token.stats.get('label', token.id)
-        header_label = tk.Label(header_frame, text=unit_name, 
-                              font=("Arial", 12, "bold"), bg="lightyellow", fg="darkblue")
-        header_label.pack()
-        
+        # Zapisz referencję do nagłówka (będziemy aktualizować po filtracji)
+        self.header_label = tk.Label(
+            header_frame,
+            text=unit_name,
+            font=("Arial", 12, "bold"),
+            bg="lightyellow",
+            fg="darkblue",
+        )
+        self.header_label.pack()
+
         # Separator
         separator = tk.Frame(main_frame, height=1, bg="gray")
         separator.pack(fill="x", pady=(0, 5))
-        
+
         # Ramka na dane - 2 kolumny
         data_frame = tk.Frame(main_frame, bg="lightyellow")
         data_frame.pack(fill="both", expand=True)
-        
+
         # Lewa kolumna
         left_frame = tk.Frame(data_frame, bg="lightyellow")
         left_frame.grid(row=0, column=0, sticky="nw", padx=(0, 20))
-        
-        # Prawa kolumna  
+
+        # Prawa kolumna
         right_frame = tk.Frame(data_frame, bg="lightyellow")
         right_frame.grid(row=0, column=1, sticky="nw")
-        
+
         # Tworzenie etykiet
         self.labels = {}
         self._create_labels(left_frame, right_frame)
-        
-        # Wypełnij dane
+
+        # Wypełnij dane (po utworzeniu labeli i nagłówka)
         self._populate_data()
-        
+
         # Pozycjonowanie - przesunięte w lewo od kursora żeby nie zasłaniać
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        
+
         # Oblicz pozycję (w lewo od kursora, żeby nie zasłaniać) - zmniejszona wysokość
         tooltip_x = max(0, min(x - 460, screen_width - 460))  # 460px szerokości + margines
-        tooltip_y = max(0, min(y - 50, screen_height - 220))   # 220px wysokości + margines
-        
+        tooltip_y = max(0, min(y - 50, screen_height - 220))  # 220px wysokości + margines
+
         self.geometry(f"450x200+{tooltip_x}+{tooltip_y}")
-        
+
         # USUNIETO: Timer - panel widoczny tylko gdy mysz na żetonie
-        
+
         # Event do ręcznego zamykania (opcjonalne)
         self.bind("<Button-1>", lambda e: self.destroy())
         
@@ -164,7 +171,8 @@ class TooltipTokenInfo(tk.Toplevel):
         nation_label = f"{nation}{owner_info}"
         
         # Pozostałe dane
-        unit_name = token.stats.get('unit_full_name') or token.stats.get('label', token.id)
+        # Nazwa jednostki: preferuj 'label' (bardziej natywna; np. niem. dla Niemiec), potem 'unit_full_name', na końcu ID
+        unit_name = token.stats.get('label') or token.stats.get('unit_full_name') or token.id
         move = getattr(token, 'currentMovePoints', token.stats.get('move', '-'))
         base_move = getattr(token, 'base_move', token.stats.get('move', '-'))
         defense = getattr(token, 'defense_value', token.stats.get('defense_value', '-'))
@@ -189,7 +197,10 @@ class TooltipTokenInfo(tk.Toplevel):
             attack_value = '-'
             
         price = token.stats.get('price', '-')
-        
+
+        # Aktualizuj nagłówek
+        self.header_label.config(text=unit_name)
+
         # Aktualizuj etykiety
         self.labels["nacja"].config(text=f"Nacja: {nation_label}")
         self.labels["jednostka"].config(text=f"Jednostka: {unit_name}")
@@ -203,6 +214,48 @@ class TooltipTokenInfo(tk.Toplevel):
         self.labels["siła_ataku"].config(text=f"Siła ataku: {attack_value}")
         self.labels["price"].config(text=f"Wartość VP: {price}")
     
+    def _localize_nation(self, nation: str):
+        """Zwróć nazwę nacji do wyświetlenia (PL/DE)."""
+        if str(nation).lower().startswith('niem'):
+            return 'Deutschland'
+        if str(nation).lower().startswith('pol'):
+            return 'Polska'
+        return nation or '—'
+
+    def _localize_unit_category(self, raw_type: str, nation: str):
+        """Lokalizacja kategorii jednostki na podstawie nacji.
+        raw_type ∈ {'light_unit','medium_unit','heavy_unit','CONTACT',...}
+        """
+        is_de = str(nation).lower().startswith('niem')
+        mapping_pl = {
+            'light_unit': 'Lekka jednostka',
+            'medium_unit': 'Średnia jednostka',
+            'heavy_unit': 'Ciężka jednostka',
+            'contact': 'Kontakt',
+        }
+        mapping_de = {
+            'light_unit': 'Leichte Einheit',
+            'medium_unit': 'Mittlere Einheit',
+            'heavy_unit': 'Schwere Einheit',
+            'contact': 'Kontakt',
+        }
+        key = str(raw_type or '').strip().lower()
+        if key == 'kontakt':
+            key = 'contact'
+        return (mapping_de if is_de else mapping_pl).get(key, raw_type or 'Kontakt')
+
+    def _estimate_range(self, value, delta=2, min_val=0):
+        """Zwraca string zakresu dla wartości liczbowej: "~low-high"."""
+        try:
+            v = int(value)
+        except Exception:
+            return '???'
+        low = max(min_val, v - delta)
+        high = max(low, v + delta)
+        if low == high:
+            return f"~{low}"
+        return f"~{low}-{high}"
+
     def _show_filtered_token(self, filtered_info, detection_level):
         """Wyświetl przefiltrowane informacje o wrogu"""
         info_quality = filtered_info.get('info_quality', 'MINIMAL')
@@ -213,28 +266,65 @@ class TooltipTokenInfo(tk.Toplevel):
         combat_value = filtered_info.get('combat_value', '???')
         
         certainty = f"(Pewność: {detection_level:.0%})"
-        nation_label = f"{nation} {certainty}"
+        nation_label = f"{self._localize_nation(nation)} {certainty}"
         
         quality_prefix = {
             'FULL': 'Zidentyfikowany:',
             'PARTIAL': 'Prawdopodobnie:',
             'MINIMAL': 'Nieznany kontakt:'
         }.get(info_quality, '')
+
+        # Lokalizacja kategorii jednostki
+        unit_label_localized = self._localize_unit_category(unit_type, nation)
+        unit_label = f"{quality_prefix} {unit_label_localized}"
+
+        # Ustal nagłówek bez ujawniania pełnej nazwy przy częściowej/minimalnej detekcji
+        if info_quality == 'FULL':
+            # Preferuj label (bardziej natywna nazwa), potem unit_full_name, potem ID
+            header_name = self.token.stats.get('label') or self.token.stats.get('unit_full_name') or self.token.id
+        elif info_quality == 'PARTIAL':
+            header_name = f"Kontakt – {unit_label_localized}"
+        else:
+            header_name = "Nieznany kontakt"
+        self.header_label.config(text=header_name)
         
-        unit_label = f"{quality_prefix} {unit_type}"
-        
-        # Aktualizuj etykiety - ukryj szczegóły dla wrogów
+        # Przygotuj wartości szacunkowe dla PARTIAL, "???" dla MINIMAL
+        if info_quality == 'FULL':
+            # Przekieruj do pełnych danych (pełna detekcja, ale <1.0)
+            self._show_full_token()
+            return
+        elif info_quality == 'PARTIAL':
+            # Szacunkowe zakresy na podstawie statystyk (bez ujawniania dokładnych liczb)
+            stats = self.token.stats or {}
+            move_est = self._estimate_range(stats.get('move', 0), delta=1, min_val=0)
+            def_est = self._estimate_range(stats.get('defense_value', 0), delta=2, min_val=0)
+            sight_est = self._estimate_range(stats.get('sight', 0), delta=1, min_val=0)
+            # Paliwo – pokazujemy tylko przybliżone maksimum
+            fuel_max = stats.get('maintenance', 0)
+            fuel_text = f"≈ {fuel_max}" if fuel_max else "Nieznane"
+            # Atak – zakresy
+            atk = stats.get('attack', {}) if isinstance(stats.get('attack', {}), dict) else {}
+            atk_range_est = self._estimate_range(atk.get('range', 0), delta=1, min_val=0)
+            atk_value_est = self._estimate_range(atk.get('value', 0), delta=2, min_val=0)
+            price_text = "Nieznana"
+        else:
+            move_est = def_est = sight_est = "???"
+            fuel_text = "???"
+            atk_range_est = atk_value_est = "???"
+            price_text = "???"
+
+        # Aktualizuj etykiety – wszystkie pola pod regułą detekcji
         self.labels["nacja"].config(text=f"Nacja: {nation_label}")
         self.labels["jednostka"].config(text=f"Jednostka: {unit_label}")
-        self.labels["punkty_ruchu"].config(text="Punkty ruchu: ???")
-        self.labels["wartość_obrony"].config(text="Wartość obrony: ???")
-        self.labels["tryb_ruchu"].config(text="Tryb ruchu: ???")
-        self.labels["paliwo"].config(text="Paliwo: ???")
-        self.labels["zasięg_widzenia"].config(text="Zasięg widzenia: ???")
+        self.labels["punkty_ruchu"].config(text=f"Punkty ruchu: {move_est}")
+        self.labels["wartość_obrony"].config(text=f"Wartość obrony: {def_est}")
+        self.labels["tryb_ruchu"].config(text="Tryb ruchu: Nieznany")
+        self.labels["paliwo"].config(text=f"Paliwo: {fuel_text}")
+        self.labels["zasięg_widzenia"].config(text=f"Zasięg widzenia: {sight_est}")
         self.labels["wartość_bojowa"].config(text=f"Zasoby bojowe: {combat_value}")
-        self.labels["zasięg_ataku"].config(text="Zasięg ataku: ???")
-        self.labels["siła_ataku"].config(text="Siła ataku: ???")
-        self.labels["price"].config(text="Wartość VP: ???")
+        self.labels["zasięg_ataku"].config(text=f"Zasięg ataku: {atk_range_est}")
+        self.labels["siła_ataku"].config(text=f"Siła ataku: {atk_value_est}")
+        self.labels["price"].config(text=f"Wartość VP: {price_text}")
     
     def destroy(self):
         """Zniszcz tooltip"""
