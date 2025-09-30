@@ -1,6 +1,7 @@
 import random
 import os
 import json
+from typing import Dict, Any
 from engine.board import Board
 from engine.token import load_tokens, Token
 
@@ -18,6 +19,8 @@ class GameEngine:
             self.turn = 1
             self.current_player = 0
         self._init_key_points_state()
+        self.ai_reserved_hexes = {}
+        self.ai_enemy_memory: Dict[str, Dict[str, Any]] = {}
 
     def _init_key_points_state(self):
         """Tworzy słownik: hex_id -> {'initial_value': X, 'current_value': Y, 'type': ...} na podstawie mapy."""
@@ -81,6 +84,9 @@ class GameEngine:
             except Exception:
                 pass
 
+        self.ai_reserved_hexes = {}
+        self._decay_enemy_memory()
+
     def end_turn(self):
         self.next_turn()
         self.save_state(os.path.join("saves", "latest.json"))
@@ -108,6 +114,84 @@ class GameEngine:
             if token.owner != expected_owner:
                 return False, "Ten żeton nie należy do twojego dowódcy."
         return action.execute(self)
+
+    # --- Współdzielona pamięć przeciwnika ---
+
+    def _enemy_memory_key(self, commander_key: str) -> str:
+        return commander_key or "global"
+
+    def register_enemy_sighting(
+        self,
+        commander_key: str,
+        enemy_id: str,
+        position,
+        turn: int,
+        unit_type: str = None,
+        source_token_id: int = None,
+    ) -> None:
+        if position is None or len(position) != 2:
+            return
+
+        key = self._enemy_memory_key(str(commander_key) if commander_key is not None else "global")
+        sightings = self.ai_enemy_memory.setdefault(key, {})
+        existing = sightings.get(enemy_id)
+        if existing and existing.get("turn", -1) > turn:
+            return
+
+        sightings[enemy_id] = {
+            "position": (position[0], position[1]),
+            "turn": turn,
+            "unit_type": unit_type,
+            "source": source_token_id,
+        }
+
+    def get_enemy_sightings(self, commander_key: str, max_age: int = None):
+        key = self._enemy_memory_key(str(commander_key) if commander_key is not None else "global")
+        sightings = self.ai_enemy_memory.get(key, {})
+        if not sightings:
+            return {}
+
+        if max_age is None:
+            return dict(sightings)
+
+        current_turn = getattr(self, "turn", 0)
+        filtered = {}
+        for enemy_id, info in sightings.items():
+            if not isinstance(info, dict):
+                continue
+            last_turn = info.get("turn")
+            if max_age is not None and current_turn and last_turn is not None:
+                if (current_turn - last_turn) > max_age:
+                    continue
+            filtered[enemy_id] = info
+        return filtered
+
+    def _decay_enemy_memory(self, max_age: int = 6) -> None:
+        if not getattr(self, "ai_enemy_memory", None):
+            return
+
+        current_turn = getattr(self, "turn", 0)
+        to_remove = []
+        for commander_key, sightings in list(self.ai_enemy_memory.items()):
+            if not isinstance(sightings, dict):
+                to_remove.append(commander_key)
+                continue
+
+            for enemy_id in list(sightings.keys()):
+                info = sightings.get(enemy_id, {})
+                if not isinstance(info, dict):
+                    del sightings[enemy_id]
+                    continue
+                last_turn = info.get("turn")
+                if max_age is not None and current_turn and last_turn is not None:
+                    if (current_turn - last_turn) > max_age:
+                        del sightings[enemy_id]
+
+            if not sightings:
+                to_remove.append(commander_key)
+
+        for commander_key in to_remove:
+            self.ai_enemy_memory.pop(commander_key, None)
 
     def get_visible_tokens(self, player):
         """Zwraca listę żetonów widocznych dla danego gracza (elastyczne filtrowanie)."""

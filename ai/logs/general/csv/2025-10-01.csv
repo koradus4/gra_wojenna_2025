@@ -1,0 +1,261 @@
+timestamp,component,level,message,context
+2025-10-01T00:03:54,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:03:54,GENERAL,INFO,Dostępne PE: 65,
+2025-10-01T00:03:54,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:54,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:54,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 65, ""reserve_pe"": 9, ""distributable_pe"": 56}"
+2025-10-01T00:03:54,GENERAL,INFO,"Plan dystrybucji: rezerwa=9 PE, dowódcy=56 PE",
+2025-10-01T00:03:54,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 28, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:54,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 28, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:54,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 28, ""commander_tokens"": 10, ""commander_points_after"": 28, ""reserve_after"": 37}"
+2025-10-01T00:03:54,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 28, ""commander_tokens"": 10, ""commander_points_after"": 28, ""reserve_after"": 9}"
+2025-10-01T00:03:54,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 9,
+2025-10-01T00:03:54,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 28, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:54,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 28, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:03:55,GENERAL,INFO,Dostępne PE: 64,
+2025-10-01T00:03:55,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 64, ""reserve_pe"": 9, ""distributable_pe"": 55}"
+2025-10-01T00:03:55,GENERAL,INFO,"Plan dystrybucji: rezerwa=9 PE, dowódcy=55 PE",
+2025-10-01T00:03:55,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 27, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:55,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 28, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:55,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 27, ""commander_tokens"": 10, ""commander_points_after"": 27, ""reserve_after"": 37}"
+2025-10-01T00:03:55,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 28, ""commander_tokens"": 10, ""commander_points_after"": 28, ""reserve_after"": 9}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 9,
+2025-10-01T00:03:55,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 27, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:55,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 28, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:03:55,GENERAL,INFO,Dostępne PE: 28,
+2025-10-01T00:03:55,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 28, ""reserve_pe"": 4, ""distributable_pe"": 24}"
+2025-10-01T00:03:55,GENERAL,INFO,"Plan dystrybucji: rezerwa=4 PE, dowódcy=24 PE",
+2025-10-01T00:03:55,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 12, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:55,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 12, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:55,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 12, ""commander_tokens"": 10, ""commander_points_after"": 30, ""reserve_after"": 16}"
+2025-10-01T00:03:55,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 12, ""commander_tokens"": 10, ""commander_points_after"": 29, ""reserve_after"": 4}"
+2025-10-01T00:03:55,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 4,
+2025-10-01T00:03:55,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 30, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:55,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 29, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:56,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:03:56,GENERAL,INFO,Dostępne PE: 71,
+2025-10-01T00:03:56,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:56,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:56,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 71, ""reserve_pe"": 10, ""distributable_pe"": 61}"
+2025-10-01T00:03:56,GENERAL,INFO,"Plan dystrybucji: rezerwa=10 PE, dowódcy=61 PE",
+2025-10-01T00:03:56,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 30, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:56,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 31, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:56,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 30, ""commander_tokens"": 10, ""commander_points_after"": 47, ""reserve_after"": 41}"
+2025-10-01T00:03:56,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 31, ""commander_tokens"": 10, ""commander_points_after"": 49, ""reserve_after"": 10}"
+2025-10-01T00:03:56,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 10,
+2025-10-01T00:03:56,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 47, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:56,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 49, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:03:57,GENERAL,INFO,Dostępne PE: 63,
+2025-10-01T00:03:57,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 63, ""reserve_pe"": 9, ""distributable_pe"": 54}"
+2025-10-01T00:03:57,GENERAL,INFO,"Plan dystrybucji: rezerwa=9 PE, dowódcy=54 PE",
+2025-10-01T00:03:57,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 27, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:57,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 27, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:03:57,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 27, ""commander_tokens"": 10, ""commander_points_after"": 47, ""reserve_after"": 36}"
+2025-10-01T00:03:57,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 27, ""commander_tokens"": 9, ""commander_points_after"": 46, ""reserve_after"": 9}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 9,
+2025-10-01T00:03:57,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 47, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:57,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 46, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:03:57,GENERAL,INFO,Dostępne PE: 44,
+2025-10-01T00:03:57,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 44, ""reserve_pe"": 6, ""distributable_pe"": 38}"
+2025-10-01T00:03:57,GENERAL,INFO,"Plan dystrybucji: rezerwa=6 PE, dowódcy=38 PE",
+2025-10-01T00:03:57,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 19, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:57,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 19, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:57,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 19, ""commander_tokens"": 10, ""commander_points_after"": 56, ""reserve_after"": 25}"
+2025-10-01T00:03:57,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 19, ""commander_tokens"": 10, ""commander_points_after"": 55, ""reserve_after"": 6}"
+2025-10-01T00:03:57,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 6,
+2025-10-01T00:03:57,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 56, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:57,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 55, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:58,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:03:58,GENERAL,INFO,Dostępne PE: 69,
+2025-10-01T00:03:58,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:58,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:03:58,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 69, ""reserve_pe"": 10, ""distributable_pe"": 59}"
+2025-10-01T00:03:58,GENERAL,INFO,"Plan dystrybucji: rezerwa=10 PE, dowódcy=59 PE",
+2025-10-01T00:03:58,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 33, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:58,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 26, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:03:58,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 33, ""commander_tokens"": 10, ""commander_points_after"": 70, ""reserve_after"": 36}"
+2025-10-01T00:03:58,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 26, ""commander_tokens"": 8, ""commander_points_after"": 64, ""reserve_after"": 10}"
+2025-10-01T00:03:58,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 10,
+2025-10-01T00:03:58,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 70, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:58,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 64, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:03:59,GENERAL,INFO,Dostępne PE: 68,
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 68, ""reserve_pe"": 10, ""distributable_pe"": 58}"
+2025-10-01T00:03:59,GENERAL,INFO,"Plan dystrybucji: rezerwa=10 PE, dowódcy=58 PE",
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 29, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 29, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 29, ""commander_tokens"": 10, ""commander_points_after"": 75, ""reserve_after"": 39}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 29, ""commander_tokens"": 9, ""commander_points_after"": 70, ""reserve_after"": 10}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 10,
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 75, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 70, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:03:59,GENERAL,INFO,Dostępne PE: 18,
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 18, ""reserve_pe"": 0, ""distributable_pe"": 18}"
+2025-10-01T00:03:59,GENERAL,INFO,"Plan dystrybucji: rezerwa=0 PE, dowódcy=18 PE",
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 10, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 8, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 10, ""commander_tokens"": 10, ""commander_points_after"": 70, ""reserve_after"": 8}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 8, ""commander_tokens"": 8, ""commander_points_after"": 64, ""reserve_after"": 0}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 0,
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 70, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 64, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:03:59,GENERAL,INFO,Dostępne PE: 64,
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 64, ""reserve_pe"": 9, ""distributable_pe"": 55}"
+2025-10-01T00:03:59,GENERAL,INFO,"Plan dystrybucji: rezerwa=9 PE, dowódcy=55 PE",
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 28, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:03:59,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 27, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 28, ""commander_tokens"": 10, ""commander_points_after"": 93, ""reserve_after"": 36}"
+2025-10-01T00:03:59,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 27, ""commander_tokens"": 9, ""commander_points_after"": 88, ""reserve_after"": 9}"
+2025-10-01T00:03:59,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 9,
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 93, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:03:59,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 88, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:04:00,GENERAL,INFO,Dostępne PE: 44,
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 44, ""reserve_pe"": 6, ""distributable_pe"": 38}"
+2025-10-01T00:04:00,GENERAL,INFO,"Plan dystrybucji: rezerwa=6 PE, dowódcy=38 PE",
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 21, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 17, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 21, ""commander_tokens"": 10, ""commander_points_after"": 81, ""reserve_after"": 23}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 17, ""commander_tokens"": 8, ""commander_points_after"": 73, ""reserve_after"": 6}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 6,
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 81, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 73, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:04:00,GENERAL,INFO,Dostępne PE: 41,
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 41, ""reserve_pe"": 6, ""distributable_pe"": 35}"
+2025-10-01T00:04:00,GENERAL,INFO,"Plan dystrybucji: rezerwa=6 PE, dowódcy=35 PE",
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 18, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 17, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 18, ""commander_tokens"": 10, ""commander_points_after"": 101, ""reserve_after"": 23}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 17, ""commander_tokens"": 9, ""commander_points_after"": 96, ""reserve_after"": 6}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 6,
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 101, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 96, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:04:00,GENERAL,INFO,Dostępne PE: 58,
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 58, ""reserve_pe"": 8, ""distributable_pe"": 50}"
+2025-10-01T00:04:00,GENERAL,INFO,"Plan dystrybucji: rezerwa=8 PE, dowódcy=50 PE",
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 28, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 22, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 28, ""commander_tokens"": 10, ""commander_points_after"": 99, ""reserve_after"": 30}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 22, ""commander_tokens"": 8, ""commander_points_after"": 87, ""reserve_after"": 8}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 8,
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 99, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 87, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:04:00,GENERAL,INFO,Dostępne PE: 16,
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 16, ""reserve_pe"": 0, ""distributable_pe"": 16}"
+2025-10-01T00:04:00,GENERAL,INFO,"Plan dystrybucji: rezerwa=0 PE, dowódcy=16 PE",
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 9, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 7, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 9, ""commander_tokens"": 10, ""commander_points_after"": 100, ""reserve_after"": 7}"
+2025-10-01T00:04:00,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 7, ""commander_tokens"": 9, ""commander_points_after"": 94, ""reserve_after"": 0}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 0,
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 100, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:00,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 94, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:04:00,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:04:00,GENERAL,INFO,Dostępne PE: 99,
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 99, ""reserve_pe"": 14, ""distributable_pe"": 85}"
+2025-10-01T00:04:01,GENERAL,INFO,"Plan dystrybucji: rezerwa=14 PE, dowódcy=85 PE",
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 47, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 38, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 47, ""commander_tokens"": 10, ""commander_points_after"": 136, ""reserve_after"": 52}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 38, ""commander_tokens"": 8, ""commander_points_after"": 117, ""reserve_after"": 14}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 14,
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 136, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 117, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:04:01,GENERAL,INFO,Dostępne PE: 69,
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 69, ""reserve_pe"": 10, ""distributable_pe"": 59}"
+2025-10-01T00:04:01,GENERAL,INFO,"Plan dystrybucji: rezerwa=10 PE, dowódcy=59 PE",
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 30, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 29, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 30, ""commander_tokens"": 10, ""commander_points_after"": 120, ""reserve_after"": 39}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 29, ""commander_tokens"": 9, ""commander_points_after"": 114, ""reserve_after"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 10,
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 120, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 114, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:04:01,GENERAL,INFO,Dostępne PE: 16,
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 16, ""reserve_pe"": 0, ""distributable_pe"": 16}"
+2025-10-01T00:04:01,GENERAL,INFO,"Plan dystrybucji: rezerwa=0 PE, dowódcy=16 PE",
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 9, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 7, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 9, ""commander_tokens"": 10, ""commander_points_after"": 135, ""reserve_after"": 7}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 7, ""commander_tokens"": 8, ""commander_points_after"": 116, ""reserve_after"": 0}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 0,
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 135, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 116, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:04:01,GENERAL,INFO,Dostępne PE: 30,
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 30, ""reserve_pe"": 4, ""distributable_pe"": 26}"
+2025-10-01T00:04:01,GENERAL,INFO,"Plan dystrybucji: rezerwa=4 PE, dowódcy=26 PE",
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 13, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 13, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 13, ""commander_tokens"": 10, ""commander_points_after"": 123, ""reserve_after"": 17}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 13, ""commander_tokens"": 9, ""commander_points_after"": 118, ""reserve_after"": 4}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 4,
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 123, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 118, ""needs"": ""min=9 headroom=5 tokens=9""}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał Polska (id=1) rozpoczyna turę,
+2025-10-01T00:04:01,GENERAL,INFO,Dostępne PE: 9,
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 2, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 3, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4, ""baseline"": 8}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 9, ""reserve_pe"": 0, ""distributable_pe"": 9}"
+2025-10-01T00:04:01,GENERAL,INFO,"Plan dystrybucji: rezerwa=0 PE, dowódcy=9 PE",
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 2, ""allocated_pe"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:01,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 3, ""allocated_pe"": 4, ""token_count"": 8, ""minimum"": 8, ""headroom"": 4}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 2, ""allocated_pe"": 5, ""commander_tokens"": 10, ""commander_points_after"": 130, ""reserve_after"": 4}"
+2025-10-01T00:04:01,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 3, ""allocated_pe"": 4, ""commander_tokens"": 8, ""commander_points_after"": 112, ""reserve_after"": 0}"
+2025-10-01T00:04:01,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 0,
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 2, ""points"": 130, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:01,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 3, ""points"": 112, ""needs"": ""min=8 headroom=4 tokens=8""}"
+2025-10-01T00:04:02,GENERAL,DEBUG,Generał Niemcy (id=4) rozpoczyna turę,
+2025-10-01T00:04:02,GENERAL,INFO,Dostępne PE: 54,
+2025-10-01T00:04:02,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 5, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5, ""baseline"": 10}"
+2025-10-01T00:04:02,GENERAL,DEBUG,Profil dowódcy,"{""commander_id"": 6, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5, ""baseline"": 9}"
+2025-10-01T00:04:02,GENERAL,DEBUG,Podział rezerwy i środków,"{""total_pe"": 54, ""reserve_pe"": 8, ""distributable_pe"": 46}"
+2025-10-01T00:04:02,GENERAL,INFO,"Plan dystrybucji: rezerwa=8 PE, dowódcy=46 PE",
+2025-10-01T00:04:02,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 5, ""allocated_pe"": 23, ""token_count"": 10, ""minimum"": 10, ""headroom"": 5}"
+2025-10-01T00:04:02,GENERAL,INFO,Planowany przydział dla dowódcy,"{""commander_id"": 6, ""allocated_pe"": 23, ""token_count"": 9, ""minimum"": 9, ""headroom"": 5}"
+2025-10-01T00:04:02,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 5, ""allocated_pe"": 23, ""commander_tokens"": 10, ""commander_points_after"": 136, ""reserve_after"": 31}"
+2025-10-01T00:04:02,GENERAL,INFO,Przekazano PE dowódcy,"{""commander_id"": 6, ""allocated_pe"": 23, ""commander_tokens"": 9, ""commander_points_after"": 132, ""reserve_after"": 8}"
+2025-10-01T00:04:02,GENERAL,DEBUG,Generał kończy turę. Pozostało PE: 8,
+2025-10-01T00:04:02,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 5, ""points"": 136, ""needs"": ""min=10 headroom=5 tokens=10""}"
+2025-10-01T00:04:02,GENERAL,INFO,Stan dowódcy po dystrybucji,"{""commander_id"": 6, ""points"": 132, ""needs"": ""min=9 headroom=5 tokens=9""}"

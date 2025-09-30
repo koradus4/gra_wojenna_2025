@@ -7,6 +7,7 @@ from gui.panel_gracza import PanelGracza
 from gui.zarzadzanie_punktami_ekonomicznymi import ZarzadzaniePunktamiEkonomicznymi
 from engine.board import Board
 from gui.panel_mapa import PanelMapa
+from ai.logs import log_general
 # from gui.token_info_panel import TokenInfoPanel  # USUNIĘTE - zastąpione tooltip
 
 class PanelGenerala:
@@ -16,6 +17,19 @@ class PanelGenerala:
         self.gracz = gracz
         self.gracze = gracze
         self.game_engine = game_engine
+
+        try:
+            available_points = self.ekonomia.get_points().get('economic_points', 0)
+        except Exception:
+            available_points = None
+        log_general(
+            "Generał (human) rozpoczyna turę",
+            level="INFO",
+            general_id=getattr(self.gracz, 'id', None),
+            nation=getattr(self.gracz, 'nation', None),
+            available_pe=available_points,
+            turn=self.turn_number,
+        )
 
         # --- Okno główne ---
         self.root = tk.Tk()
@@ -275,6 +289,7 @@ class PanelGenerala:
                 messagebox.showerror("Błąd", "Przekroczono dostępne punkty ekonomiczne!")
                 return
             
+            allocations = {}
             for d in dowodcy:
                 przydzielone = suwak_vars[d.id].get()
                 # Synchronizuj z systemem ekonomii dowódcy
@@ -286,8 +301,17 @@ class PanelGenerala:
                 if not hasattr(d, 'punkty_ekonomiczne') or d.punkty_ekonomiczne is None:
                     d.punkty_ekonomiczne = 0
                 d.punkty_ekonomiczne = d.economy.economic_points
+                allocations[d.id] = przydzielone
             self.ekonomia.subtract_points(suma)
             self.update_economy(self.ekonomia.get_points()['economic_points'])
+            log_general(
+                "Generał (human) przydziela środki dowódcom",
+                level="INFO",
+                general_id=getattr(self.gracz, 'id', None),
+                allocations=allocations,
+                spent_total=suma,
+                remaining_general=self.ekonomia.get_points().get('economic_points', None),
+            )
             win.destroy()
 
         btn_ok = tk.Button(win, text="Akceptuj", command=zatwierdz, font=("Arial", 12, "bold"),
@@ -342,6 +366,27 @@ class PanelGenerala:
     def end_turn(self):
         """Kończy podturę i zamyka panel."""
         self.reset_support_sliders()  # Resetowanie suwaków wsparcia
+        commander_states = {}
+        try:
+            for commander in (g for g in self.gracze if g.role == "Dowódca" and g.nation == self.gracz.nation):
+                points = None
+                if hasattr(commander, 'economy') and commander.economy is not None:
+                    points = commander.economy.get_points().get('economic_points', None)
+                commander_states[commander.id] = points
+        except Exception:
+            commander_states = {}
+        try:
+            general_points = self.ekonomia.get_points().get('economic_points', None)
+        except Exception:
+            general_points = None
+        log_general(
+            "Generał (human) kończy turę",
+            level="INFO",
+            general_id=getattr(self.gracz, 'id', None),
+            remaining_general=general_points,
+            commander_points=commander_states,
+            turn=self.turn_number,
+        )
         # LOG: end_turn
         try:
             from utils.action_logger import log_action

@@ -109,7 +109,8 @@ class PathfindingService:
             start, goal,
             max_mp=token.currentMovePoints,
             max_fuel=token.currentFuel,
-            visible_tokens=visible_tokens
+            visible_tokens=visible_tokens,
+            fallback_to_closest=True
         )
     
     @staticmethod
