@@ -15,6 +15,7 @@ TRYBY CZYSZCZENIA:
 - csv: Czyszczenie tylko plików CSV z logs/
 - tokens_soft: Usuwa rozmieszczone żetony (z backup)
 - tokens_hard: Pełne usunięcie żetonów + purge assets/tokens/
+- tokens_reset: Resetuje startowe żetony i (opcjonalnie) katalog assets/tokens pod nowe armie
 
 BEZPIECZEŃSTWO:
 ===============
@@ -403,6 +404,16 @@ def _remove_tokens_from_map(map_obj: dict) -> int:
     return removed
 
 
+def _reset_tokens_index(index_path: Path):
+    """Utwórz pusty index.json dla katalogu assets/tokens."""
+    try:
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        index_path.write_text('[]', encoding='utf-8')
+        print('✅ Zresetowano assets/tokens/index.json')
+    except Exception as exc:
+        print(f'⚠️ Nie udało się zresetować index.json: {exc}')
+
+
 def tokens_soft(no_backup: bool = False):
     """UWAGA: Usuń rozmieszczone żetony (start_tokens.json + token fields) – TYLKO dla specjalnych przypadków!"""
     assets = Path('assets')
@@ -472,16 +483,73 @@ def tokens_hard(no_backup: bool = False, confirm: bool = False):
         print(f'✅ Usunięto {removed_dirs} katalogów i {removed_files} plików w assets/tokens')
     else:
         print('ℹ️ Brak assets/tokens – pomijam purge')
+
+    _reset_tokens_index(assets_tokens / 'index.json')
     print('🏁 tokens_hard zakończone.')
+
+
+def tokens_reset(no_backup: bool = False, purge_assets: bool = False):
+    """Resetuj startowe żetony i przygotuj mapę pod nowe armie."""
+    assets = Path('assets')
+    data = Path('data')
+    start_tokens = assets / 'start_tokens.json'
+    map_data = data / 'map_data.json'
+    tokens_dir = assets / 'tokens'
+    tokens_index = tokens_dir / 'index.json'
+
+    if not no_backup:
+        bdir = _backup_dir('tokens_reset')
+        _safe_copy(start_tokens, bdir / 'start_tokens.json')
+        _safe_copy(map_data, bdir / 'map_data.json')
+        if tokens_index.exists():
+            _safe_copy(tokens_index, bdir / 'tokens_index.json')
+        if purge_assets and tokens_dir.exists():
+            try:
+                zip_path = shutil.make_archive(str(bdir / 'tokens_assets'), 'zip', root_dir=tokens_dir)
+                print(f'💾 Backup katalogu tokens -> {zip_path}')
+            except Exception as exc:
+                print(f'⚠️ Nie udało się spakować assets/tokens: {exc}')
+    else:
+        print('(bez backupu)')
+
+    # wyczyść startowe rozmieszczenie bez ponownego backupu
+    tokens_soft(no_backup=True)
+
+    if purge_assets:
+        if tokens_dir.exists():
+            removed_dirs = 0
+            removed_files = 0
+            for item in tokens_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                    removed_dirs += 1
+                elif item.name != 'index.json':
+                    try:
+                        item.unlink()
+                        removed_files += 1
+                    except Exception as exc:
+                        print(f'⚠️ Nie mogę usunąć {item}: {exc}')
+            print(f'✅ Usunięto {removed_dirs} katalogów i {removed_files} plików z assets/tokens')
+        else:
+            print('ℹ️ Brak assets/tokens – pomijam purge')
+        _reset_tokens_index(tokens_index)
+    else:
+        if not tokens_index.exists():
+            _reset_tokens_index(tokens_index)
+        else:
+            print('ℹ️ Zachowano zawartość assets/tokens (brak --purge-assets). index.json pozostaje bez zmian.')
+
+    print('🏁 tokens_reset zakończone.')
 
 
 # ==================== CLI ====================
 
 def parse_args():
     p = argparse.ArgumentParser(description='Narzędzia czyszczenia projektu')
-    p.add_argument('--mode', choices=['quick', 'new_game', 'csv', 'tokens_soft', 'tokens_hard'], default='quick')
+    p.add_argument('--mode', choices=['quick', 'new_game', 'csv', 'tokens_soft', 'tokens_hard', 'tokens_reset'], default='quick')
     p.add_argument('--no-backup', action='store_true', help='Pomiń tworzenie backupu (tylko tryby tokens_*)')
     p.add_argument('--confirm', action='store_true', help='Wymagane do trybu tokens_hard')
+    p.add_argument('--purge-assets', action='store_true', help='Usuń katalog assets/tokens podczas tokens_reset')
     return p.parse_args()
 
 
@@ -498,6 +566,8 @@ def main_cli():
         tokens_soft(no_backup=args.no_backup)
     elif mode == 'tokens_hard':
         tokens_hard(no_backup=args.no_backup, confirm=args.confirm)
+    elif mode == 'tokens_reset':
+        tokens_reset(no_backup=args.no_backup, purge_assets=args.purge_assets)
     else:
         print(f'Nieznany tryb: {mode}')
 

@@ -1,241 +1,79 @@
-# 📁 ANALIZA FOLDERU CORE - KAMPANIA 1939
+# 📁 ANALIZA FOLDERU `core/` – Kampania 1939
 
-## 📌 WPROWADZENIE
+## 📌 Stan na 1 października 2025 (wersja 3.8)
+- `core/` dostarcza wspólne systemy ekonomii, tur, pogody i warunków zwycięstwa współdzielone przez launchery human oraz AI (`main.py`, `ai_launcher.py`).
+- Kluczowe klasy (`EconomySystem`, `TurnManager`, `VictoryConditions`) są włączone do bieżącej rozgrywki i wykorzystywane zarówno w interfejsach GUI, jak i w testach regresyjnych.
+- `unit_factory.py` pozostaje jedynym źródłem prawdy dla statystyk jednostek; wyniki muszą być zgodne z `gui/token_shop.py`.
+- W katalogu pozostał jeden placeholder (`dyplomacja.py`) przewidziany na przyszłe rozszerzenia.
 
-Folder `core/` zawiera podstawowe moduły logiki biznesowej gry **Kampania 1939**. Ten dokument analizuje każdy plik pod kątem funkcjonalności, duplikatów i potrzeby reorganizacji.
+## 🗂️ Zawartość katalogu
 
-**Data analizy:** 6 września 2025  
-**Wersja systemu:** 3.8 (z PE Validation System)  
-**Status:** ANALIZA KOMPLETNA ✅
+| Plik | Status | Główna odpowiedzialność | Kluczowe integracje |
+|------|--------|-------------------------|----------------------|
+| `ekonomia.py` | ✅ aktywny | System punktów ekonomicznych i specjalnych (PE) | `engine.process_key_points`, `ai/general`, `ai/commander`, GUI generała |
+| `pogoda.py` | ✅ aktywny | Generator pogody z ograniczeniami historycznymi | `core.tura.TurnManager`, panele pogodowe GUI |
+| `tura.py` | ✅ aktywny | Zarządzanie turami, resetami jednostek, porami dnia | Launchery (`main.py`, `ai_launcher.py`), `engine.update_all_players_visibility` |
+| `unit_factory.py` | ✅ aktywny | Fabryka statystyk żetonów (koszty, zasięgi, wsparcia) | `gui.token_shop`, testy balansowe (`tests/test_unit_factory_parity.py`) |
+| `zwyciestwo.py` | ✅ aktywny | Warunki zwycięstwa: limit tur lub eliminacja | Launchery (ekrany końcowe), `VictoryConditions` w testach integracyjnych |
+| `dyplomacja.py` | ⚪ placeholder | Rezerwacja pod przyszły system sojuszy | Brak – nieużywany |
 
----
+> W katalogu nie ma już pliku `rozkazy.py`; poprzednie odniesienia można traktować jako archiwalne.
 
-## 🗂️ STRUKTURA FOLDERU CORE
+## 🔍 Szczegółowe moduły
 
-```
-core/
-├── dyplomacja.py          # ❌ PUSTY - do implementacji
-├── ekonomia.py            # ✅ AKTYWNY - system ekonomiczny PE
-├── pogoda.py              # ✅ AKTYWNY - generator pogody
-├── rozkazy.py             # ❌ PUSTY - do implementacji  
-├── tura.py                # ✅ AKTYWNY - menedżer tur
-├── unit_factory.py        # ✅ AKTYWNY - fabryka jednostek
-├── zwyciestwo.py          # ⚠️ CZĘŚCIOWY - warunki zwycięstwa
-└── __pycache__/           # Cache Pythona
-```
+### `ekonomia.py` – `EconomySystem`
+- Generuje losowe PE (1–100) i 1 punkt specjalny na turę dowódcy/generała.
+- `subtract_points` chroni przed zejściem poniżej zera i raportuje blokady w konsoli.
+- `EconomySystem` jest tworzony dla każdego gracza (`engine/engine.py`) i synchronizowany w AI (`GeneralAI.execute_turn`, `CommanderAI._sync_player_points`).
+- Testy regresyjne: `tests/test_polish_logging.py`, `tests/test_key_points.py`, `tests/ai/test_ai_basic.py` (przepływ PE).
 
----
+### `pogoda.py` – `Pogoda`
+- Losuje temperaturę (-5 °C do 25 °C), zachmurzenie i opady z ograniczeniem ±2 °C per doba.
+- `TurnManager` odświeża pogodę co 6 tur (1 doba) i generuje raport tekstowy wykorzystywany w panelach GUI.
+- Jeśli zajdzie potrzeba rozszerzeń (wiatr, mgła), moduł posiada gotowe pola na dodatkowe parametry.
 
-## 📋 SZCZEGÓŁOWA ANALIZA PLIKÓW
+### `tura.py` – `TurnManager`
+- Przechowuje kolejność graczy, aktualną turę i udostępnia helpery czasu (`get_day_number`, `get_day_phase`, `get_current_date`).
+- Resetuje `currentMovePoints`, `maxMovePoints` i liczniki artylerii (`token.reset_turn_actions`) na początku pełnej tury.
+- Integruje `Pogoda` i generuje raport `Data/Dzień | Pora dnia | Pogoda` dla `PanelGenerala` i `PanelDowodcy`.
+- Zewnętrzne moduły (np. `engine.VisionService`) korzystają z `get_day_phase` do modyfikacji progów detekcji.
 
-### ✅ **ekonomia.py** - KLASA EconomySystem
+### `unit_factory.py`
+- Przechowuje słowniki statystyk (zasięgi, ruch, atak, ceny, wsparcia) odwzorowane 1:1 względem `gui/token_shop.update_stats`.
+- Funkcje pomocnicze (`get_unit_defaults`, `build_unit_stats`, `describe_unit`) umożliwiają spójną prezentację danych w GUI i testach.
+- Testy spójności: `tests/test_unit_factory_parity.py`, `tests/test_token_workflow.py`, `tests/test_balance_parity_token_shop.py`.
+- Pozostaje w `core/`, ponieważ jest wykorzystywany równocześnie przez GUI, testy balansowe i narzędzia analityczne.
 
-**Status:** AKTYWNY I POTRZEBNY ✅  
-**Funkcjonalność:**
-- Zarządzanie punktami ekonomicznymi (PE) i specjalnymi
-- System PE Validation (v3.8) - ochrona przed ujemnymi wartościami
-- Operacje: dodawanie, odejmowanie, sprawdzanie bilansów
-- Obsługa przydzielonych punktów dowódcom
+### `zwyciestwo.py` – `VictoryConditions`
+- Obsługuje dwa tryby: *turns* (porównanie Victory Points po ukończeniu limitu tur) i *elimination* (do ostatniego żyjącego narodu).
+- `main.py` oraz `ai_launcher.py` tworzą obiekt `VictoryConditions` przy starcie gry i sprawdzają stan w pętli wydarzeń.
+- `_check_elimination_victory` zakłada istnienie metody `player.has_living_units(game_engine)`; w przypadku braku danych fallback kończy grę dopiero po wyzerowaniu wszystkich graczy.
+- `_determine_victory_points_winner` agreguje VP per naród i wykrywa remisy.
+- Do uzupełnienia w kolejnych iteracjach: dokładna detekcja żywych jednostek bez odwołań do `sys.modules`, formatowanie komunikatu zwycięstwa dla GUIs.
 
-**Kluczowe metody:**
-- `generate_economic_points()` - generuje losowe PE (1-100)
-- `subtract_points(points)` - bezpieczne odejmowanie z walidacją
-- `add_economic_points(points)` - dodawanie PE z key points
-- `get_points()` - zwraca aktualne PE i punkty specjalne
+### `dyplomacja.py`
+- Plik utrzymany jako placeholder – brak implementacji oraz referencji w kodzie.
+- Zalecane: albo usunięcie do katalogu `plans/`, albo pozostawienie z krótkim opisem planowanej funkcjonalności przy pierwszej implementacji.
 
-**Integracja:**
-- Używany przez `engine/engine.py` w `process_key_points()`
-- Używany przez `gui/panel_generala.py` dla ekonomii graczy
-- Używany przez `ai/zaopatrzenie_ai.py` dla AI wydatków
+## 🔗 Integracje z innymi katalogami
+- `engine/engine.py` wykorzystuje `EconomySystem` oraz `VictoryConditions`; reset widoczności i generowanie PE odbywa się w ramach jednej logiki.
+- GUI (`gui/panel_generala.py`, `gui/panel_dowodcy.py`) korzysta z `TurnManager`, `EconomySystem` i raportów pogodowych.
+- AI (`ai/general`, `ai/commander`, `ai/tokens`) używa wyłącznie publicznych metod `EconomySystem` i danych o turze.
+- Testy automatyczne w `tests/` zakładają obecność wszystkich funkcji opisanych powyżej – zmiany w API wymagają aktualizacji fixtures.
 
-**Czy duplikat?** ❌ NIE - to jest JEDYNE źródło logiki ekonomicznej
+## 🧪 Pokrycie testami
+- `tests/core/` – testy jednostkowe `TurnManager`, generatora pogody i ekonomii.
+- `tests/ai/` – weryfikacja przepływu PE i integracji z `EconomySystem`.
+- `tests/integration/test_system_ready.py` – smoke test całego przepływu tury z wykorzystaniem `VictoryConditions`.
+- `tests/test_polish_logging.py` – potwierdza współpracę `TurnManager` z systemem logowania (sesje dzienne).
 
----
-
-### ✅ **pogoda.py** - KLASA Pogoda
-
-**Status:** AKTYWNY I POTRZEBNY ✅  
-**Funkcjonalność:**
-- Generator pogody z realistycznymi ograniczeniami
-- Temperatura: -5°C do 25°C (max zmiana ±2°C dziennie)
-- Zachmurzenie: Bezchmurnie/umiarkowane/duże
-- Opady: Bezdeszczowo/lekkie/intensywne + śnieg poniżej 0°C
-
-**Kluczowe metody:**
-- `generuj_pogode()` - generuje pogodę z ograniczeniami temperatury
-- `generuj_raport_pogodowy()` - formatuje raport tekstowy
-- `wypisz_pogode()` - deprecated (pusta metoda)
-
-**Integracja:**
-- Używany przez `core/tura.py` w `TurnManager`
-- Panel pogody w GUI generała i dowódcy
-- Generowanie co 6 tur (mechanika czasowa)
-
-**Czy duplikat?** ❌ NIE - jedyna implementacja systemu pogody
-
----
-
-### ✅ **tura.py** - KLASA TurnManager
-
-**Status:** AKTYWNY I POTRZEBNY ✅  
-**Funkcjonalność:**
-- Zarządzanie kolejnością graczy i turami
-- Reset zasobów jednostek (MP, fuel, akcje artylerii)
-- Integracja z systemem pogody
-- System czasu: 6 tur = 1 doba, pory dnia (rano/dzień/wieczór/noc)
-- Raport do UI: `get_ui_weather_report()` (Data/Dzień | Pora dnia | Pogoda)
-- Kontrola limitów tur (domyślnie 10)
-
-**Kluczowe metody:**
-- `next_turn()` - przechodzi do następnego gracza
-- `rozpocznij_nowa_ture()` - inicjuje nową turę z pogodą
-- `get_current_player()` - zwraca aktywnego gracza
-- `is_game_over(max_turns)` - kontrola końca gry
- - `get_day_number(turn)`, `get_day_phase(turn)` - pomocnicze funkcje czasu
- - `get_current_date()` - (opcjonalnie) data scenariusza
- - `get_ui_weather_report()` - zwięzły raport dla GUI
-
-**Integracja:**
-- Używany przez główne pliki gry (`main.py`, `main_ai.py`)
-- Reset akcji artylerii (`token.reset_turn_actions()`)
-- Generowanie pogody co 6 tur
-
-**Czy duplikat?** ❌ NIE - unikalny menedżer sekwencji gry
+## ✅ Rekomendacje dalszych prac
+1. **VictoryConditions** – oczyścić mechanizm wyszukiwania `GameEngine` (zastąpić logiką wstrzykiwaną z launchera) i dostarczyć pełne komunikaty dla GUI.
+2. **EconomySystem** – rozważyć parametr startowej wartości PE oraz deterministyczny generator na potrzeby testów.
+3. **Dyplomacja** – zdecydować o implementacji (system sojuszy) lub przenieść opis do dokumentacji planów (`plans/`).
+4. **Unit Factory** – utrzymać synchronizację z `gui/token_shop.py`; każdy refaktoring powinien być potwierdzony testami `test_unit_factory_parity.py`.
 
 ---
-
-### ✅ **unit_factory.py** - FABRYKA JEDNOSTEK
-
-**Status:** AKTYWNY I BARDZO POTRZEBNY ✅  
-**Funkcjonalność:**
-- Centralna definicja statystyk wszystkich typów jednostek
-- Identyczne dane jak w `token_shop.update_stats` (single source of truth)
-- Wsparcia, upgrady, ceny, statystyki combat/defense
-- Dozwolone kombinacje typów jednostek i wsparć
-
-**Kluczowe komponenty:**
-- `RANGE_DEFAULTS`, `MOVE_DEFAULTS`, `ATTACK_DEFAULTS` - podstawowe statystyki
-- `COMBAT_DEFAULTS`, `DEFENSE_DEFAULTS` - wartości bojowe
-- `PRICE_DEFAULTS`, `MAINTENANCE_DEFAULTS` - ekonomia jednostek
-- `SUPPORT_UPGRADES` - bonusy od wsparcia
-- `ALLOWED_SUPPORT` - matrix kompatybilności
-
-**Integracja:**
-- Używany przez `edytory/prototyp_kreator_armii.py` do obliczania statystyk
-- Pozwala AI obliczać parametry jednostek z jednego źródła
-- Synchronizacja z token shop systemem
-
-**Czy duplikat?** ❌ NIE - to jest WYMAGANE centrum danych jednostek
-
----
-
-### ⚠️ **zwyciestwo.py** - KLASA VictoryConditions
-
-**Status:** CZĘŚCIOWY - WYMAGA DOKOŃCZENIA ⚠️  
-**Funkcjonalność:**
-- Warunki zwycięstwa: turns (standardowy) vs elimination
-- Limity tur: 10, 20, 30 (domyślnie 30)
-- Sprawdzanie końca gry i wyznaczanie zwycięzcy
-
-**Kluczowe metody:**
-- `check_game_over(current_turn, players)` - główna logika
-- `_check_elimination_victory(players)` - eliminacja wrogów
-- `_determine_victory_points_winner(players)` - zwycięstwo punktowe
-
-**Problemy:**
-- Niekompletna implementacja `_check_elimination_victory()`
-- Błędy importu modułów (`sys.modules`)
-- Nieskończone fragmenty kodu
-
-**Integracja:**
-- Nie jest jeszcze używany w głównej grze
-- Przygotowany do integracji z `engine/engine.py`
-
-**Czy duplikat?** ❌ NIE - jedyna logika warunków zwycięstwa
-
----
-
-### ❌ **dyplomacja.py** - PUSTY PLIK
-
-**Status:** DO IMPLEMENTACJI W PRZYSZŁOŚCI ❌  
-**Zawartość:** Tylko komentarz "Plik do dalszej implementacji"
-
-**Planowana funkcjonalność:**
-- System sojuszy między nacjami
-- Mechaniki dyplomatyczne
-- Negocjacje między graczami
-
-**Czy potrzebny teraz?** ❌ NIE - to feature na przyszłość
-
----
-
-### ❌ **rozkazy.py** - PUSTY PLIK  
-
-**Status:** PUSTY - NIEZNANE PRZEZNACZENIE ❌  
-**Zawartość:** Kompletnie pusty plik
-
-**Czy potrzebny?** ❌ NIE - brak implementacji i planu
-
----
-
-## 🔍 ANALIZA DUPLIKATÓW I REDUNDANCJI
-
-### ✅ **BRAK DUPLIKATÓW W FOLDERZE CORE**
-
-Po szczegółowej analizie **WSZYSTKIE AKTYWNE PLIKI W CORE/ SĄ UNIKATOWE**:
-
-1. **ekonomia.py** ≠ engine ekonomia - core zajmuje się logiką PE, engine zarządza keypoints
-2. **pogoda.py** ≠ engine pogoda - core generuje, engine/GUI wykorzystuje
-3. **tura.py** ≠ engine turns - core zarządza sekwencją, engine wykonuje akcje
-4. **unit_factory.py** ≠ engine units - core definiuje statystyki, engine obsługuje tokens
-
-### ⚠️ **POTENCJALNE USPRAWNIENIA**
-
-1. **Przenieść `unit_factory.py`** → `engine/unit_factory.py`
-   - Lepsze grupowanie z resztą logiki jednostek
-   - Bliżej `token.py` i `action_refactored_clean.py`
-
-2. **Dokończyć `zwyciestwo.py`**
-   - Naprawić błędy implementacji
-   - Dodać do głównego flow gry
-
-3. **Usunąć puste pliki**
-   - `dyplomacja.py` - dodać gdy potrzebny
-   - `rozkazy.py` - usunąć lub określić cel
-
----
-
-## 📊 PODSUMOWANIE I REKOMENDACJE
-
-### ✅ **PLIKI DO ZACHOWANIA (5/7)**
-
-| Plik | Status | Priorytet | Akcja |
-|------|--------|-----------|-------|
-| `ekonomia.py` | ✅ AKTYWNY | WYSOKI | Zachować - kluczowy dla PE |
-| `pogoda.py` | ✅ AKTYWNY | ŚREDNI | Zachować - system pogody |
-| `tura.py` | ✅ AKTYWNY | WYSOKI | Zachować - zarządza grą |
-| `unit_factory.py` | ✅ AKTYWNY | WYSOKI | Rozważyć przeniesienie → engine/ |
-| `zwyciestwo.py` | ⚠️ CZĘŚCIOWY | ŚREDNI | Dokończyć implementację |
-
-### ❌ **PLIKI DO USUNIĘCIA (2/7)**
-
-| Plik | Powód | Akcja |
-|------|-------|--------|
-| `dyplomacja.py` | Pusty placeholder | Usunąć lub przenieść do plans/ |
-| `rozkazy.py` | Pusty bez celu | Usunąć |
-
-### 🎯 **WNIOSKI**
-
-1. **FOLDER CORE JEST POTRZEBNY** - zawiera unikatową logikę biznesową
-2. **BRAK DUPLIKATÓW** - wszystkie aktywne pliki mają różne odpowiedzialności  
-3. **ORGANIZACJA DOBRA** - logiczne grupowanie funkcjonalności
-4. **POTRZEBA CLEANUP** - usunąć 2 puste pliki
-5. **OPCJONALNE REFACTOR** - przenieść `unit_factory.py` do `engine/`
-
-**REKOMENDACJA KOŃCOWA:** Zachować folder `core/` z 5 aktywnymi plikami, usunąć 2 puste, opcjonalnie zrefaktorować lokalizację `unit_factory.py`.
-
----
-
-**📝 Dokument utworzony:** 6 września 2025  
-**👤 Autor:** GitHub Copilot  
-**📂 Lokalizacja:** `/core/ANALIZA_FOLDERU_CORE.md`
+**Dokument zaktualizowany:** 1 października 2025  
+**Autor aktualizacji:** GitHub Copilot  
+**Lokalizacja:** `core/ANALIZA_FOLDERU_CORE.md`

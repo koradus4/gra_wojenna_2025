@@ -132,6 +132,7 @@ Zarządzanie przejściami między turami.
 System gospodarczy oparty na punktach strategicznych.
 
 **Mechanika:**
+- Punkty ekonomiczne zbiera wyłącznie jednostka **Zaopatrzenia (Z)** stojąca na key poincie; inne jednostki jedynie blokują pole
 - Każdy key point generuje PE dla kontrolującego gracza
 - PE = min(10% wartości początkowej, aktualna wartość punktu)
 - Punkty wyczerpują się w czasie (degradacja)

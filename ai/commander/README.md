@@ -1,16 +1,16 @@
 """
-AI Commander – moduł odpowiedzialny za dystrybucję PE do żetonów i wywoływanie ich logiki autonomicznej.
+AI Commander – warstwa pośrednia między Generałem a TokenAI.
 
-Zakres odpowiedzialności:
-1. Przejmuje PE przekazane przez generała i magazynuje je w rezerwie dowódcy.
-2. Na początku każdej tury odzyskuje niewykorzystane przydziały żetonów.
-3. Dzieli rezerwę **po równo** pomiędzy wszystkie własne żetony (reszta zostaje w puli dowódcy).
-4. Utrzymuje słownik przydziałów (`token_allowances`) oraz aktualizuje atrybuty żetonu (`ai_reserved_pe`, `ai_commander_id`).
-5. Uruchamia maksymalnie 3 żetony na turę wywołując ich `execute_turn` – każdy start kosztuje 1 PE z przydziału jednostki.
+Stan obecny:
+1. Synchronizuje się z `EconomySystem` gracza (tworzy instancję, jeśli brakuje) i odczytuje dostępne PE.
+2. Filtruje `game_engine.tokens` po ownerze w formacie `"{player_id} ({nation})"`, dzięki czemu obsługuje wyłącznie własne jednostki.
+3. Dzieli budżet **po równo** pomiędzy wszystkie posiadane żetony – brak limitu 3 jednostek i brak dodatkowych priorytetów.
+4. Dla każdego żetonu tworzy `TokenAI`, przekazuje przydzielony budżet, zbiera informację o rzeczywiście wydanych PE i loguje wyniki.
+5. Po zakończeniu tury zwraca niewykorzystane środki do ekonomii dowódcy (`economy.economic_points = remaining`).
 
-Ograniczenia i gwarancje:
-- Dowódca nie ingeruje w szczegółową logikę ruchu – cała taktyka jest w `TokenAI`.
-- Widzi i obsługuje wyłącznie własne żetony (na podstawie `token.owner`).
-- Nie może przekroczyć przydzielonych środków ani zmieniać reguł ekonomii.
-- Niewykorzystane PE zawsze wracają do wspólnej puli dowódcy przed kolejną turą.
+Ważne ograniczenia:
+- Brak atrybutów typu `ai_reserved_pe` – dowódca nie utrzymuje indywidualnych kont dla żetonów.
+- Nie ma rotacji/wyboru priorytetów; każdy żeton próbuje wykonać turę w tej samej kolejności, jak pojawił się na liście.
+- Nie agreguje informacji z mapy – cała taktyka spoczywa na `TokenAI` i logice silnika.
+- System logów (`ai/logs/commander/...`) stanowi jedyne źródło informacji o wydatkach i zwrotach PE.
 """
