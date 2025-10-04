@@ -1,237 +1,42 @@
 [
   {
-    "id": "P_Kompania__2_Batalion_Strzelc_w_20251001221150",
-    "q": 16,
-    "r": -7
-  },
-  {
-    "id": "TŚ_Kompania__3_Pluton_Czo_g_w",
-    "q": 16,
-    "r": 18
-  },
-  {
-    "id": "Z_Batalion__3_Batalion_Wsparcia",
-    "q": 16,
-    "r": 19
-  },
-  {
-    "id": "Z_Kompania__3_Batalion_Wsparcia",
-    "q": 16,
-    "r": 20
-  },
-  {
-    "id": "P_Batalion__3_Batalion_Strzelc_w",
-    "q": 17,
-    "r": 18
-  },
-  {
-    "id": "TL_Batalion__2_Pluton_Tankietek",
-    "q": 20,
-    "r": 2
-  },
-  {
-    "id": "TS_Pluton__2_Sam_Pancerny_Einheit",
-    "q": 23,
-    "r": -4
-  },
-  {
-    "id": "P_Pluton__2_Kompania_Grenadier_w",
-    "q": 24,
-    "r": -4
-  },
-  {
-    "id": "P_Pluton__2_Pu_k_Piechoty",
-    "q": 24,
-    "r": -3
-  },
-  {
-    "id": "K_Batalion__2_Oddzia_Jazdy",
-    "q": 25,
-    "r": -9
-  },
-  {
-    "id": "Z_Kompania__6_Unterst_tzungs_Bataillon",
-    "q": 27,
-    "r": 4
-  },
-  {
-    "id": "Z_Kompania__6_Aufkl_rungs_Zug",
-    "q": 28,
-    "r": 3
-  },
-  {
-    "id": "P_Pluton__2_Kompania_Grenadier_w_20251001221146",
-    "q": 30,
-    "r": -10
-  },
-  {
-    "id": "P_Pluton__5_Sch_tzen_Kompanie_20251001221238",
-    "q": 31,
-    "r": -12
-  },
-  {
-    "id": "P_Pluton__5_Sch_tzen_Kompanie",
+    "id": "P_Pluton__3_Kompania_Grenadier_w",
     "q": 32,
-    "r": -13
+    "r": 6
   },
   {
-    "id": "TL_Kompania__5_Panzer_Kompanie",
-    "q": 32,
-    "r": -12
-  },
-  {
-    "id": "P_Pluton__5_Infanterie_Regiment_20251001221239",
+    "id": "Z_Pluton__3_Kompania_Zaopatrzeniowa_20251004090826",
     "q": 33,
-    "r": -5
+    "r": 5
   },
   {
-    "id": "TL_Kompania__5_Panzer_Zug",
-    "q": 34,
-    "r": -4
-  },
-  {
-    "id": "P_Kompania__5_Infanterie_Regiment",
+    "id": "P_Kompania__5_Grenadier_Bataillon",
     "q": 34,
     "r": -3
   },
   {
-    "id": "Z_Pluton__3_Kompania_Zaopatrzeniowa",
-    "q": 34,
-    "r": 11
-  },
-  {
-    "id": "Z_Pluton__5_Unterst_tzungs_Bataillon_20251001221224",
+    "id": "Z_Batalion__5_Aufkl_rungs_Zug",
     "q": 35,
     "r": -4
   },
   {
-    "id": "P_Pluton__5_Grenadier_Bataillon",
-    "q": 35,
-    "r": -3
-  },
-  {
-    "id": "K_Batalion__5_Kawaleria_Einheit",
-    "q": 38,
-    "r": -17
-  },
-  {
-    "id": "TŚ_Kompania__6_Panzer_Regiment",
-    "q": 38,
-    "r": 8
-  },
-  {
-    "id": "P_Pluton__6_Infanterie_Regiment",
-    "q": 38,
-    "r": 9
-  },
-  {
-    "id": "TŚ_Batalion__5_Panzer_Brigade",
+    "id": "Z_Batalion__6_Versorgungs_Kompanie_20251004090848",
     "q": 39,
-    "r": -18
-  },
-  {
-    "id": "AC_Pluton__6_Haubitze_Abteilung",
-    "q": 39,
-    "r": 8
-  },
-  {
-    "id": "P_Batalion__5_Infanterie_Regiment",
-    "q": 42,
-    "r": -15
-  },
-  {
-    "id": "P_Pluton__5_Infanterie_Regiment_20251001221232",
-    "q": 42,
-    "r": -5
-  },
-  {
-    "id": "P_Batalion__5_Infanterie_Regiment_20251001221231",
-    "q": 43,
-    "r": -16
-  },
-  {
-    "id": "Z_Pluton__5_Versorgungs_Kompanie_20251001221240",
-    "q": 43,
-    "r": -15
-  },
-  {
-    "id": "P_Pluton__5_Grenadier_Bataillon_20251001221230",
-    "q": 43,
-    "r": -13
-  },
-  {
-    "id": "P_Pluton__5_Infanterie_Regiment_20251001221228",
-    "q": 43,
-    "r": -4
-  },
-  {
-    "id": "Z_Pluton__5_Versorgungs_Kompanie",
-    "q": 44,
-    "r": -15
-  },
-  {
-    "id": "AL_Batalion__5_Artillerie_Abteilung",
-    "q": 44,
-    "r": -14
-  },
-  {
-    "id": "P_Pluton__5_Infanterie_Regiment",
-    "q": 44,
-    "r": -13
-  },
-  {
-    "id": "Z_Pluton__5_Unterst_tzungs_Bataillon",
-    "q": 51,
-    "r": -11
-  },
-  {
-    "id": "Z_Batalion__2_Batalion_Wsparcia",
-    "q": 8,
-    "r": -3
-  },
-  {
-    "id": "P_Kompania__2_Pu_k_Piechoty_20251001221146",
-    "q": 11,
     "r": -1
   },
   {
-    "id": "P_Kompania__2_Batalion_Strzelc_w",
-    "q": 20,
-    "r": 3
+    "id": "P_Batalion__6_Infanterie_Regiment",
+    "q": 39,
+    "r": 0
   },
   {
-    "id": "AL_Kompania__2_Pu_k_Artylerii",
-    "q": 17,
-    "r": -1
-  },
-  {
-    "id": "P_Pluton__2_Batalion_Strzelc_w",
-    "q": 23,
-    "r": -3
-  },
-  {
-    "id": "TL_Batalion__2_Batalion_Pancerny",
+    "id": "Z_Pluton__2_Kompania_Zaopatrzeniowa",
     "q": 23,
     "r": -7
   },
   {
-    "id": "P_Batalion__2_Kompania_Grenadier_w_20251001221148",
+    "id": "P_Batalion__2_Pu_k_Piechoty",
     "q": 24,
     "r": -8
-  },
-  {
-    "id": "P_Batalion__2_Kompania_Grenadier_w",
-    "q": 23,
-    "r": -8
-  },
-  {
-    "id": "Z_Kompania__2_Oddzia_Rozpoznawczy",
-    "q": 15,
-    "r": -7
-  },
-  {
-    "id": "P_Kompania__2_Pu_k_Piechoty",
-    "q": 21,
-    "r": 2
   }
 ]

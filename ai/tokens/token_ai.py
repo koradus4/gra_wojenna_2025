@@ -10,8 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+import random
+
 from ai.logs import log_token
-from engine.action_refactored_clean import CombatAction, MoveAction
+from engine.action_refactored_clean import CombatAction, MoveAction, VisionService
+from engine.detection_filter import apply_detection_filter, get_detection_info_for_player
 
 
 @dataclass
@@ -23,8 +26,22 @@ class MoveOutcome:
 class TokenAI:
     """Uproszczone AI pojedynczego żetonu."""
 
+    STATUS_URGENT_RETREAT = "urgent_retreat"
+    STATUS_LOW_FUEL = "low_fuel"
+    STATUS_THREATENED = "threatened"
+    STATUS_NORMAL = "normal"
+
+    ACTION_PROFILES: Dict[str, List[str]] = {
+        "retreat": ["refuel_minimum", "withdraw"],
+        "recovery": ["refuel_minimum", "restore_cv"],
+        "combat": ["refuel_minimum", "restore_cv", "attack", "maneuver"],
+        "patrol": ["refuel_minimum", "maneuver"],
+    }
+
     def __init__(self, token):
         self.token = token
+        self.memory: Dict[str, Any] = {}
+        self._reset_turn_state()
 
     def execute_turn(self, engine, player, pe_budget: int = 0) -> int:
         """Wykonuje turę żetonu w trybie minimalnym.
@@ -32,6 +49,13 @@ class TokenAI:
         Zwraca liczbę punktów ekonomicznych faktycznie wykorzystanych
         na uzupełnienia paliwa i wartości bojowej.
         """
+
+        self._reset_turn_state()
+        context = self._evaluate_state(engine, player)
+        status = self._classify_status(context)
+        movement_mode = self._choose_movement_mode(status, context)
+        planned_actions = self._plan_actions(status, context, pe_budget)
+        action_profile = self.memory.get("action_profile")
 
         log_token(
             f"{self.token.id}: start tury (budżet PE={pe_budget})",
@@ -42,39 +66,115 @@ class TokenAI:
             move_points=getattr(self.token, "currentMovePoints", None),
             fuel=getattr(self.token, "currentFuel", None),
             combat_value=getattr(self.token, "combat_value", None),
+            movement_mode=movement_mode,
+            status=status,
+            planned_actions=planned_actions,
+            action_profile=action_profile,
         )
         spent_pe = 0
         allocated_pe = pe_budget
-        movement_report = {"success": False, "attempts": 0, "destination": None}
+        movement_report = {
+            "success": False,
+            "last_success": False,
+            "attempts": 0,
+            "destination": None,
+            "threat_level": 0,
+            "entered_danger_zone": False,
+            "last_distance": 0,
+            "total_distance": 0,
+            "last_mp_spent": 0,
+            "mp_spent_total": 0,
+        }
         attack_report: Optional[Dict[str, Optional[int]]] = None
+        resupply_report = {
+            "budget": max(0, allocated_pe),
+            "spent": 0,
+            "reserved": 0,
+            "fuel_added": 0,
+            "cv_added": 0,
+        }
 
-        if self._can_move():
-            movement_report = self._perform_movement(engine, player)
-
-        enemy = self._select_attack_target(engine)
-        if enemy:
-            attack_report = self._perform_attack(engine, player, enemy)
+        for action in planned_actions:
+            available_pe = max(0, allocated_pe - spent_pe)
+            self._update_context(engine, player, context)
+            if action == "refuel_minimum" and available_pe > 0:
+                phase = self._refuel_minimum(available_pe)
+                spent_pe += phase["spent"]
+                resupply_report["spent"] += phase["spent"]
+                resupply_report["fuel_added"] += phase["fuel_added"]
+            elif action == "restore_cv" and available_pe > 0:
+                phase = self._restore_cv_to_threshold(available_pe)
+                spent_pe += phase["spent"]
+                resupply_report["spent"] += phase["spent"]
+                resupply_report["cv_added"] += phase["cv_added"]
+            elif action in {"withdraw", "maneuver"}:
+                if not self._can_move():
+                    continue
+                destination = self._select_best_hex(engine, context, retreat=(action == "withdraw"))
+                path: List[Tuple[int, int]] = list(self.memory.pop("current_path", [])) if destination else []
+                if destination is None:
+                    continue
+                if not path:
+                    path = [destination]
+                final_destination = path[-1]
+                for step in list(path):
+                    if not self._can_move():
+                        break
+                    outcome = self._attempt_move(engine, player, step)
+                    movement_report["attempts"] += 1
+                    movement_report["last_success"] = bool(getattr(outcome, "success", False))
+                    movement_report["success"] = movement_report["success"] or movement_report["last_success"]
+                    movement_report["destination"] = final_destination
+                    movement_report["threat_level"] = getattr(outcome, "threat_level", 0)
+                    movement_report["entered_danger_zone"] = getattr(outcome, "entered_danger_zone", False)
+                    distance = getattr(outcome, "distance", 0) or 0
+                    mp_spent = getattr(outcome, "mp_spent", 0) or 0
+                    if movement_report["last_success"]:
+                        movement_report["last_distance"] = distance
+                        movement_report["total_distance"] += distance
+                        movement_report["last_mp_spent"] = mp_spent
+                        movement_report["mp_spent_total"] += mp_spent
+                        self.memory["last_destination"] = step
+                        if movement_report["entered_danger_zone"]:
+                            self.memory["hold_position"] = True
+                        path.pop(0)
+                    else:
+                        movement_report["last_distance"] = 0
+                        movement_report["last_mp_spent"] = 0
+                        failed = self.memory.setdefault("failed_hexes", set())
+                        failed.add(step)
+                        break
+                if path:
+                    self.memory["current_path"] = path
+                else:
+                    self.memory.pop("current_path", None)
+            elif action == "attack":
+                enemy = self._select_attack_target(engine, context)
+                if enemy and self._should_attack(enemy, context):
+                    attack_report = self._perform_attack(engine, player, enemy)
+                    self.memory["last_target_id"] = getattr(enemy, "id", None)
+                else:
+                    self.memory["hold_position"] = True
 
         resupply_budget = max(0, allocated_pe - spent_pe)
         token_destroyed = self._is_destroyed_after_attack(engine, attack_report)
 
-        if token_destroyed and resupply_budget > 0:
-            resupply_report = {
-                "budget": resupply_budget,
-                "spent": 0,
-                "fuel_added": 0,
-                "cv_added": 0,
-            }
+        if not token_destroyed and resupply_budget > 0:
+            supplemental = self._perform_resupply(resupply_budget)
+            spent_pe += supplemental["spent"]
+            resupply_report["spent"] += supplemental["spent"]
+            resupply_report["fuel_added"] += supplemental["fuel_added"]
+            resupply_report["cv_added"] += supplemental["cv_added"]
+            resupply_report["reserved"] += supplemental.get("reserved", 0)
+        elif token_destroyed and resupply_budget > 0:
             log_token(
                 f"{self.token.id}: pominięto uzupełnienia (żeton zniszczony)",
                 "DEBUG",
                 resupply_budget=resupply_budget,
             )
-        else:
-            resupply_report = self._perform_resupply(resupply_budget)
 
-        spent_pe += resupply_report["spent"]
         unused_pe = max(0, allocated_pe - spent_pe)
+        resupply_report["reserved"] += unused_pe
 
         log_token(
             f"{self.token.id}: koniec tury (wydane PE={spent_pe})",
@@ -85,6 +185,10 @@ class TokenAI:
             movement_success=movement_report["success"],
             movement_attempts=movement_report["attempts"],
             movement_destination=movement_report["destination"],
+            movement_last_success=movement_report["last_success"],
+            movement_last_distance=movement_report["last_distance"],
+            movement_distance_total=movement_report["total_distance"],
+            movement_mp_spent=movement_report["mp_spent_total"],
             attack_attempted=bool(attack_report),
             attack_success=attack_report.get("success") if attack_report else False,
             counterattack=attack_report.get("counterattack") if attack_report else None,
@@ -96,10 +200,14 @@ class TokenAI:
             resupply_spent=resupply_report["spent"],
             refueled=resupply_report["fuel_added"],
             combat_restored=resupply_report["cv_added"],
+            reserved_pe=resupply_report.get("reserved", 0),
             remaining_mp=getattr(self.token, "currentMovePoints", None),
             remaining_fuel=getattr(self.token, "currentFuel", None),
             combat_value=getattr(self.token, "combat_value", None),
+            movement_mode=getattr(self.token, "movement_mode", movement_mode),
             token_destroyed=token_destroyed,
+            status=status,
+            hold_position=self.memory.get("hold_position", False),
         )
         return spent_pe
 
@@ -116,39 +224,57 @@ class TokenAI:
                     "success": True,
                     "attempts": attempts,
                     "destination": destination,
+                    "threat_level": getattr(outcome, "threat_level", 0),
+                    "entered_danger_zone": getattr(outcome, "entered_danger_zone", False),
+                    "movement_mode": getattr(self.token, "movement_mode", None),
                 }
             log_token(
                 f"{self.token.id}: nieudany ruch na {destination}",
                 "WARNING",
                 reason=outcome.message or "unknown",
                 attempt=attempts,
+                movement_mode=getattr(self.token, "movement_mode", None),
             )
         log_token(
             f"{self.token.id}: brak możliwego ruchu",
             "DEBUG",
             attempts=attempts,
+            movement_mode=getattr(self.token, "movement_mode", None),
         )
         return {
             "success": False,
             "attempts": attempts,
             "destination": None,
+            "threat_level": 0,
+            "entered_danger_zone": False,
+            "movement_mode": getattr(self.token, "movement_mode", None),
         }
 
     def _candidate_moves(self, engine) -> List[Tuple[int, int]]:
-        board = getattr(engine, "board", None)
+        context = getattr(self, "context", {}) or {}
+        board = context.get("board") or getattr(engine, "board", None)
         if board is None:
             return []
-        my_pos = (self.token.q, self.token.r)
+        my_pos = context.get("position") or (self.token.q, self.token.r)
         if None in my_pos:
             return []
 
-        visible_enemies = self._visible_enemies(engine)
-        if visible_enemies:
-            target = min(
-                visible_enemies,
-                key=lambda enemy: board.hex_distance(my_pos, (enemy.q, enemy.r)),
-            )
-            return self._neighbors_towards(engine, my_pos, (target.q, target.r))
+        detection_map = context.get("enemy_detection")
+        visible_enemies = context.get("visible_enemies")
+        if visible_enemies is None:
+            visible_enemies = self._visible_enemies(engine, detection_map)
+
+        tracked_enemies = [enemy for enemy in (visible_enemies or []) if None not in (enemy.q, enemy.r)]
+        if tracked_enemies:
+            try:
+                target = min(
+                    tracked_enemies,
+                    key=lambda enemy: board.hex_distance(my_pos, (enemy.q, enemy.r)),
+                )
+            except AttributeError:
+                target = None
+            if target is not None:
+                return self._neighbors_towards(engine, my_pos, (target.q, target.r))
 
         return self._patrol_neighbors(engine, my_pos)
 
@@ -181,15 +307,29 @@ class TokenAI:
         if destination == (self.token.q, self.token.r):
             return MoveOutcome(False, "already_there")
 
+        start_position = (self.token.q, self.token.r)
+        prev_mp = getattr(self.token, "currentMovePoints", 0) or 0
         action = MoveAction(self.token.id, destination[0], destination[1])
         result = engine.execute_action(action, player=player)
 
         if isinstance(result, tuple):
             success = bool(result[0])
             message = result[1] if len(result) > 1 else None
+            data = result[2] if len(result) > 2 else {}
         else:
             success = bool(getattr(result, "success", False))
             message = getattr(result, "message", None)
+            data = getattr(result, "data", {}) if hasattr(result, "data") else {}
+
+        current_position = (self.token.q, self.token.r)
+        board = getattr(engine, "board", None)
+        distance = 0
+        if success:
+            distance = self._hex_distance(start_position, current_position, board)
+        mp_spent = 0
+        current_mp = getattr(self.token, "currentMovePoints", 0)
+        if current_mp is not None:
+            mp_spent = max(0, prev_mp - (current_mp or 0))
 
         if success:
             log_token(
@@ -199,32 +339,61 @@ class TokenAI:
                 destination_r=destination[1],
                 remaining_mp=getattr(self.token, "currentMovePoints", None),
                 remaining_fuel=getattr(self.token, "currentFuel", None),
+                movement_step_distance=distance,
+                mp_spent=mp_spent,
+                movement_mode=getattr(self.token, "movement_mode", None),
             )
-        return MoveOutcome(success, message)
+        threat_level = self._estimate_threat_level(engine, destination)
+        entered_danger = threat_level > 0 and self._is_in_danger_zone(destination)
+        outcome = MoveOutcome(success, message)
+        setattr(outcome, "threat_level", threat_level)
+        setattr(outcome, "entered_danger_zone", entered_danger)
+        setattr(outcome, "distance", distance)
+        setattr(outcome, "mp_spent", mp_spent)
+        return outcome
 
     # ------------------------------------------------------------------
     # Walka
     # ------------------------------------------------------------------
-    def _select_attack_target(self, engine):
-        board = getattr(engine, "board", None)
-        if board is None:
+    def _select_attack_target(self, engine, context: Dict[str, Any]):
+        detection_map = context.get("enemy_detection", {}) or {}
+        visible_enemies = context.get("visible_enemies") or self._visible_enemies(engine, detection_map)
+        if not visible_enemies:
             return None
 
+        board = context.get("board") or getattr(engine, "board", None)
+        my_pos = context.get("position") or (self.token.q, self.token.r)
         attack_range = self._attack_range()
-        my_pos = (self.token.q, self.token.r)
-        targets = []
-        for enemy in engine.tokens:
-            if not self._is_enemy(enemy):
-                continue
+
+        def _sort_key(enemy) -> Tuple[float, float]:
+            info = detection_map.get(getattr(enemy, "id", None), {}) or {}
+            detection_level = (info.get("detection_level") or 0.0)
+            distance = info.get("distance")
+            if distance is None and board is not None and None not in (*my_pos, enemy.q, enemy.r):
+                try:
+                    distance = board.hex_distance(my_pos, (enemy.q, enemy.r))
+                except AttributeError:
+                    distance = None
+            if distance is None:
+                distance = 999.0
+            return (-detection_level, float(distance))
+
+        ordered = sorted(visible_enemies, key=_sort_key)
+        for enemy in ordered:
             if None in (enemy.q, enemy.r):
                 continue
-            distance = board.hex_distance(my_pos, (enemy.q, enemy.r))
-            if distance <= attack_range:
-                targets.append((distance, enemy))
-        if not targets:
-            return None
-        targets.sort(key=lambda item: item[0])
-        return targets[0][1]
+            if board is not None:
+                try:
+                    distance = board.hex_distance(my_pos, (enemy.q, enemy.r))
+                except AttributeError:
+                    distance = None
+            else:
+                distance = None
+            if distance is not None and distance > attack_range:
+                continue
+            if self._can_attack(enemy, engine):
+                return enemy
+        return None
 
     def _perform_attack(self, engine, player, enemy) -> Dict[str, Optional[int]]:
         board = getattr(engine, "board", None)
@@ -237,6 +406,7 @@ class TokenAI:
             target_id=enemy.id,
             attack_range=self._attack_range(),
             distance=distance,
+            movement_mode=getattr(self.token, "movement_mode", None),
         )
 
         if not self._can_attack(enemy, engine):
@@ -293,6 +463,7 @@ class TokenAI:
             counterattack=counterattack,
             attacker_remaining=attacker_remaining,
             defender_remaining=defender_remaining,
+            movement_mode=getattr(self.token, "movement_mode", None),
         )
         return {
             "success": success,
@@ -311,19 +482,36 @@ class TokenAI:
         report = {
             "budget": max(0, available_pe),
             "spent": 0,
+            "reserved": 0,
             "fuel_added": 0,
             "cv_added": 0,
         }
         if available_pe <= 0:
             return report
 
-        fuel_added = self._refuel(available_pe - report["spent"])
-        report["fuel_added"] = fuel_added
-        report["spent"] += fuel_added
+        fuel_phase = self._refuel_minimum(available_pe)
+        report["spent"] += fuel_phase["spent"]
+        report["fuel_added"] += fuel_phase["fuel_added"]
 
-        cv_added = self._restore_combat_value(available_pe - report["spent"])
-        report["cv_added"] = cv_added
-        report["spent"] += cv_added
+        remaining = max(0, available_pe - report["spent"])
+        cv_phase = self._restore_cv_to_threshold(remaining)
+        report["spent"] += cv_phase["spent"]
+        report["cv_added"] += cv_phase["cv_added"]
+
+        remaining = max(0, available_pe - report["spent"])
+        if remaining > 0:
+            fuel_top_off = self._refuel(remaining)
+            report["spent"] += fuel_top_off
+            report["fuel_added"] += fuel_top_off
+            remaining = max(0, available_pe - report["spent"])
+
+        if remaining > 0:
+            top_off = self._restore_combat_value(remaining)
+            report["spent"] += top_off
+            report["cv_added"] += top_off
+            remaining = max(0, available_pe - report["spent"])
+
+        report["reserved"] = remaining
         return report
 
     def _refuel(self, limit: int) -> int:
@@ -342,6 +530,7 @@ class TokenAI:
             f"{self.token.id}: uzupełnia paliwo o {to_add}",
             "DEBUG",
             fuel_after=self.token.currentFuel,
+            movement_mode=getattr(self.token, "movement_mode", None),
         )
         return to_add
 
@@ -361,8 +550,67 @@ class TokenAI:
             f"{self.token.id}: uzupełnia CV o {to_add}",
             "DEBUG",
             combat_after=self.token.combat_value,
+            movement_mode=getattr(self.token, "movement_mode", None),
         )
         return to_add
+
+    def _refuel_minimum(self, available_pe: int) -> Dict[str, int]:
+        report = {"spent": 0, "fuel_added": 0}
+        if available_pe <= 0:
+            return report
+        max_fuel = getattr(self.token, "maxFuel", 0)
+        if max_fuel <= 0:
+            return report
+        target = int(round(max_fuel * 0.7))
+        current = getattr(self.token, "currentFuel", max_fuel)
+        if current >= target:
+            return report
+        need = target - current
+        to_add = min(need, available_pe)
+        added = self._refuel(to_add)
+        report["spent"] = added
+        report["fuel_added"] = added
+        if added < need:
+            log_token(
+                f"{self.token.id}: niewystarczające PE na paliwo",
+                "INFO",
+                needed=need,
+                added=added,
+                available_pe=available_pe,
+            )
+        return report
+
+    def _restore_cv_to_threshold(self, available_pe: int) -> Dict[str, int]:
+        report = {"spent": 0, "cv_added": 0}
+        if available_pe <= 0:
+            return report
+        max_cv = self.token.stats.get("combat_value", 0)
+        if max_cv <= 0:
+            return report
+        target = int(round(max_cv * 0.8))
+        current = getattr(self.token, "combat_value", max_cv)
+        if current >= target:
+            return report
+        need = target - current
+        to_add = min(need, available_pe)
+        added = self._restore_combat_value(to_add)
+        report["spent"] = added
+        report["cv_added"] = added
+        if added < need:
+            log_token(
+                f"{self.token.id}: niewystarczające PE na CV",
+                "INFO",
+                needed=need,
+                added=added,
+                available_pe=available_pe,
+            )
+        return report
+
+    def _can_top_off_cv(self) -> bool:
+        context = getattr(self, "context", {}) or {}
+        position = context.get("position")
+        danger_level = self._danger_level_at(position, context.get("danger_zones", {})) if position else 0
+        return danger_level == 0 and not self.memory.get("hold_position", False)
 
     # ------------------------------------------------------------------
     # Pomocnicze
@@ -389,24 +637,37 @@ class TokenAI:
             and getattr(self.token, "currentFuel", 0) > 0
         )
 
-    def _visible_enemies(self, engine) -> List:
+    def _visible_enemies(
+        self,
+        engine,
+        detection_map: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> List:
+        detection_map = detection_map if detection_map is not None else (self.context or {}).get("enemy_detection") or {}
         board = getattr(engine, "board", None)
-        if board is None:
+        my_pos = (getattr(self.token, "q", None), getattr(self.token, "r", None))
+        if None in my_pos:
             return []
-        sight = self._sight()
-        if sight <= 0:
-            return []
-        my_pos = (self.token.q, self.token.r)
-        enemies = []
+
+        visible: List = []
         for other in getattr(engine, "tokens", []):
             if not self._is_enemy(other):
                 continue
-            if None in (other.q, other.r):
+            enemy_id = getattr(other, "id", None)
+            if enemy_id is None:
                 continue
-            distance = board.hex_distance(my_pos, (other.q, other.r))
-            if distance <= sight:
-                enemies.append(other)
-        return enemies
+            info = detection_map.get(enemy_id)
+            detection_level = (info or {}).get("detection_level", 0.0) or 0.0
+            if detection_level <= 0:
+                continue
+            if board is not None and None not in (other.q, other.r):
+                try:
+                    distance = board.hex_distance(my_pos, (other.q, other.r))
+                    if info is not None and "distance" not in info:
+                        info["distance"] = distance
+                except AttributeError:
+                    continue
+            visible.append(other)
+        return visible
 
     def _is_passable(self, engine, position: Tuple[int, int]) -> bool:
         board = engine.board
@@ -428,6 +689,35 @@ class TokenAI:
         if isinstance(attack_stats, dict):
             return int(attack_stats.get("range", 1))
         return 1
+
+    def _perceived_attack_range(self, enemy, detection_info: Optional[Dict[str, Any]]) -> int:
+        base_range = self._attack_range_for(enemy)
+        if detection_info is None:
+            return max(1, min(base_range, 1))
+
+        detection_level = detection_info.get("detection_level", 0.0) or 0.0
+        if detection_level >= 0.8:
+            return base_range
+        if detection_level >= 0.5:
+            return max(1, min(base_range, 2))
+        return 1
+
+    def _estimate_enemy_cv(self, enemy, context: Dict[str, Any]) -> int:
+        detection_map = context.get("enemy_detection") or {}
+        detection_info = detection_map.get(getattr(enemy, "id", None))
+        real_cv = getattr(enemy, "combat_value", enemy.stats.get("combat_value", 0)) or 0
+        if real_cv <= 0:
+            return 0
+
+        if detection_info is None:
+            return max(1, int(round(real_cv * random.uniform(0.6, 0.9))))
+
+        detection_level = detection_info.get("detection_level", 0.0) or 0.0
+        if detection_level >= 0.8:
+            return real_cv
+        if detection_level >= 0.5:
+            return max(1, int(round(real_cv * random.uniform(0.7, 0.95))))
+        return max(1, int(round(real_cv * random.uniform(0.5, 0.85))))
 
     def _sight(self) -> int:
         sight = self.token.stats.get("sight", 0)
@@ -460,3 +750,479 @@ class TokenAI:
         if stats_nation:
             return str(stats_nation).strip()
         return None
+
+    # ------------------------------------------------------------------
+    # Nowa logika autonomiczna
+    # ------------------------------------------------------------------
+
+    def _reset_turn_state(self) -> None:
+        self.context: Dict[str, Any] = {}
+        self.memory.setdefault("failed_hexes", set())
+        self.memory.pop("hold_position", None)
+
+    def _evaluate_state(self, engine, player) -> Dict[str, Any]:
+        board = getattr(engine, "board", None)
+        position = (getattr(self.token, "q", None), getattr(self.token, "r", None))
+        max_mp = getattr(self.token, "maxMovePoints", self.token.stats.get("move", 0) or 0)
+        max_fuel = getattr(self.token, "maxFuel", self.token.stats.get("maintenance", 0) or 0)
+        current_cv = getattr(self.token, "combat_value", self.token.stats.get("combat_value", 0) or 0)
+        detection_map = self._collect_detection_map(engine, player)
+        visible_enemies = self._visible_enemies(engine, detection_map)
+        friendly_tokens = self._friendly_tokens(engine)
+        danger_zones = self._compute_danger_zones(engine, visible_enemies, detection_map)
+
+        context = {
+            "position": position,
+            "board": board,
+            "visible_enemies": visible_enemies,
+            "friendly_tokens": friendly_tokens,
+            "danger_zones": danger_zones,
+            "enemy_detection": detection_map,
+            "current_mp": getattr(self.token, "currentMovePoints", 0) or 0,
+            "max_mp": max_mp,
+            "current_fuel": getattr(self.token, "currentFuel", max_fuel) or 0,
+            "max_fuel": max_fuel,
+            "combat_value": current_cv,
+            "max_cv": self.token.stats.get("combat_value", current_cv) or 0,
+        }
+        self.context = context
+        return context
+
+    def _update_context(self, engine, player, context: Dict[str, Any]) -> None:
+        context["current_mp"] = getattr(self.token, "currentMovePoints", context.get("current_mp", 0)) or 0
+        context["current_fuel"] = getattr(self.token, "currentFuel", context.get("current_fuel", 0)) or 0
+        context["combat_value"] = getattr(self.token, "combat_value", context.get("combat_value", 0)) or 0
+        context["position"] = (getattr(self.token, "q", None), getattr(self.token, "r", None))
+        detection_map = self._collect_detection_map(engine, player, context.get("enemy_detection"))
+        visible_enemies = self._visible_enemies(engine, detection_map)
+        context["enemy_detection"] = detection_map
+        context["visible_enemies"] = visible_enemies
+        context["danger_zones"] = self._compute_danger_zones(engine, visible_enemies, detection_map)
+
+    def _collect_detection_map(
+        self,
+        engine,
+        player,
+        base_map: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        detection_map: Dict[str, Dict[str, Any]] = dict(base_map or {})
+        if engine is None or player is None:
+            return detection_map
+
+        board = getattr(engine, "board", None)
+        my_pos = (getattr(self.token, "q", None), getattr(self.token, "r", None))
+        sight = self._sight()
+
+        for enemy in getattr(engine, "tokens", []):
+            enemy_id = getattr(enemy, "id", None)
+            if enemy_id is None or not self._is_enemy(enemy):
+                continue
+
+            info = get_detection_info_for_player(player, enemy_id, include_temp=True)
+            detection_level = 0.0
+            distance = None
+            detected_by = None
+
+            if info:
+                detection_level = info.get("detection_level", 0.0) or 0.0
+                distance = info.get("distance")
+                detected_by = info.get("detected_by")
+
+            if detection_level <= 0 and board is not None and sight > 0:
+                if None not in (*my_pos, enemy.q, enemy.r):
+                    distance = board.hex_distance(my_pos, (enemy.q, enemy.r))
+                    if distance is not None and distance < sight:
+                        detection_level = VisionService.calculate_detection_level(distance, sight)
+
+            if detection_level <= 0:
+                detection_map.pop(enemy_id, None)
+                continue
+
+            filtered = apply_detection_filter(enemy, detection_level)
+            filtered["detection_level"] = detection_level
+            if distance is not None:
+                filtered["distance"] = distance
+            if detected_by:
+                filtered["detected_by"] = detected_by
+
+            detection_map[enemy_id] = filtered
+
+        # Usuń wpisy dla zniszczonych żetonów
+        active_ids = {getattr(tok, "id", None) for tok in getattr(engine, "tokens", [])}
+        stale_keys = [key for key in detection_map.keys() if key not in active_ids]
+        for key in stale_keys:
+            detection_map.pop(key, None)
+
+        return detection_map
+
+    def _classify_status(self, context: Dict[str, Any]) -> str:
+        max_cv = context.get("max_cv", 0) or 0
+        combat_value = context.get("combat_value", 0)
+        current_fuel = context.get("current_fuel", 0)
+        max_fuel = context.get("max_fuel", 0) or 1
+        friendly_nearby = self._friendly_in_radius(context.get("position"), context.get("friendly_tokens", []), 2)
+        danger_level = self._danger_level_at(context.get("position"), context.get("danger_zones", {}))
+
+        if max_cv > 0 and combat_value <= max_cv * 0.3 and not friendly_nearby:
+            return self.STATUS_URGENT_RETREAT
+        if max_fuel > 0 and current_fuel < max_fuel * 0.4:
+            return self.STATUS_LOW_FUEL
+        if danger_level >= 3:
+            return self.STATUS_THREATENED
+        return self.STATUS_NORMAL
+
+    def _choose_movement_mode(self, status: str, context: Dict[str, Any]) -> str:
+        if hasattr(self.token, "movement_mode_locked"):
+            self.token.movement_mode_locked = False
+
+        visible_enemies = bool(context.get("visible_enemies"))
+        danger_level = self._danger_level_at(context.get("position"), context.get("danger_zones", {}))
+        current_mp = context.get("current_mp", 0)
+        max_mp = max(1, context.get("max_mp", 1))
+        current_fuel = context.get("current_fuel", 0)
+        max_fuel = max(1, context.get("max_fuel", 1))
+
+        fuel_ratio = current_fuel / max_fuel
+        mp_ratio = current_mp / max_mp
+
+        if status in {self.STATUS_URGENT_RETREAT, self.STATUS_THREATENED} or visible_enemies or danger_level >= 1:
+            mode = "combat"
+        elif fuel_ratio >= 0.6 and mp_ratio >= 0.6:
+            mode = "march"
+        else:
+            mode = "recon"
+
+        self._set_movement_mode(mode)
+        return mode
+
+    def _set_movement_mode(self, mode: str) -> None:
+        try:
+            setattr(self.token, "movement_mode", mode)
+        except AttributeError:
+            pass
+        if hasattr(self.token, "movement_mode_locked"):
+            self.token.movement_mode_locked = True
+
+    def _plan_actions(self, status: str, context: Dict[str, Any], pe_budget: int) -> List[str]:
+        profile_key = self._select_action_profile(status, context)
+        profile_actions = list(self.ACTION_PROFILES.get(profile_key, []))
+        filtered_actions = self._filter_actions(profile_actions, context, pe_budget)
+
+        if not filtered_actions and profile_key != "patrol":
+            fallback_actions = list(self.ACTION_PROFILES.get("patrol", []))
+            filtered_actions = self._filter_actions(fallback_actions, context, pe_budget)
+            if filtered_actions:
+                profile_key = "patrol"
+
+        self.memory["action_profile"] = profile_key
+        return filtered_actions
+
+    def _select_action_profile(self, status: str, context: Dict[str, Any]) -> str:
+        if status == self.STATUS_URGENT_RETREAT:
+            return "retreat"
+        if status == self.STATUS_LOW_FUEL:
+            return "recovery"
+        if status == self.STATUS_THREATENED:
+            return "retreat" if not context.get("visible_enemies") else "combat"
+        if context.get("visible_enemies"):
+            return "combat"
+        if context.get("current_mp", 0) <= 1:
+            return "recovery"
+        return "patrol"
+
+    def _filter_actions(self, actions: List[str], context: Dict[str, Any], pe_budget: int) -> List[str]:
+        filtered: List[str] = []
+        max_fuel = max(1, context.get("max_fuel", 1))
+        max_cv = max(1, context.get("max_cv", 1))
+        current_fuel = context.get("current_fuel", 0)
+        combat_value = context.get("combat_value", 0)
+
+        for action in actions:
+            if action == "refuel_minimum" and current_fuel >= max_fuel * 0.9:
+                continue
+            if action == "restore_cv" and (pe_budget <= 0 or combat_value >= max_cv * 0.85):
+                continue
+            if action in {"maneuver", "withdraw"} and not self._can_move():
+                continue
+            if action == "attack" and not context.get("visible_enemies"):
+                continue
+            filtered.append(action)
+        return filtered
+
+    def _friendly_tokens(self, engine) -> List:
+        if engine is None:
+            return []
+        friendly = []
+        my_nation = self._owner_nation(self.token)
+        for tok in getattr(engine, "tokens", []):
+            if tok is self.token:
+                continue
+            if self._owner_nation(tok) == my_nation:
+                friendly.append(tok)
+        return friendly
+
+    def _friendly_in_radius(self, position: Tuple[int, int], tokens: List, radius: int) -> bool:
+        if position is None or tokens is None:
+            return False
+        for tok in tokens:
+            if None in (tok.q, tok.r):
+                continue
+            if self._hex_distance(position, (tok.q, tok.r)) <= radius:
+                return True
+        return False
+
+    def _compute_danger_zones(
+        self,
+        engine,
+        enemies: Optional[List] = None,
+        detection_map: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> Dict[Tuple[int, int], int]:
+        enemies = enemies or []
+        detection_map = detection_map or {}
+        danger: Dict[Tuple[int, int], int] = {}
+        board = getattr(engine, "board", None) if engine else self.context.get("board")
+        for enemy in enemies:
+            enemy_pos = (enemy.q, enemy.r)
+            if None in enemy_pos:
+                continue
+            info = detection_map.get(getattr(enemy, "id", None))
+            attack_range = self._perceived_attack_range(enemy, info)
+            hexes = self._hexes_in_range(enemy_pos, attack_range, board)
+            for h in hexes:
+                danger[h] = danger.get(h, 0) + 1
+        return danger
+
+    def _hexes_in_range(self, center: Tuple[int, int], rng: int, board) -> List[Tuple[int, int]]:
+        if rng <= 0:
+            return [center]
+        hexes = []
+        for dq in range(-rng, rng + 1):
+            for dr in range(-rng, rng + 1):
+                target = (center[0] + dq, center[1] + dr)
+                if self._hex_distance(center, target, board) <= rng:
+                    hexes.append(target)
+        return hexes
+
+    def _hex_distance(self, start: Tuple[int, int], end: Tuple[int, int], board=None) -> int:
+        board = board or self.context.get("board")
+        if board is not None:
+            try:
+                return board.hex_distance(start, end)
+            except AttributeError:
+                pass
+        if None in (*start, *end):
+            return 9999
+        # fallback axial distance
+        sq, sr = start
+        eq, er = end
+        return int((abs(sq - eq) + abs(sr - er) + abs((sq - sr) - (eq - er))) / 2)
+
+    def _danger_level_at(self, position: Tuple[int, int], danger_zones: Dict[Tuple[int, int], int]) -> int:
+        if position is None:
+            return 0
+        return danger_zones.get(position, 0)
+
+    def _plan_candidates(
+        self,
+        engine,
+        context: Dict[str, Any],
+        retreat: bool = False,
+    ) -> Tuple[List[Tuple[int, int]], Dict[Tuple[int, int], Optional[Tuple[int, int]]]]:
+        board = context.get("board")
+        start = context.get("position")
+        if board is None or None in start:
+            return [], {}
+        max_mp = context.get("current_mp", 0)
+        max_fuel = context.get("current_fuel", 0)
+        if max_mp <= 0 or max_fuel <= 0:
+            return [], {}
+
+        queue: List[Tuple[int, int, int, int]] = [(start[0], start[1], 0, 0)]
+        visited: Dict[Tuple[int, int], Tuple[int, int]] = {start: (0, 0)}
+        parents: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start: None}
+        results: List[Tuple[int, int]] = []
+
+        while queue:
+            q, r, cost_mp, cost_fuel = queue.pop(0)
+            for neighbor in board.neighbors(q, r):
+                if not self._is_passable(engine, neighbor):
+                    continue
+                tile = board.get_tile(*neighbor)
+                move_mod = getattr(tile, "move_mod", 0) if tile else 0
+                step_cost = 1 + max(0, move_mod)
+                new_cost_mp = cost_mp + step_cost
+                new_cost_fuel = cost_fuel + step_cost
+                if new_cost_mp > max_mp or new_cost_fuel > max_fuel:
+                    continue
+                prev = visited.get(neighbor)
+                if prev and prev[0] <= new_cost_mp and prev[1] <= new_cost_fuel:
+                    continue
+                visited[neighbor] = (new_cost_mp, new_cost_fuel)
+                parents[neighbor] = (q, r)
+                queue.append((neighbor[0], neighbor[1], new_cost_mp, new_cost_fuel))
+                results.append(neighbor)
+
+        filtered = []
+        failed_hexes = self.memory.get("failed_hexes", set())
+        for hex_pos in results:
+            if hex_pos in failed_hexes:
+                continue
+            if retreat and self._danger_level_at(hex_pos, context.get("danger_zones", {})) > 0:
+                continue
+            filtered.append(hex_pos)
+        return filtered, parents
+
+    def _reconstruct_path(
+        self,
+        parents: Dict[Tuple[int, int], Optional[Tuple[int, int]]],
+        start: Tuple[int, int],
+        goal: Tuple[int, int],
+    ) -> List[Tuple[int, int]]:
+        path: List[Tuple[int, int]] = []
+        current = goal
+        while current is not None and current in parents:
+            path.append(current)
+            current = parents[current]
+        path.reverse()
+        if path and path[0] == start:
+            return path[1:]
+        return []
+
+    def _score_tile(self, engine, context: Dict[str, Any], position: Tuple[int, int]) -> float:
+        board = context.get("board")
+        tile = board.get_tile(*position) if board else None
+        defense_bonus = getattr(tile, "defense_mod", 0) if tile else 0
+        danger_level = self._danger_level_at(position, context.get("danger_zones", {}))
+        support = 0
+        for friend in context.get("friendly_tokens", []):
+            if None in (friend.q, friend.r):
+                continue
+            if self._hex_distance(position, (friend.q, friend.r), board) <= 2:
+                support += 1
+        nearest_enemy_distance = min(
+            (self._hex_distance(position, (enemy.q, enemy.r), board) for enemy in context.get("visible_enemies", []) if None not in (enemy.q, enemy.r)),
+            default=5,
+        )
+        start = context.get("position")
+        distance_from_start = self._hex_distance(start, position, board) if start else 0
+        distance_bonus = max(0.0, distance_from_start * 0.2)
+        objective_score = max(0, 5 - nearest_enemy_distance) + distance_bonus
+        safety_score = defense_bonus - (danger_level * 2)
+        support_score = support
+        return float(safety_score + support_score + objective_score)
+
+    def _select_best_hex(self, engine, context: Dict[str, Any], retreat: bool = False) -> Optional[Tuple[int, int]]:
+        candidates, parents = self._plan_candidates(engine, context, retreat=retreat)
+        if not candidates:
+            return None
+        scored = [
+            (self._score_tile(engine, context, pos), pos)
+            for pos in candidates
+        ]
+        scored.sort(key=lambda item: item[0], reverse=True)
+        best = scored[0][1]
+        path = self._reconstruct_path(parents, context.get("position"), best)
+        self.memory["current_path"] = path
+        return best
+
+    def _is_in_danger_zone(self, position: Tuple[int, int]) -> bool:
+        return self._danger_level_at(position, self.context.get("danger_zones", {})) > 0
+
+    def _estimate_threat_level(self, engine, position: Tuple[int, int]) -> int:
+        danger_zones = self.context.get("danger_zones") or self._compute_danger_zones(engine, self.context.get("visible_enemies", []))
+        return self._danger_level_at(position, danger_zones)
+
+    def _can_risk_attack(self, context: Dict[str, Any], has_support: bool = False) -> bool:
+        max_cv = context.get("max_cv", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
+        max_fuel = context.get("max_fuel", 0) or 0
+        current_fuel = context.get("current_fuel", 0) or 0
+        fuel_ready = max_fuel == 0 or current_fuel >= max_fuel * 0.5
+        cv_ready = max_cv == 0 or combat_value >= max_cv * 0.6
+        if not (fuel_ready and cv_ready):
+            return False
+        if has_support:
+            return True
+        hold_flag = self.memory.get("hold_position", False)
+        return not hold_flag
+
+    def _should_attack(self, enemy, context: Dict[str, Any]) -> bool:
+        if enemy is None:
+            return False
+
+        board = context.get("board")
+        my_pos = context.get("position") or (getattr(self.token, "q", None), getattr(self.token, "r", None))
+        enemy_pos = (enemy.q, enemy.r)
+        if None in (*my_pos, *enemy_pos):
+            return False
+        if self._hex_distance(my_pos, enemy_pos, board) > self._attack_range():
+            return False
+
+        detection_map = context.get("enemy_detection") or {}
+        detection_info = detection_map.get(getattr(enemy, "id", None)) or {}
+        detection_level = (detection_info.get("detection_level") or 0.0)
+        if detection_level <= 0:
+            return False
+
+        my_cv = getattr(self.token, "combat_value", context.get("combat_value", 0)) or 0
+        enemy_cv = self._estimate_enemy_cv(enemy, context)
+
+        terrain = 0
+        if board is not None:
+            try:
+                tile = board.get_tile(enemy.q, enemy.r)
+                terrain = getattr(tile, "defense_mod", 0) if tile else 0
+            except AttributeError:
+                terrain = 0
+        terrain_factor = max(0.5, 1.0 - terrain * 0.1)
+
+        ratio = (my_cv + 1) / (max(1, enemy_cv) * terrain_factor)
+        has_support = self._friendly_in_radius(enemy_pos, context.get("friendly_tokens", []), 1)
+
+        aggression_bonus = 0.0
+        if detection_level < 0.8:
+            max_bonus = 0.05 + max(0.0, (0.8 - detection_level)) * 0.4
+            aggression_bonus = random.uniform(0.0, max_bonus)
+        ratio_adjusted = ratio + aggression_bonus
+
+        if ratio_adjusted >= 1.1:
+            return True
+        if ratio_adjusted >= 1.0 and has_support:
+            return True
+
+        if ratio_adjusted >= 0.9 and self._can_risk_attack(context, has_support):
+            log_token(
+                f"{self.token.id}: ryzykowny atak na {enemy.id}",
+                "DEBUG",
+                ratio=round(ratio, 2),
+                ratio_adjusted=round(ratio_adjusted, 2),
+                detection=round(detection_level, 2),
+                aggression_bonus=round(aggression_bonus, 2),
+                support=has_support,
+                fuel=context.get("current_fuel", 0),
+                combat_value=context.get("combat_value", 0),
+            )
+            return True
+
+        if detection_level < 0.5 and self._can_risk_attack(context, has_support):
+            gamble_threshold = 0.75 + (detection_level * 0.2)
+            if ratio_adjusted >= gamble_threshold:
+                log_token(
+                    f"{self.token.id}: agresywny atak przy niskiej wykrywalności na {enemy.id}",
+                    "DEBUG",
+                    ratio=round(ratio, 2),
+                    ratio_adjusted=round(ratio_adjusted, 2),
+                    detection=round(detection_level, 2),
+                    support=has_support,
+                    fuel=context.get("current_fuel", 0),
+                    combat_value=context.get("combat_value", 0),
+                )
+                return True
+
+        return False
+
+    def _attack_range_for(self, token) -> int:
+        attack_stats = getattr(token, "stats", {}).get("attack", {})
+        if isinstance(attack_stats, dict):
+            return int(attack_stats.get("range", 1))
+        return int(attack_stats or 1)

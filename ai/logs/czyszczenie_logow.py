@@ -20,6 +20,7 @@ TARGET_DIRS = [
     PACKAGE_ROOT / "general" / "text",
     PACKAGE_ROOT / "tokens" / "csv",
     PACKAGE_ROOT / "tokens" / "text",
+    PACKAGE_ROOT / "tokens" / "raporty",
     PACKAGE_ROOT / "debug" / "csv",
     PACKAGE_ROOT / "debug" / "text",
 ]

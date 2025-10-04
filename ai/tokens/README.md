@@ -17,6 +17,15 @@ System `ai/tokens` obsługuje **pojedynczą** klasę `TokenAI`. Specjalizacje i 
 4. **Resupply** – pozostały budżet PE wykorzystuje na uzupełnienie paliwa (`currentFuel → maxFuel`) i wartości bojowej (`combat_value → stats['combat_value']`).
 5. **Log końcowy** – zapisuje wykorzystany budżet, powodzenie ruchu/ataku, zużycie paliwa oraz ewentualne zniszczenie żetonu.
 
+## Pipeline autonomicznego żetonu (w pigułce)
+
+1. **Odbierz kontekst** – Commander przekazuje `engine`, `player` i budżet PE; żeton odczytuje swoje aktualne MP, paliwo, CV oraz widocznych przeciwników.
+2. **Sklasyfikuj status** – na podstawie paliwa, CV oraz zagrożeń wybiera tryb: `normal`, `low_fuel`, `threatened` lub `urgent_retreat`.
+3. **Ułóż plan** – mapuje status na listę akcji (`refuel_minimum`, `restore_cv`, `maneuver`, `withdraw`, `attack`). Kolejność wyznacza priorytet.
+4. **Wykonuj akcje** – każdą akcję realizuje po kolei, po każdej aktualizując kontekst (np. po ruchu aktualizuje pozycję i widoczne zagrożenia).
+5. **Bilansuj zasoby** – niewykorzystane PE zamienia na paliwo/CV, a resztę odkłada jako `reserved_pe` do zwrotu dowódcy.
+6. **Raportuj** – wysyła log końcowy z podsumowaniem ruchu, ataku, trybu ruchu i zużycia zasobów.
+
 ## Ważniejsze metody
 
 | Metoda                         | Opis                                                                                   |
