@@ -8,6 +8,7 @@ pliki są objęte standardowym czyszczeniem przez `ai/logs/czyszczenie_logow.py`
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -41,6 +42,40 @@ RE_AGRESYWNY = re.compile(
 )
 RE_KEY_VALUE = re.compile(r"(\w+)=([^,\s]+)")
 
+TOKEN_ASSETS_ROOT = Path("assets/tokens")
+TOKEN_NATION_CACHE: dict[str, str] = {}
+FALLBACK_PREFIX_MAP = {
+    "P": "Piechota",
+    "Z": "Zaopatrzenie",
+    "AC": "Artyleria ciężka",
+    "AL": "Artyleria lekka",
+    "K": "Kawaleria",
+    "TC": "Czołg ciężki",
+    "TS": "Czołg średni",
+    "TŚ": "Czołg średni",
+}
+
+
+def _resolve_token_nation(token_id: str) -> Optional[str]:
+    if token_id in TOKEN_NATION_CACHE:
+        return TOKEN_NATION_CACHE[token_id]
+
+    if TOKEN_ASSETS_ROOT.exists():
+        for nation_dir in TOKEN_ASSETS_ROOT.iterdir():
+            if not nation_dir.is_dir():
+                continue
+            candidate = nation_dir / token_id / "token.json"
+            if candidate.exists():
+                try:
+                    data = json.loads(candidate.read_text(encoding="utf-8"))
+                except Exception:
+                    nation = nation_dir.name
+                else:
+                    nation = data.get("nation") or nation_dir.name
+                TOKEN_NATION_CACHE[token_id] = nation
+                return nation
+    return None
+
 
 @dataclass
 class MetrykiSesji:
@@ -53,6 +88,7 @@ class MetrykiSesji:
     paliwo_dodane: int = 0
     cv_dodane: int = 0
     hold_position: int = 0
+    hold_reasons: Counter[str] = field(default_factory=Counter)
     planowane_ataki: int = 0
     ataki_wykonane: int = 0
     ataki_sukcesy: int = 0
@@ -131,8 +167,15 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
     def nation_for(token_id: Optional[str]) -> str:
         if not token_id:
             return "nieznana"
+        resolved = _resolve_token_nation(token_id)
+        if resolved:
+            return resolved
         prefix = token_id.split("_", 1)[0]
-        return {"P": "Polska", "Z": "Niemcy"}.get(prefix, prefix)
+        fallback = FALLBACK_PREFIX_MAP.get(prefix)
+        if fallback:
+            TOKEN_NATION_CACHE[token_id] = fallback
+            return fallback
+        return prefix
 
     def stats_for(token_id: Optional[str] = None, *, nation: Optional[str] = None) -> dict[str, int]:
         nazwa = nation if nation is not None else nation_for(token_id)
@@ -247,7 +290,6 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                     metryki.ruchy_skuteczne += 1
                 metryki.ruchy_proby += int(proby)
                 metryki.resupply_wydane += int(wydane)
-                metryki.pe_zwrocone += int(zwrocone)
 
             pola = dict(RE_KEY_VALUE.findall(linia))
             statystyki_nacji = stats_for(token_id)
@@ -261,9 +303,12 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
             if wydatki is not None:
                 statystyki_nacji["spent_pe"] += wydatki
 
-            zwroty = parse_int(pola.get("reserved_pe"))
+            zwroty = parse_int(pola.get("unused_pe"))
+            if zwroty is None:
+                zwroty = parse_int(pola.get("reserved_pe"))
             if zwroty is not None:
                 statystyki_nacji["returned_pe"] += zwroty
+                metryki.pe_zwrocone += zwroty
 
             zatankowane = parse_int(pola.get("refueled"))
             if zatankowane is not None:
@@ -296,6 +341,9 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
             hold_match = RE_HOLD.search(linia)
             if hold_match and hold_match.group(1) == "True":
                 metryki.hold_position += 1
+                reason = (pola.get("hold_reason") or "").strip()
+                if reason:
+                    metryki.hold_reasons[reason] += 1
 
             status_match = RE_STATUS.search(linia)
             if status_match:
@@ -430,6 +478,14 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
     kroki_dystanse = wyniki.kroki_dystanse
     dystanse_tury = wyniki.dystanse_na_ture
     linie: list[str] = []
+    hold_translations: dict[str, str] = {
+        "attack_not_viable": "atak nieopłacalny",
+        "insufficient_resources": "brak zasobów",
+        "danger_zone_entry": "wejście w strefę zagrożenia",
+        "no_path_available": "brak ścieżki",
+        "no_move_points": "brak punktów ruchu",
+        "insufficient_fuel": "brak paliwa",
+    }
 
     def odmiana(n: int, form1: str, form2: str, form5: str) -> str:
         n_abs = abs(n)
@@ -452,6 +508,12 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
             f"- Skuteczne ruchy: {m.ruchy_skuteczne}/{m.liczba_tur} ({skutecznosc:.1%} tur ze skutecznym ruchem)"
         )
     linie.append(f"- hold_position ustawione: {m.hold_position} razy")
+    if m.hold_reasons:
+        linie.append("  • Powody:")
+        for reason, licznik in m.hold_reasons.most_common():
+            czytelny_powod = reason.replace("_", " ")
+            polska_nazwa = hold_translations.get(reason, czytelny_powod)
+            linie.append(f"    ◦ {czytelny_powod} ({polska_nazwa}): {licznik}")
 
     linie.append("\n--- RUCH ---")
     # Łączny dystans
@@ -489,32 +551,45 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
         linie.append(f"- Średnia liczba MP wydana na turę (maintenance): {m.mp_wydane_suma / m.liczba_tur:.2f}")
 
     linie.append("\n--- ZAOPATRZENIE ---")
-    linie.append(f"- PE dostępne łącznie: {m.pe_dostepne}")
-    linie.append(f"- PE wydane: {m.resupply_wydane}")
-    linie.append(f"- PE odłożone (rezerwa): {m.pe_zwrocone}")
     aktywne_nacje: list[str] = []
     if wyniki.per_nacje:
         aktywne_nacje = [
             nazwa
             for nazwa, stat in sorted(wyniki.per_nacje.items())
-            if any(stat[key] for key in ("available_pe", "spent_pe", "returned_pe", "fuel_added", "cv_added"))
+            if any(
+                stat[key]
+                for key in ("available_pe", "fuel_added", "cv_added", "returned_pe")
+            )
         ]
-        if aktywne_nacje:
-            linie.append("- PE wg nacji:")
-            for nazwa in aktywne_nacje:
-                stat = wyniki.per_nacje[nazwa]
-                linie.append(
-                    f"    • {nazwa}: dostępne {stat['available_pe']}, wydane {stat['spent_pe']}, zwrócone {stat['returned_pe']}"
-                )
-    linie.append(f"- Paliwo uzupełnione łącznie: {m.paliwo_dodane}")
-    linie.append(f"- CV uzupełnione łącznie: {m.cv_dodane}")
     if aktywne_nacje:
-        linie.append("- CV wg nacji:")
+        linie.append("- PE wg nacji:")
         for nazwa in aktywne_nacje:
             stat = wyniki.per_nacje[nazwa]
+            pozyskane = stat["available_pe"]
+            paliwo = stat["fuel_added"]
+            cv = stat["cv_added"]
+            zwrocone = stat["returned_pe"]
             linie.append(
-                f"    • {nazwa}: uzupełniono {stat['cv_added']}, zwrócono {stat['cv_returned']}"
+                f"    • {nazwa}: pozyskane {pozyskane} | paliwo {paliwo} | CV {cv} | zwrócone {zwrocone}"
             )
+
+    total_pozyskane = sum(stat["available_pe"] for stat in wyniki.per_nacje.values())
+    total_paliwo = sum(stat["fuel_added"] for stat in wyniki.per_nacje.values())
+    total_cv = sum(stat["cv_added"] for stat in wyniki.per_nacje.values())
+    total_wydane = total_paliwo + total_cv
+    total_zwrocone = sum(stat["returned_pe"] for stat in wyniki.per_nacje.values())
+    linie.append("- Bilans ogólny:")
+    linie.append(f"    • PE pozyskane: {total_pozyskane}")
+    linie.append(f"    • Wydane na paliwo: {total_paliwo}")
+    linie.append(f"    • Wydane na CV: {total_cv}")
+    procent_wydane = (total_wydane / total_pozyskane * 100) if total_pozyskane else 0.0
+    procent_zwrocone = (total_zwrocone / total_pozyskane * 100) if total_pozyskane else 0.0
+    linie.append(
+        f"    • Wydane łącznie: {total_wydane} ({procent_wydane:.1f}% pozyskanych)"
+    )
+    linie.append(
+        f"    • Zwrócone: {total_zwrocone} ({procent_zwrocone:.1f}% pozyskanych)"
+    )
 
     linie.append("\n--- ATAKI ---")
     if m.planowane_ataki or m.ataki_wykonane:

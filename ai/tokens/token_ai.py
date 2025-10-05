@@ -8,7 +8,7 @@ budżet PE na podstawowe uzupełnienia.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import random
 
@@ -109,52 +109,93 @@ class TokenAI:
                 resupply_report["cv_added"] += phase["cv_added"]
             elif action in {"withdraw", "maneuver"}:
                 if not self._can_move():
+                    self._set_hold_position("insufficient_resources")
                     continue
-                destination = self._select_best_hex(engine, context, retreat=(action == "withdraw"))
-                path: List[Tuple[int, int]] = list(self.memory.pop("current_path", [])) if destination else []
-                if destination is None:
-                    continue
-                if not path:
-                    path = [destination]
-                final_destination = path[-1]
-                for step in list(path):
-                    if not self._can_move():
+                excluded_candidates: Set[Tuple[int, int]] = set()
+                while self._can_move():
+                    destination, path = self._select_best_hex(
+                        engine,
+                        context,
+                        retreat=(action == "withdraw"),
+                        exclude=excluded_candidates,
+                    )
+                    if destination is None:
+                        self._set_hold_position("no_path_available")
                         break
-                    outcome = self._attempt_move(engine, player, step)
-                    movement_report["attempts"] += 1
-                    movement_report["last_success"] = bool(getattr(outcome, "success", False))
-                    movement_report["success"] = movement_report["success"] or movement_report["last_success"]
-                    movement_report["destination"] = final_destination
-                    movement_report["threat_level"] = getattr(outcome, "threat_level", 0)
-                    movement_report["entered_danger_zone"] = getattr(outcome, "entered_danger_zone", False)
-                    distance = getattr(outcome, "distance", 0) or 0
-                    mp_spent = getattr(outcome, "mp_spent", 0) or 0
-                    if movement_report["last_success"]:
-                        movement_report["last_distance"] = distance
-                        movement_report["total_distance"] += distance
-                        movement_report["last_mp_spent"] = mp_spent
-                        movement_report["mp_spent_total"] += mp_spent
-                        self.memory["last_destination"] = step
-                        if movement_report["entered_danger_zone"]:
-                            self.memory["hold_position"] = True
-                        path.pop(0)
-                    else:
-                        movement_report["last_distance"] = 0
-                        movement_report["last_mp_spent"] = 0
-                        failed = self.memory.setdefault("failed_hexes", set())
-                        failed.add(step)
-                        break
-                if path:
-                    self.memory["current_path"] = path
-                else:
-                    self.memory.pop("current_path", None)
+                    if not path:
+                        path = [destination]
+                    final_destination = path[-1]
+                    first_step_failed = False
+                    for step_index, step in enumerate(list(path)):
+                        if not self._can_move():
+                            current_mp = getattr(self.token, "currentMovePoints", 0) or 0
+                            if current_mp <= 0:
+                                self._set_hold_position("no_move_points")
+                                break
+                            available_pe = max(0, allocated_pe - spent_pe)
+                            midturn = self._midturn_refuel_if_possible(available_pe)
+                            if midturn.get("fuel_added", 0) > 0:
+                                spent_pe += midturn.get("spent", 0)
+                                resupply_report["spent"] += midturn.get("spent", 0)
+                                resupply_report["fuel_added"] += midturn.get("fuel_added", 0)
+                            if not self._can_move():
+                                self._set_hold_position("insufficient_resources")
+                                break
+                        outcome = self._attempt_move(engine, player, step)
+                        movement_report["attempts"] += 1
+                        movement_report["last_success"] = bool(getattr(outcome, "success", False))
+                        movement_report["success"] = movement_report["success"] or movement_report["last_success"]
+                        movement_report["destination"] = final_destination
+                        movement_report["threat_level"] = getattr(outcome, "threat_level", 0)
+                        movement_report["entered_danger_zone"] = getattr(outcome, "entered_danger_zone", False)
+                        distance = getattr(outcome, "distance", 0) or 0
+                        mp_spent = getattr(outcome, "mp_spent", 0) or 0
+                        if movement_report["last_success"]:
+                            movement_report["last_distance"] = distance
+                            movement_report["total_distance"] += distance
+                            movement_report["last_mp_spent"] = mp_spent
+                            movement_report["mp_spent_total"] += mp_spent
+                            self.memory["last_destination"] = step
+                            failed_steps = self.memory.setdefault("failed_hexes", set())
+                            if step in failed_steps:
+                                failed_steps.discard(step)
+                                log_token(
+                                    f"{self.token.id}: reset failed_hex po udanym ruchu",
+                                    "DEBUG",
+                                    cleared_q=step[0],
+                                    cleared_r=step[1],
+                                    remaining_failed=len(failed_steps),
+                                )
+                            if movement_report["entered_danger_zone"]:
+                                self._set_hold_position("danger_zone_entry")
+                            path.pop(0)
+                        else:
+                            movement_report["last_distance"] = 0
+                            movement_report["last_mp_spent"] = 0
+                            failed = self.memory.setdefault("failed_hexes", set())
+                            failed.add(step)
+                            if step_index == 0:
+                                excluded_candidates.add(destination)
+                                first_step_failed = True
+                            break
+                    if first_step_failed:
+                        log_token(
+                            f"{self.token.id}: alternatywny cel po nieudanym pierwszym kroku",
+                            "DEBUG",
+                            failed_destination=destination,
+                            excluded=len(excluded_candidates),
+                            movement_mode=getattr(self.token, "movement_mode", None),
+                            action=action,
+                        )
+                        continue
+                    break
             elif action == "attack":
                 enemy = self._select_attack_target(engine, context)
                 if enemy and self._should_attack(enemy, context):
                     attack_report = self._perform_attack(engine, player, enemy)
                     self.memory["last_target_id"] = getattr(enemy, "id", None)
                 else:
-                    self.memory["hold_position"] = True
+                    self._set_hold_position("attack_not_viable")
 
         resupply_budget = max(0, allocated_pe - spent_pe)
         token_destroyed = self._is_destroyed_after_attack(engine, attack_report)
@@ -208,6 +249,7 @@ class TokenAI:
             token_destroyed=token_destroyed,
             status=status,
             hold_position=self.memory.get("hold_position", False),
+            hold_reason=self.memory.get("hold_reason"),
         )
         return spent_pe
 
@@ -514,6 +556,36 @@ class TokenAI:
         report["reserved"] = remaining
         return report
 
+    def _midturn_refuel_if_possible(self, available_pe: int) -> Dict[str, int]:
+        report = {"spent": 0, "fuel_added": 0}
+        if available_pe <= 0:
+            return report
+
+        current_fuel = getattr(self.token, "currentFuel", 0) or 0
+        if current_fuel > 0:
+            return report
+
+        phase = self._refuel_minimum(available_pe)
+        report["spent"] += phase.get("spent", 0)
+        report["fuel_added"] += phase.get("fuel_added", 0)
+
+        remaining = max(0, available_pe - report["spent"])
+        if getattr(self.token, "currentFuel", 0) <= 0 and remaining > 0:
+            added = self._refuel(remaining)
+            report["spent"] += added
+            report["fuel_added"] += added
+
+        if report["fuel_added"] > 0:
+            log_token(
+                f"{self.token.id}: dotankowanie w trakcie ruchu o {report['fuel_added']}",
+                "INFO",
+                spent_pe=report["spent"],
+                remaining_pe=max(0, available_pe - report["spent"]),
+                remaining_mp=getattr(self.token, "currentMovePoints", None),
+                movement_mode=getattr(self.token, "movement_mode", None),
+            )
+        return report
+
     def _refuel(self, limit: int) -> int:
         if limit <= 0:
             return 0
@@ -759,6 +831,15 @@ class TokenAI:
         self.context: Dict[str, Any] = {}
         self.memory.setdefault("failed_hexes", set())
         self.memory.pop("hold_position", None)
+        self.memory.pop("hold_reason", None)
+
+    def _set_hold_position(self, reason: str) -> None:
+        normalized = reason or "unspecified"
+        if not self.memory.get("hold_position"):
+            self.memory["hold_position"] = True
+            self.memory["hold_reason"] = normalized
+        else:
+            self.memory.setdefault("hold_reason", normalized)
 
     def _evaluate_state(self, engine, player) -> Dict[str, Any]:
         board = getattr(engine, "board", None)
@@ -1027,6 +1108,7 @@ class TokenAI:
         engine,
         context: Dict[str, Any],
         retreat: bool = False,
+        exclude: Optional[Set[Tuple[int, int]]] = None,
     ) -> Tuple[List[Tuple[int, int]], Dict[Tuple[int, int], Optional[Tuple[int, int]]]]:
         board = context.get("board")
         start = context.get("position")
@@ -1062,14 +1144,26 @@ class TokenAI:
                 queue.append((neighbor[0], neighbor[1], new_cost_mp, new_cost_fuel))
                 results.append(neighbor)
 
+        danger_zones = context.get("danger_zones", {}) or {}
+        start_danger = self._danger_level_at(start, danger_zones)
         filtered = []
+        excluded_hexes = exclude or set()
         failed_hexes = self.memory.get("failed_hexes", set())
         for hex_pos in results:
+            if hex_pos in excluded_hexes:
+                continue
             if hex_pos in failed_hexes:
                 continue
-            if retreat and self._danger_level_at(hex_pos, context.get("danger_zones", {})) > 0:
-                continue
+            if retreat and start_danger > 0:
+                if self._danger_level_at(hex_pos, danger_zones) >= start_danger:
+                    continue
             filtered.append(hex_pos)
+        if retreat and not filtered:
+            filtered = [
+                hex_pos
+                for hex_pos in results
+                if hex_pos not in failed_hexes and hex_pos not in excluded_hexes
+            ]
         return filtered, parents
 
     def _reconstruct_path(
@@ -1088,7 +1182,14 @@ class TokenAI:
             return path[1:]
         return []
 
-    def _score_tile(self, engine, context: Dict[str, Any], position: Tuple[int, int]) -> float:
+    def _score_tile(
+        self,
+        engine,
+        context: Dict[str, Any],
+        position: Tuple[int, int],
+        retreat: bool = False,
+        start_danger: int = 0,
+    ) -> float:
         board = context.get("board")
         tile = board.get_tile(*position) if board else None
         defense_bonus = getattr(tile, "defense_mod", 0) if tile else 0
@@ -1105,25 +1206,49 @@ class TokenAI:
         )
         start = context.get("position")
         distance_from_start = self._hex_distance(start, position, board) if start else 0
-        distance_bonus = max(0.0, distance_from_start * 0.2)
-        objective_score = max(0, 5 - nearest_enemy_distance) + distance_bonus
-        safety_score = defense_bonus - (danger_level * 2)
+        if retreat:
+            distance_bonus = max(0.0, distance_from_start)
+            objective_score = max(0, nearest_enemy_distance) * 2
+            safety_score = (defense_bonus * 1.5) - (danger_level * 3)
+            if start_danger > 0 and danger_level >= start_danger:
+                safety_score -= 5
+        else:
+            distance_bonus = max(0.0, distance_from_start * 0.2)
+            objective_score = max(0, 5 - nearest_enemy_distance) + distance_bonus
+            safety_score = defense_bonus - (danger_level * 2)
         support_score = support
-        return float(safety_score + support_score + objective_score)
+        return float(safety_score + support_score + objective_score + distance_bonus)
 
-    def _select_best_hex(self, engine, context: Dict[str, Any], retreat: bool = False) -> Optional[Tuple[int, int]]:
-        candidates, parents = self._plan_candidates(engine, context, retreat=retreat)
+    def _select_best_hex(
+        self,
+        engine,
+        context: Dict[str, Any],
+        retreat: bool = False,
+        exclude: Optional[Set[Tuple[int, int]]] = None,
+    ) -> Tuple[Optional[Tuple[int, int]], List[Tuple[int, int]]]:
+        start = context.get("position")
+        danger_zones = context.get("danger_zones", {}) or {}
+        start_danger = self._danger_level_at(start, danger_zones) if start else 0
+        candidates, parents = self._plan_candidates(engine, context, retreat=retreat, exclude=exclude)
         if not candidates:
-            return None
+            return None, []
         scored = [
-            (self._score_tile(engine, context, pos), pos)
+            (
+                self._score_tile(
+                    engine,
+                    context,
+                    pos,
+                    retreat=retreat,
+                    start_danger=start_danger,
+                ),
+                pos,
+            )
             for pos in candidates
         ]
         scored.sort(key=lambda item: item[0], reverse=True)
         best = scored[0][1]
-        path = self._reconstruct_path(parents, context.get("position"), best)
-        self.memory["current_path"] = path
-        return best
+        path = self._reconstruct_path(parents, start, best)
+        return best, path
 
     def _is_in_danger_zone(self, position: Tuple[int, int]) -> bool:
         return self._danger_level_at(position, self.context.get("danger_zones", {})) > 0
