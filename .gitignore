@@ -24,6 +24,11 @@ MANIFEST
 
 # Logs
 *.log
+ai/logs/commander/
+ai/logs/general/
+ai/logs/tokens/
+ai/logs/debug/
+ai/logs/sessions/
 
 # Virtual environments
 venv/

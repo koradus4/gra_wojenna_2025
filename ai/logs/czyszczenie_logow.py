@@ -4,13 +4,17 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable
 
-from utils.session_manager import SESSION_ROOT
-
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from utils.session_manager import SESSION_ROOT
 
 TOKENS_ROOT = PROJECT_ROOT / "assets" / "tokens"
 START_TOKENS_PATH = PROJECT_ROOT / "assets" / "start_tokens.json"
