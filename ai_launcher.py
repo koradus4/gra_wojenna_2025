@@ -25,6 +25,7 @@ except Exception:
 
 # 🎚️ POZIOM DEBUGOWANIA - łatwa kontrola komunikatów
 DEBUG_LEVEL = "BASIC"  # "BASIC" = tylko kupowanie/wystawianie, "FULL" = wszystkie szczegóły
+SHOW_STARTUP_BANNER = False
 
 def debug_print(message, level="BASIC", category="INFO"):
     """Drukuje komunikaty tylko gdy poziom debugowania pozwala"""
@@ -33,10 +34,11 @@ def debug_print(message, level="BASIC", category="INFO"):
     elif DEBUG_LEVEL == "BASIC" and level == "BASIC":
         print(f"🎯 {message}")
 
-print("🤖 GRA WOJENNA - AI LAUNCHER")
-print(f"🎚️ Poziom debugowania: {DEBUG_LEVEL}")
-print("💡 Zmiana debug: w konsoli wpisz 'BASIC' lub 'FULL'")
-print("-" * 50)
+if SHOW_STARTUP_BANNER:
+    print("🤖 GRA WOJENNA - AI LAUNCHER")
+    print(f"🎚️ Poziom debugowania: {DEBUG_LEVEL}")
+    print("💡 Zmiana debug: w konsoli wpisz 'BASIC' lub 'FULL'")
+    print("-" * 50)
 
 
 class AIGameLauncher:

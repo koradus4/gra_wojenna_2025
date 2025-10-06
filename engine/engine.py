@@ -2,6 +2,8 @@ import random
 import os
 import json
 from typing import Dict, Any
+
+from ai.logs import log_token
 from engine.board import Board
 from engine.token import load_tokens, Token
 
@@ -369,6 +371,7 @@ class GameEngine:
                     if give > kp['current_value']:
                         give = kp['current_value']
                     
+                    kp_value_before = kp['current_value']
                     old_economy = general.economy.economic_points
                     general.economy.economic_points += give
                     kp['current_value'] -= give
@@ -377,6 +380,24 @@ class GameEngine:
                     print(f"      👤 Okupant: {owner_id} ({nation}) - jednostka Zaopatrzenia (Z)")
                     print(f"      💵 Ekonomia generała: {old_economy} → {general.economy.economic_points}")
                     print(f"      📍 Key Point: {kp['current_value']}/{kp['initial_value']} pozostało")
+
+                    try:
+                        log_token(
+                            f"{getattr(token, 'id', 'unknown')}: przydział PE z KP {hex_id}",
+                            "INFO",
+                            token_owner=token.owner,
+                            token_type=self._get_unit_type_display(token),
+                            key_point=hex_id,
+                            pe_gain=give,
+                            kp_value_before=kp_value_before,
+                            kp_value_after=kp['current_value'],
+                            general_id=getattr(general, 'id', None),
+                            general_nation=nation,
+                            general_economy_before=old_economy,
+                            general_economy_after=general.economy.economic_points,
+                        )
+                    except Exception:
+                        pass
                     
                     # Debug: zapisz szczegóły
                     debug_points_per_general.setdefault(general, 0)

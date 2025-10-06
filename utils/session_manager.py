@@ -5,7 +5,7 @@ Session Manager - System zarządzania sesjami logowania
 Zapobiega tworzeniu duplikatów katalogów timestampowych poprzez
 utrzymanie jednej aktywnej sesji przez cały czas działania gry.
 
-NOWY SYSTEM: logs/sesja_aktualna/YYYY-MM-DD_HH-MM/ (polskie nazwy)
+NOWY SYSTEM: ai/logs/sessions/sesja_aktualna/YYYY-MM-DD_HH-MM/ (polskie nazwy)
 STARY SYSTEM: logs/current_session/YYYY-MM-DD_HH-MM/ (zastąpiony)
 """
 
@@ -15,6 +15,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import threading
+
+LOGS_ROOT = Path('ai') / 'logs'
+SESSION_ROOT = LOGS_ROOT / 'sessions'
+
 
 class SessionManager:
     """Singleton zarządzający bieżącą sesją logowania"""
@@ -38,7 +42,7 @@ class SessionManager:
         """
         Zwraca katalog bieżącej sesji - ZAWSZE TEN SAM przez całą grę
         
-        NOWA ŚCIEŻKA: logs/sesja_aktualna/YYYY-MM-DD_HH-MM/
+    NOWA ŚCIEŻKA: ai/logs/sessions/sesja_aktualna/YYYY-MM-DD_HH-MM/
         
         Returns:
             Path: Ścieżka do katalogu bieżącej sesji
@@ -58,8 +62,8 @@ class SessionManager:
         cls._session_start_time = datetime.now()
         timestamp = cls._session_start_time.strftime('%Y-%m-%d_%H-%M')
         
-        # NOWA ŚCIEŻKA: logs/sesja_aktualna/ (polskie nazwy)
-        cls._current_session_path = Path('logs') / 'sesja_aktualna' / timestamp
+    # NOWA ŚCIEŻKA: ai/logs/sessions/sesja_aktualna/ (polskie nazwy)
+        cls._current_session_path = SESSION_ROOT / 'sesja_aktualna' / timestamp
         cls._current_session_path.mkdir(parents=True, exist_ok=True)
         
         # Tworzenie pliku blokady sesji
@@ -71,8 +75,8 @@ class SessionManager:
     @classmethod
     def _archive_previous_session(cls):
         """Archiwizuj poprzednią sesję z sesja_aktualna/ do archiwum_sesji/"""
-        sesja_aktualna_dir = Path('logs') / 'sesja_aktualna'
-        archiwum_dir = Path('logs') / 'archiwum_sesji'
+        sesja_aktualna_dir = SESSION_ROOT / 'sesja_aktualna'
+        archiwum_dir = SESSION_ROOT / 'archiwum_sesji'
         archiwum_dir.mkdir(parents=True, exist_ok=True)
         
         # Znajdź wszystkie sesje w sesja_aktualna/
@@ -184,7 +188,7 @@ class SessionManager:
     @classmethod
     def cleanup_empty_sessions(cls):
         """Usuwa puste katalogi sesji (bez plików logów)"""
-        sesja_aktualna = Path('logs') / 'sesja_aktualna'
+        sesja_aktualna = SESSION_ROOT / 'sesja_aktualna'
         if not sesja_aktualna.exists():
             return
         

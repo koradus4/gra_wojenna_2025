@@ -3,10 +3,10 @@ Menedżer Logów Gry (Game Log Manager) - Scentralizowane zarządzanie logowanie
 Sistema de registro centralizado para el juego de guerra
 
 Organizuje logi w strukturze:
-- logs/ai/ - Sztuczna Inteligencja (Artificial Intelligence)
-- logs/human/ - Gracz Ludzki (Human Player)  
-- logs/game/ - Mechanika Gry (Game Mechanics)
-- logs/analysis/ - Analiza Danych (Data Analysis)
+- ai/logs/ai/ - Sztuczna Inteligencja (Artificial Intelligence)
+- ai/logs/human/ - Gracz Ludzki (Human Player)  
+- ai/logs/game/ - Mechanika Gry (Game Mechanics)
+- ai/logs/analysis/ - Analiza Danych (Data Analysis)
 
 Każdy katalog ma swoje podkategorie dla szczegółowej organizacji logów.
 """
@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Literal
 from enum import Enum
 from dataclasses import dataclass, asdict
+
+from utils.session_manager import LOGS_ROOT
 
 # Definiowanie kategorii logów (Log Categories)
 class KategoriaLog(Enum):
@@ -89,14 +91,14 @@ class GameLogManager:
     (Game Log Manager - Main class for managing logging system)
     """
     
-    def __init__(self, katalog_bazowy: str = "logs"):
+    def __init__(self, katalog_bazowy: Optional[Union[str, Path]] = None):
         """
         Inicializacja menedżera logów
         
         Args:
-            katalog_bazowy: Katalog bazowy dla wszystkich logów (default: "logs")
+            katalog_bazowy: Katalog bazowy dla wszystkich logów (domyślnie `ai/logs`)
         """
-        self.katalog_bazowy = Path(katalog_bazowy)
+        self.katalog_bazowy = Path(katalog_bazowy) if katalog_bazowy else Path(LOGS_ROOT)
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.aktywna_gra = None
         self.aktualny_gracz = None

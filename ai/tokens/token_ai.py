@@ -38,10 +38,25 @@ class TokenAI:
         "patrol": ["refuel_minimum", "maneuver"],
     }
 
-    def __init__(self, token):
+    def __init__(self, token, specialist=None):
         self.token = token
         self.memory: Dict[str, Any] = {}
+        self.specialist = specialist
+        self.shared_intel = None
+        self._initialize_specialist()
         self._reset_turn_state()
+
+    def _initialize_specialist(self) -> None:
+        """Inicjalizuje specjalistę, jeśli nie został przekazany."""
+        if self.specialist is None:
+            try:
+                from .specialized_ai import build_specialist, get_shared_intel_memory
+                self.shared_intel = get_shared_intel_memory()
+                self.specialist = build_specialist(self.token, self.shared_intel)
+            except ImportError:
+                self.specialist = None
+        else:
+            self.shared_intel = getattr(self.specialist, "shared_intel", None)
 
     def execute_turn(self, engine, player, pe_budget: int = 0) -> int:
         """Wykonuje turę żetonu w trybie minimalnym.
@@ -52,10 +67,58 @@ class TokenAI:
 
         self._reset_turn_state()
         context = self._evaluate_state(engine, player)
-        status = self._classify_status(context)
+        base_status = self._classify_status(context)
+        status = base_status
+        specialist_name = type(self.specialist).__name__ if self.specialist else None
+        specialist_notes: List[str] = []
+        if self.specialist is not None:
+            try:
+                self.specialist.on_turn_start(self.memory)
+                status = self.specialist.adjust_status(status, context)
+                if status != base_status:
+                    specialist_notes.append(f"status:{base_status}->{status}")
+            except Exception:
+                pass
         movement_mode = self._choose_movement_mode(status, context)
+        base_mode = movement_mode
+        if self.specialist is not None:
+            try:
+                movement_mode = self.specialist.adjust_movement_mode(movement_mode, status, context)
+                if movement_mode != base_mode:
+                    specialist_notes.append(f"mode:{base_mode}->{movement_mode}")
+            except Exception:
+                pass
         planned_actions = self._plan_actions(status, context, pe_budget)
+        base_actions = list(planned_actions)
+        if self.specialist is not None:
+            try:
+                planned_actions = self.specialist.adjust_actions(planned_actions, status, context, pe_budget)
+                planned_snapshot = list(planned_actions)
+                if planned_snapshot != base_actions:
+                    specialist_notes.append(
+                        "actions:" + "->".join(
+                            [
+                                ",".join(base_actions) or "-",
+                                ",".join(planned_snapshot) or "-",
+                            ]
+                        )
+                    )
+                planned_actions = planned_snapshot
+            except Exception:
+                planned_actions = list(planned_actions)
+        else:
+            planned_actions = list(planned_actions)
         action_profile = self.memory.get("action_profile")
+        specialist_flags = context.get("specialist_flags") or set()
+        if isinstance(specialist_flags, set):
+            specialist_flags = sorted(specialist_flags)
+        else:
+            specialist_flags = sorted(set(specialist_flags)) if specialist_flags else []
+        shared_detection = context.get("shared_enemy_detection") or {}
+        shared_contacts = len(shared_detection)
+        flags_text = "|".join(specialist_flags) if specialist_flags else None
+        notes_text = "|".join(specialist_notes) if specialist_notes else None
+        human_note = context.get("human_note")
 
         log_token(
             f"{self.token.id}: start tury (budżet PE={pe_budget})",
@@ -70,6 +133,11 @@ class TokenAI:
             status=status,
             planned_actions=planned_actions,
             action_profile=action_profile,
+            specialist=specialist_name,
+            human_note=human_note,
+            specialist_notes=notes_text,
+            specialist_flags=flags_text,
+            shared_contacts=shared_contacts,
         )
         spent_pe = 0
         allocated_pe = pe_budget
@@ -217,6 +285,26 @@ class TokenAI:
         unused_pe = max(0, allocated_pe - spent_pe)
         resupply_report["reserved"] += unused_pe
 
+        if self.specialist is not None:
+            try:
+                self.specialist.update_context(context)
+                turn_reports = {
+                    "movement": movement_report,
+                    "attack": attack_report,
+                    "resupply": resupply_report,
+                }
+                self.specialist.after_turn(context, turn_reports)
+            except Exception:
+                pass
+
+        final_flags = context.get("specialist_flags") or set()
+        if isinstance(final_flags, set):
+            final_flags = sorted(final_flags)
+        else:
+            final_flags = sorted(set(final_flags)) if final_flags else []
+        final_shared_contacts = len((context.get("shared_enemy_detection") or {}))
+        final_flags_text = "|".join(final_flags) if final_flags else None
+
         log_token(
             f"{self.token.id}: koniec tury (wydane PE={spent_pe})",
             "INFO",
@@ -250,6 +338,9 @@ class TokenAI:
             status=status,
             hold_position=self.memory.get("hold_position", False),
             hold_reason=self.memory.get("hold_reason"),
+            specialist=specialist_name,
+            specialist_flags=final_flags_text,
+            shared_contacts=final_shared_contacts,
         )
         return spent_pe
 
@@ -300,6 +391,17 @@ class TokenAI:
         my_pos = context.get("position") or (self.token.q, self.token.r)
         if None in my_pos:
             return []
+
+        # Pytamy specjalistę o sugerowany cel (np. KP dla konwoju)
+        specialist_target = None
+        if self.specialist is not None:
+            try:
+                specialist_target = self.specialist.suggest_movement_target(context)
+            except Exception:
+                pass
+        
+        if specialist_target is not None:
+            return self._neighbors_towards(engine, my_pos, specialist_target)
 
         detection_map = context.get("enemy_detection")
         visible_enemies = context.get("visible_enemies")
@@ -866,6 +968,11 @@ class TokenAI:
             "combat_value": current_cv,
             "max_cv": self.token.stats.get("combat_value", current_cv) or 0,
         }
+        if self.specialist is not None:
+            try:
+                context = self.specialist.extend_context(context)
+            except Exception:
+                pass
         self.context = context
         return context
 
@@ -879,6 +986,11 @@ class TokenAI:
         context["enemy_detection"] = detection_map
         context["visible_enemies"] = visible_enemies
         context["danger_zones"] = self._compute_danger_zones(engine, visible_enemies, detection_map)
+        if self.specialist is not None:
+            try:
+                self.specialist.update_context(context)
+            except Exception:
+                pass
 
     def _collect_detection_map(
         self,
@@ -1206,6 +1318,13 @@ class TokenAI:
         )
         start = context.get("position")
         distance_from_start = self._hex_distance(start, position, board) if start else 0
+
+        objective_bonus = 0.0
+        repeat_penalty = 0.0
+        last_destination = self.memory.get("last_destination")
+        if last_destination and position == last_destination:
+            repeat_penalty -= 1.5
+
         if retreat:
             distance_bonus = max(0.0, distance_from_start)
             objective_score = max(0, nearest_enemy_distance) * 2
@@ -1216,8 +1335,24 @@ class TokenAI:
             distance_bonus = max(0.0, distance_from_start * 0.2)
             objective_score = max(0, 5 - nearest_enemy_distance) + distance_bonus
             safety_score = defense_bonus - (danger_level * 2)
+
+            objective_target = context.get("specialist_objective") or context.get("supply_target_kp")
+            if objective_target and start and None not in (*start, *objective_target):
+                target_distance = self._hex_distance(position, objective_target, board)
+                start_distance = self._hex_distance(start, objective_target, board)
+                progress = start_distance - target_distance
+                if progress > 0:
+                    objective_bonus += progress * 5.0
+                elif progress <= 0:
+                    objective_bonus -= 1.5
+                objective_bonus -= target_distance * 0.2
+                if target_distance == 0:
+                    objective_bonus += 20.0
+                elif target_distance <= 1 and progress >= 0:
+                    objective_bonus += 3.0
+
         support_score = support
-        return float(safety_score + support_score + objective_score + distance_bonus)
+        return float(safety_score + support_score + objective_score + distance_bonus + objective_bonus + repeat_penalty)
 
     def _select_best_hex(
         self,

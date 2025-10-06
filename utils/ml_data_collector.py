@@ -3,7 +3,7 @@ ML Data Collector - System zbierania danych do uczenia maszynowego
 ================================================================
 
 Zbiera dane strategiczne, taktyczne i gameplay do osobnych plików CSV
-w katalogu logs/dane_ml/ - dane permanentne, nie podlegają rotacji sesji.
+w katalogu ai/logs/dane_ml/ - dane permanentne, nie podlegają rotacji sesji.
 """
 
 import csv
@@ -12,17 +12,20 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import json
 
+from .session_manager import LOGS_ROOT
+
 
 class MLDataCollector:
     """System zbierania danych ML z automatyczną organizacją w kategorie"""
     
     def __init__(self, project_root: str = "."):
         self.project_root = Path(project_root)
-        self.ml_data_dir = self.project_root / "logs" / "dane_ml"
+        self.logs_root = self.project_root / LOGS_ROOT
+        self.ml_data_dir = self.logs_root / "dane_ml"
         self.strategiczne_dir = self.ml_data_dir / "strategiczne"
-        self.taktyczne_dir = self.ml_data_dir / "taktyczne" 
+        self.taktyczne_dir = self.ml_data_dir / "taktyczne"
         self.gameplay_dir = self.ml_data_dir / "gameplay"
-        
+
         # Utwórz wszystkie katalogi
         for directory in [self.strategiczne_dir, self.taktyczne_dir, self.gameplay_dir]:
             directory.mkdir(parents=True, exist_ok=True)

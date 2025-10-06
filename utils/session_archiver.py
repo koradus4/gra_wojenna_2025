@@ -8,13 +8,10 @@ class SessionArchiver:
     
     def __init__(self, project_root: str = "."):
         self.project_root = Path(project_root)
-        self.logs_dir = self.project_root / "logs"
+        self.logs_dir = self.project_root / "ai" / "logs" / "sessions"
         self.sesja_aktualna_dir = self.logs_dir / "sesja_aktualna"
         self.archiwum_sesji_dir = self.logs_dir / "archiwum_sesji"
         self.max_archived_sessions = 5
-        
-        # Utwórz katalog archiwum jeśli nie istnieje
-        self.archiwum_sesji_dir.mkdir(parents=True, exist_ok=True)
     
     def archive_current_sessions(self) -> Dict[str, int]:
         """Archiwizuje wszystkie sesje z sesja_aktualna/ do archiwum_sesji/"""
@@ -31,6 +28,10 @@ class SessionArchiver:
             print("[ARCHIVER] Brak katalogu sesja_aktualna/ - pomijam archiwizację")
             return stats
         
+        has_sessions = any(session_dir.is_dir() for session_dir in self.sesja_aktualna_dir.iterdir())
+        if has_sessions:
+            self.archiwum_sesji_dir.mkdir(parents=True, exist_ok=True)
+
         # Przenieś wszystkie foldery sesji do archiwum
         for session_dir in self.sesja_aktualna_dir.iterdir():
             if session_dir.is_dir():
@@ -56,10 +57,14 @@ class SessionArchiver:
         stats['cleaned'] = rotation_stats['cleaned']
         stats['total_in_archive'] = rotation_stats['total_remaining']
         
+        removed_dirs = self._cleanup_empty_dirs()
+
         print(f"[ARCHIVER] Archiwizacja zakończona:")
         print(f"   Zarchiwizowano: {stats['archived']} sesji")
         print(f"   Wyczyszczono starych: {stats['cleaned']} sesji") 
         print(f"   W archiwum: {stats['total_in_archive']} sesji")
+        if removed_dirs:
+            print(f"   Usunięto pustych katalogów: {removed_dirs}")
         if stats['errors'] > 0:
             print(f"   Błędów: {stats['errors']}")
         
@@ -95,6 +100,31 @@ class SessionArchiver:
         
         remaining_sessions = len(session_dirs) - cleaned
         return {'cleaned': cleaned, 'total_remaining': remaining_sessions}
+
+    def _cleanup_empty_dirs(self) -> int:
+        """Usuwa puste katalogi sesji oraz katalog logs, jeśli nie zawiera danych."""
+        removed = 0
+
+        for directory in (self.sesja_aktualna_dir, self.archiwum_sesji_dir):
+            if directory.exists():
+                try:
+                    next(directory.iterdir())
+                except StopIteration:
+                    directory.rmdir()
+                    removed += 1
+                except OSError:
+                    continue
+
+        if self.logs_dir.exists():
+            try:
+                next(self.logs_dir.iterdir())
+            except StopIteration:
+                self.logs_dir.rmdir()
+                removed += 1
+            except OSError:
+                pass
+
+        return removed
 
 
 # Funkcje pomocnicze dla łatwego użycia

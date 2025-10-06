@@ -19,6 +19,7 @@ from collections import defaultdict
 import logging
 
 from tools.experimental.game_log_manager import KategoriaLog, TagLog, get_game_log_manager
+from utils.session_manager import LOGS_ROOT
 
 @dataclass
 class MLDataset:
@@ -37,7 +38,8 @@ class MLDataExporter:
     (ML Data Exporter - Prepares log data for machine learning)
     """
     
-    def __init__(self, katalog_logow: str = "logs", katalog_wyjsciowy: str = "logs/analysis/ml_ready"):
+    def __init__(self, katalog_logow: Union[str, Path] = LOGS_ROOT,
+                 katalog_wyjsciowy: Union[str, Path] = LOGS_ROOT / "analysis" / "ml_ready"):
         """
         Inicializacja eksportera ML
         

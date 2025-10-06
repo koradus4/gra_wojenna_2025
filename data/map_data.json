@@ -2835,7 +2835,11 @@
     "17,-5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__2_PL_Z_Pluton",
+        "image": "assets/tokens/Polska/Z_Pluton__2_PL_Z_Pluton/token.png"
+      }
     },
     "17,-4": {
       "terrain_key": "teren_płaski",
@@ -3725,7 +3729,11 @@
     "22,12": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__3_PL_Z_Pluton",
+        "image": "assets/tokens/Polska/Z_Pluton__3_PL_Z_Pluton/token.png"
+      }
     },
     "22,13": {
       "terrain_key": "teren_płaski",
@@ -4880,7 +4888,11 @@
     "29,9": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "K_Pluton__3_PL_K_Pluton",
+        "image": "assets/tokens/Polska/K_Pluton__3_PL_K_Pluton/token.png"
+      }
     },
     "29,10": {
       "terrain_key": "teren_płaski",
@@ -5905,7 +5917,11 @@
     "35,10": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "K_Pluton__6_N_K_Pluton",
+        "image": "assets/tokens/Niemcy/K_Pluton__6_N_K_Pluton/token.png"
+      }
     },
     "35,11": {
       "terrain_key": "teren_płaski",
@@ -6025,7 +6041,11 @@
     "36,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "Z_Pluton__6_N_Z_Pluton",
+        "image": "assets/tokens/Niemcy/Z_Pluton__6_N_Z_Pluton/token.png"
+      }
     },
     "36,1": {
       "terrain_key": "teren_płaski",
@@ -7010,7 +7030,11 @@
     "42,-6": {
       "terrain_key": "mała miejscowość",
       "move_mod": 1,
-      "defense_mod": 2
+      "defense_mod": 2,
+      "token": {
+        "unit": "K_Pluton__5_N_K_Pluton",
+        "image": "assets/tokens/Niemcy/K_Pluton__5_N_K_Pluton/token.png"
+      }
     },
     "42,-5": {
       "terrain_key": "mała miejscowość",
@@ -7820,7 +7844,11 @@
     "47,-14": {
       "terrain_key": "duża rzeka",
       "move_mod": 5,
-      "defense_mod": -1
+      "defense_mod": -1,
+      "token": {
+        "unit": "Z_Pluton__5_N_Z_Pluton",
+        "image": "assets/tokens/Niemcy/Z_Pluton__5_N_Z_Pluton/token.png"
+      }
     },
     "47,-13": {
       "terrain_key": "teren_płaski",
@@ -9315,7 +9343,11 @@
     "20,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "token": {
+        "unit": "K_Pluton__2_PL_K_Pluton",
+        "image": "assets/tokens/Polska/K_Pluton__2_PL_K_Pluton/token.png"
+      }
     },
     "17,-1": {
       "terrain_key": "teren_płaski",

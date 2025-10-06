@@ -3,7 +3,7 @@
 ## 📌 Stan bieżący (1 października 2025) – wersja 3.8
 - Minimalna, trzywarstwowa AI (`GeneralAI`, `CommanderAI`, `TokenAI`) korzysta z tych samych mechanik co gracze human i loguje decyzje do `ai/logs/`.
 - Silnik tur łączy limity artylerii (1 strzał + 1 reakcja na turę), system pór dnia oraz wymóg jednostki **Zaopatrzenia (Z)** przy zbieraniu PE z key pointów.
-- Polski system logowania (`utils/session_manager.py`, `logs/`) obsługuje rotację sesji i czyszczenie danych z ochroną katalogów ML.
+- Polski system logowania (`utils/session_manager.py`, `ai/logs/`) obsługuje rotację sesji i czyszczenie danych z ochroną katalogów ML.
 - Launchery Tkinter pozwalają uruchomić tryb human vs human (`main.py`) lub scenariusze mieszane AI/Human (`ai_launcher.py`).
 - Repozytorium utrzymujemy w Pythonie 3.12; zależności minimalne (`Pillow`, `numpy`) znajdują się w `requirements.txt`.
 
@@ -64,8 +64,8 @@ projekt/
 - `plans/` oraz `docs/` – materiały projektowe, balans, raporty faz.
 
 ## 🧾 Logowanie i czyszczenie
-- `utils/session_manager.py` – singleton sesji logów (`logs/sesja_aktualna/`, rotacja archiwum).
-- `tools/maintenance/smart_log_cleaner.py` – CLI z trybami czyszczenia i ochroną `logs/dane_ml/`.
+- `utils/session_manager.py` – singleton sesji logów (`ai/logs/sessions/`, rotacja archiwum).
+- `tools/maintenance/smart_log_cleaner.py` – CLI z trybami czyszczenia i ochroną `ai/logs/dane_ml/`.
 - `czyszczenie/` – `czyszczenie_csv.py`, `game_cleaner.py` oraz dokumentacja (`OPIS_NARZEDZI_CZYSZCZENIA.md`).
 - `ai/logs/` – logger AI (tekst + CSV) oraz narzędzia czyszczenia (`ai/logs/czyszczenie_logow.py`).
 - Główne launchery integrują przyciski czyszczenia i archiwizacji (`utils/session_archiver.py`).

@@ -12,8 +12,10 @@ from pathlib import Path
 from datetime import datetime
 import json
 
+from utils.session_manager import LOGS_ROOT
+
 class Phase4MetricsAnalyzer:
-    def __init__(self, logs_dir="logs"):
+    def __init__(self, logs_dir: str | Path = LOGS_ROOT):
         self.logs_dir = Path(logs_dir)
         self.analysis_results = {}
         self.recommendations = []

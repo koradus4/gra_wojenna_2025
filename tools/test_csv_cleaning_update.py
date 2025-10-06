@@ -7,6 +7,8 @@ Sprawdza czy po wpisaniu kodu zabezpieczenia czyści też JSON
 import os
 from pathlib import Path
 
+from utils.session_manager import LOGS_ROOT
+
 def test_cleaning_modes():
     """Test różnych trybów czyszczenia"""
     
@@ -15,10 +17,10 @@ def test_cleaning_modes():
     
     # Sprawdź pliki w logs
     project_root = Path(".")
-    logs_dir = project_root / "logs"
+    logs_dir = project_root / LOGS_ROOT
     
     if not logs_dir.exists():
-        print("❌ Katalog logs nie istnieje!")
+        print("❌ Katalog ai/logs nie istnieje!")
         return
     
     # Policz pliki różnych typów
@@ -26,7 +28,7 @@ def test_cleaning_modes():
     json_files = list(logs_dir.rglob("*.json"))
     log_files = list(logs_dir.rglob("*.log"))
     
-    print(f"📊 OBECNE PLIKI W LOGS:")
+    print(f"📊 OBECNE PLIKI W {logs_dir}:")
     print(f"   📄 CSV:  {len(csv_files)} plików")
     print(f"   📄 JSON: {len(json_files)} plików")  
     print(f"   📄 LOG:  {len(log_files)} plików")

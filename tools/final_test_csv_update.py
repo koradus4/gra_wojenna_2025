@@ -6,6 +6,8 @@ FINAL TEST - Testuje GOTOWĄ funkcjonalność aktualizowanego czyszczenia CSV
 import os
 from pathlib import Path
 
+from utils.session_manager import LOGS_ROOT
+
 def final_functionality_test():
     """Finalny test gotowej funkcjonalności"""
     
@@ -15,12 +17,12 @@ def final_functionality_test():
     # Sprawdź obecność plików
     project_root = Path("c:/Users/klif/OneDrive/Pulpit/gra wojenna 17082025")
     csv_cleaner = project_root / "czyszczenie" / "czyszczenie_csv.py"
-    logs_dir = project_root / "logs"
+    logs_dir = project_root / LOGS_ROOT
     
     # Weryfikacja struktury
     print("🔍 WERYFIKACJA STRUKTURY:")
     print(f"   📄 CSV Cleaner: {'✅ ISTNIEJE' if csv_cleaner.exists() else '❌ BRAK'}")
-    print(f"   📁 Logs dir: {'✅ ISTNIEJE' if logs_dir.exists() else '❌ BRAK'}")
+    print(f"   📁 Logs dir ({LOGS_ROOT}): {'✅ ISTNIEJE' if logs_dir.exists() else '❌ BRAK'}")
     
     if not csv_cleaner.exists() or not logs_dir.exists():
         print("❌ Struktura niekompletna!")

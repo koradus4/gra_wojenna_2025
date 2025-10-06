@@ -7,6 +7,8 @@ Sprawdza dokładnie co zostanie usunięte w każdym trybie
 import os
 from pathlib import Path
 
+from utils.session_manager import LOGS_ROOT
+
 def detailed_test():
     """Szczegółowy test trybów czyszczenia"""
     
@@ -15,10 +17,10 @@ def detailed_test():
     
     # Sprawdź pliki w logs
     project_root = Path(".")
-    logs_dir = project_root / "logs"
+    logs_dir = project_root / LOGS_ROOT
     
     if not logs_dir.exists():
-        print("❌ Katalog logs nie istnieje!")
+        print("❌ Katalog ai/logs nie istnieje!")
         return
     
     # Znajdź wszystkie pliki JSON
@@ -47,7 +49,7 @@ def detailed_test():
         else:
             regular_json.append(json_file)
     
-    print(f"📊 ANALIZA PLIKÓW JSON W LOGS:")
+    print(f"📊 ANALIZA PLIKÓW JSON W {logs_dir}:")
     print(f"   💾 Wszystkich JSON: {len(all_json_files)}")
     print(f"   🛡️ Chronionych:     {len(protected_json)}")  
     print(f"   🗂️ Zwykłych:        {len(regular_json)}")

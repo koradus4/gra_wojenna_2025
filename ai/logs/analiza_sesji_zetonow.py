@@ -85,6 +85,7 @@ class MetrykiSesji:
     pe_dostepne: int = 0
     resupply_wydane: int = 0
     pe_zwrocone: int = 0
+    pe_z_kp: int = 0
     paliwo_dodane: int = 0
     cv_dodane: int = 0
     hold_position: int = 0
@@ -131,6 +132,7 @@ class WynikiAnalizy:
     kroki_dystanse: Counter
     dystanse_na_ture: Counter
     per_nacje: dict[str, dict[str, int]] = field(default_factory=dict)
+    human_notes: list[str] = field(default_factory=list)
 
 
 def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
@@ -148,6 +150,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
     cv_debug_total = 0
     paliwo_debug_per: Counter[str] = Counter()
     cv_debug_per: Counter[str] = Counter()
+    human_notes: list[str] = []
     pending_attack_line: Optional[str] = None
 
     def parse_int(value: Optional[str]) -> Optional[int]:
@@ -185,6 +188,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 "available_pe": 0,
                 "spent_pe": 0,
                 "returned_pe": 0,
+                "pe_from_kp": 0,
                 "fuel_added": 0,
                 "cv_added": 0,
                 "cv_returned": 0,
@@ -273,6 +277,17 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                             planowany_atak = True
                 if planowany_atak:
                     metryki.planowane_ataki += 1
+            
+            # Wychwytuj human_note z logów
+            if "human_note=" in linia:
+                note_start = linia.find("human_note=")
+                note_content = linia[note_start + 11:].strip()
+                # Szukamy końca noty - przed kolejnym parametrem (", specialist_")
+                if ", specialist_" in note_content:
+                    note_content = note_content[:note_content.find(", specialist_")]
+                elif "," in note_content:
+                    note_content = note_content[:note_content.find(",")]
+                human_notes.append(note_content.strip())
 
             mode_match = RE_MODE.search(linia)
             if mode_match:
@@ -350,6 +365,18 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 statusy_koniec[status_match.group(1).strip()] += 1
             if token_id:
                 oczekujace_decyzje.pop(token_id, None)
+
+        elif "przydział PE z KP" in linia:
+            pola = dict(RE_KEY_VALUE.findall(linia))
+            przydzial_kp = parse_int(pola.get("pe_gain"))
+            if przydzial_kp is not None:
+                nation = pola.get("general_nation")
+                if nation:
+                    statystyki_nacji = stats_for(nation=nation)
+                else:
+                    statystyki_nacji = stats_for(token_id)
+                statystyki_nacji["pe_from_kp"] += przydzial_kp
+                metryki.pe_z_kp += przydzial_kp
 
         elif "uzupełnia paliwo" in linia:
             match = RE_UZUPELNIANIE_PALIWA.search(linia)
@@ -470,6 +497,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
         kroki_dystanse=kroki_dystanse,
         dystanse_na_ture=dystanse_na_ture,
         per_nacje=per_nacje,
+        human_notes=human_notes,
     )
 
 
@@ -558,7 +586,7 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
             for nazwa, stat in sorted(wyniki.per_nacje.items())
             if any(
                 stat[key]
-                for key in ("available_pe", "fuel_added", "cv_added", "returned_pe")
+                for key in ("available_pe", "fuel_added", "cv_added", "returned_pe", "pe_from_kp")
             )
         ]
     if aktywne_nacje:
@@ -569,17 +597,20 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
             paliwo = stat["fuel_added"]
             cv = stat["cv_added"]
             zwrocone = stat["returned_pe"]
+            kp = stat["pe_from_kp"]
             linie.append(
-                f"    • {nazwa}: pozyskane {pozyskane} | paliwo {paliwo} | CV {cv} | zwrócone {zwrocone}"
+                f"    • {nazwa}: pozyskane {pozyskane} | paliwo {paliwo} | CV {cv} | zwrócone {zwrocone} | KP {kp}"
             )
 
     total_pozyskane = sum(stat["available_pe"] for stat in wyniki.per_nacje.values())
     total_paliwo = sum(stat["fuel_added"] for stat in wyniki.per_nacje.values())
     total_cv = sum(stat["cv_added"] for stat in wyniki.per_nacje.values())
+    total_kp = sum(stat["pe_from_kp"] for stat in wyniki.per_nacje.values())
     total_wydane = total_paliwo + total_cv
     total_zwrocone = sum(stat["returned_pe"] for stat in wyniki.per_nacje.values())
     linie.append("- Bilans ogólny:")
     linie.append(f"    • PE pozyskane: {total_pozyskane}")
+    linie.append(f"    • PE z kluczowych punktów: {total_kp}")
     linie.append(f"    • Wydane na paliwo: {total_paliwo}")
     linie.append(f"    • Wydane na CV: {total_cv}")
     procent_wydane = (total_wydane / total_pozyskane * 100) if total_pozyskane else 0.0
@@ -703,6 +734,14 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
         linie.append(
             f"\nUWAGA: {m.braki_movement_mode} wpisów bez movement_mode (warto sprawdzić logowanie)."
         )
+    
+    # Notatki specjalistów (human_notes)
+    if wyniki.human_notes:
+        linie.append("\n--- NOTATKI SPECJALISTÓW (czytelne dla człowieka) ---")
+        for idx, note in enumerate(wyniki.human_notes[:20], 1):  # Limit 20 pierwszych
+            linie.append(f"{idx}. {note}")
+        if len(wyniki.human_notes) > 20:
+            linie.append(f"... i {len(wyniki.human_notes) - 20} kolejnych notatek")
 
     return "\n".join(linie)
 

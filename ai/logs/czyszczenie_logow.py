@@ -7,8 +7,11 @@ import shutil
 from pathlib import Path
 from typing import Iterable
 
+from utils.session_manager import SESSION_ROOT
+
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent.parent
+
 TOKENS_ROOT = PROJECT_ROOT / "assets" / "tokens"
 START_TOKENS_PATH = PROJECT_ROOT / "assets" / "start_tokens.json"
 TOKENS_INDEX_PATH = TOKENS_ROOT / "index.json"
@@ -240,6 +243,7 @@ def clean_logs(*, confirm: bool = True, verbose: bool = True) -> int:
 
     log_targets_exist = any(directory.exists() for directory in TARGET_DIRS)
     token_targets_exist = _token_cleanup_required()
+    session_logs_dir = PROJECT_ROOT / SESSION_ROOT
 
     if not log_targets_exist and not token_targets_exist:
         if verbose:
@@ -296,6 +300,17 @@ def clean_logs(*, confirm: bool = True, verbose: bool = True) -> int:
     total_files = removed_files + token_stats["files_removed"]
     total_dirs = removed_dirs + token_stats["dirs_removed"]
     json_entries_removed = token_stats["json_entries_removed"]
+    logs_dir_removed = False
+
+    if session_logs_dir.exists():
+        try:
+            shutil.rmtree(session_logs_dir)
+            logs_dir_removed = True
+            if verbose:
+                print("✅ Usunięto katalog ai/logs/sessions (sesje)")
+        except OSError as error:
+            if verbose:
+                print(f"⚠️ Nie można usunąć katalogu ai/logs/sessions: {error}")
 
     if verbose:
         summary_parts: list[str] = []
@@ -304,6 +319,8 @@ def clean_logs(*, confirm: bool = True, verbose: bool = True) -> int:
             summary_parts.append(f"katalogi: {total_dirs}")
         if json_entries_removed:
             summary_parts.append(f"wpisy JSON: {json_entries_removed}")
+        if logs_dir_removed:
+            summary_parts.append("logs/: usunięto")
         print("Podsumowanie czyszczenia -> " + ", ".join(summary_parts))
 
     return total_files + token_stats["json_files_updated"]
