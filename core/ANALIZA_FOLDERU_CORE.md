@@ -5,6 +5,7 @@
 - Kluczowe klasy (`EconomySystem`, `TurnManager`, `VictoryConditions`) są włączone do bieżącej rozgrywki i wykorzystywane zarówno w interfejsach GUI, jak i w testach regresyjnych.
 - `unit_factory.py` pozostaje jedynym źródłem prawdy dla statystyk jednostek; wyniki muszą być zgodne z `gui/token_shop.py`.
 - W katalogu pozostał jeden placeholder (`dyplomacja.py`) przewidziany na przyszłe rozszerzenia.
+- Warstwa logowania sesji została przeniesiona pod `ai/logs/` i korzysta z `utils/session_manager.py` oraz `utils/session_archiver.py` do rotacji i archiwizacji.
 
 ## 🗂️ Zawartość katalogu
 

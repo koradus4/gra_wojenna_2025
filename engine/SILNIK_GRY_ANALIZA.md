@@ -744,6 +744,8 @@ remaining_turns = ceil(current_value / (0.1 * initial_value))
 - **Economy logs** - przepływ PE między graczami
 - **Combat logs** - szczegóły każdej walki
 
+Logi sesji gry są przechowywane w katalogu `ai/logs/sessions/<timestamp>/`, który utrzymuje `utils/session_manager.py` (tworzenie i czyszczenie bieżącej sesji) oraz `utils/session_archiver.py` (rotacja archiwów). Narzędzia AI i GUI korzystają z tych samych plików, co eliminuje wcześniejszy duplikat katalogu `logs/` w root.
+
 **Format CSV dla analizy:**
 ```csv
 turn,player_id,action_type,token_id,success,details

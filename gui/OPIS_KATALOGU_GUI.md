@@ -31,6 +31,10 @@ Pakiet `gui/` zawiera panele interfejsu użytkownika gry „Kampania 1939” dla
 - Przy nowych efektach graficznych używaj tagów Canvas i `tag_raise`, aby overlay pozostawał nad innymi elementami.
 - Staraj się nie umieszczać logiki gry w GUI – jedynie prezentacja i delegacja zdarzeń.
 
+## Logowanie i czyszczenie
+- Panele generała i dowódców korzystają z tego samego menedżera sesji co AI – logi trafiają do `ai/logs/sessions/<timestamp>/`.
+- Przyciski „Wyczyść logi” oraz funkcje diagnostyczne wywołują `ai/logs/czyszczenie_logow.py` lub `utils/session_manager.py.clean_current_session`, dlatego przy zmianie ścieżek należy aktualizować jedynie te moduły pomocnicze.
+
 ## Pliki pomocnicze
 - `ai_config_panel.py` – Panel konfiguracji AI (historyczny; w projekcie bez AI pozostaje jako referencja GUI).
 - `opcje_dostepnosci.py` – Opcje ułatwień dostępu.
