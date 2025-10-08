@@ -680,28 +680,359 @@ class ReconSpecialist(TokenSpecialist):
 
 
 # ---------------------------------------------------------------------------
-# Pustki dla przyszłych specjalistów
+# Specjaliści ofensywni (kawaleria / piechota / czołgi / artyleria)
 # ---------------------------------------------------------------------------
 
 
 class CavalrySpecialist(TokenSpecialist):
-    """Placeholder dla kawalerii – na razie zachowuje domyślne AI."""
+    """Kawaleria: agresywne flankowanie i szybkie rajdy."""
+
     handled_types = {"K", "CAV"}
+
+    def __init__(self, token, shared_intel: SharedIntelMemory):
+        super().__init__(token, shared_intel)
+        self._last_target: Optional[Tuple[int, int]] = getattr(token, "cavalry_last_target", None)
+
+    def on_turn_start(self, memory: Dict[str, Any]) -> None:
+        super().on_turn_start(memory)
+        # Kawaleria żyje szybko – nie trzymamy celów dłużej niż 3 tury
+        if memory.get("cavalry_target_cooldown"):
+            memory["cavalry_target_cooldown"] = max(0, memory["cavalry_target_cooldown"] - 1)
+
+    def extend_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        context = super().extend_context(context)
+        target = self._select_target_hex(context)
+        if target:
+            context["cavalry_target_hex"] = target
+            if target != self._last_target:
+                _flag(context, "kawaleria_nowy_cel")
+                self._last_target = target
+                setattr(self.token, "cavalry_last_target", target)
+        elif self._last_target:
+            context["cavalry_target_hex"] = self._last_target
+        return context
+
+    def adjust_status(self, status: str, context: Dict[str, Any]) -> str:
+        if status == "urgent_retreat" and context.get("visible_enemies"):
+            _flag(context, "kawaleria_mimo_strat")
+            return "threatened"
+        if status == "low_fuel" and context.get("current_fuel", 0) >= max(1, context.get("max_fuel", 1)) * 0.3:
+            return "normal"
+        return status
+
+    def adjust_movement_mode(self, movement_mode: str, status: str, context: Dict[str, Any]) -> str:
+        target = context.get("cavalry_target_hex")
+        if target and not context.get("visible_enemies"):
+            return "march"
+        return movement_mode
+
+    def suggest_movement_target(self, context: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        return context.get("cavalry_target_hex") or self._last_target
+
+    def adjust_actions(
+        self,
+        planned_actions: List[str],
+        status: str,
+        context: Dict[str, Any],
+        pe_budget: int,
+    ) -> List[str]:
+        result = [action for action in planned_actions if action != "maneuver"]
+        result.insert(0, "maneuver")
+
+        max_cv = context.get("max_cv", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
+        if pe_budget > 0 and max_cv > 0 and combat_value < max_cv * 0.75:
+            result = [action for action in result if action != "restore_cv"]
+            insert_at = 1 if result and result[0] == "maneuver" else 0
+            result.insert(insert_at, "restore_cv")
+            _flag(context, "kawaleria_cv")
+
+        visible = bool(context.get("visible_enemies")) or bool(context.get("shared_enemy_detection"))
+        if visible and "attack" not in result:
+            insert_at = 2 if result[:2] == ["maneuver", "restore_cv"] else 1
+            result.insert(min(insert_at, len(result)), "attack")
+            _flag(context, "kawaleria_atak")
+
+        max_fuel = context.get("max_fuel", 0) or 0
+        current_fuel = context.get("current_fuel", 0) or 0
+        if max_fuel and current_fuel / max_fuel >= 0.65:
+            result = [action for action in result if action != "refuel_minimum"]
+
+        return result
+
+    def update_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        target = context.get("cavalry_target_hex")
+        if target and context.get("position") == target:
+            context["human_note"] = "Kawaleria: flankowanie udane, cel osiągnięty."
+            _flag(context, "kawaleria_flank")
+        return context
+
+    def _select_target_hex(self, context: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        board = context.get("board")
+        my_pos = context.get("position")
+        visible = context.get("visible_enemies") or []
+        if board and visible and my_pos and None not in my_pos:
+            def score(enemy) -> float:
+                enemy_pos = (getattr(enemy, "q", None), getattr(enemy, "r", None))
+                if None in enemy_pos:
+                    return -999.0
+                try:
+                    dist = board.hex_distance(my_pos, enemy_pos)
+                except Exception:
+                    dist = 99
+                cv = getattr(enemy, "combat_value", None) or getattr(enemy, "stats", {}).get("combat_value", 6)
+                return -dist + (6 - cv) * 0.2
+
+            target_enemy = max(visible, key=score)
+            enemy_pos = (getattr(target_enemy, "q", None), getattr(target_enemy, "r", None))
+            if None not in enemy_pos:
+                return enemy_pos
+        return None
 
 
 class InfantrySpecialist(TokenSpecialist):
-    """Placeholder dla piechoty – na razie zachowuje domyślne AI."""
+    """Piechota: agresywne szturmy i utrzymanie zajętych heksów."""
+
     handled_types = {"P", "INF"}
+
+    def __init__(self, token, shared_intel: SharedIntelMemory):
+        super().__init__(token, shared_intel)
+        self._focus_hex: Optional[Tuple[int, int]] = getattr(token, "infantry_focus_hex", None)
+
+    def extend_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        context = super().extend_context(context)
+        target = self._select_focus_hex(context)
+        if target:
+            context["infantry_focus_hex"] = target
+            if target != self._focus_hex:
+                _flag(context, "piechota_nowt")
+                self._focus_hex = target
+                setattr(self.token, "infantry_focus_hex", target)
+        elif self._focus_hex:
+            context["infantry_focus_hex"] = self._focus_hex
+        return context
+
+    def suggest_movement_target(self, context: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        target = context.get("infantry_focus_hex") or self._focus_hex
+        if target and context.get("position") != target:
+            return target
+        return None
+
+    def adjust_actions(
+        self,
+        planned_actions: List[str],
+        status: str,
+        context: Dict[str, Any],
+        pe_budget: int,
+    ) -> List[str]:
+        result = list(planned_actions)
+        max_cv = context.get("max_cv", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
+        if pe_budget > 0 and max_cv > 0 and combat_value < max_cv * 0.9:
+            result = [action for action in result if action != "restore_cv"]
+            result.insert(0, "restore_cv")
+            _flag(context, "piechota_cv")
+
+        focus_hex = context.get("infantry_focus_hex")
+        if focus_hex and context.get("position") != focus_hex:
+            if "maneuver" in result:
+                result = [a for a in result if a != "maneuver"]
+            insert_at = 1 if result and result[0] == "restore_cv" else 0
+            result.insert(insert_at, "maneuver")
+        elif "maneuver" in result and context.get("visible_enemies"):
+            # Pozostajemy w zwarciu – manewr na koniec
+            result = [a for a in result if a != "maneuver"]
+            result.append("maneuver")
+
+        if context.get("visible_enemies") and "attack" not in result:
+            insert_at = 1 if result and result[0] == "restore_cv" else 0
+            result.insert(insert_at, "attack")
+            _flag(context, "piechota_atak")
+
+        max_fuel = context.get("max_fuel", 0) or 0
+        current_fuel = context.get("current_fuel", 0) or 0
+        if max_fuel and current_fuel / max_fuel >= 0.75:
+            result = [action for action in result if action != "refuel_minimum"]
+
+        return result
+
+    def update_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        focus_hex = context.get("infantry_focus_hex")
+        if focus_hex and context.get("position") == focus_hex:
+            context.setdefault("human_note", "Piechota: cel zdobyty, przygotowujemy obronę.")
+            _flag(context, "piechota_hold")
+        return context
+
+    def _select_focus_hex(self, context: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        board = context.get("board")
+        my_pos = context.get("position")
+        visible = context.get("visible_enemies") or []
+        if board and visible and my_pos and None not in my_pos:
+            def distance(enemy) -> int:
+                enemy_pos = (getattr(enemy, "q", None), getattr(enemy, "r", None))
+                if None in enemy_pos:
+                    return 999
+                try:
+                    return board.hex_distance(my_pos, enemy_pos)
+                except Exception:
+                    return 999
+
+            target_enemy = min(visible, key=distance)
+            enemy_pos = (getattr(target_enemy, "q", None), getattr(target_enemy, "r", None))
+            if None not in enemy_pos:
+                return enemy_pos
+        return None
 
 
 class TankSpecialist(TokenSpecialist):
-    """Placeholder dla czołgów – na razie zachowuje domyślne AI."""
+    """Czołgi i wozy pancerne: ofensywa z priorytetem CV."""
+
     handled_types = {"C", "T", "TL", "TS", "TŚ", "TC", "ARM"}
+
+    VARIANT_RULES: Dict[str, Dict[str, Any]] = {
+        "TL": {"role": "light", "cv_threshold": 0.85, "fuel_keep": 0.4},
+        "TS": {"role": "car", "cv_threshold": 0.8, "fuel_keep": 0.5},
+        "TŚ": {"role": "medium", "cv_threshold": 0.92, "fuel_keep": 0.35},
+        "TC": {"role": "heavy", "cv_threshold": 0.97, "fuel_keep": 0.3},
+    }
+
+    def __init__(self, token, shared_intel: SharedIntelMemory):
+        super().__init__(token, shared_intel)
+        unit_type = (_normalize_unit_type(token) or "").upper()
+        self.rules = dict(self.VARIANT_RULES.get(unit_type, {"role": "medium", "cv_threshold": 0.9, "fuel_keep": 0.35}))
+        self.unit_type = unit_type
+
+    def adjust_status(self, status: str, context: Dict[str, Any]) -> str:
+        role = self.rules.get("role")
+        if status == "urgent_retreat" and role in {"medium", "heavy"} and context.get("visible_enemies"):
+            _flag(context, "czolg_trwa_w_natarciu")
+            return "threatened"
+        if status == "low_fuel" and context.get("visible_enemies"):
+            return "normal"
+        return status
+
+    def adjust_movement_mode(self, movement_mode: str, status: str, context: Dict[str, Any]) -> str:
+        role = self.rules.get("role")
+        if role in {"light", "car"} and not context.get("visible_enemies"):
+            return "march"
+        return movement_mode
+
+    def adjust_actions(
+        self,
+        planned_actions: List[str],
+        status: str,
+        context: Dict[str, Any],
+        pe_budget: int,
+    ) -> List[str]:
+        result = list(planned_actions)
+        role = self.rules.get("role")
+        max_cv = context.get("max_cv", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
+        if pe_budget > 0 and max_cv > 0 and combat_value < max_cv * self.rules.get("cv_threshold", 0.9):
+            result = [a for a in result if a != "restore_cv"]
+            result.insert(0, "restore_cv")
+            _flag(context, "czolg_cv")
+
+        visible = bool(context.get("visible_enemies")) or bool(context.get("shared_enemy_detection"))
+        if visible:
+            if "attack" in result:
+                result.remove("attack")
+            insert_at = 1 if result and result[0] == "restore_cv" else 0
+            result.insert(insert_at, "attack")
+            _flag(context, "czolg_atak")
+        elif role in {"light", "car"} and "attack" in result:
+            # Gdy brak celu – poluj dalej
+            result.remove("attack")
+            result.append("attack")
+
+        if "maneuver" in result and role in {"medium", "heavy"}:
+            result.remove("maneuver")
+            result.append("maneuver")
+        elif "maneuver" in result and role in {"light", "car"}:
+            result.remove("maneuver")
+            insert_at = 1 if result and result[0] == "restore_cv" else 0
+            result.insert(insert_at, "maneuver")
+
+        max_fuel = context.get("max_fuel", 0) or 0
+        current_fuel = context.get("current_fuel", 0) or 0
+        if max_fuel and current_fuel / max_fuel >= self.rules.get("fuel_keep", 0.35) + 0.35:
+            result = [a for a in result if a != "refuel_minimum"]
+
+        return result
 
 
 class ArtillerySpecialist(TokenSpecialist):
-    """Placeholder dla artylerii – na razie zachowuje domyślne AI."""
+    """Artyleria: ciągły ogień i bezpieczne repozycjonowanie."""
+
     handled_types = {"AL", "AC", "AP", "AR", "ART"}
+
+    def __init__(self, token, shared_intel: SharedIntelMemory):
+        super().__init__(token, shared_intel)
+        unit_type = (_normalize_unit_type(token) or "").upper()
+        if unit_type in {"AL"}:
+            self.variant = "light"
+        elif unit_type in {"AC"}:
+            self.variant = "heavy"
+        elif unit_type in {"AP", "AR"}:
+            self.variant = "aa"
+        else:
+            self.variant = "heavy"
+        self._needs_reposition = False
+
+    def on_turn_start(self, memory: Dict[str, Any]) -> None:
+        super().on_turn_start(memory)
+        # Jeżeli poprosiliśmy o repozycjonowanie w poprzedniej turze – realizujemy teraz
+        if self._needs_reposition:
+            memory["artillery_reposition"] = True
+
+    def extend_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        context = super().extend_context(context)
+        context["artillery_variant"] = self.variant
+        if self.variant == "light" and self._needs_reposition:
+            _flag(context, "arty_reposition")
+            context.setdefault("human_note", "Artyleria: zmiana pozycji po salwie.")
+        return context
+
+    def adjust_actions(
+        self,
+        planned_actions: List[str],
+        status: str,
+        context: Dict[str, Any],
+        pe_budget: int,
+    ) -> List[str]:
+        if self.variant == "aa":
+            return list(planned_actions)
+
+        result = list(planned_actions)
+
+        if self._needs_reposition:
+            if "maneuver" in result:
+                result.remove("maneuver")
+            result.insert(0, "maneuver")
+            _flag(context, "arty_ruch_po_salve")
+
+        if context.get("visible_enemies") and "attack" not in result:
+            insert_at = 1 if result and result[0] == "maneuver" else 0
+            result.insert(insert_at, "attack")
+
+        if pe_budget > 0 and context.get("max_cv", 0) and context.get("combat_value", 0) < context["max_cv"] * (0.9 if self.variant == "heavy" else 0.85):
+            result = [a for a in result if a != "restore_cv"]
+            insert_at = 1 if result and result[0] == "maneuver" else 0
+            result.insert(insert_at, "restore_cv")
+
+        return result
+
+    def after_turn(self, context: Dict[str, Any], reports: Dict[str, Any]) -> None:
+        super().after_turn(context, reports)
+        if self.variant == "aa":
+            return
+        attack_report = reports.get("attack")
+        if attack_report:
+            self._needs_reposition = True
+        movement_report = reports.get("movement") or {}
+        if movement_report.get("success"):
+            self._needs_reposition = False
+
 
 
 # ---------------------------------------------------------------------------

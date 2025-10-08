@@ -41,6 +41,7 @@ class ArmyCreatorStudio:
         }
         
         # Typy jednostek z bazowymi kosztami i statystykami
+        self.excluded_unit_types = {"AP", "D", "G"}
         self.unit_templates = {
             "P": {"name": "Piechota", "base_cost": 25, "weight": 0.4},
             "K": {"name": "Kawaleria", "base_cost": 30, "weight": 0.1},
@@ -51,9 +52,7 @@ class ArmyCreatorStudio:
             "TS": {"name": "Sam. Pancerny", "base_cost": 35, "weight": 0.1},
             "AL": {"name": "Artyleria Lekka", "base_cost": 35, "weight": 0.15},
             "AC": {"name": "Artyleria Ciężka", "base_cost": 55, "weight": 0.1},
-            "AP": {"name": "Art. Przeciwlotnicza", "base_cost": 30, "weight": 0.05},
-            "Z": {"name": "Zaopatrzenie", "base_cost": 20, "weight": 0.25},
-            "D": {"name": "Dowództwo", "base_cost": 40, "weight": 0.05}
+            "Z": {"name": "Zaopatrzenie", "base_cost": 20, "weight": 0.25}
         }
         
         self.unit_sizes = ["Pluton", "Kompania", "Batalion"]
@@ -66,6 +65,7 @@ class ArmyCreatorStudio:
         
         # Lista utworzonych jednostek
         self.created_units = []
+        self._cached_tokens_by_nation = None
         
         # Token Editor (zainicjalizowany później)
         self.token_editor = None
@@ -122,15 +122,16 @@ class ArmyCreatorStudio:
             "AL": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc",
                   "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv",
                   "ciagnik altyleryjski", "obserwator"],
-            "AP": ["drużyna granatników", "sekcja ckm", "sekcja km.ppanc",
-                  "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv",
-                  "ciagnik altyleryjski", "obserwator"],
             "Z": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "obserwator"],
-            "D": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
-                 "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"],
-            "G": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
-                 "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv", "obserwator"]
         }
+
+        for unit_type in list(self.allowed_support.keys()):
+            if unit_type in self.excluded_unit_types:
+                self.allowed_support.pop(unit_type, None)
+
+        for unit_type in list(self.unit_templates.keys()):
+            if unit_type in self.excluded_unit_types:
+                self.unit_templates.pop(unit_type, None)
         
         # Typy transportu (tylko jeden na jednostkę)
         self.transport_types = ["przodek dwukonny", "sam. ciezarowy Fiat 621", 
@@ -324,6 +325,13 @@ class ArmyCreatorStudio:
         ttk.Button(action_frame, text="⚖️ Zbalansuj Auto",
                   command=self.auto_balance_army,
                   style='Military.TButton').pack(fill=tk.X, pady=1)
+        
+        ttk.Button(
+            action_frame,
+            text="🎮 Armie z gotowych żetonów",
+            command=self.generate_existing_token_armies,
+            style='Military.TButton'
+        ).pack(fill=tk.X, pady=1)
         
         ttk.Button(action_frame, text="🗑️ Wyczyść",
                   command=self.clear_army,
@@ -610,6 +618,280 @@ class ArmyCreatorStudio:
         
         return army
     
+    def generate_existing_token_armies(self):
+        """Buduje dwie armie (Polska i Niemcy) korzystając z już utworzonych żetonów."""
+        tokens_by_nation = self.load_existing_tokens()
+        polish_tokens = tokens_by_nation.get("Polska", [])
+        german_tokens = tokens_by_nation.get("Niemcy", [])
+
+        messages = []
+        if not polish_tokens:
+            messages.append("Brak dostępnych żetonów dla 🇵🇱 Polski.")
+        if not german_tokens:
+            messages.append("Brak dostępnych żetonów dla 🇩🇪 Niemiec.")
+
+        if messages:
+            self.units_text.delete(1.0, tk.END)
+            self.units_text.insert(tk.END, "\n".join(messages) + "\n")
+            self.info_label.config(text=" | ".join(messages))
+            self.status_label.config(text="⚠️ Brakuje żetonów do zbudowania obu armii")
+            return
+
+        size = self.army_size.get()
+        budget = self.army_budget.get()
+
+        planned_polish = self.generate_balanced_army_preview(size, budget)
+        planned_german = self.generate_balanced_army_preview(size, budget)
+
+        polish_result = self._map_preview_to_existing_tokens(planned_polish, polish_tokens, budget)
+        german_result = self._map_preview_to_existing_tokens(planned_german, german_tokens, budget)
+
+        self._render_existing_armies(polish_result, german_result)
+
+        info_summary = (
+            f"🇵🇱 {polish_result.get('actual_count', 0)}/{polish_result.get('desired_count', 0)} żetonów "
+            f"({polish_result.get('total_cost', 0)} VP) | "
+            f"🇩🇪 {german_result.get('actual_count', 0)}/{german_result.get('desired_count', 0)} żetonów "
+            f"({german_result.get('total_cost', 0)} VP)"
+        )
+        self.info_label.config(text=info_summary)
+        self.status_label.config(text="🎮 Armie z gotowych żetonów przygotowane")
+
+    def load_existing_tokens(self, force=False):
+        """Ładuje listę dostępnych żetonów dla każdej nacji, z prostym cache."""
+        if not force and self._cached_tokens_by_nation is not None:
+            return self._cached_tokens_by_nation
+
+        tokens_by_nation = self._load_tokens_from_filesystem()
+        total_found = sum(len(items) for items in tokens_by_nation.values())
+
+        if total_found == 0:
+            tokens_by_nation = self._load_tokens_from_save()
+
+        self._cached_tokens_by_nation = tokens_by_nation
+        return tokens_by_nation
+
+    def _load_tokens_from_filesystem(self):
+        """Przeszukuje folder assets/tokens i próbuje wczytać token.json dla każdej jednostki."""
+        base_dir = Path("assets/tokens")
+        tokens_by_nation = {"Polska": [], "Niemcy": []}
+
+        if not base_dir.exists():
+            return tokens_by_nation
+
+        for nation in tokens_by_nation.keys():
+            nation_dir = base_dir / nation
+            if not nation_dir.exists():
+                continue
+
+            for token_dir in nation_dir.iterdir():
+                if not token_dir.is_dir():
+                    continue
+
+                json_path = token_dir / "token.json"
+                if not json_path.exists():
+                    continue
+
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        raw_data = json.load(f)
+                except Exception as exc:
+                    print(f"⚠️ Błąd odczytu {json_path}: {exc}")
+                    continue
+
+                record = self._extract_token_record(raw_data, default_nation=nation)
+                if record:
+                    tokens_by_nation[record["nation"]].append(record)
+
+        for nation_tokens in tokens_by_nation.values():
+            nation_tokens.sort(key=lambda t: (t.get("unit_type"), t.get("unit_size"), t.get("price", 0)))
+
+        return tokens_by_nation
+
+    def _load_tokens_from_save(self):
+        """Fallback: pobiera żetony z zapisu saves/after_deployment.json."""
+        tokens_by_nation = {"Polska": [], "Niemcy": []}
+        save_path = Path("saves/after_deployment.json")
+
+        if not save_path.exists():
+            return tokens_by_nation
+
+        try:
+            with open(save_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:
+            print(f"⚠️ Błąd odczytu {save_path}: {exc}")
+            return tokens_by_nation
+
+        for entry in data.get("tokens", []):
+            stats = entry.get("stats", {})
+            raw_record = {
+                "id": entry.get("id"),
+                "stats": stats,
+                "support": entry.get("support"),
+                "nation": stats.get("nation"),
+            }
+            record = self._extract_token_record(raw_record, default_nation=stats.get("nation"))
+            if record:
+                tokens_by_nation[record["nation"]].append(record)
+
+        for nation_tokens in tokens_by_nation.values():
+            nation_tokens.sort(key=lambda t: (t.get("unit_type"), t.get("unit_size"), t.get("price", 0)))
+
+        return tokens_by_nation
+
+    def _extract_token_record(self, raw_data, default_nation=None):
+        """Normalizuje strukturę danych żetonu, zwraca None jeśli brakuje kluczowych pól."""
+        stats = raw_data.get("stats", raw_data)
+        nation = stats.get("nation") or raw_data.get("nation") or default_nation
+        if nation not in {"Polska", "Niemcy"}:
+            return None
+
+        unit_type = stats.get("unit_type") or stats.get("unitType") or raw_data.get("unit_type")
+        if not unit_type or unit_type in self.excluded_unit_types:
+            return None
+
+        unit_size = stats.get("unit_size") or stats.get("unitSize") or raw_data.get("unit_size") or "Pluton"
+        price_value = (
+            stats.get("price")
+            or stats.get("purchase_value")
+            or raw_data.get("purchase_value")
+            or raw_data.get("price")
+        )
+        price = self._to_int(price_value, 0)
+
+        name = (
+            stats.get("label")
+            or stats.get("unit_full_name")
+            or raw_data.get("name")
+            or raw_data.get("id")
+            or f"{unit_type} {unit_size}"
+        )
+        token_id = raw_data.get("id") or stats.get("label") or name
+
+        support = stats.get("support") or raw_data.get("support")
+        if isinstance(support, list):
+            support = ", ".join(str(item) for item in support)
+        elif not isinstance(support, str):
+            support = ""
+
+        image = stats.get("image") or raw_data.get("image")
+
+        return {
+            "id": token_id,
+            "name": name,
+            "unit_type": unit_type,
+            "unit_size": unit_size,
+            "price": price,
+            "nation": nation,
+            "support": support,
+            "image": image,
+        }
+
+    def _map_preview_to_existing_tokens(self, planned_units, tokens, budget):
+        """Próbuje przypisać planowane jednostki do istniejących żetonów."""
+        available = [dict(token) for token in tokens]
+        random.shuffle(available)
+
+        def pop_first(predicate):
+            for idx, token in enumerate(available):
+                if predicate(token):
+                    return available.pop(idx)
+            return None
+
+        selected = []
+        total_cost = 0
+
+        for planned in planned_units:
+            match = pop_first(
+                lambda token: token.get("unit_type") == planned["unit_type"]
+                and token.get("unit_size") == planned["size"]
+            )
+            if match is None:
+                match = pop_first(lambda token: token.get("unit_type") == planned["unit_type"])
+            if match is None and available:
+                match = pop_first(lambda token: True)
+
+            if match:
+                match = dict(match)
+                match["planned"] = planned
+                price = self._to_int(match.get("price"), 0)
+                total_cost += price
+                selected.append(match)
+
+        desired_count = len(planned_units)
+
+        if len(selected) < desired_count and available:
+            available.sort(key=lambda token: self._to_int(token.get("price"), 0))
+            while available and len(selected) < desired_count:
+                fallback = dict(available.pop(0))
+                fallback["planned"] = None
+                price = self._to_int(fallback.get("price"), 0)
+                total_cost += price
+                selected.append(fallback)
+
+        z_count = sum(1 for token in selected if token.get("unit_type") == "Z")
+
+        return {
+            "units": selected,
+            "total_cost": total_cost,
+            "budget": budget,
+            "desired_count": desired_count,
+            "actual_count": len(selected),
+            "z_count": z_count,
+        }
+
+    def _render_existing_armies(self, polish_result, german_result):
+        self.units_text.delete(1.0, tk.END)
+        self.units_text.insert(tk.END, "🎮 ARMIE Z GOTOWYCH ŻETONÓW\n\n")
+        self._render_single_existing_army("Polska", polish_result)
+        self._render_single_existing_army("Niemcy", german_result)
+
+    def _render_single_existing_army(self, nation, result):
+        flag = "🇵🇱" if nation == "Polska" else "🇩🇪" if nation == "Niemcy" else ""
+        units = result.get("units", [])
+        desired = result.get("desired_count", len(units))
+        total_cost = result.get("total_cost", 0)
+        budget = result.get("budget", 0)
+        diff = budget - total_cost
+
+        header = f"{flag} {nation} ({len(units)}/{desired} jednostek)\n"
+        self.units_text.insert(tk.END, header)
+
+        for idx, token in enumerate(units, start=1):
+            name = token.get("name") or token.get("id")
+            unit_type = token.get("unit_type", "?")
+            unit_size = token.get("unit_size", "?")
+            price = self._to_int(token.get("price"), 0)
+            planned = token.get("planned")
+            plan_info = ""
+            if planned:
+                plan_info = f" | plan: {planned['unit_type']} {planned['size']}"
+            self.units_text.insert(
+                tk.END,
+                f"{idx:2}. {name} [{unit_type} {unit_size}] - {price} VP{plan_info}\n",
+            )
+
+        self.units_text.insert(
+            tk.END,
+            f"SUMA: {total_cost} VP | BUDŻET: {budget} VP | RÓŻNICA: {diff:+} VP\n",
+        )
+
+        missing = desired - result.get("actual_count", len(units))
+        if missing > 0:
+            self.units_text.insert(tk.END, f"⚠️ Brakuje {missing} jednostek do pełnej armii.\n")
+
+        if desired >= 2 and result.get("z_count", 0) < 2:
+            self.units_text.insert(tk.END, "⚠️ Mniej niż 2 jednostki zaopatrzenia dostępne.\n")
+
+        self.units_text.insert(tk.END, "\n")
+
+    def _to_int(self, value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+    
     def auto_select_upgrades(self, unit_type, unit_size, base_cost):
         """Automatycznie wybiera upgrady na podstawie typu jednostki i poziomu wyposażenia."""
         equipment_level = self.equipment_level.get()
@@ -634,7 +916,7 @@ class ArmyCreatorStudio:
             priorities = ["obserwator"]
             max_upgrades = 1 if random.random() < upgrade_chance else 0
             
-        elif unit_type in ["AC", "AL", "AP"]:  # Artyleria - obserwator + transport
+        elif unit_type in ["AC", "AL"]:  # Artyleria - obserwator + transport
             priorities = ["obserwator", "ciagnik altyleryjski", "sam. ciezarowy Fiat 621"]
             max_upgrades = min(2, int(upgrade_chance * 2.5))
             
@@ -645,7 +927,7 @@ class ArmyCreatorStudio:
             priorities = ["obserwator"]
             max_upgrades = 1 if random.random() < upgrade_chance else 0
             
-        else:  # Pozostałe (Z, D, G)
+        else:  # Pozostałe (np. Z)
             priorities = ["sam. ciezarowy Fiat 621", "sekcja ckm"]
             max_upgrades = 1 if random.random() < upgrade_chance else 0
         
@@ -1084,6 +1366,7 @@ class ArmyCreatorStudio:
     
     def refresh_token_stats(self):
         """Odświeża statystyki żetonów w folderach."""
+        self._cached_tokens_by_nation = None
         try:
             tokens_dir = Path("assets/tokens")
             if not tokens_dir.exists():
