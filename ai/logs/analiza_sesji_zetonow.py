@@ -10,10 +10,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 
 RE_START_TURY = re.compile(r"status=([^,]+).+planned_actions=\[(.*)\]")
@@ -47,6 +47,7 @@ TOKEN_NATION_CACHE: dict[str, str] = {}
 FALLBACK_PREFIX_MAP = {
     "P": "Piechota",
     "Z": "Zaopatrzenie",
+    "R": "Zwiad",
     "AC": "Artyleria ciężka",
     "AL": "Artyleria lekka",
     "K": "Kawaleria",
@@ -54,6 +55,65 @@ FALLBACK_PREFIX_MAP = {
     "TS": "Czołg średni",
     "TŚ": "Czołg średni",
 }
+
+STATUS_TRANSLATIONS: Dict[str, str] = {
+    "attack": "atak",
+    "combat": "walka",
+    "hold": "utrzymanie pozycji",
+    "idle": "bezczynność",
+    "move": "ruch",
+    "recover": "odbudowa",
+    "resupply": "uzupełnianie",
+    "retreat": "odwrót",
+}
+
+MODE_TRANSLATIONS: Dict[str, str] = {
+    "assault": "szturm",
+    "fallback": "odwrót na tyły",
+    "hold": "utrzymanie pozycji",
+    "move": "ruch",
+    "retreat": "odwrót",
+    "supply_run": "misja zaopatrzeniowa",
+}
+
+ACTION_TRANSLATIONS: Dict[str, str] = {
+    "attack": "atak",
+    "hold_position": "utrzymanie pozycji",
+    "maneuver": "manewr",
+    "move": "ruch",
+    "recover_garrison": "odbudowa garnizonu",
+    "refuel_minimum": "tankowanie minimalne",
+    "regroup": "przegrupowanie",
+    "resupply": "uzupełnienie zaopatrzenia",
+    "restore_cv": "odbudowa CV",
+    "withdraw": "wycofanie",
+}
+
+ACTION_PROFILE_TRANSLATIONS: Dict[str, str] = {
+    "attack": "atak",
+    "fallback": "odwrót na tyły",
+    "hold": "utrzymanie",
+    "move": "ruch",
+    "recover": "odbudowa",
+    "resupply": "uzupełnienie",
+    "retreat": "odwrót",
+}
+
+SPECIALIST_TRANSLATIONS: Dict[str, str] = {
+    "ArtillerySpecialist": "Artyleria",
+    "AssaultSpecialist": "Szturm",
+    "DefenseSpecialist": "Obrona",
+    "GenericSpecialist": "Standardowy",
+    "ReconSpecialist": "Rozpoznanie",
+    "SupplySpecialist": "Zaopatrzenie",
+}
+
+
+def format_with_translation(key: str, mapping: Dict[str, str]) -> str:
+    if not key:
+        return key
+    translation = mapping.get(key)
+    return f"{key} ({translation})" if translation else key
 
 
 def _resolve_token_nation(token_id: str) -> Optional[str]:
@@ -122,6 +182,19 @@ class MetrykiSesji:
 
 
 @dataclass
+class SpecialistStats:
+    tury: int = 0
+    profile: Counter[str] = field(default_factory=Counter)
+    planowane_akcje: Counter[str] = field(default_factory=Counter)
+    statusy: Counter[str] = field(default_factory=Counter)
+    holdy: int = 0
+    ruchy_udane: int = 0
+    paliwo: int = 0
+    cv: int = 0
+    uwagi: Counter[str] = field(default_factory=Counter)
+
+
+@dataclass
 class WynikiAnalizy:
     metryki: MetrykiSesji
     zaplanowane_akcje: Counter
@@ -133,6 +206,8 @@ class WynikiAnalizy:
     dystanse_na_ture: Counter
     per_nacje: dict[str, dict[str, int]] = field(default_factory=dict)
     human_notes: list[str] = field(default_factory=list)
+    specjalisci: dict[str, SpecialistStats] = field(default_factory=dict)
+    plany_ataku: list[Dict[str, Any]] = field(default_factory=list)
 
 
 def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
@@ -145,6 +220,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
     kroki_dystanse: Counter[int] = Counter()
     dystanse_na_ture: Counter[int] = Counter()
     oczekujace_decyzje: dict[str, dict[str, object]] = {}
+    plany_ataku: list[Dict[str, Any]] = []
     per_nacje: dict[str, dict[str, int]] = {}
     paliwo_debug_total = 0
     cv_debug_total = 0
@@ -152,6 +228,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
     cv_debug_per: Counter[str] = Counter()
     human_notes: list[str] = []
     pending_attack_line: Optional[str] = None
+    specjalisci: defaultdict[str, SpecialistStats] = defaultdict(SpecialistStats)
 
     def parse_int(value: Optional[str]) -> Optional[int]:
         if value is None:
@@ -166,6 +243,27 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 return int(float(value))
             except ValueError:
                 return None
+
+    def parse_float(value: Optional[str]) -> Optional[float]:
+        if value is None:
+            return None
+        value = value.strip()
+        if value in {"None", "null", "nan", ""}:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return None
+
+    def parse_bool(value: Optional[str]) -> Optional[bool]:
+        if value is None:
+            return None
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes"}:
+            return True
+        if lowered in {"false", "0", "no"}:
+            return False
+        return None
 
     def nation_for(token_id: Optional[str]) -> str:
         if not token_id:
@@ -261,10 +359,18 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
 
         if "start tury" in linia:
             metryki.liczba_tur += 1
+            pola_start = dict(RE_KEY_VALUE.findall(linia))
+            specialist_name = pola_start.get("specialist")
+            action_profile = pola_start.get("action_profile")
+            spec_stats = specjalisci[specialist_name] if specialist_name else None
+
             match = RE_START_TURY.search(linia)
             if match:
                 status, akcje_raw = match.groups()
-                statusy_start[status.strip()] += 1
+                status = status.strip()
+                statusy_start[status] += 1
+                if spec_stats is not None:
+                    spec_stats.statusy[status] += 1
 
                 planowany_atak = False
                 if akcje_raw.strip():
@@ -273,21 +379,29 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                         if not element:
                             continue
                         zaplanowane_akcje[element] += 1
+                        if spec_stats is not None:
+                            spec_stats.planowane_akcje[element] += 1
                         if element == "attack":
                             planowany_atak = True
                 if planowany_atak:
                     metryki.planowane_ataki += 1
-            
-            # Wychwytuj human_note z logów
+
+            if spec_stats is not None:
+                spec_stats.tury += 1
+                if action_profile:
+                    spec_stats.profile[action_profile.strip()] += 1
+
             if "human_note=" in linia:
                 note_start = linia.find("human_note=")
                 note_content = linia[note_start + 11:].strip()
-                # Szukamy końca noty - przed kolejnym parametrem (", specialist_")
                 if ", specialist_" in note_content:
                     note_content = note_content[:note_content.find(", specialist_")]
                 elif "," in note_content:
                     note_content = note_content[:note_content.find(",")]
-                human_notes.append(note_content.strip())
+                note_content = note_content.strip()
+                human_notes.append(note_content)
+                if spec_stats is not None and note_content:
+                    spec_stats.uwagi[note_content] += 1
 
             mode_match = RE_MODE.search(linia)
             if mode_match:
@@ -307,6 +421,8 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 metryki.resupply_wydane += int(wydane)
 
             pola = dict(RE_KEY_VALUE.findall(linia))
+            specialist_name = pola.get("specialist")
+            spec_stats = specjalisci[specialist_name] if specialist_name else None
             statystyki_nacji = stats_for(token_id)
 
             przydzial = parse_int(pola.get("allocated_pe"))
@@ -329,11 +445,15 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
             if zatankowane is not None:
                 statystyki_nacji["fuel_added"] += zatankowane
                 metryki.paliwo_dodane += zatankowane
+                if spec_stats is not None:
+                    spec_stats.paliwo += zatankowane
 
             cv_przywrocone = parse_int(pola.get("combat_restored"))
             if cv_przywrocone is not None:
                 statystyki_nacji["cv_added"] += cv_przywrocone
                 metryki.cv_dodane += cv_przywrocone
+                if spec_stats is not None:
+                    spec_stats.cv += cv_przywrocone
 
             attempt_match = RE_ATTEMPT.search(linia)
             if attempt_match and attempt_match.group(1) == "True":
@@ -346,6 +466,8 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 dystanse_na_ture[distance_total] += 1
                 if distance_total > 0:
                     metryki.tury_z_ruchem += 1
+                    if spec_stats is not None:
+                        spec_stats.ruchy_udane += 1
                 if distance_total > metryki.max_dystans_tury:
                     metryki.max_dystans_tury = distance_total
 
@@ -359,12 +481,55 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
                 reason = (pola.get("hold_reason") or "").strip()
                 if reason:
                     metryki.hold_reasons[reason] += 1
+                if spec_stats is not None:
+                    spec_stats.holdy += 1
 
             status_match = RE_STATUS.search(linia)
             if status_match:
-                statusy_koniec[status_match.group(1).strip()] += 1
+                status = status_match.group(1).strip()
+                statusy_koniec[status] += 1
+                if spec_stats is not None:
+                    spec_stats.statusy[status] += 1
             if token_id:
                 oczekujace_decyzje.pop(token_id, None)
+
+        elif "plan ataku" in linia:
+            pola = dict(RE_KEY_VALUE.findall(linia))
+            plan: Dict[str, Any] = {
+                "token": token_id,
+                "executed": parse_bool(pola.get("executed")),
+                "decision": pola.get("decision"),
+                "reason": pola.get("reason"),
+                "hold_reason": pola.get("hold_reason"),
+                "target": pola.get("target"),
+                "threshold": pola.get("threshold"),
+                "risk_type": pola.get("risk_type"),
+                "support": parse_bool(pola.get("support")),
+                "ratio": parse_float(pola.get("ratio")),
+                "ratio_adjusted": parse_float(pola.get("ratio_adjusted")),
+                "detection": parse_float(pola.get("detection")),
+                "distance": parse_int(pola.get("distance")),
+                "counterattack": parse_bool(pola.get("counterattack")),
+                "attacker_health": parse_float(pola.get("attacker_health")),
+                "defender_health": parse_float(pola.get("defender_health")),
+                "fuel_ratio": parse_float(pola.get("fuel_ratio")),
+                "risk_roll": parse_float(pola.get("risk_roll")),
+                "aggression_chance": parse_float(pola.get("aggression_chance")),
+                "attack_success": parse_bool(pola.get("attack_success")),
+                "attack_damage_dealt": parse_int(pola.get("attack_damage_dealt")),
+                "attack_damage_taken": parse_int(pola.get("attack_damage_taken")),
+            }
+
+            pos_q = parse_int(pola.get("position_q"))
+            pos_r = parse_int(pola.get("position_r"))
+            if pos_q is not None and pos_r is not None:
+                plan["position"] = (pos_q, pos_r)
+            target_q = parse_int(pola.get("target_q"))
+            target_r = parse_int(pola.get("target_r"))
+            if target_q is not None and target_r is not None:
+                plan["enemy_position"] = (target_q, target_r)
+
+            plany_ataku.append(plan)
 
         elif "przydział PE z KP" in linia:
             pola = dict(RE_KEY_VALUE.findall(linia))
@@ -498,6 +663,8 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
         dystanse_na_ture=dystanse_na_ture,
         per_nacje=per_nacje,
         human_notes=human_notes,
+        specjalisci={nazwa: stats for nazwa, stats in specjalisci.items()},
+        plany_ataku=plany_ataku,
     )
 
 
@@ -514,6 +681,12 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
         "no_move_points": "brak punktów ruchu",
         "insufficient_fuel": "brak paliwa",
     }
+
+    def format_counter(counter: Counter[str], mapping: Dict[str, str], *, limit: Optional[int] = None) -> str:
+        if not counter:
+            return ""
+        items = counter.most_common(limit)
+        return ", ".join(f"{format_with_translation(key, mapping)}×{count}" for key, count in items)
 
     def odmiana(n: int, form1: str, form2: str, form5: str) -> str:
         n_abs = abs(n)
@@ -568,9 +741,9 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
         if najczestszy_dystans is not None:
             linie.append(f"- Najwięcej tur z ruchem na dystansie: {najczestszy_dystans} {odmiana(najczestszy_dystans, 'heks', 'heksy', 'heksów')} ({najwiecej_tur} tur)")
     # Średnia długość kroku
-    if m.kroki_ruchu:
-        sr_krok = m.dystans_krokow_suma / max(1, m.kroki_ruchu)
-        linie.append(f"- Średnia długość kroku: {sr_krok:.2f} heksa")
+    if m.tury_z_ruchem:
+        sr_ruch_tura = m.dystans_ruchu_suma / max(1, m.tury_z_ruchem)
+        linie.append(f"- Średnia długość ruchu w turze: {sr_ruch_tura:.2f} heksa")
     # Średnia MP na krok
     if m.kroki_ruchu and m.mp_krokow_suma:
         linie.append(f"- Średnia liczba MP na krok: {m.mp_krokow_suma / max(1, m.kroki_ruchu):.2f}")
@@ -666,6 +839,68 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
             f"- Średnie obrażenia przyjęte na starcie: {sr_przyjete:.2f} (max: {m.obrazenia_przyjete_max})"
         )
 
+    if wyniki.plany_ataku:
+        linie.append("")
+        linie.append("<details>")
+        linie.append(f"<summary>Plany ataku ({len(wyniki.plany_ataku)})</summary>")
+        for plan in wyniki.plany_ataku:
+            executed = plan.get("executed") is True
+            symbol = "✅" if executed else "❌"
+            color = "green" if executed else "red"
+            token_name = plan.get("token") or "?"
+            target = plan.get("target") or "brak_celu"
+
+            ratio_adj = plan.get("ratio_adjusted")
+            ratio_base = plan.get("ratio")
+            detection_val = plan.get("detection")
+            support_flag = plan.get("support")
+            threshold = plan.get("threshold")
+            reason = plan.get("hold_reason") or plan.get("reason")
+            risk_type = plan.get("risk_type")
+            distance = plan.get("distance")
+
+            ratio_adj_txt = f"{ratio_adj:.2f}" if isinstance(ratio_adj, (int, float)) else "--"
+            ratio_base_txt = f"{ratio_base:.2f}" if isinstance(ratio_base, (int, float)) else "--"
+            detection_txt = f"{detection_val:.2f}" if isinstance(detection_val, (int, float)) else "--"
+            support_txt = "wsparcie" if support_flag else "solo"
+
+            parts: list[str] = [f"{symbol} {token_name} → {target}"]
+            parts.append(f"ratio_adj={ratio_adj_txt}")
+            parts.append(f"ratio={ratio_base_txt}")
+            parts.append(f"det={detection_txt}")
+            if distance is not None:
+                parts.append(f"dist={distance}")
+            parts.append(support_txt)
+            if threshold:
+                parts.append(f"prog={threshold}")
+            if risk_type:
+                parts.append(f"tryb={risk_type}")
+
+            result_txt = None
+            if executed:
+                success_flag = plan.get("attack_success")
+                if success_flag is True:
+                    result_txt = "wynik: sukces"
+                elif success_flag is False:
+                    result_txt = "wynik: porażka"
+                dmg_dealt = plan.get("attack_damage_dealt")
+                dmg_taken = plan.get("attack_damage_taken")
+                if isinstance(dmg_dealt, int):
+                    parts.append(f"zadane={dmg_dealt}")
+                if isinstance(dmg_taken, int):
+                    parts.append(f"otrzymane={dmg_taken}")
+            if result_txt:
+                parts.append(result_txt)
+
+            if reason:
+                reason_txt = str(reason).replace("_", " ")
+                parts.append(f"powód: {reason_txt}")
+
+            entry = " | ".join(parts)
+            linie.append(f"  - <span style=\"color:{color}\">{entry}</span>")
+    linie.append("</details>")
+    linie.append("")
+
     if m.kontrataki:
         linie.append(f"- Kontrataki przeciwnika: {m.kontrataki}")
 
@@ -712,23 +947,48 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
                 f"  • Kontrataki odnotowane w logach: {wyniki.podsumowanie_walk.get('kontratak', 0)}"
             )
 
-    linie.append("\n--- STATUSY I TRYBY ---")
-    if wyniki.statusy_start:
-        linie.append("- Statusy na początku tur:")
-        for status, licznik in wyniki.statusy_start.most_common():
-            linie.append(f"    • {status}: {licznik}")
-    if wyniki.statusy_koniec:
-        linie.append("- Statusy na końcu tur:")
-        for status, licznik in wyniki.statusy_koniec.most_common():
-            linie.append(f"    • {status}: {licznik}")
+    linie.append("\n--- TRYBY I AKCJE ---")
     if wyniki.tryby_ruchu:
         linie.append("- Użycie trybów ruchu:")
         for tryb, licznik in wyniki.tryby_ruchu.most_common():
-            linie.append(f"    • {tryb}: {licznik}")
+            linie.append(f"    • {format_with_translation(tryb, MODE_TRANSLATIONS)}: {licznik}")
     if wyniki.zaplanowane_akcje:
         linie.append("- Najczęściej planowane akcje:")
         for akcja, licznik in wyniki.zaplanowane_akcje.most_common():
-            linie.append(f"    • {akcja}: {licznik}")
+            linie.append(f"    • {format_with_translation(akcja, ACTION_TRANSLATIONS)}: {licznik}")
+
+    if wyniki.specjalisci:
+        linie.append("\n--- SPECJALIŚCI ---")
+        for nazwa, stats in sorted(wyniki.specjalisci.items(), key=lambda item: item[1].tury, reverse=True):
+            etykieta = format_with_translation(nazwa, SPECIALIST_TRANSLATIONS)
+            elementy: list[str] = []
+            if stats.tury:
+                elementy.append(f"{stats.tury} {odmiana(stats.tury, 'tura', 'tury', 'tur')}")
+            profile_txt = format_counter(stats.profile, ACTION_PROFILE_TRANSLATIONS, limit=3)
+            if profile_txt:
+                elementy.append(f"profile: {profile_txt}")
+            akcje_txt = format_counter(stats.planowane_akcje, ACTION_TRANSLATIONS, limit=3)
+            if akcje_txt:
+                elementy.append(f"akcje: {akcje_txt}")
+            statusy_txt = format_counter(stats.statusy, STATUS_TRANSLATIONS, limit=3)
+            if statusy_txt:
+                elementy.append(f"statusy: {statusy_txt}")
+            zasoby = []
+            if stats.paliwo:
+                zasoby.append(f"paliwo +{stats.paliwo}")
+            if stats.cv:
+                zasoby.append(f"CV +{stats.cv}")
+            if zasoby:
+                elementy.append(", ".join(zasoby))
+            if stats.holdy:
+                elementy.append(f"hold {stats.holdy}×")
+            if stats.ruchy_udane:
+                elementy.append(f"ruch>0 {stats.ruchy_udane}×")
+            if stats.uwagi:
+                notatki = "; ".join(f"{note}×{count}" for note, count in stats.uwagi.most_common(2))
+                elementy.append(f"notatki: {notatki}")
+            linia_spec = " | ".join(elementy) if elementy else "brak aktywności"
+            linie.append(f"- {etykieta}: {linia_spec}")
 
     if m.braki_movement_mode:
         linie.append(
@@ -736,13 +996,6 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
         )
     
     # Notatki specjalistów (human_notes)
-    if wyniki.human_notes:
-        linie.append("\n--- NOTATKI SPECJALISTÓW (czytelne dla człowieka) ---")
-        for idx, note in enumerate(wyniki.human_notes[:20], 1):  # Limit 20 pierwszych
-            linie.append(f"{idx}. {note}")
-        if len(wyniki.human_notes) > 20:
-            linie.append(f"... i {len(wyniki.human_notes) - 20} kolejnych notatek")
-
     return "\n".join(linie)
 
 

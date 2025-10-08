@@ -30,6 +30,7 @@ class TokenAI:
     STATUS_LOW_FUEL = "low_fuel"
     STATUS_THREATENED = "threatened"
     STATUS_NORMAL = "normal"
+    HOLD_RELEASE_TURNS = 2
 
     ACTION_PROFILES: Dict[str, List[str]] = {
         "retreat": ["refuel_minimum", "withdraw"],
@@ -67,6 +68,7 @@ class TokenAI:
 
         self._reset_turn_state()
         context = self._evaluate_state(engine, player)
+        self._update_hold_state(context)
         base_status = self._classify_status(context)
         status = base_status
         specialist_name = type(self.specialist).__name__ if self.specialist else None
@@ -154,6 +156,45 @@ class TokenAI:
             "mp_spent_total": 0,
         }
         attack_report: Optional[Dict[str, Optional[int]]] = None
+        attack_retry_after_move = False
+        pending_hold_reason: Optional[str] = None
+
+        def attempt_attack() -> bool:
+            nonlocal attack_report
+            if attack_report:
+                return True
+            self._update_context(engine, player, context)
+            enemy_target = self._select_attack_target(engine, context)
+            if enemy_target is None:
+                evaluation = {
+                    "decision": "hold",
+                    "reason": "no_target",
+                    "target_id": None,
+                    "position": context.get("position"),
+                    "hold_reason": "no_target",
+                }
+                self._record_attack_plan(evaluation, executed=False, attack_report=None, context=context)
+                return False
+
+            should_attack = self._should_attack(enemy_target, context)
+            evaluation = self.memory.pop("_last_attack_evaluation", None) or {}
+            evaluation.setdefault("target_id", getattr(enemy_target, "id", None))
+            evaluation.setdefault("position", context.get("position"))
+            evaluation.setdefault("enemy_position", (getattr(enemy_target, "q", None), getattr(enemy_target, "r", None)))
+
+            if should_attack:
+                attack_report_local = self._perform_attack(engine, player, enemy_target)
+                attack_report = attack_report_local
+                self.memory["last_target_id"] = getattr(enemy_target, "id", None)
+                self._record_attack_plan(evaluation, executed=True, attack_report=attack_report_local, context=context)
+                return True
+
+            if pending_hold_reason:
+                evaluation.setdefault("hold_reason", pending_hold_reason)
+            else:
+                evaluation.setdefault("hold_reason", evaluation.get("reason"))
+            self._record_attack_plan(evaluation, executed=False, attack_report=None, context=context)
+            return False
         resupply_report = {
             "budget": max(0, allocated_pe),
             "spent": 0,
@@ -257,13 +298,31 @@ class TokenAI:
                         )
                         continue
                     break
+                if attack_retry_after_move and attack_report is None:
+                    if attempt_attack():
+                        pending_hold_reason = None
+                    else:
+                        if pending_hold_reason:
+                            self._set_hold_position(pending_hold_reason)
+                            pending_hold_reason = None
+                    attack_retry_after_move = False
             elif action == "attack":
-                enemy = self._select_attack_target(engine, context)
-                if enemy and self._should_attack(enemy, context):
-                    attack_report = self._perform_attack(engine, player, enemy)
-                    self.memory["last_target_id"] = getattr(enemy, "id", None)
+                if attempt_attack():
+                    pending_hold_reason = None
+                    attack_retry_after_move = False
                 else:
-                    self._set_hold_position("attack_not_viable")
+                    pending_hold_reason = "attack_not_viable"
+                    attack_retry_after_move = True
+
+        if attack_retry_after_move and attack_report is None:
+            if attempt_attack():
+                pending_hold_reason = None
+            elif pending_hold_reason:
+                self._set_hold_position(pending_hold_reason)
+                pending_hold_reason = None
+        elif pending_hold_reason and attack_report is None and not self.memory.get("hold_position"):
+            self._set_hold_position(pending_hold_reason)
+            pending_hold_reason = None
 
         resupply_budget = max(0, allocated_pe - spent_pe)
         token_destroyed = self._is_destroyed_after_attack(engine, attack_report)
@@ -500,8 +559,16 @@ class TokenAI:
     # Walka
     # ------------------------------------------------------------------
     def _select_attack_target(self, engine, context: Dict[str, Any]):
-        detection_map = context.get("enemy_detection", {}) or {}
-        visible_enemies = context.get("visible_enemies") or self._visible_enemies(engine, detection_map)
+        detection_map = dict(context.get("enemy_detection", {}) or {})
+        visible_enemies = list(context.get("visible_enemies") or self._visible_enemies(engine, detection_map) or [])
+        if (not visible_enemies) and engine is not None:
+            shared_detection = context.get("shared_enemy_detection") or {}
+            if shared_detection:
+                for enemy in getattr(engine, "tokens", []):
+                    enemy_id = getattr(enemy, "id", None)
+                    if enemy_id and enemy_id in shared_detection and self._is_enemy(enemy):
+                        detection_map.setdefault(enemy_id, shared_detection[enemy_id])
+                        visible_enemies.append(enemy)
         if not visible_enemies:
             return None
 
@@ -864,6 +931,41 @@ class TokenAI:
             return int(attack_stats.get("range", 1))
         return 1
 
+    def _attack_value_for(self, token) -> float:
+        stats = getattr(token, "stats", {}) or {}
+        attack_spec = stats.get("attack")
+        base_value = 0.0
+
+        if isinstance(attack_spec, dict):
+            numeric_fields = [
+                attack_spec.get(key)
+                for key in (
+                    "value",
+                    "anti_inf",
+                    "anti_armor",
+                    "bombardment",
+                    "support",
+                    "siege",
+                    "naval",
+                    "air",
+                )
+            ]
+            base_candidates = [float(val) for val in numeric_fields if isinstance(val, (int, float))]
+            if base_candidates:
+                base_value = max(base_candidates)
+        elif isinstance(attack_spec, (int, float)):
+            base_value = float(attack_spec)
+
+        if base_value <= 0:
+            combat_fallback = stats.get("combat_value", getattr(token, "combat_value", 0) or 0)
+            base_value = float(combat_fallback) * 0.5
+
+        attack_bonus = stats.get("attack_bonus") or 0.0
+        if isinstance(attack_bonus, (int, float)) and attack_bonus != 0:
+            base_value *= 1.0 + float(attack_bonus)
+
+        return max(0.0, base_value)
+
     def _perceived_attack_range(self, enemy, detection_info: Optional[Dict[str, Any]]) -> int:
         base_range = self._attack_range_for(enemy)
         if detection_info is None:
@@ -932,16 +1034,44 @@ class TokenAI:
     def _reset_turn_state(self) -> None:
         self.context: Dict[str, Any] = {}
         self.memory.setdefault("failed_hexes", set())
-        self.memory.pop("hold_position", None)
-        self.memory.pop("hold_reason", None)
+        if not self.memory.get("hold_position"):
+            self.memory.pop("hold_reason", None)
+            self.memory.pop("hold_calm_turns", None)
+
+    def _update_hold_state(self, context: Dict[str, Any]) -> None:
+        if not self.memory.get("hold_position"):
+            self.memory.pop("hold_calm_turns", None)
+            return
+
+        position = context.get("position")
+        danger_level = self._danger_level_at(position, context.get("danger_zones", {}))
+        visible_enemies = context.get("visible_enemies", []) or []
+        if danger_level <= 0 and not visible_enemies:
+            calm_turns = int(self.memory.get("hold_calm_turns", 0)) + 1
+            if calm_turns >= self.HOLD_RELEASE_TURNS:
+                log_token(
+                    f"{self.token.id}: zwolnienie hold_position po spokojnych turach",
+                    "DEBUG",
+                    calm_turns=calm_turns,
+                    hold_reason=self.memory.get("hold_reason"),
+                )
+                self.memory.pop("hold_position", None)
+                self.memory.pop("hold_reason", None)
+                self.memory.pop("hold_calm_turns", None)
+            else:
+                self.memory["hold_calm_turns"] = calm_turns
+        else:
+            self.memory["hold_calm_turns"] = 0
 
     def _set_hold_position(self, reason: str) -> None:
         normalized = reason or "unspecified"
         if not self.memory.get("hold_position"):
             self.memory["hold_position"] = True
             self.memory["hold_reason"] = normalized
+            self.memory["hold_calm_turns"] = 0
         else:
             self.memory.setdefault("hold_reason", normalized)
+            self.memory["hold_calm_turns"] = 0
 
     def _evaluate_state(self, engine, player) -> Dict[str, Any]:
         board = getattr(engine, "board", None)
@@ -1101,6 +1231,28 @@ class TokenAI:
         profile_actions = list(self.ACTION_PROFILES.get(profile_key, []))
         filtered_actions = self._filter_actions(profile_actions, context, pe_budget)
 
+        forced_actions: List[str] = []
+        current_fuel = context.get("current_fuel", 0) or 0
+        max_fuel = context.get("max_fuel", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
+        max_cv = context.get("max_cv", 0) or 0
+
+        if pe_budget > 0 and max_fuel > 0:
+            fuel_gap = max_fuel - current_fuel
+            fuel_threshold = max(1, int(max_fuel * 0.05))
+            if fuel_gap >= fuel_threshold and "refuel_minimum" not in filtered_actions:
+                forced_actions.append("refuel_minimum")
+
+        if pe_budget > 1 and max_cv > 0:
+            cv_gap = max_cv - combat_value
+            cv_threshold = max(1, int(max_cv * 0.05))
+            if cv_gap >= cv_threshold and "restore_cv" not in filtered_actions:
+                forced_actions.append("restore_cv")
+
+        if forced_actions:
+            existing = [action for action in filtered_actions if action not in forced_actions]
+            filtered_actions = forced_actions + existing
+
         if not filtered_actions and profile_key != "patrol":
             fallback_actions = list(self.ACTION_PROFILES.get("patrol", []))
             filtered_actions = self._filter_actions(fallback_actions, context, pe_budget)
@@ -1125,15 +1277,15 @@ class TokenAI:
 
     def _filter_actions(self, actions: List[str], context: Dict[str, Any], pe_budget: int) -> List[str]:
         filtered: List[str] = []
-        max_fuel = max(1, context.get("max_fuel", 1))
-        max_cv = max(1, context.get("max_cv", 1))
-        current_fuel = context.get("current_fuel", 0)
-        combat_value = context.get("combat_value", 0)
+        max_fuel = context.get("max_fuel", 0) or 0
+        max_cv = context.get("max_cv", 0) or 0
+        current_fuel = context.get("current_fuel", 0) or 0
+        combat_value = context.get("combat_value", 0) or 0
 
         for action in actions:
-            if action == "refuel_minimum" and current_fuel >= max_fuel * 0.9:
+            if action == "refuel_minimum" and max_fuel > 0 and current_fuel >= max_fuel * 0.98:
                 continue
-            if action == "restore_cv" and (pe_budget <= 0 or combat_value >= max_cv * 0.85):
+            if action == "restore_cv" and (pe_budget <= 0 or max_cv <= 0 or combat_value >= max_cv * 0.92):
                 continue
             if action in {"maneuver", "withdraw"} and not self._can_move():
                 continue
@@ -1406,83 +1558,299 @@ class TokenAI:
         hold_flag = self.memory.get("hold_position", False)
         return not hold_flag
 
+    def _compute_attack_ratio(
+        self,
+        enemy,
+        context: Dict[str, Any],
+        detection_info: Optional[Dict[str, Any]],
+        my_pos: Tuple[int, int],
+        enemy_pos: Tuple[int, int],
+        board,
+    ) -> Dict[str, Any]:
+        attack_value = max(0.0, float(self._attack_value_for(self.token)))
+        attack_range = self._attack_range()
+
+        max_cv = max(1, context.get("max_cv") or self.token.stats.get("combat_value", 0) or 1)
+        current_cv = max(0.0, float(getattr(self.token, "combat_value", context.get("combat_value", max_cv)) or 0))
+        attacker_health_ratio = min(1.0, current_cv / max_cv)
+
+        max_fuel = max(1, context.get("max_fuel") or self.token.stats.get("maintenance", 0) or 1)
+        current_fuel = max(0.0, float(context.get("current_fuel", getattr(self.token, "currentFuel", max_fuel)) or 0))
+        fuel_ratio = min(1.0, current_fuel / max_fuel)
+
+        health_factor = 0.65 + 0.35 * attacker_health_ratio
+        fuel_factor = 0.7 + 0.3 * fuel_ratio
+        range_factor = 1.0 + 0.05 * max(0, attack_range - 1)
+        effective_attack = attack_value * health_factor * fuel_factor * range_factor
+
+        enemy_stats = getattr(enemy, "stats", {})
+        defense_value = getattr(enemy, "defense_value", enemy_stats.get("defense_value", 0)) or 0
+        terrain_mod = 0
+        if board is not None and None not in (*enemy_pos,):
+            try:
+                tile = board.get_tile(enemy_pos[0], enemy_pos[1])
+                terrain_mod = getattr(tile, "defense_mod", 0) or 0
+            except AttributeError:
+                terrain_mod = 0
+
+        terrain_bonus = terrain_mod * 0.8
+        base_defense = max(1.0, defense_value + terrain_bonus)
+
+        enemy_max_cv = enemy_stats.get("combat_value", getattr(enemy, "combat_value", 0)) or 0
+        enemy_max_cv = max(1, enemy_max_cv)
+        enemy_current_cv = max(0.0, float(getattr(enemy, "combat_value", enemy_max_cv) or 0))
+        defender_health_ratio = min(1.0, enemy_current_cv / enemy_max_cv)
+        defense_health_factor = 0.55 + 0.45 * defender_health_ratio
+        effective_defense = base_defense * defense_health_factor
+
+        distance = None
+        if board is not None and None not in (*my_pos, *enemy_pos):
+            try:
+                distance = board.hex_distance(my_pos, enemy_pos)
+            except AttributeError:
+                distance = None
+
+        perceived_enemy_range = self._perceived_attack_range(enemy, detection_info)
+        enemy_attack_value = max(0.0, float(self._attack_value_for(enemy)))
+        counterattack = False
+        if distance is not None and enemy_attack_value > 0:
+            counterattack = perceived_enemy_range >= distance
+            if counterattack:
+                counter_power = enemy_attack_value * (0.5 + 0.5 * defender_health_ratio)
+                effective_defense += counter_power * 0.35
+
+        detection_level = (detection_info.get("detection_level") if detection_info else 0.0) or 0.0
+        detection_clamped = max(0.0, min(1.0, detection_level))
+        detection_penalty = 0.8 + 0.2 * detection_clamped
+
+        ratio_base = effective_attack / max(1.0, effective_defense)
+        ratio_final = ratio_base * detection_penalty
+
+        return {
+            "ratio_base": ratio_base,
+            "ratio_final": ratio_final,
+            "detection": detection_level,
+            "terrain_mod": terrain_mod,
+            "counterattack": counterattack,
+            "distance": distance,
+            "attacker_health": attacker_health_ratio,
+            "fuel_ratio": fuel_ratio,
+            "defender_health": defender_health_ratio,
+        }
+
     def _should_attack(self, enemy, context: Dict[str, Any]) -> bool:
+        evaluation: Dict[str, Any] = {
+            "target_id": getattr(enemy, "id", None) if enemy else None,
+            "position": context.get("position") or (getattr(self.token, "q", None), getattr(self.token, "r", None)),
+            "enemy_position": (getattr(enemy, "q", None), getattr(enemy, "r", None)) if enemy else None,
+            "support": False,
+            "detection": None,
+            "ratio": None,
+            "ratio_adjusted": None,
+            "distance": None,
+            "risk_type": None,
+            "threshold": None,
+            "decision": "hold",
+            "reason": None,
+        }
+
+        def finalize(decision: str, *, reason: Optional[str] = None) -> bool:
+            evaluation["decision"] = decision
+            if reason is not None:
+                evaluation["reason"] = reason
+            if decision == "hold" and evaluation.get("hold_reason") is None:
+                evaluation["hold_reason"] = reason
+            self.memory["_last_attack_evaluation"] = evaluation
+            return decision == "execute"
+
         if enemy is None:
-            return False
+            return finalize("hold", reason="no_target")
 
         board = context.get("board")
-        my_pos = context.get("position") or (getattr(self.token, "q", None), getattr(self.token, "r", None))
-        enemy_pos = (enemy.q, enemy.r)
+        my_pos = evaluation.get("position")
+        if my_pos is None or None in my_pos:
+            my_pos = (getattr(self.token, "q", None), getattr(self.token, "r", None))
+            evaluation["position"] = my_pos
+        enemy_pos = evaluation["enemy_position"] = (enemy.q, enemy.r)
         if None in (*my_pos, *enemy_pos):
-            return False
-        if self._hex_distance(my_pos, enemy_pos, board) > self._attack_range():
-            return False
+            return finalize("hold", reason="invalid_position")
+
+        distance = self._hex_distance(my_pos, enemy_pos, board)
+        evaluation["distance"] = distance
+        if distance is None:
+            return finalize("hold", reason="distance_unknown")
+        if distance > self._attack_range():
+            return finalize("hold", reason="out_of_range")
 
         detection_map = context.get("enemy_detection") or {}
-        detection_info = detection_map.get(getattr(enemy, "id", None)) or {}
-        detection_level = (detection_info.get("detection_level") or 0.0)
+        detection_info = detection_map.get(getattr(enemy, "id", None))
+        detection_level = (detection_info.get("detection_level") if detection_info else 0.0) or 0.0
+        evaluation["detection"] = detection_level
         if detection_level <= 0:
-            return False
+            return finalize("hold", reason="no_detection")
 
-        my_cv = getattr(self.token, "combat_value", context.get("combat_value", 0)) or 0
-        enemy_cv = self._estimate_enemy_cv(enemy, context)
+        ratio_data = self._compute_attack_ratio(enemy, context, detection_info, my_pos, enemy_pos, board)
+        ratio = ratio_data.get("ratio_base", 0.0)
+        ratio_adjusted = ratio_data.get("ratio_final", ratio)
+        evaluation["ratio"] = ratio
+        evaluation["ratio_adjusted"] = ratio_adjusted
+        evaluation["distance"] = ratio_data.get("distance", distance)
+        evaluation["counterattack"] = ratio_data.get("counterattack")
+        evaluation["attacker_health"] = ratio_data.get("attacker_health")
+        evaluation["defender_health"] = ratio_data.get("defender_health")
+        evaluation["fuel_ratio"] = ratio_data.get("fuel_ratio")
 
-        terrain = 0
-        if board is not None:
-            try:
-                tile = board.get_tile(enemy.q, enemy.r)
-                terrain = getattr(tile, "defense_mod", 0) if tile else 0
-            except AttributeError:
-                terrain = 0
-        terrain_factor = max(0.5, 1.0 - terrain * 0.1)
-
-        ratio = (my_cv + 1) / (max(1, enemy_cv) * terrain_factor)
         has_support = self._friendly_in_radius(enemy_pos, context.get("friendly_tokens", []), 1)
-
-        aggression_bonus = 0.0
-        if detection_level < 0.8:
-            max_bonus = 0.05 + max(0.0, (0.8 - detection_level)) * 0.4
-            aggression_bonus = random.uniform(0.0, max_bonus)
-        ratio_adjusted = ratio + aggression_bonus
+        evaluation["support"] = has_support
 
         if ratio_adjusted >= 1.1:
-            return True
+            evaluation["threshold"] = ">=1.1"
+            return finalize("execute", reason="threshold_met")
         if ratio_adjusted >= 1.0 and has_support:
-            return True
+            evaluation["threshold"] = ">=1.0_support"
+            return finalize("execute", reason="support_threshold")
 
         if ratio_adjusted >= 0.9 and self._can_risk_attack(context, has_support):
+            evaluation["threshold"] = ">=0.9_risk"
+            evaluation["risk_type"] = "risk"
             log_token(
                 f"{self.token.id}: ryzykowny atak na {enemy.id}",
                 "DEBUG",
                 ratio=round(ratio, 2),
                 ratio_adjusted=round(ratio_adjusted, 2),
                 detection=round(detection_level, 2),
-                aggression_bonus=round(aggression_bonus, 2),
                 support=has_support,
                 fuel=context.get("current_fuel", 0),
                 combat_value=context.get("combat_value", 0),
+                counterattack=ratio_data.get("counterattack"),
+                attacker_health=round(ratio_data.get("attacker_health", 0.0), 2),
+                defender_health=round(ratio_data.get("defender_health", 0.0), 2),
+                terrain_mod=ratio_data.get("terrain_mod"),
+                fuel_ratio=round(ratio_data.get("fuel_ratio", 0.0), 2),
             )
-            return True
+            return finalize("execute", reason="risk_threshold")
 
         if detection_level < 0.5 and self._can_risk_attack(context, has_support):
             gamble_threshold = 0.75 + (detection_level * 0.2)
+            evaluation["threshold"] = f">={gamble_threshold:.2f}_aggressive"
+            evaluation["risk_type"] = "aggressive"
             if ratio_adjusted >= gamble_threshold:
-                log_token(
-                    f"{self.token.id}: agresywny atak przy niskiej wykrywalności na {enemy.id}",
-                    "DEBUG",
-                    ratio=round(ratio, 2),
-                    ratio_adjusted=round(ratio_adjusted, 2),
-                    detection=round(detection_level, 2),
-                    support=has_support,
-                    fuel=context.get("current_fuel", 0),
-                    combat_value=context.get("combat_value", 0),
-                )
-                return True
+                aggression_chance = 0.12 + (0.08 * detection_level)
+                roll = random.random()
+                evaluation["aggression_chance"] = aggression_chance
+                evaluation["risk_roll"] = roll
+                if roll <= aggression_chance:
+                    log_token(
+                        f"{self.token.id}: agresywny atak przy niskiej wykrywalności na {enemy.id}",
+                        "DEBUG",
+                        ratio=round(ratio, 2),
+                        ratio_adjusted=round(ratio_adjusted, 2),
+                        detection=round(detection_level, 2),
+                        support=has_support,
+                        fuel=context.get("current_fuel", 0),
+                        combat_value=context.get("combat_value", 0),
+                        counterattack=ratio_data.get("counterattack"),
+                        attacker_health=round(ratio_data.get("attacker_health", 0.0), 2),
+                        defender_health=round(ratio_data.get("defender_health", 0.0), 2),
+                        terrain_mod=ratio_data.get("terrain_mod"),
+                        fuel_ratio=round(ratio_data.get("fuel_ratio", 0.0), 2),
+                        aggression_roll=round(roll, 2),
+                        aggression_chance=round(aggression_chance, 2),
+                    )
+                    return finalize("execute", reason="aggressive_success")
+                return finalize("hold", reason="aggressive_roll_failed")
+            return finalize("hold", reason="below_aggressive_threshold")
 
-        return False
+        evaluation["threshold"] = ">=1.0_support" if has_support else ">=1.1"
+        return finalize("hold", reason="ratio_below_threshold")
 
     def _attack_range_for(self, token) -> int:
         attack_stats = getattr(token, "stats", {}).get("attack", {})
         if isinstance(attack_stats, dict):
             return int(attack_stats.get("range", 1))
         return int(attack_stats or 1)
+
+    def _record_attack_plan(
+        self,
+        evaluation: Optional[Dict[str, Any]],
+        executed: bool,
+        attack_report: Optional[Dict[str, Any]],
+        context: Dict[str, Any],
+    ) -> None:
+        details: Dict[str, Any] = {
+            "planned_attack": True,
+            "executed": executed,
+        }
+
+        evaluation = dict(evaluation or {})
+        decision = evaluation.get("decision") or ("execute" if executed else "hold")
+        details["decision"] = decision
+        if "reason" in evaluation:
+            details["reason"] = evaluation.get("reason")
+        if "threshold" in evaluation and evaluation.get("threshold") is not None:
+            details["threshold"] = evaluation.get("threshold")
+        if "risk_type" in evaluation and evaluation.get("risk_type") is not None:
+            details["risk_type"] = evaluation.get("risk_type")
+        if "hold_reason" in evaluation and evaluation.get("hold_reason") is not None:
+            details["hold_reason"] = evaluation.get("hold_reason")
+
+        target_id = evaluation.get("target_id")
+        if target_id is not None:
+            details["target"] = target_id
+
+        support_flag = evaluation.get("support")
+        if support_flag is not None:
+            details["support"] = bool(support_flag)
+
+        detection_val = evaluation.get("detection")
+        if isinstance(detection_val, (int, float)):
+            details["detection"] = round(float(detection_val), 2)
+
+        ratio_val = evaluation.get("ratio")
+        if isinstance(ratio_val, (int, float)):
+            details["ratio"] = round(float(ratio_val), 2)
+
+        ratio_adj_val = evaluation.get("ratio_adjusted")
+        if isinstance(ratio_adj_val, (int, float)):
+            details["ratio_adjusted"] = round(float(ratio_adj_val), 2)
+
+        distance_val = evaluation.get("distance")
+        if isinstance(distance_val, (int, float)):
+            details["distance"] = distance_val
+
+        counterattack = evaluation.get("counterattack")
+        if counterattack is not None:
+            details["counterattack"] = counterattack
+
+        for key in ("attacker_health", "defender_health", "fuel_ratio"):
+            val = evaluation.get(key)
+            if isinstance(val, (int, float)):
+                details[key] = round(float(val), 2)
+
+        risk_roll = evaluation.get("risk_roll")
+        if isinstance(risk_roll, (int, float)):
+            details["risk_roll"] = round(float(risk_roll), 2)
+        aggression_chance = evaluation.get("aggression_chance")
+        if isinstance(aggression_chance, (int, float)):
+            details["aggression_chance"] = round(float(aggression_chance), 2)
+
+        position = evaluation.get("position") or context.get("position")
+        if isinstance(position, tuple):
+            details["position_q"] = position[0]
+            details["position_r"] = position[1]
+
+        enemy_position = evaluation.get("enemy_position")
+        if isinstance(enemy_position, tuple):
+            details["target_q"] = enemy_position[0]
+            details["target_r"] = enemy_position[1]
+
+        if attack_report:
+            for key in ("success", "damage_dealt", "damage_taken"):
+                if key in attack_report:
+                    details[f"attack_{key}"] = attack_report.get(key)
+
+        log_token(
+            f"{self.token.id}: plan ataku",
+            "DEBUG",
+            **details,
+        )

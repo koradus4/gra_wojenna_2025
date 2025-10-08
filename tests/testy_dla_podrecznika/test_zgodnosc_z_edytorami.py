@@ -104,6 +104,7 @@ def check_unit_ranges():
         "P": 2,   # Piechota
         "AL": 4,  # Artyleria lekka
         "K": 1,   # Kawaleria
+        "R": 1,   # Zwiad
         "TL": 1,  # Czołgi lekkie
         "TS": 2,  # Czołgi średnie
         "TŚ": 2,  # Czołgi ciężkie

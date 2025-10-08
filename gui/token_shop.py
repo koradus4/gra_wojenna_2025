@@ -16,6 +16,7 @@ from edytory.token_editor_prototyp import create_flag_background
             "AC": "Artyleria ciężka",
             "AL": "Artyleria lekka",
             "AP": "Artyleria plot",
+            "R": "Zwiad",
             "Z": "Zaopatrzenie ⭐ PE",
             "D": "Dowództwo",
             "G": "Generał"
@@ -58,6 +59,7 @@ class TokenShop(tk.Toplevel):
         self.unit_type_order = [
             ("Piechota (P)", "P", True),
             ("Kawaleria (K)", "K", True),
+            ("Zwiad (R)", "R", True),
             ("Czołg ciężki (TC)", "TC", True),
             ("Czołg średni (TŚ)", "TŚ", True),
             ("Czołg lekki (TL)", "TL", True),
@@ -302,6 +304,7 @@ class TokenShop(tk.Toplevel):
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",
@@ -430,6 +433,7 @@ class TokenShop(tk.Toplevel):
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",

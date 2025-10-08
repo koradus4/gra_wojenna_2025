@@ -44,6 +44,7 @@ class ArmyCreatorStudio:
         self.unit_templates = {
             "P": {"name": "Piechota", "base_cost": 25, "weight": 0.4},
             "K": {"name": "Kawaleria", "base_cost": 30, "weight": 0.1},
+            "R": {"name": "Zwiad", "base_cost": 28, "weight": 0.08},
             "TL": {"name": "Czołg Lekki", "base_cost": 35, "weight": 0.15},
             "TŚ": {"name": "Czołg Średni", "base_cost": 45, "weight": 0.1},
             "TC": {"name": "Czołg Ciężki", "base_cost": 60, "weight": 0.05},
@@ -51,7 +52,7 @@ class ArmyCreatorStudio:
             "AL": {"name": "Artyleria Lekka", "base_cost": 35, "weight": 0.15},
             "AC": {"name": "Artyleria Ciężka", "base_cost": 55, "weight": 0.1},
             "AP": {"name": "Art. Przeciwlotnicza", "base_cost": 30, "weight": 0.05},
-            "Z": {"name": "Zaopatrzenie/Rozpoznanie", "base_cost": 20, "weight": 0.25},
+            "Z": {"name": "Zaopatrzenie", "base_cost": 20, "weight": 0.25},
             "D": {"name": "Dowództwo", "base_cost": 40, "weight": 0.05}
         }
         
@@ -110,6 +111,7 @@ class ArmyCreatorStudio:
             "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", 
                  "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
             "K": ["sekcja ckm"],
+            "R": ["obserwator"],
             "TC": ["obserwator"],
             "TŚ": ["obserwator"],
             "TL": ["obserwator"],
@@ -584,7 +586,7 @@ class ArmyCreatorStudio:
         
         # Wypełnij pozostałe sloty tanimi jednostkami
         while remaining_slots > 0 and remaining_budget >= 15:
-            cheap_types = [('Z', 'Rozpoznanie'), ('P', 'Piechota')]
+            cheap_types = [('R', 'Zwiad'), ('Z', 'Zaopatrzenie'), ('P', 'Piechota')]
             unit_type, type_name = random.choice(cheap_types)
             unit_size = 'Pluton'
             unit_cost = min(remaining_budget, random.randint(15, 25))
@@ -638,6 +640,9 @@ class ArmyCreatorStudio:
             
         elif unit_type == "K":  # Kawaleria - tylko ckm
             priorities = ["sekcja ckm"]
+            max_upgrades = 1 if random.random() < upgrade_chance else 0
+        elif unit_type == "R":  # Zwiad - opcjonalny obserwator
+            priorities = ["obserwator"]
             max_upgrades = 1 if random.random() < upgrade_chance else 0
             
         else:  # Pozostałe (Z, D, G)
@@ -843,7 +848,8 @@ class ArmyCreatorStudio:
                 "TŚ": [f"{commander_num}. Pluton Czołgów", f"{commander_num}. Kompania Pancerna", f"{commander_num}. Batalion Czołgów"],
                 "AL": [f"{commander_num}. Bateria Artylerii", f"{commander_num}. Dywizjon Artylerii", f"{commander_num}. Pułk Artylerii"],
                 "AC": [f"{commander_num}. Bateria Ciężka", f"{commander_num}. Dywizjon Ciężki", f"{commander_num}. Pułk Artylerii Ciężkiej"],
-                "Z": [f"{commander_num}. Oddział Rozpoznawczy", f"{commander_num}. Kompania Zaopatrzeniowa", f"{commander_num}. Batalion Wsparcia"]
+                "R": [f"{commander_num}. Oddział Rozpoznawczy", f"{commander_num}. Kompania Zwiadowcza", f"{commander_num}. Batalion Rozpoznawczy"],
+                "Z": [f"{commander_num}. Oddział Zaopatrzeniowy", f"{commander_num}. Kompania Zaopatrzeniowa", f"{commander_num}. Batalion Wsparcia"]
             }
         else:  # Niemcy
             unit_names = {
@@ -852,7 +858,8 @@ class ArmyCreatorStudio:
                 "TŚ": [f"{commander_num}. schwere Panzer", f"{commander_num}. Panzer Regiment", f"{commander_num}. Panzer Brigade"],
                 "AL": [f"{commander_num}. Artillerie Batterie", f"{commander_num}. Artillerie Abteilung", f"{commander_num}. Artillerie Regiment"],
                 "AC": [f"{commander_num}. schwere Artillerie", f"{commander_num}. Haubitze Abteilung", f"{commander_num}. schwere Artillerie Regiment"],
-                "Z": [f"{commander_num}. Aufklärungs Zug", f"{commander_num}. Versorgungs Kompanie", f"{commander_num}. Unterstützungs Bataillon"]
+                "R": [f"{commander_num}. Aufklärungs Zug", f"{commander_num}. Aufklärungs Kompanie", f"{commander_num}. Aufklärungs Bataillon"],
+                "Z": [f"{commander_num}. Versorgungs Zug", f"{commander_num}. Versorgungs Kompanie", f"{commander_num}. Unterstützungs Bataillon"]
             }
         
         unit_type = preview_unit['unit_type']

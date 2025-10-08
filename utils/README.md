@@ -241,6 +241,26 @@ log_action(
 )
 ```
 
+### **Logowanie działań gracza (HumanActionLogger):**
+```python
+from ai.logs.human_logger import log_human_action
+
+# GameEngine.execute_action wywołuje ten helper automatycznie dla graczy human,
+# ale można go także użyć ręcznie w testach/innych narzędziach.
+log_human_action(
+    player_obiekt,
+    turn=5,
+    action_type="attack",
+    summary="Pancerniacy rozbili artylerię",
+    context={
+        "token_id": "P_Tank_1",
+        "target_token_id": "N_Art_2",
+        "damage_dealt": 5,
+        "damage_taken": 1,
+    }
+)
+```
+
 ### **Logowanie polskich AI:**
 ```python
 from utils.ai_commander_logger_zaawansowany import ZaawansowanyLoggerAI

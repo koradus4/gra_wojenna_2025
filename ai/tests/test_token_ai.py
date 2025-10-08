@@ -4,8 +4,10 @@ Testy minimalnego TokenAI.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import random
 
 from ai.tokens import TokenAI, create_token_ai
+from engine.action_refactored_clean import CombatResolver
 
 
 @dataclass
@@ -185,6 +187,128 @@ def test_supply_specialist_does_not_add_withdraw_when_safe():
     assert "maneuver" in adjusted
 
 
+def test_supply_token_turn_after_forced_retreat(monkeypatch):
+    class RetreatTile(DummyTile):
+        pass
+
+    class RetreatBoard(DummyBoard):
+        def __init__(self, engine):
+            super().__init__()
+            self._engine = engine
+
+        def get_tile(self, q, r):  # pragma: no cover - simple override
+            return RetreatTile()
+
+        def is_occupied(self, q, r):
+            for tok in self._engine.tokens:
+                if (tok.q, tok.r) == (q, r):
+                    return True
+            return False
+
+    class SupplyToken:
+        def __init__(self, token_id, owner, q=0, r=0):
+            self.id = token_id
+            self.owner = owner
+            self.q = q
+            self.r = r
+            self.maxMovePoints = 6
+            self.currentMovePoints = 6
+            self.maxFuel = 6
+            self.currentFuel = 6
+            self.combat_value = 4
+            self.stats = {
+                "unitType": "Z",
+                "move": 6,
+                "sight": 3,
+                "maintenance": 6,
+                "combat_value": 4,
+                "attack": {"range": 1, "value": 2},
+            }
+
+        def can_attack(self, _mode: str = "normal") -> bool:
+            return True
+
+        def set_position(self, q, r):
+            self.q = q
+            self.r = r
+
+    class EnemyToken(SupplyToken):
+        def __init__(self, token_id, owner, q=0, r=0):
+            super().__init__(token_id, owner, q, r)
+            self.stats.update({
+                "unitType": "INF",
+                "combat_value": 5,
+                "attack": {"range": 1, "value": 4},
+                "defense_value": 3,
+            })
+
+    class RetreatEngine(DummyEngine):
+        def __init__(self, tokens):
+            super().__init__(tokens)
+            self.board = RetreatBoard(self)
+            self.board.key_points = {"1,0": {"value": 120}}
+            self.players = []
+            self.ai_commanders = {}
+
+    attacker = EnemyToken("ATT", "2 (Niemcy)", q=0, r=0)
+    supply = SupplyToken("Z_retreat", "1 (Polska)", q=1, r=0)
+
+    engine = RetreatEngine([attacker, supply])
+
+    monkeypatch.setattr(random, "random", lambda: 0.0)
+    monkeypatch.setattr(CombatResolver, "_find_retreat_position", lambda *args, **kwargs: (2, 0))
+
+    combat_result = {
+        "attack_result": 5,
+        "defense_result": 0,
+        "attack_mult": 1.0,
+        "defense_mult": 1.0,
+        "defense_mod": 0,
+        "can_counterattack": False,
+        "distance": 1,
+        "attack_range": 1,
+        "defense_range": 1,
+    }
+
+    CombatResolver.resolve_combat(engine, attacker, supply, combat_result)
+
+    assert supply.combat_value == 1
+    assert (supply.q, supply.r) == (2, 0)
+
+    supply.currentMovePoints = supply.maxMovePoints
+    supply.currentFuel = 0
+
+    ai_instance = create_token_ai(supply)
+
+    def fake_detection(_engine, _player, base_map=None):
+        return {
+            attacker.id: {
+                "detection_level": 1.0,
+                "distance": engine.board.hex_distance((supply.q, supply.r), (attacker.q, attacker.r)),
+            }
+        }
+
+    def fake_visible(_engine, _detection_map=None):
+        return [attacker]
+
+    monkeypatch.setattr(ai_instance, "_collect_detection_map", fake_detection)
+    monkeypatch.setattr(ai_instance, "_visible_enemies", fake_visible)
+
+    supply.currentFuel = 0
+    supply.currentMovePoints = supply.maxMovePoints
+
+    spent_pe = ai_instance.execute_turn(engine, player=None, pe_budget=6)
+
+    assert spent_pe == 6
+    assert supply.combat_value >= 3
+    assert supply.currentFuel >= 3
+    assert engine.moves == [], "Konwój po odwrocie powinien utrzymać pozycję"
+    assert (supply.q, supply.r) == (2, 0)
+    assert ai_instance.memory.get("action_profile") == "retreat"
+    final_distance = engine.board.hex_distance((attacker.q, attacker.r), (supply.q, supply.r))
+    assert final_distance == 2
+
+
 def test_supply_specialist_removes_withdraw_while_garrisoning():
     token = make_supply_token("Z_garrison")
     ai = create_token_ai(token)
@@ -269,6 +393,40 @@ def test_supply_specialist_changes_target_after_lock_expires():
     updated_context = ai.specialist.extend_context(dict(base_context))
     expected_new_target = tuple(map(int, alternative_key.split(",")))
     assert updated_context.get("supply_target_kp") == expected_new_target
+
+
+def test_supply_token_garrison_recovers_after_attack(monkeypatch):
+    token = make_supply_token("Z_under_attack")
+    token.q = 1
+    token.r = 1
+    token.combat_value = 2  # silny spadek CV po ataku
+
+    enemy = DummyToken("enemy", owner="2 (Niemcy)", q=token.q + 1, r=token.r)
+    enemy.stats["unitType"] = "P"
+
+    engine = DummyEngine([token, enemy])
+    engine.board.key_points = {f"{token.q},{token.r}": {"value": 120}}
+
+    ai = create_token_ai(token)
+
+    def fake_collect_detection(engine_arg, player, base_map=None):
+        return {enemy.id: {"detection_level": 1.0, "distance": 1}}
+
+    def fake_visible_enemies(engine_arg, detection_map=None):
+        return [enemy]
+
+    monkeypatch.setattr(ai, "_collect_detection_map", fake_collect_detection)
+    monkeypatch.setattr(ai, "_visible_enemies", fake_visible_enemies)
+
+    spent_pe = ai.execute_turn(engine, player=None, pe_budget=3)
+
+    assert spent_pe == 3, "Budżet powinien zostać użyty na odbudowę CV"
+    assert token.combat_value == 5, "CV powinno zostać odbudowane do progu 80%"
+    assert engine.moves == [], "Konwój w garnizonie nie powinien opuszczać KP"
+    assert (token.q, token.r) == (1, 1), "Żeton powinien pozostać na swoim KP"
+
+    flags = ai.context.get("specialist_flags")
+    assert flags and "garnizon_na_kp" in flags, "Powinna zostać oznaczona obecność garnizonu"
 
 
 def test_score_tile_prefers_objective_even_with_danger():

@@ -12,18 +12,19 @@ import random
 
 BASE_STATS: Dict[str, Dict[str, int]] = {
     # movement, attack_range, attack_value, combat_value, defense_value, sight
-    "P":  {"movement": 3, "attack_range": 1, "attack_value": 8,  "combat_value": 8,  "defense_value": 10, "sight": 3},
-    "K":  {"movement": 6, "attack_range": 1, "attack_value": 6,  "combat_value": 6,  "defense_value": 8,  "sight": 5},
-    "TL": {"movement": 5, "attack_range": 1, "attack_value": 10, "combat_value": 10, "defense_value": 12, "sight": 3},
-    "TŚ": {"movement": 4, "attack_range": 2, "attack_value": 14, "combat_value": 14, "defense_value": 16, "sight": 3},
-    "TC": {"movement": 3, "attack_range": 2, "attack_value": 18, "combat_value": 18, "defense_value": 22, "sight": 3},
-    "TS": {"movement": 5, "attack_range": 1, "attack_value": 8,  "combat_value": 8,  "defense_value": 10, "sight": 4},
-    "AL": {"movement": 3, "attack_range": 3, "attack_value": 12, "combat_value": 6,  "defense_value": 6,  "sight": 4},
-    "AC": {"movement": 2, "attack_range": 4, "attack_value": 18, "combat_value": 8,  "defense_value": 8,  "sight": 5},
-    "AP": {"movement": 2, "attack_range": 2, "attack_value": 10, "combat_value": 6,  "defense_value": 8,  "sight": 4},
-    "Z":  {"movement": 6, "attack_range": 1, "attack_value": 4,  "combat_value": 4,  "defense_value": 6,  "sight": 6},
-    "D":  {"movement": 4, "attack_range": 1, "attack_value": 6,  "combat_value": 8,  "defense_value": 12, "sight": 5},
-    "G":  {"movement": 2, "attack_range": 0, "attack_value": 0,  "combat_value": 2,  "defense_value": 1,  "sight": 6},  # Generał
+    "P":  {"movement": 3, "attack_range": 1, "attack_value": 8,  "combat_value": 12, "defense_value": 10, "sight": 3},
+    "K":  {"movement": 6, "attack_range": 1, "attack_value": 6,  "combat_value": 9,  "defense_value": 8,  "sight": 5},
+    "R":  {"movement": 7, "attack_range": 1, "attack_value": 5,  "combat_value": 8,  "defense_value": 6,  "sight": 7},
+    "TL": {"movement": 5, "attack_range": 1, "attack_value": 10, "combat_value": 15, "defense_value": 12, "sight": 3},
+    "TŚ": {"movement": 4, "attack_range": 2, "attack_value": 14, "combat_value": 21, "defense_value": 16, "sight": 3},
+    "TC": {"movement": 3, "attack_range": 2, "attack_value": 18, "combat_value": 27, "defense_value": 22, "sight": 3},
+    "TS": {"movement": 5, "attack_range": 1, "attack_value": 8,  "combat_value": 12, "defense_value": 10, "sight": 4},
+    "AL": {"movement": 3, "attack_range": 3, "attack_value": 12, "combat_value": 9,  "defense_value": 6,  "sight": 4},
+    "AC": {"movement": 2, "attack_range": 4, "attack_value": 18, "combat_value": 12, "defense_value": 8,  "sight": 5},
+    "AP": {"movement": 2, "attack_range": 2, "attack_value": 10, "combat_value": 9,  "defense_value": 8,  "sight": 4},
+    "Z":  {"movement": 6, "attack_range": 1, "attack_value": 4,  "combat_value": 6,  "defense_value": 6,  "sight": 6},
+    "D":  {"movement": 4, "attack_range": 1, "attack_value": 6,  "combat_value": 12, "defense_value": 12, "sight": 5},
+    "G":  {"movement": 2, "attack_range": 0, "attack_value": 0,  "combat_value": 3,  "defense_value": 1,  "sight": 6},  # Generał
 }
 
 SIZE_MULTIPLIER = {"Pluton": 1.0, "Kompania": 1.4, "Batalion": 1.8}
@@ -55,6 +56,7 @@ DOCTRINES = {
 ALLOWED_SUPPORT = {
     "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
     "K": ["sekcja ckm"],
+    "R": ["obserwator"],
     "TC": ["obserwator"],
     "TŚ": ["obserwator"],
     "TL": ["obserwator"],
@@ -76,6 +78,7 @@ def set_balance_seed(seed: int):
 UNIT_TYPE_FULL = {
     "P": "Piechota",
     "K": "Kawaleria",
+    "R": "Zwiad",
     "TC": "Czołg ciężki",
     "TŚ": "Czołg średni",
     "TL": "Czołg lekki",
@@ -142,7 +145,7 @@ def compute_base_stats(unit_type: str, unit_size: str, quality: str = "standard"
 def estimate_base_cost(unit_type: str, unit_size: str, stats: Dict[str, int]) -> int:
     # Prosty koszt: waga * suma głównych parametrów
     weight_type = {
-        "P": 1.0, "K": 1.1, "TL": 1.3, "TŚ": 1.5, "TC": 1.8, "TS": 1.2,
+        "P": 1.0, "K": 1.1, "R": 1.0, "TL": 1.3, "TŚ": 1.5, "TC": 1.8, "TS": 1.2,
         "AL": 1.2, "AC": 1.5, "AP": 1.1, "Z": 0.8, "D": 1.4
     }.get(unit_type, 1.0)
     size_factor = {"Pluton": 0.8, "Kompania": 1.0, "Batalion": 1.3}.get(unit_size, 1.0)
@@ -182,7 +185,8 @@ def maintenance_from_cost(total_cost: int, upgrades: List[str], unit_type: str =
     # NOWY SYSTEM FUEL - zbalansowany z MP na podstawie typu jednostki
     if unit_type:
         fuel_map = {
-            'K': 4,   # 6 MP -> 4 fuel
+        'K': 4,   # 6 MP -> 4 fuel
+        'R': 3,   # 7 MP -> 3 fuel (lekki zwiad)
             'Z': 4,   # 6 MP -> 4 fuel  
             'TL': 3,  # 5 MP -> 3 fuel
             'TS': 3,  # 5 MP -> 3 fuel
