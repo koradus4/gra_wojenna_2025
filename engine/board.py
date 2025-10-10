@@ -22,6 +22,7 @@ class Board:
         self.hex_size = m["hex_size"]
         self.cols = m["cols"]
         self.rows = m["rows"]
+        self.background_meta = m.get("background", {}) if isinstance(m.get("background"), dict) else {}
         # terrain
         self.terrain = {
             k: Tile(*map(int, k.split(",")), v)

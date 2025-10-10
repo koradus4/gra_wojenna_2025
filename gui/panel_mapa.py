@@ -3,6 +3,8 @@ from tkinter import ttk, simpledialog
 from engine.hex_utils import get_hex_vertices
 from PIL import Image, ImageTk
 import os
+import math
+from pathlib import Path
 
 class PanelMapa(tk.Frame):
     def __init__(self, parent, game_engine, bg_path: str, player_nation: str, width=800, height=600, token_info_panel=None, panel_dowodcy=None):
@@ -34,16 +36,16 @@ class PanelMapa(tk.Frame):
         self._daylight_overlay_id = None
         self._current_phase_for_overlay = None
 
-        # tło mapy - jeśli nie podano lub plik nie istnieje, nie ustawiaj tła
-        if bg_path and os.path.exists(bg_path):
-            bg = Image.open(bg_path)
-            self._bg = ImageTk.PhotoImage(bg)
+        # tło mapy - preferuj meta z pliku mapy, w przeciwnym razie zachowuj się jak wcześniej
+        self._bg = None
+        resolved_background = self._resolve_background(bg_path, width, height)
+        if resolved_background is not None:
+            self._bg = ImageTk.PhotoImage(resolved_background["image"])
             self.canvas.create_image(0, 0, anchor="nw", image=self._bg)
-            self.canvas.config(scrollregion=(0, 0, bg.width, bg.height))
-            self._bg_width = bg.width
-            self._bg_height = bg.height
+            self.canvas.config(scrollregion=(0, 0, resolved_background["width"], resolved_background["height"]))
+            self._bg_width = resolved_background["width"]
+            self._bg_height = resolved_background["height"]
         else:
-            self._bg = None
             self._bg_width = width
             self._bg_height = height
             self.canvas.config(scrollregion=(0, 0, width, height))
@@ -369,6 +371,50 @@ class PanelMapa(tk.Frame):
                     )
         # Po narysowaniu siatki upewnij się, że nakładka dnia/nocy jest na wierzchu
         self._ensure_daylight_overlay_top()
+
+    def _resolve_background(self, fallback_path: str, fallback_width: int, fallback_height: int):
+        """Zwraca słownik z kluczami image/width/height na podstawie metadanych mapy."""
+        meta = getattr(self.map_model, "background_meta", {})
+        assets_root = Path(__file__).resolve().parent.parent / "assets"
+
+        def build_solid(color_rgb, w, h):
+            image = Image.new("RGB", (w, h), tuple(color_rgb))
+            return {"image": image, "width": w, "height": h}
+
+        def estimate_size(cols, rows, hex_size):
+            horizontal_spacing = 1.5 * hex_size
+            width = int(hex_size * 2 + max(0, cols - 1) * horizontal_spacing + hex_size)
+            hex_height = math.sqrt(3) * hex_size
+            height = int((math.sqrt(3) / 2) * hex_size + rows * hex_height + hex_size)
+            return max(200, width), max(200, height)
+
+        if isinstance(meta, dict) and meta:
+            bg_type = meta.get("type")
+            if bg_type == "image":
+                raw_path = meta.get("path")
+                if raw_path:
+                    candidate = Path(raw_path)
+                    if not candidate.is_absolute():
+                        candidate = assets_root / raw_path
+                    if candidate.exists():
+                        img = Image.open(candidate)
+                        return {"image": img, "width": img.width, "height": img.height}
+            elif bg_type == "solid":
+                color = meta.get("color", [48, 64, 40])
+                width = meta.get("width")
+                height = meta.get("height")
+                if not width or not height:
+                    width, height = estimate_size(self.map_model.cols, self.map_model.rows, self.map_model.hex_size)
+                return build_solid(color, int(width), int(height))
+
+        # fallback: użyj przekazanego bg_path jeśli istnieje
+        if fallback_path and os.path.exists(fallback_path):
+            img = Image.open(fallback_path)
+            return {"image": img, "width": img.width, "height": img.height}
+
+        # ostatecznie: solid default w oparciu o rozmiar mapy
+        width, height = estimate_size(self.map_model.cols, self.map_model.rows, self.map_model.hex_size)
+        return build_solid([48, 64, 40], width, height)
 
     def _draw_tokens_on_map(self):
         self._sync_player_from_engine()

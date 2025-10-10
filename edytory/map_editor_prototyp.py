@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog, simpledialog, ttk
+from tkinter import messagebox, filedialog, simpledialog, ttk, colorchooser
 import json
 import math
 import os
+import shutil
+from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
@@ -31,6 +33,12 @@ DEFAULT_MAP_FILE = str(ASSET_ROOT / "mapa_globalna.jpg")
 DEFAULT_MAP_DIR = ASSET_ROOT
 # Zmieniamy domyślną ścieżkę zapisu danych mapy na data/map_data.json
 DATA_FILENAME_WORKING = DATA_ROOT / "map_data.json"
+SOLID_BACKGROUND_COLOR = (48, 64, 40)
+HEX_TEXTURE_GRID_SIZE = 16
+HEX_TEXTURE_EXPORT_SIZE = 256
+
+HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
+HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 def to_rel(path: str) -> str:
     """Zwraca ścieżkę assets/... względem katalogu projektu."""
@@ -128,11 +136,23 @@ class MapEditor:
         self.root.configure(bg="darkolivegreen")
         self.config = config["map_settings"]
         self.map_image_path = self.get_last_modified_map()  # Automatyczne otwieranie ostatniej mapy
+        if self.map_image_path:
+            self.background_info = {
+                "type": "image",
+                "path": to_rel(str(self.map_image_path))
+            }
+        else:
+            self.background_info = {
+                "type": "solid",
+                "color": list(SOLID_BACKGROUND_COLOR)
+            }
 
         # --- Ustawienia heksów ---
         self.hex_size = self.config.get("hex_size", 30)
         self.hex_defaults = {"defense_mod": 0, "move_mod": 0}
         self.current_working_file = DATA_FILENAME_WORKING
+        self.size_hard_limits = {"cols": (10, 160), "rows": (10, 120), "hex_size": (16, 64)}
+        self.size_soft_limits = {"cols": 120, "rows": 90, "hex_size": 48}
 
         # --- Dane mapy ---
         self.hex_data: dict[str, dict] = {}
@@ -154,6 +174,7 @@ class MapEditor:
         self.available_nations = ["Polska", "Niemcy"]
         self.hex_tokens: dict[str, str] = {}
         self.token_images: dict[str, ImageTk.PhotoImage] = {}
+        self.hex_texture_cache: dict[tuple[str, int], ImageTk.PhotoImage] = {}
 
         # --- Nowy system palety żetonów ---
         self.token_index: list[dict] = []  # Lista wszystkich żetonów z index.json
@@ -178,7 +199,6 @@ class MapEditor:
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
         self.build_gui()
-        self.load_map_image()
         self.load_data()
         
         # Wymuś odświeżenie palety po inicjalizacji
@@ -306,15 +326,43 @@ class MapEditor:
                                      command=self.toggle_auto_save)
         auto_save_cb.pack(padx=5, pady=2, anchor="w")
 
+        # Przycisk konfiguracji mapy
+        self.configure_map_button = tk.Button(
+            buttons_frame,
+            text="Konfiguracja mapy…",
+            command=self.open_map_configuration_dialog,
+            bg="saddlebrown",
+            fg="white",
+            activebackground="saddlebrown",
+            activeforeground="white"
+        )
+        self.configure_map_button.pack(padx=5, pady=2, fill=tk.X)
+
         # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
         # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
         self.main_paned = tk.PanedWindow(self.panel_frame, orient=tk.VERTICAL, bg="darkolivegreen")
         self.main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         # === GÓRNA CZĘŚĆ: Paleta żetonów i inne sekcje ===
-        self.upper_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
-        self.main_paned.add(self.upper_frame, minsize=200)
-        
+        self.upper_container = tk.Frame(self.main_paned, bg="darkolivegreen")
+        # Górny panel ma przejmować całą dodatkową przestrzeń na scrollowane sekcje
+        self.main_paned.add(self.upper_container, minsize=200, stretch="always")
+        self.upper_canvas = tk.Canvas(self.upper_container, bg="darkolivegreen", highlightthickness=0)
+        self.upper_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.upper_scrollbar = tk.Scrollbar(self.upper_container, orient=tk.VERTICAL, command=self.upper_canvas.yview)
+        self.upper_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.upper_canvas.configure(yscrollcommand=self.upper_scrollbar.set)
+        self.upper_frame = tk.Frame(self.upper_canvas, bg="darkolivegreen")
+        self.upper_frame_window = self.upper_canvas.create_window((0, 0), window=self.upper_frame, anchor="nw")
+        self.upper_frame.bind("<Configure>", lambda _e: self.upper_canvas.configure(scrollregion=self.upper_canvas.bbox("all")))
+        self.upper_canvas.bind("<Configure>", lambda e: self.upper_canvas.itemconfigure(self.upper_frame_window, width=e.width))
+        self.upper_canvas.bind("<MouseWheel>", self._scroll_upper_panel)
+        self.upper_frame.bind("<MouseWheel>", self._scroll_upper_panel)
+        self.upper_canvas.bind("<Button-4>", self._scroll_upper_panel)
+        self.upper_canvas.bind("<Button-5>", self._scroll_upper_panel)
+        self.upper_frame.bind("<Button-4>", self._scroll_upper_panel)
+        self.upper_frame.bind("<Button-5>", self._scroll_upper_panel)
+
         # === PALETA ŻETONÓW ===
         self.build_token_palette_in_frame(self.upper_frame)
 
@@ -322,7 +370,7 @@ class MapEditor:
         terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
                                       font=("Arial", 9, "bold"))
         terrain_frame.pack(fill=tk.X, padx=5, pady=2)
-        
+
         self.current_brush = None
         self.terrain_buttons = {}
 
@@ -355,7 +403,7 @@ class MapEditor:
         self.add_spawn_point_button = tk.Button(spawn_points_frame, text="Dodaj punkt wystawienia", command=self.add_spawn_point_dialog,
                                                 bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
         self.add_spawn_point_button.pack(padx=5, pady=2, fill=tk.X)
-        
+
         # === RESET HEKSU ===
         reset_hex_frame = tk.LabelFrame(self.upper_frame, text="Reset wybranego heksu", bg="darkolivegreen", fg="white",
                                         font=("Arial", 9, "bold"))
@@ -375,13 +423,419 @@ class MapEditor:
 
         # === DOLNA CZĘŚĆ: Panel informacyjny ===
         self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
-        self.main_paned.add(self.lower_frame, minsize=150)
-        
+        # Dolny panel pokazuje tylko informacje o aktywnym heksie, więc trzymamy go kompaktowo
+        self.main_paned.add(self.lower_frame, minsize=160, stretch="never")
+
         # === PANEL INFORMACYJNY ===
         self.build_info_panel_in_frame(self.lower_frame)
-        
+        self.root.update_idletasks()
+        try:
+            self.main_paned.paneconfigure(self.lower_frame, height=200)
+        except Exception:
+            pass
+
         # === CANVAS MAPY ===
         self.build_map_canvas()
+
+    def open_map_configuration_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Konfiguracja mapy")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.configure(bg="darkolivegreen")
+        dialog.resizable(False, False)
+
+        current_cols = self.config.get("grid_cols", 56)
+        current_rows = self.config.get("grid_rows", 40)
+        current_hex = self.hex_size
+
+        cols_var = tk.IntVar(value=current_cols)
+        rows_var = tk.IntVar(value=current_rows)
+        hex_var = tk.IntVar(value=current_hex)
+        export_var = tk.BooleanVar(value=True)
+        backup_var = tk.BooleanVar(value=True)
+
+        main_frame = tk.Frame(dialog, bg="darkolivegreen", padx=12, pady=12)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        fields = tk.Frame(main_frame, bg="darkolivegreen")
+        fields.pack(fill=tk.X)
+
+        def build_spinbox(parent, label_text, var, limits):
+            row = tk.Frame(parent, bg="darkolivegreen")
+            row.pack(fill=tk.X, pady=3)
+            tk.Label(row, text=label_text, bg="darkolivegreen", fg="white", width=20, anchor="w").pack(side=tk.LEFT)
+            spin = tk.Spinbox(
+                row,
+                from_=limits[0],
+                to=limits[1],
+                textvariable=var,
+                width=6,
+                justify="right"
+            )
+            spin.pack(side=tk.LEFT)
+            return spin
+
+        build_spinbox(fields, "Szerokość (kolumny)", cols_var, self.size_hard_limits["cols"])
+        build_spinbox(fields, "Wysokość (wiersze)", rows_var, self.size_hard_limits["rows"])
+        build_spinbox(fields, "Rozmiar heksa", hex_var, self.size_hard_limits["hex_size"])
+
+        preset_frame = tk.Frame(main_frame, bg="darkolivegreen")
+        preset_frame.pack(fill=tk.X, pady=(6, 0))
+
+        def apply_preset(cols, rows, size):
+            cols_var.set(cols)
+            rows_var.set(rows)
+            hex_var.set(size)
+
+        tk.Label(preset_frame, text="Presety:", bg="darkolivegreen", fg="yellow").pack(side=tk.LEFT)
+        tk.Button(preset_frame, text="Potyczka", command=lambda: apply_preset(30, 20, 28)).pack(side=tk.LEFT, padx=2)
+        tk.Button(preset_frame, text="Standard", command=lambda: apply_preset(56, 40, 30)).pack(side=tk.LEFT, padx=2)
+        tk.Button(preset_frame, text="Kampania", command=lambda: apply_preset(120, 80, 32)).pack(side=tk.LEFT, padx=2)
+
+        flags_frame = tk.Frame(main_frame, bg="darkolivegreen")
+        flags_frame.pack(fill=tk.X, pady=(10, 0))
+        tk.Checkbutton(flags_frame, text="Eksportuj startowe żetony", variable=export_var, bg="darkolivegreen", fg="white", selectcolor="darkolivegreen").pack(anchor="w")
+        tk.Checkbutton(flags_frame, text="Zrób kopię mapy przed zmianą", variable=backup_var, bg="darkolivegreen", fg="white", selectcolor="darkolivegreen").pack(anchor="w")
+
+        info_var = tk.StringVar(value="")
+        warning_var = tk.StringVar(value="")
+
+        info_label = tk.Label(main_frame, textvariable=info_var, bg="darkolivegreen", fg="white", justify="left", wraplength=340)
+        info_label.pack(fill=tk.X, pady=(10, 4))
+        warning_label = tk.Label(main_frame, textvariable=warning_var, bg="darkolivegreen", fg="orange", justify="left", wraplength=340)
+        warning_label.pack(fill=tk.X)
+
+        buttons = tk.Frame(main_frame, bg="darkolivegreen")
+        buttons.pack(fill=tk.X, pady=(12, 0))
+        tk.Button(buttons, text="Anuluj", command=dialog.destroy, bg="saddlebrown", fg="white", width=10).pack(side=tk.RIGHT, padx=4)
+
+        def update_preview():
+            try:
+                new_cols = int(cols_var.get())
+                new_rows = int(rows_var.get())
+                new_hex = int(hex_var.get())
+            except (tk.TclError, ValueError):
+                info_var.set("Nieprawidłowe wartości.")
+                warning_var.set("")
+                return
+
+            preview = self._calculate_config_change_effects(new_cols, new_rows, new_hex)
+            if preview["errors"]:
+                info_var.set("Błędy: " + "; ".join(preview["errors"]))
+                warning_var.set("")
+                return
+            info_var.set(preview["summary"])
+            warning_var.set(preview["warning"])  # może być pusty
+
+        def apply_changes():
+            try:
+                new_cols = int(cols_var.get())
+                new_rows = int(rows_var.get())
+                new_hex = int(hex_var.get())
+            except (tk.TclError, ValueError):
+                messagebox.showerror("Błąd", "Podano nieprawidłowe wartości.")
+                return
+            result = self._apply_map_configuration(
+                new_cols,
+                new_rows,
+                new_hex,
+                export_tokens=export_var.get(),
+                make_backup=backup_var.get()
+            )
+            if result:
+                messagebox.showinfo("Konfiguracja mapy", result)
+                dialog.destroy()
+
+        tk.Button(buttons, text="Zastosuj", command=apply_changes, bg="forestgreen", fg="white", width=10).pack(side=tk.RIGHT)
+
+        cols_var.trace_add("write", lambda *_: update_preview())
+        rows_var.trace_add("write", lambda *_: update_preview())
+        hex_var.trace_add("write", lambda *_: update_preview())
+
+        update_preview()
+
+    def _calculate_config_change_effects(self, cols: int, rows: int, hex_size: int) -> dict:
+        errors = []
+        warnings = []
+
+        min_cols, max_cols = self.size_hard_limits["cols"]
+        min_rows, max_rows = self.size_hard_limits["rows"]
+        min_hex, max_hex = self.size_hard_limits["hex_size"]
+
+        if not (min_cols <= cols <= max_cols):
+            errors.append(f"Kolumny poza zakresem ({min_cols}-{max_cols}).")
+        if not (min_rows <= rows <= max_rows):
+            errors.append(f"Wiersze poza zakresem ({min_rows}-{max_rows}).")
+        if not (min_hex <= hex_size <= max_hex):
+            errors.append(f"Rozmiar heksa poza zakresem ({min_hex}-{max_hex}).")
+
+        soft_cols = self.size_soft_limits["cols"]
+        soft_rows = self.size_soft_limits["rows"]
+        soft_hex = self.size_soft_limits["hex_size"]
+
+        if cols > soft_cols or rows > soft_rows:
+            warnings.append("Duża siatka może wydłużyć ładowanie i ruch AI.")
+        if hex_size > soft_hex:
+            warnings.append("Duże heksy mogą nie zmieścić się na ekranie.")
+
+        allowed_hexes = self._build_allowed_hex_ids(cols, rows)
+        current_hexes = set(self.hex_data.keys())
+        removed_hexes = current_hexes - allowed_hexes
+
+        tokens_removed = sum(1 for hid in removed_hexes if self.hex_data.get(hid, {}).get("token"))
+        key_points_removed = sum(1 for hid in self.key_points if hid not in allowed_hexes)
+        spawn_removed = 0
+        for nation, hex_list in self.spawn_points.items():
+            spawn_removed += sum(1 for hid in hex_list if hid not in allowed_hexes)
+
+        min_move_mod = min(value.get("move_mod", 0) for value in TERRAIN_TYPES.values())
+        estimated_range = max(6, int(12 / max(1, 1 + min_move_mod)))
+
+        required_width, required_height = self._estimate_canvas_size(cols, rows, hex_size)
+        current_width = getattr(self, "world_width", required_width)
+        current_height = getattr(self, "world_height", required_height)
+        if required_width > current_width or required_height > current_height:
+            warnings.append("Aktualne tło jest za małe – zostanie zastąpione jednolitym tłem.")
+
+        total_hexes = len(allowed_hexes)
+        summary_lines = [
+            f"Nowa siatka: {cols} × {rows} ({total_hexes} heksów).",
+            f"Szacowany zasięg kawalerii przy płaskim terenie: ok. {estimated_range} heksów.",
+        ]
+        if removed_hexes:
+            summary_lines.append(
+                f"Do wyzerowania: {len(removed_hexes)} heksów (żetony: {tokens_removed}, spawn: {spawn_removed}, key pointy: {key_points_removed})."
+            )
+        else:
+            summary_lines.append("Brak utraty obecnych danych.")
+        if cols == self.config.get("grid_cols") and rows == self.config.get("grid_rows") and hex_size == self.hex_size:
+            summary_lines.append("Parametry bez zmian.")
+
+        return {
+            "summary": "\n".join(summary_lines),
+            "warning": "\n".join(warnings),
+            "errors": errors,
+            "removed": {
+                "hexes": len(removed_hexes),
+                "tokens": tokens_removed,
+                "spawn": spawn_removed,
+                "key_points": key_points_removed,
+            },
+            "allowed_hexes": allowed_hexes,
+            "canvas_size": (required_width, required_height),
+        }
+
+    def _estimate_canvas_size(self, cols: int, rows: int, hex_size: int) -> tuple[int, int]:
+        horizontal_spacing = 1.5 * hex_size
+        width = int(hex_size * 2 + max(0, cols - 1) * horizontal_spacing + hex_size)
+        hex_height = math.sqrt(3) * hex_size
+        height = int((math.sqrt(3) / 2) * hex_size + rows * hex_height + hex_size)
+        return max(200, width), max(200, height)
+
+    def _build_allowed_hex_ids(self, cols: int, rows: int) -> set[str]:
+        allowed = set()
+        for col in range(max(0, cols)):
+            for row in range(max(0, rows)):
+                q = col
+                r = row - (col // 2)
+                allowed.add(f"{q},{r}")
+        return allowed
+
+    def _apply_background_metadata(self, meta: dict | None) -> None:
+        if not meta:
+            if self.map_image_path:
+                self.background_info = {
+                    "type": "image",
+                    "path": to_rel(str(self.map_image_path))
+                }
+            else:
+                self.background_info = {
+                    "type": "solid",
+                    "color": list(SOLID_BACKGROUND_COLOR)
+                }
+            return
+
+        bg_type = meta.get("type")
+        if bg_type == "image":
+            raw_path = meta.get("path")
+            resolved: Path | str | None
+            if raw_path:
+                if os.path.isabs(raw_path):
+                    resolved = Path(raw_path)
+                else:
+                    resolved = ASSET_ROOT / raw_path
+            else:
+                resolved = None
+            if resolved and Path(resolved).exists():
+                abs_path = str(Path(resolved))
+                self.map_image_path = abs_path
+                self.config["map_image_path"] = abs_path
+                self.background_info = {
+                    "type": "image",
+                    "path": to_rel(str(resolved))
+                }
+            else:
+                self.map_image_path = None
+                self.config["map_image_path"] = None
+                self.background_info = {
+                    "type": "solid",
+                    "color": list(SOLID_BACKGROUND_COLOR)
+                }
+        elif bg_type == "solid":
+            color = meta.get("color", list(SOLID_BACKGROUND_COLOR))
+            if isinstance(color, tuple):
+                color = list(color)
+            self.background_info = {
+                "type": "solid",
+                "color": color
+            }
+            self.map_image_path = None
+            self.config["map_image_path"] = None
+        else:
+            if self.map_image_path:
+                self.background_info = {
+                    "type": "image",
+                    "path": to_rel(str(self.map_image_path))
+                }
+            else:
+                self.background_info = {
+                    "type": "solid",
+                    "color": list(SOLID_BACKGROUND_COLOR)
+                }
+
+        width = meta.get("width") or meta.get("canvas_width")
+        height = meta.get("height") or meta.get("canvas_height")
+        if width and height:
+            self.world_width, self.world_height = int(width), int(height)
+
+    def _serialize_background_info(self) -> dict:
+        info = dict(getattr(self, "background_info", {}))
+        if not info:
+            return {}
+        if info.get("type") == "image":
+            path_to_store = None
+            if self.map_image_path:
+                path_to_store = to_rel(str(self.map_image_path))
+            elif info.get("path"):
+                path_to_store = info["path"]
+            if path_to_store:
+                info["path"] = path_to_store
+            else:
+                info.pop("path", None)
+        if info.get("type") == "solid":
+            color = info.get("color", list(SOLID_BACKGROUND_COLOR))
+            if isinstance(color, tuple):
+                color = list(color)
+            info["color"] = color
+        width = getattr(self, "world_width", None)
+        height = getattr(self, "world_height", None)
+        if width:
+            info["width"] = int(width)
+        if height:
+            info["height"] = int(height)
+        return info
+
+    def _apply_map_configuration(self, cols: int, rows: int, hex_size: int, *, export_tokens: bool, make_backup: bool) -> str | None:
+        preview = self._calculate_config_change_effects(cols, rows, hex_size)
+        if preview["errors"]:
+            messagebox.showerror("Błąd konfiguracji", "\n".join(preview["errors"]))
+            return None
+
+        if cols == self.config.get("grid_cols") and rows == self.config.get("grid_rows") and hex_size == self.hex_size:
+            return "Parametry mapy pozostają bez zmian."
+
+        removed = preview["removed"]
+        if any(removed.values()):
+            if not messagebox.askyesno(
+                "Potwierdzenie",
+                (
+                    "Zmiana rozmiaru zresetuje dane mapy.\n"
+                    f"Wyzerowane zostaną wpisy dla {removed['hexes']} heksów, {removed['tokens']} żetonów, "
+                    f"{removed['spawn']} punktów spawn i {removed['key_points']} punktów kluczowych. Kontynuować?"
+                ),
+            ):
+                return None
+
+        backup_path = None
+        if make_backup:
+            backup_path = self._create_map_backup()
+
+        previous_auto_save = self.auto_save_enabled
+        self.auto_save_enabled = False
+
+        try:
+            self.config["grid_cols"] = cols
+            self.config["grid_rows"] = rows
+            self.hex_size = hex_size
+
+            self.hex_data = {}
+            self.key_points = {}
+            self.spawn_points = {}
+            self.hex_tokens.clear()
+            self.selected_hex = None
+
+            required_width, required_height = preview["canvas_size"]
+            self.bg_image = Image.new("RGB", (required_width, required_height), SOLID_BACKGROUND_COLOR)
+            self.photo_bg = ImageTk.PhotoImage(self.bg_image)
+            self.world_width, self.world_height = self.bg_image.size
+            self.map_image_path = None
+            self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
+            self.config["map_image_path"] = None
+            self.background_info = {
+                "type": "solid",
+                "color": list(SOLID_BACKGROUND_COLOR),
+                "width": self.world_width,
+                "height": self.world_height
+            }
+
+            if hasattr(self, "hex_info_label"):
+                self.hex_info_label.config(text="Heks: brak")
+            if hasattr(self, "terrain_info_label"):
+                self.terrain_info_label.config(text="Teren: brak")
+            if hasattr(self, "token_info_label"):
+                self.token_info_label.config(text="Żeton: brak")
+            if hasattr(self, "key_point_info_label"):
+                self.key_point_info_label.config(text="")
+            if hasattr(self, "spawn_point_info_label"):
+                self.spawn_point_info_label.config(text="")
+            self.canvas.delete("hover_zoom")
+
+            self.draw_grid()
+            self.save_data()
+            if export_tokens:
+                self.export_start_tokens(show_message=False)
+            self.force_refresh_palette()
+        finally:
+            self.auto_save_enabled = previous_auto_save
+
+        result_lines = [f"Zastosowano: {cols} × {rows}, hex {hex_size}."]
+        if backup_path:
+            result_lines.append(f"Backup zapisany jako: {backup_path.name}")
+        result_lines.append("Mapa została zresetowana do domyślnej siatki.")
+        return "\n".join(result_lines)
+
+    def _create_map_backup(self) -> Path | None:
+        source = Path(self.current_working_file)
+        if not source.exists():
+            return None
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_path = DATA_ROOT / f"map_data.json.bak-{timestamp}"
+        try:
+            shutil.copy2(source, backup_path)
+        except Exception as exc:
+            messagebox.showwarning("Backup", f"Nie udało się utworzyć kopii zapasowej: {exc}")
+            return None
+        self._trim_old_backups()
+        return backup_path
+
+    def _trim_old_backups(self, keep: int = 5) -> None:
+        backups = sorted(DATA_ROOT.glob("map_data.json.bak-*"), reverse=True)
+        for obsolete in backups[keep:]:
+            try:
+                obsolete.unlink()
+            except OSError:
+                pass
 
     def build_token_palette_in_frame(self, parent_frame):
         """Buduje paletę żetonów z filtrami w podanym frame"""
@@ -473,16 +927,16 @@ class MapEditor:
 
     def build_info_panel_in_frame(self, parent_frame):
         """Buduje panel informacyjny o wybranym heksie w podanym frame"""
-        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3)
-        # Panel informacyjny zajmuje całą dostępną przestrzeń w dolnej części
-        self.control_panel_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3, height=160)
+        # Panel z informacjami siedzi na dole i nie rozciąga się w pionie
+        self.control_panel_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=2, pady=2)
         
         tk.Label(self.control_panel_frame, text="Informacje o heksie", 
                  bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
         
         # Kontener na informacje podstawowe
         basic_info_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
-        basic_info_frame.pack(fill=tk.X, padx=5, pady=2)
+        basic_info_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
         
         self.hex_info_label = tk.Label(basic_info_frame, text="Heks: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
         self.hex_info_label.pack(anchor="w", pady=1)
@@ -492,6 +946,24 @@ class MapEditor:
         
         self.token_info_label = tk.Label(basic_info_frame, text="Żeton: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
         self.token_info_label.pack(anchor="w", pady=1)
+
+        self.texture_info_label = tk.Label(basic_info_frame, text="Tekstura: domyślna", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.texture_info_label.pack(anchor="w", pady=1)
+
+        tools_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
+        tools_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=(6, 2))
+
+        self.edit_texture_button = tk.Button(
+            tools_frame,
+            text="🎨 Edytuj wygląd heksa",
+            command=self.open_selected_hex_texture_editor,
+            bg="saddlebrown",
+            fg="white",
+            activebackground="saddlebrown",
+            activeforeground="white"
+        )
+        self.edit_texture_button.pack(fill=tk.X)
+        self.edit_texture_button.config(state=tk.DISABLED)
 
     def build_map_canvas(self):
         """Buduje canvas mapy z przewijaniem"""
@@ -615,6 +1087,21 @@ class MapEditor:
         self.tokens_canvas.configure(scrollregion=self.tokens_canvas.bbox("all"))
         print("📐 Zaktualizowano scroll region")
 
+    def _scroll_upper_panel(self, event):
+        if not hasattr(self, "upper_canvas"):
+            return
+        widget = getattr(event, "widget", None)
+        if widget is getattr(self, "tokens_canvas", None) or widget is getattr(self, "token_palette_frame", None):
+            return
+        step = 0
+        if hasattr(event, "delta") and event.delta:
+            step = -1 if event.delta > 0 else 1
+        elif getattr(event, "num", None) in (4, 5):
+            step = -1 if event.num == 4 else 1
+        if step:
+            self.upper_canvas.yview_scroll(step, "units")
+            return "break"
+
     def create_tooltip(self, widget, text):
         """Tworzy tooltip dla widgetu"""
         def show_tooltip(event):
@@ -705,36 +1192,95 @@ class MapEditor:
         if file_path:
             self.map_image_path = file_path
             self.config["map_image_path"] = file_path
+            self.background_info = {
+                "type": "image",
+                "path": to_rel(str(file_path))
+            }
+            self.load_map_image()
             messagebox.showinfo("Sukces", "Wybrano nową domyślną mapę.")
         else:
             messagebox.showinfo("Anulowano", "Nie wybrano nowej mapy.")
 
     def load_map_image(self):
         'Wczytuje obraz mapy jako tło i ustawia rozmiary.'
+        bg_meta = getattr(self, "background_info", {})
+        bg_type = bg_meta.get("type")
+
+        if bg_type == "solid":
+            color = tuple(bg_meta.get("color", list(SOLID_BACKGROUND_COLOR)))
+            width = bg_meta.get("width") or getattr(self, "world_width", None)
+            height = bg_meta.get("height") or getattr(self, "world_height", None)
+            if not width or not height:
+                width, height = self._estimate_canvas_size(
+                    self.config.get("grid_cols"),
+                    self.config.get("grid_rows"),
+                    self.hex_size
+                )
+            self.world_width, self.world_height = int(width), int(height)
+            self.bg_image = Image.new("RGB", (self.world_width, self.world_height), color)
+            self.photo_bg = ImageTk.PhotoImage(self.bg_image)
+            self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
+            self.background_info = {
+                "type": "solid",
+                "color": list(color),
+                "width": self.world_width,
+                "height": self.world_height
+            }
+            self.draw_grid()
+            return
+
+        path_to_load = self.map_image_path
+        if not path_to_load:
+            raw_path = bg_meta.get("path")
+            if raw_path:
+                path_to_load = raw_path if os.path.isabs(raw_path) else ASSET_ROOT / raw_path
+
         try:
-            self.bg_image = Image.open(self.map_image_path).convert("RGB")
+            if not path_to_load:
+                raise FileNotFoundError("Brak ścieżki tła mapy")
+            self.bg_image = Image.open(path_to_load).convert("RGB")
+            self.map_image_path = str(path_to_load)
         except Exception as e:
-            # jeśli nie udało się wczytać domyślnej mapy, poproś użytkownika o wybranie pliku
-            print(f"⚠️  Nie udało się załadować domyślnej mapy: {e}")
-            file = filedialog.askopenfilename(
-                title="Wybierz mapę",
-                filetypes=[("Obrazy", "*.jpg *.png *.bmp"), ("Wszystkie pliki", "*.*")]
+            print(f"⚠️  Nie udało się załadować tła mapy: {e}")
+            width, height = self._estimate_canvas_size(
+                self.config.get("grid_cols"),
+                self.config.get("grid_rows"),
+                self.hex_size
             )
-            if file:
-                self.map_image_path = file
-                return self.load_map_image()
-            else:
-                return
+            self.world_width, self.world_height = width, height
+            self.bg_image = Image.new("RGB", (width, height), SOLID_BACKGROUND_COLOR)
+            self.photo_bg = ImageTk.PhotoImage(self.bg_image)
+            self.canvas.config(scrollregion=(0, 0, width, height))
+            self.background_info = {
+                "type": "solid",
+                "color": list(SOLID_BACKGROUND_COLOR),
+                "width": width,
+                "height": height
+            }
+            self.map_image_path = None
+            self.config["map_image_path"] = None
+            self.draw_grid()
+            return
+
         self.world_width, self.world_height = self.bg_image.size
         self.photo_bg = ImageTk.PhotoImage(self.bg_image)
         # Ustaw obszar przewijania
         self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
+        self.config["map_image_path"] = self.map_image_path
+        self.background_info = {
+            "type": "image",
+            "path": to_rel(str(self.map_image_path)),
+            "width": self.world_width,
+            "height": self.world_height
+        }
         # Rysuj ponownie siatkę
         self.draw_grid()
 
     def draw_grid(self):
         """Rysuje siatkę heksów i aktualizuje wyświetlane żetony."""
         self.canvas.delete("all")
+        if getattr(self, "world_width", None) and getattr(self, "world_height", None):
+            self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
         if not hasattr(self, 'photo_bg'):
             self.photo_bg = ImageTk.PhotoImage(Image.new("RGB", (1, 1), (255, 255, 255)))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo_bg)
@@ -744,6 +1290,7 @@ class MapEditor:
         horizontal_spacing = 1.5 * s
         grid_cols = self.config.get("grid_cols")
         grid_rows = self.config.get("grid_rows")
+        self.canvas.image_store = []
 
         # GENERUJEMY SIATKĘ W UKŁADZIE OFFSETOWYM EVEN-Q (prostokąt)
         for col in range(grid_cols):
@@ -769,10 +1316,15 @@ class MapEditor:
                     }
 
                 terrain = self.hex_data.get(hex_id, self.hex_defaults)
+                texture_rel = terrain.get("texture")
+                if texture_rel:
+                    texture_image = self._get_hex_texture_image(texture_rel)
+                    if texture_image:
+                        self.canvas.create_image(center_x, center_y, image=texture_image)
+                        self.canvas.image_store.append(texture_image)
                 self.draw_hex(hex_id, center_x, center_y, s, terrain)
 
-        # Rysowanie żetonów na mapie
-        self.canvas.image_store = []  # lista na referencje do obrazków
+    # Rysowanie żetonów na mapie
         for hex_id, terrain in self.hex_data.items():
             token = terrain.get("token")
             if token and "image" in token and hex_id in self.hex_centers:
@@ -932,6 +1484,8 @@ class MapEditor:
                 self.clear_token_selection_new()
             elif hasattr(self, 'selected_token_for_deployment') and self.selected_token_for_deployment:
                 self.clear_token_selection()
+            self.edit_texture_button.config(state=tk.DISABLED)
+            self.texture_info_label.config(text="Tekstura: domyślna")
 
     def on_canvas_right_click(self, event):
         """Obsługuje PPM na canvasie - usuwa żeton z heksu"""
@@ -1048,6 +1602,240 @@ class MapEditor:
         self.selected_token = None
         print("Wyczyszczono wybór żetonu")
 
+    def open_selected_hex_texture_editor(self):
+        if not getattr(self, "selected_hex", None):
+            messagebox.showinfo("Brak wyboru", "Najpierw wybierz heks na mapie.")
+            return
+        self.open_hex_texture_editor(self.selected_hex)
+
+    def open_hex_texture_editor(self, hex_id: str):
+        # Zamknij poprzednie okno jeśli jeszcze istnieje
+        if hasattr(self, "_texture_editor_window") and self._texture_editor_window:
+            try:
+                self._texture_editor_window.destroy()
+            except tk.TclError:
+                pass
+
+        terrain = self.hex_data.setdefault(hex_id, {
+            "terrain_key": "teren_płaski",
+            "move_mod": 0,
+            "defense_mod": 0,
+        })
+
+        pixels = self._load_hex_texture_pixels(terrain.get("texture"))
+
+        editor = tk.Toplevel(self.root)
+        editor.title(f"Edytor tekstury heksa {hex_id}")
+        editor.configure(bg="darkolivegreen")
+        editor.transient(self.root)
+        editor.grab_set()
+        editor.geometry("820x520")
+
+        self._texture_editor_window = editor
+
+        grid_size = HEX_TEXTURE_GRID_SIZE
+        cell_size = 28
+        canvas_size = grid_size * cell_size
+
+        preview_canvas = tk.Canvas(
+            editor,
+            width=canvas_size,
+            height=canvas_size,
+            bg="#111111",
+            highlightthickness=0
+        )
+        preview_canvas.grid(row=0, column=0, rowspan=6, padx=12, pady=12)
+
+        state = {
+            "pixels": pixels,
+            "current_color": "#ffffff",
+            "eraser": False,
+        }
+
+        def draw_grid():
+            preview_canvas.delete("cell")
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    x0 = col * cell_size
+                    y0 = row * cell_size
+                    fill = state["pixels"][row][col] or ""
+                    preview_canvas.create_rectangle(
+                        x0,
+                        y0,
+                        x0 + cell_size,
+                        y0 + cell_size,
+                        fill=fill if fill else "",
+                        outline="#333333",
+                        width=1,
+                        tags=("cell", f"cell_{row}_{col}")
+                    )
+
+        def set_current_color(color: str):
+            state["current_color"] = color
+            state["eraser"] = False
+            current_color_preview.config(bg=color)
+
+        def pick_color_dialog():
+            color_code = colorchooser.askcolor(title="Wybierz kolor", parent=editor)
+            if color_code and color_code[1]:
+                set_current_color(color_code[1])
+
+        def toggle_eraser():
+            state["eraser"] = not state["eraser"]
+            eraser_btn.config(relief="sunken" if state["eraser"] else "raised")
+
+        def apply_color_to_cell(row: int, col: int):
+            if 0 <= row < grid_size and 0 <= col < grid_size:
+                new_val = None if state["eraser"] else state["current_color"]
+                if state["pixels"][row][col] != new_val:
+                    state["pixels"][row][col] = new_val
+                    fill = new_val if new_val else ""
+                    preview_canvas.itemconfig(f"cell_{row}_{col}", fill=fill)
+
+        def canvas_paint(event):
+            col = event.x // cell_size
+            row = event.y // cell_size
+            apply_color_to_cell(row, col)
+
+        def canvas_pick_color(event):
+            col = event.x // cell_size
+            row = event.y // cell_size
+            if 0 <= row < grid_size and 0 <= col < grid_size:
+                color = state["pixels"][row][col]
+                if color:
+                    set_current_color(color)
+
+        preview_canvas.bind("<Button-1>", canvas_paint)
+        preview_canvas.bind("<B1-Motion>", canvas_paint)
+        preview_canvas.bind("<Button-3>", canvas_pick_color)
+
+        tools = tk.Frame(editor, bg="darkolivegreen")
+        tools.grid(row=0, column=1, sticky="nsew", padx=(0, 12), pady=12)
+
+        tk.Label(tools, text="Aktualny kolor", bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
+        current_color_preview = tk.Label(tools, bg=state["current_color"], width=10, height=2, relief=tk.SUNKEN, bd=2)
+        current_color_preview.pack(pady=(2, 8), fill=tk.X)
+
+        tk.Button(tools, text="Wybierz kolor…", command=pick_color_dialog, bg="saddlebrown", fg="white").pack(fill=tk.X, pady=2)
+
+        palette_frame = tk.LabelFrame(tools, text="Paleta", bg="darkolivegreen", fg="white")
+        palette_frame.pack(fill=tk.X, pady=(8, 4))
+
+        default_palette = [
+            "#2f4f4f", "#556b2f", "#8b4513", "#b8860b",
+            "#deb887", "#d2691e", "#6b8e23", "#87ceeb",
+            "#4682b4", "#c0c0c0", "#ffffff", "#000000",
+        ]
+        for idx, pal_color in enumerate(default_palette):
+            btn = tk.Button(
+                palette_frame,
+                bg=pal_color,
+                width=3,
+                command=lambda c=pal_color: set_current_color(c)
+            )
+            btn.grid(row=idx // 4, column=idx % 4, padx=2, pady=2, sticky="nsew")
+
+        eraser_btn = tk.Button(tools, text="Gumka", command=toggle_eraser, bg="#444", fg="white")
+        eraser_btn.pack(fill=tk.X, pady=(8, 2))
+
+        tk.Label(tools, text="Lewy przycisk: maluj", bg="darkolivegreen", fg="white").pack(anchor="w", pady=(4, 0))
+        tk.Label(tools, text="Prawy przycisk: pipeta", bg="darkolivegreen", fg="white").pack(anchor="w")
+
+        actions = tk.Frame(editor, bg="darkolivegreen")
+        actions.grid(row=1, column=1, sticky="ew", padx=(0, 12))
+
+        def save_and_close():
+            texture_rel = self._save_hex_texture(hex_id, state["pixels"])
+            self.hex_data.setdefault(hex_id, {}).update({"texture": texture_rel})
+            self.hex_texture_cache = {k: v for k, v in self.hex_texture_cache.items() if k[0] != texture_rel}
+            editor.grab_release()
+            editor.destroy()
+            self._texture_editor_window = None
+            self.update_hex_info_display(hex_id)
+            self.draw_grid()
+            self.auto_save_and_export("zapisano teksturę heksa")
+
+        def close_editor():
+            editor.grab_release()
+            editor.destroy()
+            self._texture_editor_window = None
+
+        tk.Button(actions, text="Zapisz", command=save_and_close, bg="forestgreen", fg="white", width=12).pack(side=tk.LEFT, padx=4, pady=8)
+        tk.Button(actions, text="Anuluj", command=close_editor, bg="saddlebrown", fg="white", width=12).pack(side=tk.LEFT, padx=4, pady=8)
+
+        draw_grid()
+
+        texture_rel = terrain.get("texture")
+        if texture_rel:
+            try:
+                img_path = fix_image_path(texture_rel)
+                if img_path.exists():
+                    tk.Label(tools, text=f"Plik: {to_rel(str(img_path))}", bg="darkolivegreen", fg="white", wraplength=180, justify="left").pack(fill=tk.X, pady=(10, 0))
+            except Exception:
+                pass
+
+        editor.protocol("WM_DELETE_WINDOW", close_editor)
+
+    def _load_hex_texture_pixels(self, texture_rel: str | None) -> list[list[str | None]]:
+        grid_size = HEX_TEXTURE_GRID_SIZE
+        pixels: list[list[str | None]] = [[None for _ in range(grid_size)] for _ in range(grid_size)]
+        if not texture_rel:
+            return pixels
+        img_path = fix_image_path(texture_rel)
+        if not img_path.exists():
+            return pixels
+        try:
+            img = Image.open(img_path).convert("RGBA")
+            if img.width != grid_size or img.height != grid_size:
+                img = img.resize((grid_size, grid_size), Image.NEAREST)
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    r, g, b, a = img.getpixel((col, row))
+                    if a == 0:
+                        pixels[row][col] = None
+                    else:
+                        pixels[row][col] = f"#{r:02x}{g:02x}{b:02x}"
+        except Exception as exc:
+            print(f"Nie udało się wczytać tekstury heksa: {exc}")
+        return pixels
+
+    def _save_hex_texture(self, hex_id: str, pixels: list[list[str | None]]) -> str:
+        grid_size = HEX_TEXTURE_GRID_SIZE
+        base_img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
+        for row in range(grid_size):
+            for col in range(grid_size):
+                color = pixels[row][col]
+                if color:
+                    r = int(color[1:3], 16)
+                    g = int(color[3:5], 16)
+                    b = int(color[5:7], 16)
+                    base_img.putpixel((col, row), (r, g, b, 255))
+        export_img = base_img.resize((HEX_TEXTURE_EXPORT_SIZE, HEX_TEXTURE_EXPORT_SIZE), Image.NEAREST)
+        filename = f"hex_{hex_id.replace(',', '_')}.png"
+        output_path = HEX_TEXTURE_DIR / filename
+        export_img.save(output_path)
+        rel_path = to_rel(str(output_path))
+        print(f"Zapisano teksturę heksa do {output_path}")
+        return rel_path
+
+    def _get_hex_texture_image(self, texture_rel: str) -> ImageTk.PhotoImage | None:
+        cache_key = (texture_rel, self.hex_size)
+        if cache_key in self.hex_texture_cache:
+            return self.hex_texture_cache[cache_key]
+        img_path = fix_image_path(texture_rel)
+        if not img_path.exists():
+            return None
+        try:
+            img = Image.open(img_path).convert("RGBA")
+            target_size = (int(self.hex_size * 2), int(self.hex_size * 2))
+            img = img.resize(target_size, Image.NEAREST)
+            photo = ImageTk.PhotoImage(img)
+            self.hex_texture_cache[cache_key] = photo
+            return photo
+        except Exception as exc:
+            print(f"Nie udało się wczytać obrazu tekstury: {exc}")
+            return None
+
     def update_hex_info_display(self, hex_id):
         """Aktualizuje wyświetlane informacje o heksie"""
         terrain = self.hex_data.get(hex_id, self.hex_defaults)
@@ -1068,6 +1856,13 @@ class MapEditor:
         else:
             token_info = "Żeton: brak"
         self.token_info_label.config(text=token_info)
+
+        texture_rel = terrain.get("texture")
+        if texture_rel:
+            self.texture_info_label.config(text=f"Tekstura: {texture_rel}")
+        else:
+            self.texture_info_label.config(text="Tekstura: domyślna")
+        self.edit_texture_button.config(state=tk.NORMAL)
         
         # Sprawdź czy to Key Point
         key_point_info = ""
@@ -1300,7 +2095,8 @@ class MapEditor:
                 "cols": self.config.get("grid_cols"),
                 "rows": self.config.get("grid_rows"),
                 "coord_system": "axial",
-                "orientation": "pointy"
+                "orientation": "pointy",
+                "background": self._serialize_background_info()
             },
             "terrain": self.hex_data,
             "key_points": self.key_points,
@@ -1321,6 +2117,14 @@ class MapEditor:
         print(f"Wczytywanie danych z: {self.current_working_file}")
         loaded_data = wczytaj_dane_hex(self.current_working_file)
         if loaded_data:
+            meta = loaded_data.get("meta", {})
+            if meta:
+                self.hex_size = meta.get("hex_size", self.hex_size)
+                self.config["grid_cols"] = meta.get("cols", self.config.get("grid_cols"))
+                self.config["grid_rows"] = meta.get("rows", self.config.get("grid_rows"))
+                self._apply_background_metadata(meta.get("background"))
+            else:
+                self._apply_background_metadata(None)
             orientation = loaded_data.get("meta", {}).get("orientation", "pointy")
             self.orientation = orientation  # przechowaj w obiekcie, przyda się GUI
             if "meta" not in loaded_data:          # plik starego formatu
@@ -1366,6 +2170,8 @@ class MapEditor:
             print(f"📍 Kluczowe punkty: {len(self.key_points)}")
             print(f"🚀 Punkty wystawienia: {sum(len(v) for v in self.spawn_points.values())}")
         else:
+            self._apply_background_metadata(None)
+            self.load_map_image()
             print("⚠️  Brak danych do wczytania lub plik nie istnieje")
 
     def clear_variables(self):
