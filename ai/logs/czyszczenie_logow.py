@@ -25,6 +25,7 @@ TARGET_DIRS = [
     PACKAGE_ROOT / "commander" / "text",
     PACKAGE_ROOT / "general" / "csv",
     PACKAGE_ROOT / "general" / "text",
+    PACKAGE_ROOT / "general" / "raporty",
     PACKAGE_ROOT / "human" / "csv",
     PACKAGE_ROOT / "human" / "text",
     PACKAGE_ROOT / "human" / "raporty",

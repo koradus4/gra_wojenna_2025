@@ -8,6 +8,7 @@ pliki są objęte standardowym czyszczeniem przez `ai/logs/czyszczenie_logow.py`
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 from collections import Counter, defaultdict
@@ -43,6 +44,8 @@ RE_AGRESYWNY = re.compile(
 RE_KEY_VALUE = re.compile(r"(\w+)=([^,\s]+)")
 
 TOKEN_ASSETS_ROOT = Path("assets/tokens")
+GENERAL_CSV_DIR = Path("ai/logs/general/csv")
+COMMANDER_CSV_DIR = Path("ai/logs/commander/csv")
 TOKEN_NATION_CACHE: dict[str, str] = {}
 FALLBACK_PREFIX_MAP = {
     "P": "Piechota",
@@ -107,6 +110,93 @@ SPECIALIST_TRANSLATIONS: Dict[str, str] = {
     "ReconSpecialist": "Rozpoznanie",
     "SupplySpecialist": "Zaopatrzenie",
 }
+
+
+def _find_latest_csv(path: Path) -> Optional[Path]:
+    if path.is_file():
+        return path
+    if not path.exists():
+        return None
+    candidates = sorted(path.glob("*.csv"))
+    return candidates[-1] if candidates else None
+
+
+def _load_csv_rows(csv_path: Path) -> Iterable[Dict[str, str]]:
+    with csv_path.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            yield row
+
+
+def _parse_context_json(raw: Optional[str]) -> Dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _collect_purchase_summary() -> list[Dict[str, Any]]:
+    purchases: list[Dict[str, Any]] = []
+    general_csv = _find_latest_csv(GENERAL_CSV_DIR)
+    if general_csv and general_csv.exists():
+        for row in _load_csv_rows(general_csv):
+            if row.get("message") != "Zakupiono jednostkę":
+                continue
+            context = _parse_context_json(row.get("context"))
+            token_id = context.get("token_id")
+            if not token_id:
+                continue
+            purchases.append(
+                {
+                    "timestamp": row.get("timestamp"),
+                    "turn": context.get("turn"),
+                    "commander_id": context.get("commander_id"),
+                    "token_id": token_id,
+                    "unit_type": context.get("unit_type"),
+                    "unit_size": context.get("unit_size"),
+                    "category": context.get("category"),
+                    "focus": context.get("focus"),
+                    "cost": context.get("cost"),
+                    "folder": context.get("folder"),
+                }
+            )
+
+    if not purchases:
+        return []
+
+    deployments: Dict[str, Dict[str, Any]] = {}
+    commander_csv = _find_latest_csv(COMMANDER_CSV_DIR)
+    if commander_csv and commander_csv.exists():
+        for row in _load_csv_rows(commander_csv):
+            if row.get("message") != "Wystawiono wzmocnienie":
+                continue
+            context = _parse_context_json(row.get("context"))
+            token_id = context.get("token_id")
+            if not token_id:
+                continue
+            deployments[str(token_id)] = {
+                "timestamp": row.get("timestamp"),
+                "commander_id": context.get("commander_id"),
+                "spawn_q": context.get("spawn_q"),
+                "spawn_r": context.get("spawn_r"),
+                "cost": context.get("cost"),
+            }
+
+    for purchase in purchases:
+        token_id = str(purchase.get("token_id"))
+        deployment = deployments.get(token_id)
+        if deployment:
+            purchase["deployed"] = True
+            purchase["spawn_q"] = deployment.get("spawn_q")
+            purchase["spawn_r"] = deployment.get("spawn_r")
+            purchase["deployment_commander_id"] = deployment.get("commander_id")
+        else:
+            purchase["deployed"] = False
+
+    return purchases
 
 
 def format_with_translation(key: str, mapping: Dict[str, str]) -> str:
@@ -208,6 +298,7 @@ class WynikiAnalizy:
     human_notes: list[str] = field(default_factory=list)
     specjalisci: dict[str, SpecialistStats] = field(default_factory=dict)
     plany_ataku: list[Dict[str, Any]] = field(default_factory=list)
+    zakupione_zetony: list[Dict[str, Any]] = field(default_factory=list)
 
 
 def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
@@ -652,6 +743,8 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
         for nazwa, kwota in cv_debug_per.items():
             stats_for(nation=nazwa)["cv_added"] += kwota
 
+    zakupione_zetony = _collect_purchase_summary()
+
     return WynikiAnalizy(
         metryki=metryki,
         zaplanowane_akcje=zaplanowane_akcje,
@@ -665,6 +758,7 @@ def analizuj_linie(linie: Iterable[str]) -> WynikiAnalizy:
         human_notes=human_notes,
         specjalisci={nazwa: stats for nazwa, stats in specjalisci.items()},
         plany_ataku=plany_ataku,
+        zakupione_zetony=zakupione_zetony,
     )
 
 
@@ -717,40 +811,39 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
             linie.append(f"    ◦ {czytelny_powod} ({polska_nazwa}): {licznik}")
 
     linie.append("\n--- RUCH ---")
-    # Łączny dystans
-    linie.append(f"- Łączny dystans pokonany: {m.dystans_ruchu_suma} {odmiana(m.dystans_ruchu_suma, 'heks', 'heksy', 'heksów')}")
-    # Maksymalny dystans w turze
-    linie.append(f"- Maksymalny dystans w jednej turze: {m.max_dystans_tury} {odmiana(m.max_dystans_tury, 'heks', 'heksy', 'heksów')}")
-    # Liczba tur z ruchem i bez ruchu
+    linie.append(
+        f"- Łączny dystans pokonany: {m.dystans_ruchu_suma} {odmiana(m.dystans_ruchu_suma, 'heks', 'heksy', 'heksów')}"
+    )
+    linie.append(
+        f"- Maksymalny dystans w jednej turze: {m.max_dystans_tury} {odmiana(m.max_dystans_tury, 'heks', 'heksy', 'heksów')}"
+    )
     tury_bez_ruchu = m.liczba_tur - m.tury_z_ruchem
     linie.append(f"- Liczba tur z ruchem (>0 heksów): {m.tury_z_ruchem}")
     linie.append(f"- Liczba tur bez ruchu (0 heksów): {tury_bez_ruchu}")
-    # Rozkład dystansów na turę
     if dystanse_tury:
         linie.append("- Rozkład tur wg dystansu:")
         najwiecej_tur = 0
-        najczestszy_dystans = None
+        najczestszy_dystans: Optional[int] = None
         for dystans in sorted(dystanse_tury):
             licznik = dystanse_tury[dystans]
-            jednostka = odmiana(dystans, "heks", "heksy", "heksów")
-            jednostka_tury = odmiana(licznik, "tura", "tury", "tur")
-            linie.append(f"  • {dystans} {jednostka}: {licznik} {jednostka_tury}")
+            linie.append(f"    • {dystans}: {licznik}")
             if licznik > najwiecej_tur:
                 najwiecej_tur = licznik
                 najczestszy_dystans = dystans
         if najczestszy_dystans is not None:
-            linie.append(f"- Najwięcej tur z ruchem na dystansie: {najczestszy_dystans} {odmiana(najczestszy_dystans, 'heks', 'heksy', 'heksów')} ({najwiecej_tur} tur)")
-    # Średnia długość kroku
+            linie.append(
+                f"    • Najczęstszy dystans: {najczestszy_dystans} "
+                f"{odmiana(najczestszy_dystans, 'heks', 'heksy', 'heksów')}"
+            )
     if m.tury_z_ruchem:
         sr_ruch_tura = m.dystans_ruchu_suma / max(1, m.tury_z_ruchem)
         linie.append(f"- Średnia długość ruchu w turze: {sr_ruch_tura:.2f} heksa")
-    # Średnia MP na krok
     if m.kroki_ruchu and m.mp_krokow_suma:
         linie.append(f"- Średnia liczba MP na krok: {m.mp_krokow_suma / max(1, m.kroki_ruchu):.2f}")
-    # Średnia maintenance (MP na turę)
     if m.liczba_tur and m.mp_wydane_suma:
-        linie.append(f"- Średnia liczba MP wydana na turę (maintenance): {m.mp_wydane_suma / m.liczba_tur:.2f}")
-
+        linie.append(
+            f"- Średnia liczba MP wydana na turę (maintenance): {m.mp_wydane_suma / m.liczba_tur:.2f}"
+        )
     linie.append("\n--- ZAOPATRZENIE ---")
     aktywne_nacje: list[str] = []
     if wyniki.per_nacje:
@@ -794,6 +887,60 @@ def formatuj_raport(wyniki: WynikiAnalizy) -> str:
     linie.append(
         f"    • Zwrócone: {total_zwrocone} ({procent_zwrocone:.1f}% pozyskanych)"
     )
+
+    if wyniki.zakupione_zetony:
+        linie.append("\n<details>")
+        linie.append(
+            f"<summary>Zakupione żetony ({len(wyniki.zakupione_zetony)})</summary>"
+        )
+        linie.append(f"- Łącznie zakupione: {len(wyniki.zakupione_zetony)}")
+        for purchase in wyniki.zakupione_zetony:
+            token_id = purchase.get("token_id") or "(brak id)"
+            commander_id = purchase.get("commander_id")
+            cost = purchase.get("cost")
+            category = purchase.get("category") or purchase.get("focus")
+            focus = purchase.get("focus")
+            unit_desc = ", ".join(
+                part for part in [purchase.get("unit_type"), purchase.get("unit_size")] if part
+            )
+            turn = purchase.get("turn")
+            folder = purchase.get("folder")
+
+            details = [f"token {token_id}"]
+            if unit_desc:
+                details.append(unit_desc)
+            if category:
+                label = category if category != focus else category
+                details.append(f"kategoria: {label}")
+            if focus and focus != category:
+                details.append(f"focus: {focus}")
+            if cost is not None:
+                details.append(f"koszt: {cost} PE")
+            if commander_id is not None:
+                details.append(f"dla dowódcy {commander_id}")
+            if turn is not None:
+                details.append(f"tura: {turn}")
+            if folder:
+                details.append(f"folder: {folder}")
+
+            if purchase.get("deployed"):
+                spawn_q = purchase.get("spawn_q")
+                spawn_r = purchase.get("spawn_r")
+                deployment_commander_id = purchase.get("deployment_commander_id") or commander_id
+                if spawn_q is not None and spawn_r is not None:
+                    coords = f"({spawn_q},{spawn_r})"
+                else:
+                    coords = "(brak koordynatów)"
+                status = (
+                    f"wystawiono przez dowódcę {deployment_commander_id} na heksie {coords}"
+                    if deployment_commander_id is not None
+                    else f"wystawiono na heksie {coords}"
+                )
+            else:
+                status = "oczekuje na wystawienie"
+
+            linie.append(f"  • {' | '.join(details)} → {status}")
+        linie.append("</details>")
 
     linie.append("\n--- ATAKI ---")
     if m.planowane_ataki or m.ataki_wykonane:
