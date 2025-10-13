@@ -845,7 +845,8 @@
     "2,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_2_4.png"
     },
     "2,5": {
       "terrain_key": "teren_płaski",
@@ -2835,7 +2836,8 @@
     "7,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_7_0.png"
     },
     "7,1": {
       "terrain_key": "teren_płaski",

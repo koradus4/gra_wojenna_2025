@@ -34,7 +34,7 @@ DEFAULT_MAP_DIR = ASSET_ROOT
 # Zmieniamy domyślną ścieżkę zapisu danych mapy na data/map_data.json
 DATA_FILENAME_WORKING = DATA_ROOT / "map_data.json"
 SOLID_BACKGROUND_COLOR = (48, 64, 40)
-HEX_TEXTURE_GRID_SIZE = 16
+HEX_TEXTURE_GRID_SIZE = 32
 HEX_TEXTURE_EXPORT_SIZE = 256
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
@@ -1630,11 +1630,26 @@ class MapEditor:
         editor.transient(self.root)
         editor.grab_set()
         editor.geometry("820x520")
+        try:
+            editor.state("zoomed")
+        except Exception:
+            try:
+                editor.attributes("-zoomed", True)
+            except Exception:
+                pass
+
+        editor.grid_rowconfigure(0, weight=0)
+        editor.grid_rowconfigure(1, weight=1)
+        editor.grid_columnconfigure(0, weight=1)
+        editor.grid_columnconfigure(1, weight=0)
 
         self._texture_editor_window = editor
 
         grid_size = HEX_TEXTURE_GRID_SIZE
-        cell_size = 28
+        canvas_target_size = 560
+        cell_size = max(14, min(28, canvas_target_size // grid_size))
+        if cell_size <= 0:
+            cell_size = 14
         canvas_size = grid_size * cell_size
 
         preview_canvas = tk.Canvas(
@@ -1644,18 +1659,83 @@ class MapEditor:
             bg="#111111",
             highlightthickness=0
         )
-        preview_canvas.grid(row=0, column=0, rowspan=6, padx=12, pady=12)
+        preview_canvas.grid(row=0, column=0, rowspan=2, padx=12, pady=12, sticky="nsew")
+
+        hex_mask = self._precompute_hex_mask()
+        center = grid_size / 2.0
+        radius = grid_size / 2.0 - 0.05
+
+        q, r = map(int, hex_id.split(","))
+        neighbor_dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+
+        def pixels_to_image(pixel_grid: list[list[str | None]]) -> Image.Image:
+            img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    color = pixel_grid[row][col]
+                    if color:
+                        r_c = int(color[1:3], 16)
+                        g_c = int(color[3:5], 16)
+                        b_c = int(color[5:7], 16)
+                        img.putpixel((col, row), (r_c, g_c, b_c, 255))
+            return img
+
+        def axial_to_canvas_offset(dq: int, dr: int) -> tuple[float, float]:
+            hex_radius_px = canvas_size / 2.0
+            x_off = hex_radius_px * (1.5 * dq)
+            y_off = hex_radius_px * (math.sqrt(3) * (dr + dq / 2))
+            return x_off, y_off
+
+        context_background = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
+        for dq, dr in neighbor_dirs:
+            neighbor_id = f"{q + dq},{r + dr}"
+            neighbor_data = self.hex_data.get(neighbor_id)
+            if not neighbor_data:
+                continue
+            texture_rel = neighbor_data.get("texture")
+            if not texture_rel:
+                continue
+            neighbor_pixels = self._load_hex_texture_pixels(texture_rel)
+            neighbor_img = pixels_to_image(neighbor_pixels)
+            if neighbor_img is None:
+                continue
+            neighbor_img = neighbor_img.resize((canvas_size, canvas_size), Image.NEAREST)
+            alpha_channel = neighbor_img.getchannel("A")
+            faded = neighbor_img.copy()
+            faded.putalpha(alpha_channel.point(lambda a: int(a * 0.55)))
+            offset_x, offset_y = axial_to_canvas_offset(dq, dr)
+            center_px = canvas_size / 2.0
+            paste_x = int(round(center_px + offset_x - canvas_size / 2.0))
+            paste_y = int(round(center_px + offset_y - canvas_size / 2.0))
+            context_background.paste(faded, (paste_x, paste_y), faded)
+
+        background_photo = ImageTk.PhotoImage(context_background) if context_background else None
+        outline_points: list[float] = []
+        for i in range(6):
+            angle = math.radians(90 + i * 60)
+            px = (center + radius * math.cos(angle)) * cell_size
+            py = (center + radius * math.sin(angle)) * cell_size
+            outline_points.extend((px, py))
 
         state = {
             "pixels": pixels,
             "current_color": "#ffffff",
             "eraser": False,
+            "mask": hex_mask,
+            "background_photo": background_photo,
         }
 
         def draw_grid():
+            preview_canvas.delete("background")
+            if state.get("background_photo"):
+                preview_canvas.create_image(0, 0, anchor="nw", image=state["background_photo"], tags="background")
+                preview_canvas._background_photo = state["background_photo"]
             preview_canvas.delete("cell")
+            preview_canvas.delete("outline")
             for row in range(grid_size):
                 for col in range(grid_size):
+                    if not state["mask"][row][col]:
+                        continue
                     x0 = col * cell_size
                     y0 = row * cell_size
                     fill = state["pixels"][row][col] or ""
@@ -1669,6 +1749,14 @@ class MapEditor:
                         width=1,
                         tags=("cell", f"cell_{row}_{col}")
                     )
+            preview_canvas.create_polygon(
+                *outline_points,
+                outline="#bbbbbb",
+                fill="",
+                width=2,
+                tags="outline",
+                smooth=False
+            )
 
         def set_current_color(color: str):
             state["current_color"] = color
@@ -1685,7 +1773,7 @@ class MapEditor:
             eraser_btn.config(relief="sunken" if state["eraser"] else "raised")
 
         def apply_color_to_cell(row: int, col: int):
-            if 0 <= row < grid_size and 0 <= col < grid_size:
+            if 0 <= row < grid_size and 0 <= col < grid_size and state["mask"][row][col]:
                 new_val = None if state["eraser"] else state["current_color"]
                 if state["pixels"][row][col] != new_val:
                     state["pixels"][row][col] = new_val
@@ -1700,7 +1788,7 @@ class MapEditor:
         def canvas_pick_color(event):
             col = event.x // cell_size
             row = event.y // cell_size
-            if 0 <= row < grid_size and 0 <= col < grid_size:
+            if 0 <= row < grid_size and 0 <= col < grid_size and state["mask"][row][col]:
                 color = state["pixels"][row][col]
                 if color:
                     set_current_color(color)
@@ -1709,8 +1797,11 @@ class MapEditor:
         preview_canvas.bind("<B1-Motion>", canvas_paint)
         preview_canvas.bind("<Button-3>", canvas_pick_color)
 
+        toolbar = tk.Frame(editor, bg="darkolivegreen")
+        toolbar.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 4))
+
         tools = tk.Frame(editor, bg="darkolivegreen")
-        tools.grid(row=0, column=1, sticky="nsew", padx=(0, 12), pady=12)
+        tools.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
 
         tk.Label(tools, text="Aktualny kolor", bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
         current_color_preview = tk.Label(tools, bg=state["current_color"], width=10, height=2, relief=tk.SUNKEN, bd=2)
@@ -1741,9 +1832,6 @@ class MapEditor:
         tk.Label(tools, text="Lewy przycisk: maluj", bg="darkolivegreen", fg="white").pack(anchor="w", pady=(4, 0))
         tk.Label(tools, text="Prawy przycisk: pipeta", bg="darkolivegreen", fg="white").pack(anchor="w")
 
-        actions = tk.Frame(editor, bg="darkolivegreen")
-        actions.grid(row=1, column=1, sticky="ew", padx=(0, 12))
-
         def save_and_close():
             texture_rel = self._save_hex_texture(hex_id, state["pixels"])
             self.hex_data.setdefault(hex_id, {}).update({"texture": texture_rel})
@@ -1760,8 +1848,8 @@ class MapEditor:
             editor.destroy()
             self._texture_editor_window = None
 
-        tk.Button(actions, text="Zapisz", command=save_and_close, bg="forestgreen", fg="white", width=12).pack(side=tk.LEFT, padx=4, pady=8)
-        tk.Button(actions, text="Anuluj", command=close_editor, bg="saddlebrown", fg="white", width=12).pack(side=tk.LEFT, padx=4, pady=8)
+        tk.Button(toolbar, text="Zapisz", command=save_and_close, bg="forestgreen", fg="white", width=12).pack(side=tk.LEFT, padx=4)
+        tk.Button(toolbar, text="Anuluj", command=close_editor, bg="saddlebrown", fg="white", width=12).pack(side=tk.LEFT, padx=4)
 
         draw_grid()
 
@@ -1778,6 +1866,7 @@ class MapEditor:
 
     def _load_hex_texture_pixels(self, texture_rel: str | None) -> list[list[str | None]]:
         grid_size = HEX_TEXTURE_GRID_SIZE
+        mask = self._precompute_hex_mask()
         pixels: list[list[str | None]] = [[None for _ in range(grid_size)] for _ in range(grid_size)]
         if not texture_rel:
             return pixels
@@ -1790,6 +1879,8 @@ class MapEditor:
                 img = img.resize((grid_size, grid_size), Image.NEAREST)
             for row in range(grid_size):
                 for col in range(grid_size):
+                    if not mask[row][col]:
+                        continue
                     r, g, b, a = img.getpixel((col, row))
                     if a == 0:
                         pixels[row][col] = None
@@ -1801,9 +1892,12 @@ class MapEditor:
 
     def _save_hex_texture(self, hex_id: str, pixels: list[list[str | None]]) -> str:
         grid_size = HEX_TEXTURE_GRID_SIZE
+        mask = self._precompute_hex_mask()
         base_img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
         for row in range(grid_size):
             for col in range(grid_size):
+                if not mask[row][col]:
+                    continue
                 color = pixels[row][col]
                 if color:
                     r = int(color[1:3], 16)
@@ -1835,6 +1929,44 @@ class MapEditor:
         except Exception as exc:
             print(f"Nie udało się wczytać obrazu tekstury: {exc}")
             return None
+
+    def _precompute_hex_mask(self) -> list[list[bool]]:
+        grid_size = HEX_TEXTURE_GRID_SIZE
+        cache = getattr(self, "_hex_texture_masks", None)
+        if cache and grid_size in cache:
+            return cache[grid_size]
+
+        center = grid_size / 2.0
+        radius = grid_size / 2.0 - 0.05
+        vertices = []
+        for i in range(6):
+            angle = math.radians(90 + i * 60)
+            x = center + radius * math.cos(angle)
+            y = center + radius * math.sin(angle)
+            vertices.append((x, y))
+
+        mask = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+        for row in range(grid_size):
+            for col in range(grid_size):
+                sample_points = [
+                    (col + 0.5, row + 0.5),
+                    (col, row),
+                    (col + 1.0, row),
+                    (col, row + 1.0),
+                    (col + 1.0, row + 1.0),
+                ]
+                if any(point_in_polygon(px, py, vertices) for px, py in sample_points):
+                    mask[row][col] = True
+                    continue
+                for vx, vy in vertices:
+                    if col <= vx <= col + 1 and row <= vy <= row + 1:
+                        mask[row][col] = True
+                        break
+
+        if cache is None:
+            self._hex_texture_masks = {}
+        self._hex_texture_masks[grid_size] = mask
+        return mask
 
     def update_hex_info_display(self, hex_id):
         """Aktualizuje wyświetlane informacje o heksie"""
