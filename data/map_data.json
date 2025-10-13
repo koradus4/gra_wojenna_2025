@@ -1241,12 +1241,14 @@
     "3,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_3_3.png"
     },
     "3,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_3_4.png"
     },
     "3,5": {
       "terrain_key": "teren_płaski",
