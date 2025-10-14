@@ -844,9 +844,9 @@
       "texture": "terrain\\hex_painted\\hex_2_3.png"
     },
     "2,4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
+      "terrain_key": "mała rzeka",
+      "move_mod": 2,
+      "defense_mod": 1,
       "texture": "terrain\\hex_painted\\hex_2_4.png"
     },
     "2,5": {
@@ -1652,9 +1652,9 @@
       "defense_mod": 0
     },
     "4,4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
+      "terrain_key": "mała rzeka",
+      "move_mod": 2,
+      "defense_mod": 1
     },
     "4,5": {
       "terrain_key": "teren_płaski",

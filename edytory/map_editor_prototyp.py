@@ -1957,13 +1957,137 @@ class MapEditor:
                     if (row + col) % stride == 0:
                         set_pixel(grid, row, col, color)
 
+        def paint_gradient_disc(grid: list[list[str | None]], center_row: int, center_col: int,
+                                radius: int, inner_color: str, outer_color: str) -> None:
+            """Maluje okrąg z gradientem od środka (inner) do brzegu (outer)"""
+            if radius <= 0:
+                return
+            inner_r = int(inner_color[1:3], 16)
+            inner_g = int(inner_color[3:5], 16)
+            inner_b = int(inner_color[5:7], 16)
+            outer_r = int(outer_color[1:3], 16)
+            outer_g = int(outer_color[3:5], 16)
+            outer_b = int(outer_color[5:7], 16)
+            for row in range(center_row - radius, center_row + radius + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(center_col - radius, center_col + radius + 1):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    dy = row - center_row
+                    dx = col - center_col
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= radius + 0.35:
+                        t = dist / max(1.0, radius)
+                        r = int(inner_r + (outer_r - inner_r) * t)
+                        g = int(inner_g + (outer_g - inner_g) * t)
+                        b = int(inner_b + (outer_b - inner_b) * t)
+                        set_pixel(grid, row, col, f"#{r:02x}{g:02x}{b:02x}")
+
+        def add_procedural_noise(grid: list[list[str | None]], center_row: int, center_col: int,
+                                 radius: int, base_color: str, noise_amount: int, seed: int) -> None:
+            """Dodaje subtelny szum do istniejących pikseli w okręgu (efekt tekstury)"""
+            import random
+            rng = random.Random(seed)
+            base_r = int(base_color[1:3], 16)
+            base_g = int(base_color[3:5], 16)
+            base_b = int(base_color[5:7], 16)
+            for row in range(center_row - radius, center_row + radius + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(center_col - radius, center_col + radius + 1):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    dy = row - center_row
+                    dx = col - center_col
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= radius and grid[row][col] is not None:
+                        offset = rng.randint(-noise_amount, noise_amount)
+                        r = max(0, min(255, base_r + offset))
+                        g = max(0, min(255, base_g + offset))
+                        b = max(0, min(255, base_b + offset))
+                        set_pixel(grid, row, col, f"#{r:02x}{g:02x}{b:02x}")
+
+        def paint_bark_texture(grid: list[list[str | None]], col_left: int, col_right: int,
+                               row_top: int, row_bottom: int, bark_palette: list[str], seed: int) -> None:
+            """Pionowe paski imitujące korę drzewa"""
+            import random
+            rng = random.Random(seed)
+            palette_len = len(bark_palette)
+            for row in range(row_top, row_bottom + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                stripe_shift = rng.randint(0, 2) - 1
+                for col in range(col_left, col_right + 1):
+                    adj_col = col + stripe_shift
+                    if adj_col < 0 or adj_col >= grid_size or not hex_mask[row][adj_col]:
+                        continue
+                    idx = rng.randint(0, palette_len - 1)
+                    set_pixel(grid, row, adj_col, bark_palette[idx])
+
+        def paint_specular_highlight(grid: list[list[str | None]], center_row: int, center_col: int,
+                                     radius: int, color: str) -> None:
+            """Dodaje jasne akcenty (refleksy światła)"""
+            for row in range(center_row - radius, center_row + radius + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(center_col - radius, center_col + radius + 1):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    dy = row - center_row
+                    dx = col - center_col
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= radius:
+                        set_pixel(grid, row, col, color)
+
+        def load_custom_image_presets() -> list[dict]:
+            """Skanuje folder assets/terrain/presets/custom/ i ładuje PNG jako presety"""
+            presets: list[dict] = []
+            custom_dir = ASSET_ROOT / "terrain" / "presets" / "custom"
+            try:
+                custom_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            if not custom_dir.exists():
+                return presets
+            for png_file in sorted(custom_dir.glob("*.png")):
+                try:
+                    img = Image.open(png_file).convert("RGBA")
+                    img.thumbnail((grid_size, grid_size), Image.Resampling.LANCZOS)
+                    canvas = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
+                    offset_x = (grid_size - img.width) // 2
+                    offset_y = (grid_size - img.height) // 2
+                    canvas.paste(img, (offset_x, offset_y), img)
+                    grid = blank_pixel_grid()
+                    px = canvas.load()
+                    for row in range(grid_size):
+                        for col in range(grid_size):
+                            if not hex_mask[row][col]:
+                                continue
+                            r, g, b, a = px[col, row]
+                            if a > 30:
+                                grid[row][col] = f"#{r:02x}{g:02x}{b:02x}"
+                    presets.append({
+                        "id": f"custom_{png_file.stem}",
+                        "name": f"📷 {png_file.stem.replace('_', ' ').title()}",
+                        "pixels": grid,
+                        "preview_photo": build_preset_preview_photo(grid),
+                    })
+                except Exception as exc:
+                    print(f"⚠️  Nie udało się załadować {png_file.name}: {exc}")
+            return presets
+
         def build_forest_presets() -> list[dict]:
             canopy_palette = ["#173220", "#1f4a2f", "#2e663f", "#3f8454", "#58a86c"]
             highlight_palette = ["#6ec57f", "#8bdc99"]
             ground_palette = ["#1f2d22", "#273a2c", "#304736"]
+            bark_palette = ["#3d2817", "#4a3420", "#5c4230", "#6e5138"]
+            shadow_color = "#0f1a12"
             center_row = grid_size // 2
             center_col = grid_size // 2
-            specs = [
+            
+            # Proste presety (istniejące)
+            simple_specs = [
                 {
                     "id": "forest_grove_small",
                     "label": "Las • zagajnik",
@@ -1983,8 +2107,62 @@ class MapEditor:
                     "trees": [(-12, -2, 4), (-6, 5, 4), (2, 8, 4), (10, 2, 3), (4, -6, 3)],
                 },
             ]
+            
+            # Zaawansowane presety (nowe)
+            advanced_specs = [
+                {
+                    "id": "forest_advanced_oak",
+                    "label": "🌳 Las • dąb majestatyczny",
+                    "type": "advanced",
+                    "ground_shadow": {"center": (2, 0), "radius": 12, "inner": "#1a2e1d", "outer": "#0d1a0f"},
+                    "trunk": {"col": 0, "top": -6, "bottom": 6, "width": 2, "seed": 100},
+                    "canopy_layers": [
+                        {"offset": (-8, -2), "radius": 7, "inner": "#2d5016", "outer": "#1a3810"},
+                        {"offset": (-6, 2), "radius": 6, "inner": "#3a6b1e", "outer": "#2d5016"},
+                        {"offset": (-4, -1), "radius": 5, "inner": "#4a8527", "outer": "#3a6b1e"},
+                        {"offset": (-7, 1), "radius": 4, "inner": "#5a9f31", "outer": "#4a8527"},
+                    ],
+                    "highlights": [(-9, -1, 2, "#7cbd42"), (-5, 2, 1, "#8ed155")],
+                    "noise": {"center": (-6, 0), "radius": 8, "base": "#3a6b1e", "amount": 12, "seed": 101},
+                },
+                {
+                    "id": "forest_advanced_pine",
+                    "label": "🌲 Las • sosna nordycka",
+                    "type": "advanced",
+                    "ground_shadow": {"center": (1, 0), "radius": 9, "inner": "#1c2d1e", "outer": "#0e1910"},
+                    "trunk": {"col": 0, "top": -4, "bottom": 8, "width": 1, "seed": 200},
+                    "canopy_layers": [
+                        {"offset": (-12, 0), "radius": 3, "inner": "#1f4a2f", "outer": "#14301f"},
+                        {"offset": (-9, 0), "radius": 4, "inner": "#2e663f", "outer": "#1f4a2f"},
+                        {"offset": (-6, 0), "radius": 5, "inner": "#3f8454", "outer": "#2e663f"},
+                        {"offset": (-3, 0), "radius": 5, "inner": "#4a9860", "outer": "#3f8454"},
+                        {"offset": (0, 0), "radius": 4, "inner": "#58a86c", "outer": "#4a9860"},
+                    ],
+                    "highlights": [(-11, 0, 1, "#6ec57f"), (-7, -1, 1, "#7dd18a")],
+                    "noise": {"center": (-6, 0), "radius": 10, "base": "#3f8454", "amount": 10, "seed": 201},
+                },
+                {
+                    "id": "forest_advanced_birch",
+                    "label": "🍂 Las • brzoza jesienią",
+                    "type": "advanced",
+                    "ground_shadow": {"center": (3, 1), "radius": 10, "inner": "#2a1f1a", "outer": "#1a120e"},
+                    "trunk": {"col": 0, "top": -5, "bottom": 7, "width": 1, "seed": 300},
+                    "trunk_spots": [(-3, 0), (-1, 0), (2, 0), (5, 0)],  # Białe plamy na pniu
+                    "canopy_layers": [
+                        {"offset": (-8, -1), "radius": 6, "inner": "#c49a3d", "outer": "#9a6f28"},
+                        {"offset": (-6, 1), "radius": 5, "inner": "#d4ac52", "outer": "#c49a3d"},
+                        {"offset": (-5, -2), "radius": 4, "inner": "#e6c76b", "outer": "#d4ac52"},
+                        {"offset": (-7, 0), "radius": 4, "inner": "#f2d98a", "outer": "#e6c76b"},
+                    ],
+                    "highlights": [(-9, -1, 2, "#f9e8a8"), (-6, 1, 1, "#ffe5b5")],
+                    "noise": {"center": (-6, 0), "radius": 7, "base": "#d4ac52", "amount": 15, "seed": 301},
+                },
+            ]
+            
             presets: list[dict] = []
-            for spec in specs:
+            
+            # Renderuj proste presety
+            for spec in simple_specs:
                 grid = blank_pixel_grid()
                 ground = spec.get("ground")
                 if ground:
@@ -2007,6 +2185,95 @@ class MapEditor:
                     "pixels": grid,
                     "preview_photo": build_preset_preview_photo(grid),
                 })
+            
+            # Renderuj zaawansowane presety
+            for spec in advanced_specs:
+                grid = blank_pixel_grid()
+                
+                # 1. Cień pod drzewem (gradientowy okrąg)
+                shadow = spec.get("ground_shadow")
+                if shadow:
+                    paint_gradient_disc(
+                        grid,
+                        center_row + shadow["center"][0],
+                        center_col + shadow["center"][1],
+                        shadow["radius"],
+                        shadow["inner"],
+                        shadow["outer"]
+                    )
+                
+                # 2. Pień z teksturą kory
+                trunk = spec.get("trunk")
+                if trunk:
+                    trunk_col = center_col + trunk["col"]
+                    trunk_left = trunk_col - trunk["width"] // 2
+                    trunk_right = trunk_left + trunk["width"]
+                    paint_bark_texture(
+                        grid,
+                        trunk_left,
+                        trunk_right,
+                        center_row + trunk["top"],
+                        center_row + trunk["bottom"],
+                        bark_palette,
+                        trunk["seed"]
+                    )
+                
+                # 2b. Białe plamy (brzoza)
+                trunk_spots = spec.get("trunk_spots")
+                if trunk_spots:
+                    for spot_offset_row, spot_offset_col in trunk_spots:
+                        spot_row = center_row + spot_offset_row
+                        spot_col = center_col + spot_offset_col
+                        if 0 <= spot_row < grid_size and 0 <= spot_col < grid_size and hex_mask[spot_row][spot_col]:
+                            set_pixel(grid, spot_row, spot_col, "#e8e8e8")
+                            if spot_col - 1 >= 0 and hex_mask[spot_row][spot_col - 1]:
+                                set_pixel(grid, spot_row, spot_col - 1, "#d4d4d4")
+                
+                # 3. Wielowarstwowa korona (od najciemniejszej do najjaśniejszej)
+                canopy_layers = spec.get("canopy_layers", [])
+                for layer in canopy_layers:
+                    layer_row = center_row + layer["offset"][0]
+                    layer_col = center_col + layer["offset"][1]
+                    paint_gradient_disc(
+                        grid,
+                        layer_row,
+                        layer_col,
+                        layer["radius"],
+                        layer["inner"],
+                        layer["outer"]
+                    )
+                
+                # 4. Szum proceduralny (tekstura liści)
+                noise_spec = spec.get("noise")
+                if noise_spec:
+                    add_procedural_noise(
+                        grid,
+                        center_row + noise_spec["center"][0],
+                        center_col + noise_spec["center"][1],
+                        noise_spec["radius"],
+                        noise_spec["base"],
+                        noise_spec["amount"],
+                        noise_spec["seed"]
+                    )
+                
+                # 5. Akcenty światła (highlights)
+                highlights = spec.get("highlights", [])
+                for h_offset_row, h_offset_col, h_radius, h_color in highlights:
+                    paint_specular_highlight(
+                        grid,
+                        center_row + h_offset_row,
+                        center_col + h_offset_col,
+                        h_radius,
+                        h_color
+                    )
+                
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            
             return presets
 
         def build_river_presets() -> list[dict]:
@@ -2302,6 +2569,12 @@ class MapEditor:
                 "label": "Kolej",
                 "icon": "🚆",
                 "builder": build_rail_presets,
+            },
+            {
+                "key": "custom",
+                "label": "Własne grafiki",
+                "icon": "🖼️",
+                "builder": load_custom_image_presets,
             },
         ]
 
@@ -2955,10 +3228,23 @@ class MapEditor:
         palette_frame.pack(fill=tk.X, pady=(8, 4))
 
         default_palette = [
-            "#2f4f4f", "#556b2f", "#8b4513", "#b8860b",
-            "#deb887", "#d2691e", "#6b8e23", "#87ceeb",
-            "#4682b4", "#c0c0c0", "#ffffff", "#000000",
+            "#1f3b17", "#274a1c", "#315a22", "#3c6b28",
+            "#48802f", "#579637", "#69ac41", "#7ccf4d",
+            "#2b1a10", "#3a2313", "#4a2e17", "#5b3a1d",
+            "#6e4724", "#82552c", "#986236", "#b37445",
+            "#c1864f", "#d39a56", "#e5af5e", "#f3c56a",
+            "#152f49", "#1f4261", "#29567a", "#336b93",
+            "#4181ac", "#4f99c5", "#5fb1df", "#72c9f6",
+            "#2c2c2c", "#393939", "#4b4b4b", "#5e5e5e",
+            "#757575", "#909090", "#b0b0b0", "#d0d0d0",
+            "#7f301f", "#9b3e26", "#ba4d2e", "#da5e37",
+            "#f27440", "#f58d4f", "#f7a75f", "#f9c27b",
+            "#a4d87a", "#c0e99b", "#e8f2ff", "#fefefe",
         ]
+        palette_columns = 8
+        for col in range(palette_columns):
+            palette_frame.grid_columnconfigure(col, weight=1)
+
         for idx, pal_color in enumerate(default_palette):
             btn = tk.Button(
                 palette_frame,
@@ -2966,9 +3252,9 @@ class MapEditor:
                 width=3,
                 command=lambda c=pal_color: set_current_color(c)
             )
-            btn.grid(row=idx // 4, column=idx % 4, padx=2, pady=2, sticky="nsew")
+            btn.grid(row=idx // palette_columns, column=idx % palette_columns, padx=2, pady=2, sticky="nsew")
 
-        transparent_row = (len(default_palette) + 3) // 4
+        transparent_row = (len(default_palette) + (palette_columns - 1)) // palette_columns
         transparent_btn = tk.Button(
             palette_frame,
             text="Przezroczysty",
@@ -2976,7 +3262,7 @@ class MapEditor:
             bg="#222222",
             fg="white"
         )
-        transparent_btn.grid(row=transparent_row, column=0, columnspan=4, padx=2, pady=(4, 2), sticky="nsew")
+        transparent_btn.grid(row=transparent_row, column=0, columnspan=palette_columns, padx=2, pady=(4, 2), sticky="nsew")
 
         eraser_btn = tk.Button(tools, text="Gumka", command=toggle_eraser, bg="#444", fg="white")
         eraser_btn.pack(fill=tk.X, pady=(8, 2))
@@ -3339,9 +3625,7 @@ class MapEditor:
         # print('[STATUS]', msg)
 
     def auto_save(self, reason: str):
-        if not getattr(self, 'auto_save_enabled', None):
-            return
-        if not self.auto_save_enabled.get():
+        if not getattr(self, 'auto_save_enabled', True):
             return
         # debounce
         if hasattr(self, '_auto_save_after') and self._auto_save_after:
@@ -3687,23 +3971,31 @@ class MapEditor:
             return
         terrain = TERRAIN_TYPES.get(terrain_key)
         if terrain:
-            # Sprawdź, czy teren jest domyślny
-            if (terrain.get('move_mod', 0) == self.hex_defaults.get('move_mod', 0) and
-                terrain.get('defense_mod', 0) == self.hex_defaults.get('defense_mod', 0)):
-                # Jeśli teren jest domyślny, usuń wpis z hex_data
-                if self.selected_hex in self.hex_data:
-                    del self.hex_data[self.selected_hex]
-            else:
-                # W przeciwnym razie, dodaj/zaktualizuj wpis z kluczem terenu
-                self.hex_data[self.selected_hex] = {
+            updated_record = self.hex_data.get(self.selected_hex, {}).copy()
+            updated_record["terrain_key"] = terrain_key
+            updated_record["move_mod"] = terrain["move_mod"]
+            updated_record["defense_mod"] = terrain["defense_mod"]
+
+            is_default_flat = (
+                terrain_key == "teren_płaski"
+                and terrain["move_mod"] == self.hex_defaults.get("move_mod", 0)
+                and terrain["defense_mod"] == self.hex_defaults.get("defense_mod", 0)
+            )
+            extra_keys = {k for k in updated_record.keys() if k not in {"terrain_key", "move_mod", "defense_mod"}}
+
+            if is_default_flat and not extra_keys:
+                updated_record = {
                     "terrain_key": terrain_key,
                     "move_mod": terrain["move_mod"],
                     "defense_mod": terrain["defense_mod"]
                 }
+
+            self.hex_data[self.selected_hex] = updated_record
+            terrain_for_draw = updated_record
             # Zapisz dane i odrysuj heks
             self.save_data()
             cx, cy = self.hex_centers[self.selected_hex]
-            self.draw_hex(self.selected_hex, cx, cy, self.hex_size, terrain)
+            self.draw_hex(self.selected_hex, cx, cy, self.hex_size, terrain_for_draw)
             messagebox.showinfo("Zapisano", f"Dla heksu {self.selected_hex} ustawiono teren: {terrain_key}")
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
@@ -3956,19 +4248,30 @@ class MapEditor:
         hex_id = f"{q},{r}"
         terrain = TERRAIN_TYPES.get(terrain_key)
         if terrain:
-            if (terrain.get('move_mod', 0) == self.hex_defaults.get('move_mod', 0) and
-                terrain.get('defense_mod', 0) == self.hex_defaults.get('defense_mod', 0)):
-                if hex_id in self.hex_data:
-                    del self.hex_data[hex_id]
-            else:
-                self.hex_data[hex_id] = {
+            updated_record = self.hex_data.get(hex_id, {}).copy()
+            updated_record["terrain_key"] = terrain_key
+            updated_record["move_mod"] = terrain["move_mod"]
+            updated_record["defense_mod"] = terrain["defense_mod"]
+
+            is_default_flat = (
+                terrain_key == "teren_płaski"
+                and terrain["move_mod"] == self.hex_defaults.get("move_mod", 0)
+                and terrain["defense_mod"] == self.hex_defaults.get("defense_mod", 0)
+            )
+            extra_keys = {k for k in updated_record.keys() if k not in {"terrain_key", "move_mod", "defense_mod"}}
+
+            if is_default_flat and not extra_keys:
+                updated_record = {
                     "terrain_key": terrain_key,
                     "move_mod": terrain["move_mod"],
                     "defense_mod": terrain["defense_mod"]
                 }
+
+            self.hex_data[hex_id] = updated_record
+            terrain_for_draw = updated_record
             self.save_data()
             cx, cy = self.hex_centers[hex_id]
-            self.draw_hex(hex_id, cx, cy, self.hex_size, terrain)
+            self.draw_hex(hex_id, cx, cy, self.hex_size, terrain_for_draw)
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
         self.auto_save('malowanie terenu')
