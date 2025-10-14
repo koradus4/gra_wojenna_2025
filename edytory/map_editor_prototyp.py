@@ -38,6 +38,7 @@ HEX_TEXTURE_GRID_SIZE = 64
 HEX_TEXTURE_EXPORT_SIZE = 512
 NEIGHBOR_PREVIEW_SCALE = 1.0
 CONTEXT_CANVAS_SCALE = 1.8
+EDGE_BAND_CELLS = 3
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
 HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1655,12 +1656,12 @@ class MapEditor:
         editor.grid_rowconfigure(0, weight=0)
         editor.grid_rowconfigure(1, weight=1)
         editor.grid_columnconfigure(0, weight=1)
-        editor.grid_columnconfigure(1, weight=0)
+        editor.grid_columnconfigure(1, weight=0, minsize=360)
 
         self._texture_editor_window = editor
 
         grid_size = HEX_TEXTURE_GRID_SIZE
-        canvas_target_size = 560
+        canvas_target_size = 480
         cell_size = max(14, min(28, canvas_target_size // grid_size))
         if cell_size <= 0:
             cell_size = 14
@@ -1698,6 +1699,101 @@ class MapEditor:
         mask_radius_px = mask_radius_units * cell_size
         q, r = map(int, hex_id.split(","))
         neighbor_dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
+        centers = getattr(self, "hex_centers", {})
+        main_center = centers.get(hex_id)
+        units_scale = (mask_radius_units / self.hex_size) if (main_center and self.hex_size) else None
+
+        edge_definitions = [
+            {"key": "E", "label": "Prawa krawędź", "direction": (1, 0)},
+            {"key": "NE", "label": "Prawa górna krawędź", "direction": (1, -1)},
+            {"key": "NW", "label": "Lewa górna krawędź", "direction": (0, -1)},
+            {"key": "W", "label": "Lewa krawędź", "direction": (-1, 0)},
+            {"key": "SW", "label": "Lewa dolna krawędź", "direction": (-1, 1)},
+            {"key": "SE", "label": "Prawa dolna krawędź", "direction": (0, 1)},
+        ]
+
+        def canvas_offset_for_hex(target_hex_id: str, dq: int, dr: int) -> tuple[float, float]:
+            if units_scale and target_hex_id in centers and main_center:
+                target_center = centers[target_hex_id]
+                dx_units = (target_center[0] - main_center[0]) * units_scale
+                dy_units = (target_center[1] - main_center[1]) * units_scale
+            else:
+                dx_units = (3.0 / 2.0) * dq * mask_radius_units
+                dy_units = (math.sqrt(3) * (dr + dq / 2.0)) * mask_radius_units
+            dx_cells = int(round(dx_units))
+            dy_cells = int(round(dy_units))
+            return dx_cells * cell_size, dy_cells * cell_size
+
+        def dilate_mask(base_mask: list[list[bool]], iterations: int) -> list[list[bool]]:
+            current = [row[:] for row in base_mask]
+            if iterations <= 0:
+                return current
+            for _ in range(iterations):
+                expanded = [row[:] for row in current]
+                for row in range(grid_size):
+                    for col in range(grid_size):
+                        if expanded[row][col] or not hex_mask[row][col]:
+                            continue
+                        for d_row, d_col in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            n_row = row + d_row
+                            n_col = col + d_col
+                            if 0 <= n_row < grid_size and 0 <= n_col < grid_size and current[n_row][n_col]:
+                                expanded[row][col] = True
+                                break
+                current = expanded
+            return current
+
+        def build_edge_mode_data() -> dict[str, dict]:
+            data: dict[str, dict] = {}
+            for entry in edge_definitions:
+                dq, dr = entry["direction"]
+                neighbor_id = f"{q + dq},{r + dr}"
+                enabled = neighbor_id in centers
+                edge_data = {
+                    "key": entry["key"],
+                    "label": entry["label"],
+                    "direction": (dq, dr),
+                    "neighbor_id": neighbor_id,
+                    "enabled": enabled,
+                    "dx_cells": 0,
+                    "dy_cells": 0,
+                    "band_mask": [[False for _ in range(grid_size)] for _ in range(grid_size)],
+                    "neighbor_pixels": None,
+                    "neighbor_texture_rel": None,
+                    "neighbor_mask": hex_mask,
+                    "dirty": False,
+                }
+                if not enabled:
+                    data[entry["key"]] = edge_data
+                    continue
+                dx_canvas, dy_canvas = canvas_offset_for_hex(neighbor_id, dq, dr)
+                dx_cells = int(round(dx_canvas / cell_size))
+                dy_cells = int(round(dy_canvas / cell_size))
+                edge_data["dx_cells"] = dx_cells
+                edge_data["dy_cells"] = dy_cells
+                base_band = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+                for row in range(grid_size):
+                    if not any(hex_mask[row]):
+                        continue
+                    for col in range(grid_size):
+                        if not hex_mask[row][col]:
+                            continue
+                        n_row = row - dy_cells
+                        n_col = col - dx_cells
+                        if 0 <= n_row < grid_size and 0 <= n_col < grid_size and hex_mask[n_row][n_col]:
+                            base_band[row][col] = True
+                iterations = max(0, EDGE_BAND_CELLS - 1)
+                edge_data["band_mask"] = dilate_mask(base_band, iterations)
+                neighbor_terrain = self.hex_data.get(neighbor_id)
+                neighbor_pixels = self._load_hex_texture_pixels(neighbor_terrain.get("texture") if neighbor_terrain else None)
+                edge_data["neighbor_pixels"] = neighbor_pixels
+                edge_data["neighbor_texture_rel"] = neighbor_terrain.get("texture") if neighbor_terrain else None
+                has_band = any(any(row) for row in edge_data["band_mask"])
+                edge_data["enabled"] = enabled and has_band
+                data[entry["key"]] = edge_data
+            return data
+
+        edge_mode_data = build_edge_mode_data()
 
         def pixels_to_image(pixel_grid: list[list[str | None]]) -> Image.Image:
             img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
@@ -1711,22 +1807,503 @@ class MapEditor:
                         img.putpixel((col, row), (r_c, g_c, b_c, 255))
             return img
 
-        centers = getattr(self, "hex_centers", {})
-        main_center = centers.get(hex_id)
-        map_to_preview_scale = None
-        if main_center and self.hex_size:
-            map_to_preview_scale = mask_radius_px / self.hex_size
+        def blank_pixel_grid() -> list[list[str | None]]:
+            return [[None for _ in range(grid_size)] for _ in range(grid_size)]
 
-        def canvas_offset_for_hex(target_hex_id: str, dq: int, dr: int) -> tuple[float, float]:
-            if map_to_preview_scale and target_hex_id in centers:
-                target_center = centers[target_hex_id]
-                dx_map = target_center[0] - main_center[0]
-                dy_map = target_center[1] - main_center[1]
-                return dx_map * map_to_preview_scale, dy_map * map_to_preview_scale
-            # Fallback do przybliżonej geometrii kiedy brak danych mapy
-            x_off = mask_radius_px * (3.0 / 2.0) * dq
-            y_off = mask_radius_px * (math.sqrt(3) * (dr + dq / 2.0))
-            return x_off, y_off
+        def hex_to_rgba(color: str, alpha: int = 255) -> tuple[int, int, int, int]:
+            return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16), alpha
+
+        def create_stamp_overlay_image(pixel_grid: list[list[str | None]], alpha: int = 180) -> Image.Image:
+            base = pixels_to_image(pixel_grid).resize((canvas_size, canvas_size), Image.NEAREST)
+            if alpha >= 255:
+                return base
+            overlay = base.copy()
+            overlay_data = []
+            for r, g, b, a in overlay.getdata():
+                if a == 0:
+                    overlay_data.append((r, g, b, 0))
+                else:
+                    overlay_data.append((r, g, b, alpha))
+            overlay.putdata(overlay_data)
+            return overlay
+
+        def build_preset_preview_photo(pixel_grid: list[list[str | None]]) -> ImageTk.PhotoImage:
+            mini = pixels_to_image(pixel_grid)
+            preview_bg = Image.new("RGBA", mini.size, (36, 48, 32, 255))
+            preview_bg.alpha_composite(mini)
+            preview = preview_bg.resize((96, 96), Image.NEAREST)
+            return ImageTk.PhotoImage(preview)
+
+        def set_pixel(grid: list[list[str | None]], row: int, col: int, color: str) -> None:
+            if 0 <= row < grid_size and 0 <= col < grid_size and hex_mask[row][col]:
+                grid[row][col] = color
+
+        def set_pixel_if_empty(grid: list[list[str | None]], row: int, col: int, color: str) -> None:
+            if 0 <= row < grid_size and 0 <= col < grid_size and hex_mask[row][col] and grid[row][col] is None:
+                grid[row][col] = color
+
+        def paint_disc(grid: list[list[str | None]], center_row: int, center_col: int, radius: int,
+                       palette: list[str]) -> None:
+            if radius <= 0:
+                return
+            palette_len = len(palette)
+            for row in range(center_row - radius, center_row + radius + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(center_col - radius, center_col + radius + 1):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    dy = row - center_row
+                    dx = col - center_col
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= radius + 0.35:
+                        t = dist / max(1.0, radius)
+                        idx = min(palette_len - 1, int(t * (palette_len - 1)))
+                        set_pixel(grid, row, col, palette[idx])
+
+        def paint_soft_patch(grid: list[list[str | None]], center_row: int, center_col: int,
+                             radius_row: int, radius_col: int, palette: list[str]) -> None:
+            palette_len = len(palette)
+            for row in range(center_row - radius_row, center_row + radius_row + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(center_col - radius_col, center_col + radius_col + 1):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    dy = (row - center_row) / max(1.0, radius_row)
+                    dx = (col - center_col) / max(1.0, radius_col)
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist <= 1.0:
+                        idx = min(palette_len - 1, int(dist * (palette_len - 1)))
+                        set_pixel_if_empty(grid, row, col, palette[idx])
+
+        def draw_polyline(grid: list[list[str | None]], points: list[tuple[int, int]], width: int,
+                          palette: list[str], overwrite: bool = True) -> None:
+            if len(points) < 2:
+                return
+            palette_len = len(palette)
+            for idx in range(len(points) - 1):
+                r0, c0 = points[idx]
+                r1, c1 = points[idx + 1]
+                steps = max(abs(r1 - r0), abs(c1 - c0)) * 4
+                if steps <= 0:
+                    steps = 1
+                for step in range(steps + 1):
+                    t = step / steps
+                    row = int(round(r0 + (r1 - r0) * t))
+                    col = int(round(c0 + (c1 - c0) * t))
+                    for dy in range(-width, width + 1):
+                        target_row = row + dy
+                        if target_row < 0 or target_row >= grid_size:
+                            continue
+                        for dx in range(-width, width + 1):
+                            target_col = col + dx
+                            if target_col < 0 or target_col >= grid_size or not hex_mask[target_row][target_col]:
+                                continue
+                            dist = math.sqrt(dx * dx + dy * dy)
+                            if dist <= width + 0.35:
+                                shade = dist / max(1.0, width)
+                                color_idx = min(palette_len - 1, int(shade * (palette_len - 1)))
+                                if overwrite or grid[target_row][target_col] is None:
+                                    set_pixel(grid, target_row, target_col, palette[color_idx])
+
+        def draw_dashed_line(grid: list[list[str | None]], points: list[tuple[int, int]], spacing: float,
+                             color: str) -> None:
+            if len(points) < 2:
+                return
+            distance_acc = 0.0
+            last_row, last_col = points[0]
+            for idx in range(len(points) - 1):
+                r0, c0 = points[idx]
+                r1, c1 = points[idx + 1]
+                steps = max(abs(r1 - r0), abs(c1 - c0)) * 4
+                if steps <= 0:
+                    steps = 1
+                for step in range(steps + 1):
+                    t = step / steps
+                    row = int(round(r0 + (r1 - r0) * t))
+                    col = int(round(c0 + (c1 - c0) * t))
+                    segment = math.sqrt((row - last_row) ** 2 + (col - last_col) ** 2)
+                    distance_acc += segment
+                    last_row, last_col = row, col
+                    if int(distance_acc / spacing) % 2 == 0:
+                        set_pixel(grid, row, col, color)
+
+        def fill_rect(grid: list[list[str | None]], top: int, left: int, height: int, width_rect: int,
+                      palette: list[str]) -> None:
+            if height <= 0 or width_rect <= 0:
+                return
+            palette_len = len(palette)
+            for row in range(top, top + height):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(left, left + width_rect):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    rel_row = (row - top) / max(1, height - 1)
+                    rel_col = (col - left) / max(1, width_rect - 1)
+                    weight = max(0.0, min(0.999, rel_row * 0.6 + rel_col * 0.4))
+                    idx = min(palette_len - 1, int(weight * (palette_len - 1)))
+                    set_pixel(grid, row, col, palette[idx])
+
+        def sprinkle_windows(grid: list[list[str | None]], top: int, left: int, height: int, width_rect: int,
+                              color: str, stride: int) -> None:
+            for row in range(top, top + height):
+                if row < 0 or row >= grid_size:
+                    continue
+                for col in range(left, left + width_rect):
+                    if col < 0 or col >= grid_size or not hex_mask[row][col]:
+                        continue
+                    if (row + col) % stride == 0:
+                        set_pixel(grid, row, col, color)
+
+        def build_forest_presets() -> list[dict]:
+            canopy_palette = ["#173220", "#1f4a2f", "#2e663f", "#3f8454", "#58a86c"]
+            highlight_palette = ["#6ec57f", "#8bdc99"]
+            ground_palette = ["#1f2d22", "#273a2c", "#304736"]
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "forest_grove_small",
+                    "label": "Las • zagajnik",
+                    "ground": {"offset": (2, 0), "radius_row": 18, "radius_col": 20},
+                    "trees": [(-8, -6, 4), (-6, 6, 3), (0, -2, 4), (7, 5, 3)],
+                },
+                {
+                    "id": "forest_dense_cluster",
+                    "label": "Las • gęsty klaster",
+                    "ground": {"offset": (0, 0), "radius_row": 22, "radius_col": 22},
+                    "trees": [(-10, -4, 5), (-2, -8, 4), (-4, 6, 5), (6, -1, 4), (8, 7, 3)],
+                },
+                {
+                    "id": "forest_edge",
+                    "label": "Las • skraj",
+                    "ground": {"offset": (4, -2), "radius_row": 20, "radius_col": 24},
+                    "trees": [(-12, -2, 4), (-6, 5, 4), (2, 8, 4), (10, 2, 3), (4, -6, 3)],
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                ground = spec.get("ground")
+                if ground:
+                    paint_soft_patch(
+                        grid,
+                        center_row + ground["offset"][0],
+                        center_col + ground["offset"][1],
+                        ground["radius_row"],
+                        ground["radius_col"],
+                        ground_palette,
+                    )
+                for offset_row, offset_col, radius in spec["trees"]:
+                    tree_center_row = center_row + offset_row
+                    tree_center_col = center_col + offset_col
+                    paint_disc(grid, tree_center_row, tree_center_col, radius, canopy_palette)
+                    paint_disc(grid, tree_center_row - 1, tree_center_col - 1, max(1, radius - 2), highlight_palette)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        def build_river_presets() -> list[dict]:
+            water_palette = ["#17384f", "#20506c", "#2e6d8c", "#3f8fb5", "#55abd4"]
+            shoreline_palette = ["#243b32", "#2c4a3b", "#335744", "#3e664f"]
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "river_meander",
+                    "label": "Rzeka • meandry",
+                    "branches": [
+                        [(-26, -18), (-16, -8), (-4, 0), (10, 10), (24, 18)],
+                    ],
+                    "width": 3,
+                },
+                {
+                    "id": "river_diagonal",
+                    "label": "Rzeka • ukośna",
+                    "branches": [
+                        [(-24, 16), (-10, 6), (6, -4), (24, -14)],
+                    ],
+                    "width": 3,
+                },
+                {
+                    "id": "river_fork",
+                    "label": "Rzeka • rozwidlenie",
+                    "branches": [
+                        [(-26, -6), (-12, -2), (4, 4), (20, 10)],
+                        [(4, 4), (14, -8), (26, -16)],
+                    ],
+                    "width": 3,
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                for branch in spec["branches"]:
+                    absolute_points = [(center_row + r, center_col + c) for r, c in branch]
+                    draw_polyline(grid, absolute_points, spec["width"], water_palette, overwrite=True)
+                    draw_polyline(grid, absolute_points, spec["width"] + 1, shoreline_palette, overwrite=False)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        def build_city_presets() -> list[dict]:
+            wall_palette = ["#8f8780", "#a69f98", "#c1bbb5", "#dedad5"]
+            roof_palette = ["#b95f40", "#d17d55", "#e69b6f"]
+            window_color = "#f2e6c9"
+            plaza_palette = ["#5d564d", "#6c655b", "#7a7366"]
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "city_quarters",
+                    "label": "Miasto • kwartały",
+                    "blocks": [
+                        {"top": -10, "left": -14, "height": 12, "width": 10},
+                        {"top": -8, "left": 2, "height": 13, "width": 11},
+                        {"top": 4, "left": -6, "height": 9, "width": 12},
+                    ],
+                    "plaza": {"top": -2, "left": -4, "height": 6, "width": 8},
+                },
+                {
+                    "id": "city_riverside",
+                    "label": "Miasto • nad rzeką",
+                    "blocks": [
+                        {"top": -14, "left": -6, "height": 10, "width": 12},
+                        {"top": -2, "left": -12, "height": 12, "width": 9},
+                        {"top": 6, "left": 0, "height": 10, "width": 11},
+                    ],
+                    "plaza": {"top": 0, "left": -3, "height": 5, "width": 7},
+                },
+                {
+                    "id": "city_fortified",
+                    "label": "Miasto • rynek",
+                    "blocks": [
+                        {"top": -8, "left": -10, "height": 14, "width": 8},
+                        {"top": -8, "left": 2, "height": 14, "width": 8},
+                        {"top": -3, "left": -3, "height": 6, "width": 6},
+                    ],
+                    "plaza": {"top": -4, "left": -2, "height": 8, "width": 4},
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                plaza = spec.get("plaza")
+                if plaza:
+                    fill_rect(
+                        grid,
+                        center_row + plaza["top"],
+                        center_col + plaza["left"],
+                        plaza["height"],
+                        plaza["width"],
+                        plaza_palette,
+                    )
+                for block in spec["blocks"]:
+                    top = center_row + block["top"]
+                    left = center_col + block["left"]
+                    fill_rect(grid, top, left, block["height"], block["width"], wall_palette)
+                    sprinkle_windows(grid, top + 1, left + 1, max(1, block["height"] - 2), max(1, block["width"] - 2), window_color, 5)
+                    roof_height = max(1, block["height"] // 3)
+                    fill_rect(grid, top, left, roof_height, block["width"], roof_palette)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        def build_bridge_presets() -> list[dict]:
+            water_palette = ["#123249", "#1a4f70", "#256e96", "#3c8db9"]
+            deck_palette = ["#654d33", "#7a6040", "#937757", "#b3956f"]
+            railing_palette = ["#c9c0a9", "#e3d8bd"]
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "bridge_horizontal",
+                    "label": "Most • poziomy",
+                    "water_patch": {"radius_row": 24, "radius_col": 26, "offset": (0, 0)},
+                    "deck": [(-2, -26), (-1, 26)],
+                    "railing": [(-4, -26), (-3, 26)],
+                    "railing_offset": 4,
+                },
+            {
+                    "id": "bridge_diagonal",
+                    "label": "Most • ukośny",
+                    "water_patch": {"radius_row": 26, "radius_col": 24, "offset": (2, 0)},
+                    "deck": [(-24, -20), (-12, -8), (8, 6), (24, 18)],
+                    "railing": [(-24, -20), (-12, -8), (8, 6), (24, 18)],
+                    "railing_offset": 3,
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                patch = spec["water_patch"]
+                paint_soft_patch(
+                    grid,
+                    center_row + patch["offset"][0],
+                    center_col + patch["offset"][1],
+                    patch["radius_row"],
+                    patch["radius_col"],
+                    water_palette,
+                )
+                deck_points = [(center_row + r, center_col + c) for r, c in spec["deck"]]
+                draw_polyline(grid, deck_points, 2, deck_palette, overwrite=True)
+                railing_points = [(center_row + r, center_col + c) for r, c in spec["railing"]]
+                draw_polyline(grid, railing_points, spec["railing_offset"], railing_palette, overwrite=False)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        def build_road_presets() -> list[dict]:
+            asphalt_palette = ["#1f1c18", "#2a2723", "#37322d", "#4a453f"]
+            shoulder_palette = ["#514a41", "#6a6257", "#7d7467"]
+            center_line_color = "#d9c86a"
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "road_s_curve",
+                    "label": "Droga • łuk",
+                    "path": [(-26, -12), (-12, -6), (0, 0), (12, 6), (26, 12)],
+                    "width": 2,
+                },
+                {
+                    "id": "road_diagonal",
+                    "label": "Droga • ukośna",
+                    "path": [(-24, 14), (-8, 6), (8, -4), (24, -12)],
+                    "width": 2,
+                },
+                {
+                    "id": "road_crossing",
+                    "label": "Droga • skrzyżowanie",
+                    "path": [(-26, 0), (-14, 0), (0, 0), (16, 0), (26, 0)],
+                    "width": 2,
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                path_points = [(center_row + r, center_col + c) for r, c in spec["path"]]
+                draw_polyline(grid, path_points, spec["width"], asphalt_palette, overwrite=True)
+                draw_polyline(grid, path_points, spec["width"] + 1, shoulder_palette, overwrite=False)
+                draw_dashed_line(grid, path_points, spacing=3.5, color=center_line_color)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        def build_rail_presets() -> list[dict]:
+            rail_palette = ["#3f454d", "#59616a", "#7b858f"]
+            sleeper_color = "#6a5139"
+            center_row = grid_size // 2
+            center_col = grid_size // 2
+            specs = [
+                {
+                    "id": "rail_vertical",
+                    "label": "Kolej • pionowa",
+                    "rails": [
+                        [(-26, -4), (-12, -3), (0, -2), (14, -1), (26, 0)],
+                        [(-26, 4), (-12, 3), (0, 2), (14, 1), (26, 0)],
+                    ],
+                    "ties": {"orientation": "horizontal", "start": -24, "end": 24, "step": 4, "half_width": 5},
+                },
+                {
+                    "id": "rail_diagonal",
+                    "label": "Kolej • ukośna",
+                    "rails": [
+                        [(-24, -18), (-10, -8), (8, 6), (24, 16)],
+                        [(-24, -12), (-10, -2), (8, 10), (24, 18)],
+                    ],
+                    "ties": {"orientation": "diagonal", "start": -18, "end": 18, "step": 5, "length": 6},
+                },
+            ]
+            presets: list[dict] = []
+            for spec in specs:
+                grid = blank_pixel_grid()
+                rail_paths = []
+                for rail in spec["rails"]:
+                    points = [(center_row + r, center_col + c) for r, c in rail]
+                    rail_paths.append(points)
+                    draw_polyline(grid, points, 1, rail_palette, overwrite=True)
+                ties = spec["ties"]
+                if ties["orientation"] == "horizontal":
+                    for r_offset in range(ties["start"], ties["end"] + 1, ties["step"]):
+                        row = center_row + r_offset
+                        for col in range(center_col - ties["half_width"], center_col + ties["half_width"] + 1):
+                            set_pixel_if_empty(grid, row, col, sleeper_color)
+                else:
+                    length = ties.get("length", 6)
+                    for diag in range(ties["start"], ties["end"] + 1, ties["step"]):
+                        row = center_row + diag
+                        col = center_col + diag
+                        for offset in range(-length // 2, length // 2 + 1):
+                            set_pixel_if_empty(grid, row - offset, col + offset, sleeper_color)
+                presets.append({
+                    "id": spec["id"],
+                    "name": spec["label"],
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                })
+            return presets
+
+        preset_categories = [
+            {
+                "key": "forest",
+                "label": "Lasy",
+                "icon": "🌲",
+                "builder": build_forest_presets,
+            },
+            {
+                "key": "rivers",
+                "label": "Rzeki",
+                "icon": "🌊",
+                "builder": build_river_presets,
+            },
+            {
+                "key": "cities",
+                "label": "Miasta",
+                "icon": "🏙️",
+                "builder": build_city_presets,
+            },
+            {
+                "key": "bridges",
+                "label": "Mosty",
+                "icon": "🌉",
+                "builder": build_bridge_presets,
+            },
+            {
+                "key": "roads",
+                "label": "Drogi",
+                "icon": "🛣️",
+                "builder": build_road_presets,
+            },
+            {
+                "key": "rail",
+                "label": "Kolej",
+                "icon": "🚆",
+                "builder": build_rail_presets,
+            },
+        ]
 
         neighbor_outline_points: list[list[float]] = []
         for dq, dr in neighbor_dirs:
@@ -1801,7 +2378,277 @@ class MapEditor:
             "eraser": False,
             "mask": hex_mask,
             "background_photo": background_photo,
+            "stamp_pixels": None,
+            "stamp_overlay_photo": None,
+            "stamp_preview_id": None,
+            "stamp_offset": (0, 0),
+            "preset_preview_refs": [],
+            "preset_category_window": None,
+            "preset_detail_window": None,
+            "preset_categories": preset_categories,
+            "edge_mode_active": False,
+            "edge_current_key": None,
+            "edge_neighbors": edge_mode_data,
+            "undo_stack": [],
+            "redo_stack": [],
+            "history_action_active": False,
+            "history_edit_dirty": False,
+            "stamp_scale_percent": 100.0,
+            "stamp_base_pixels": None,
+            "stamp_label": None,
         }
+
+        stamp_status_label = None
+        selected_edge_var = tk.StringVar(value="")
+        edge_status_label = None
+        undo_btn = None
+        redo_btn = None
+        stamp_scale_label = None
+        stamp_scale_widget = None
+        stamp_scale_var = tk.DoubleVar(master=editor, value=100.0)
+
+        HISTORY_LIMIT = 40
+
+        def clone_pixels(source: list[list[str | None]]) -> list[list[str | None]]:
+            return [row[:] for row in source]
+
+        def capture_snapshot() -> dict:
+            neighbors_state: dict[str, dict] = {}
+            for key, entry in state["edge_neighbors"].items():
+                neighbor_pixels = entry.get("neighbor_pixels")
+                neighbors_state[key] = {
+                    "pixels": clone_pixels(neighbor_pixels) if neighbor_pixels is not None else None,
+                    "dirty": entry.get("dirty", False),
+                }
+            return {
+                "pixels": clone_pixels(state["pixels"]),
+                "neighbors": neighbors_state,
+            }
+
+        def restore_snapshot(snapshot: dict) -> None:
+            state["pixels"] = clone_pixels(snapshot["pixels"])
+            for key, neighbor_state in snapshot.get("neighbors", {}).items():
+                entry = state["edge_neighbors"].get(key)
+                if not entry:
+                    continue
+                entry["dirty"] = neighbor_state.get("dirty", False)
+                pixels_snapshot = neighbor_state.get("pixels")
+                entry["neighbor_pixels"] = clone_pixels(pixels_snapshot) if pixels_snapshot is not None else None
+            state["history_edit_dirty"] = False
+
+        def update_history_buttons() -> None:
+            if undo_btn is not None:
+                undo_btn.config(state=tk.NORMAL if state["undo_stack"] else tk.DISABLED)
+            if redo_btn is not None:
+                redo_btn.config(state=tk.NORMAL if state["redo_stack"] else tk.DISABLED)
+
+        def begin_edit_action() -> None:
+            if state["history_action_active"]:
+                return
+            state["undo_stack"].append(capture_snapshot())
+            if len(state["undo_stack"]) > HISTORY_LIMIT:
+                state["undo_stack"].pop(0)
+            state["redo_stack"].clear()
+            state["history_action_active"] = True
+            state["history_edit_dirty"] = False
+            update_history_buttons()
+
+        def finish_edit_action(event=None) -> None:
+            if not state["history_action_active"]:
+                return
+            if not state["history_edit_dirty"] and state["undo_stack"]:
+                state["undo_stack"].pop()
+            state["history_action_active"] = False
+            state["history_edit_dirty"] = False
+            update_history_buttons()
+
+        def undo_action(event=None):
+            if state["history_action_active"]:
+                finish_edit_action()
+            if not state["undo_stack"]:
+                return "break"
+            snapshot = state["undo_stack"].pop()
+            state["redo_stack"].append(capture_snapshot())
+            if len(state["redo_stack"]) > HISTORY_LIMIT:
+                state["redo_stack"].pop(0)
+            restore_snapshot(snapshot)
+            draw_grid()
+            update_history_buttons()
+            return "break"
+
+        def redo_action(event=None):
+            if state["history_action_active"]:
+                finish_edit_action()
+            if not state["redo_stack"]:
+                return "break"
+            snapshot = state["redo_stack"].pop()
+            state["undo_stack"].append(capture_snapshot())
+            if len(state["undo_stack"]) > HISTORY_LIMIT:
+                state["undo_stack"].pop(0)
+            restore_snapshot(snapshot)
+            draw_grid()
+            update_history_buttons()
+            return "break"
+
+        def scale_pixels(source_pixels: list[list[str | None]], percent: float) -> list[list[str | None]]:
+            percent = max(10.0, min(100.0, percent))
+            target = max(1, min(grid_size, int(round(grid_size * percent / 100.0))))
+            if target == grid_size:
+                return clone_pixels(source_pixels)
+            img = pixels_to_image(source_pixels)
+            resized = img.resize((target, target), Image.NEAREST)
+            result = blank_pixel_grid()
+            offset_row = (grid_size - target) // 2
+            offset_col = (grid_size - target) // 2
+            for row in range(target):
+                for col in range(target):
+                    r, g, b, a = resized.getpixel((col, row))
+                    if a == 0:
+                        continue
+                    dst_row = row + offset_row
+                    dst_col = col + offset_col
+                    if 0 <= dst_row < grid_size and 0 <= dst_col < grid_size and hex_mask[dst_row][dst_col]:
+                        result[dst_row][dst_col] = f"#{r:02x}{g:02x}{b:02x}"
+            return result
+
+        def refresh_stamp_from_scale() -> None:
+            if state.get("stamp_base_pixels") is None:
+                return
+            percent = state.get("stamp_scale_percent", 100.0)
+            scaled = scale_pixels(state["stamp_base_pixels"], percent)
+            state["stamp_pixels"] = scaled
+            state["stamp_overlay_photo"] = ImageTk.PhotoImage(create_stamp_overlay_image(scaled))
+            if state.get("stamp_preview_id") is not None:
+                preview_canvas.itemconfig(state["stamp_preview_id"], image=state["stamp_overlay_photo"])
+            update_stamp_overlay_position(*state.get("stamp_offset", (0, 0)))
+
+        def on_scale_change(value: str) -> None:
+            try:
+                percent = float(value)
+            except (TypeError, ValueError):
+                percent = 100.0
+            percent = max(10.0, min(100.0, percent))
+            state["stamp_scale_percent"] = percent
+            if stamp_scale_label is not None:
+                stamp_scale_label.config(text=f"Skala: {int(round(percent))}%")
+            refresh_stamp_from_scale()
+            if stamp_status_label is not None:
+                if state.get("stamp_label"):
+                    stamp_status_label.config(text=f"Preset: {state['stamp_label']} — kliknij, aby wstawić (skala {int(round(percent))}%)")
+                elif state.get("stamp_pixels") is None:
+                    stamp_status_label.config(text="Preset: brak")
+
+        def apply_color_to_neighbor(edge_entry: dict, row: int, col: int, new_val: str | None) -> bool:
+            if not edge_entry or not edge_entry.get("enabled"):
+                return False
+            nr = row - edge_entry["dy_cells"]
+            nc = col - edge_entry["dx_cells"]
+            if not (0 <= nr < grid_size and 0 <= nc < grid_size):
+                return False
+            neighbor_mask = edge_entry.get("neighbor_mask", hex_mask)
+            if not neighbor_mask[nr][nc]:
+                return False
+            neighbor_pixels = edge_entry.get("neighbor_pixels")
+            if neighbor_pixels is None:
+                return False
+            if neighbor_pixels[nr][nc] == new_val:
+                return False
+            neighbor_pixels[nr][nc] = new_val
+            edge_entry["dirty"] = True
+            return True
+
+        def update_stamp_overlay_position(delta_row: int | None = None, delta_col: int | None = None) -> None:
+            if state.get("stamp_pixels") is None or state.get("stamp_overlay_photo") is None:
+                if state.get("stamp_preview_id") is not None:
+                    preview_canvas.delete(state["stamp_preview_id"])
+                    state["stamp_preview_id"] = None
+                return
+            if delta_row is None or delta_col is None:
+                delta_row, delta_col = state.get("stamp_offset", (0, 0))
+            else:
+                state["stamp_offset"] = (delta_row, delta_col)
+            x = grid_offset + delta_col * cell_size
+            y = grid_offset + delta_row * cell_size
+            if state.get("stamp_preview_id") is None:
+                state["stamp_preview_id"] = preview_canvas.create_image(
+                    x,
+                    y,
+                    anchor="nw",
+                    image=state["stamp_overlay_photo"],
+                    tags="stamp_preview"
+                )
+            else:
+                preview_canvas.coords(state["stamp_preview_id"], x, y)
+            preview_canvas.tag_lower("stamp_preview", "outline")
+
+        def clear_stamp_mode(update_label: bool = True) -> None:
+            state["stamp_pixels"] = None
+            state["stamp_overlay_photo"] = None
+            state["stamp_offset"] = (0, 0)
+            state["stamp_base_pixels"] = None
+            state["stamp_label"] = None
+            if state.get("stamp_preview_id") is not None:
+                preview_canvas.delete(state["stamp_preview_id"])
+                state["stamp_preview_id"] = None
+            preview_canvas.config(cursor="")
+            if update_label and stamp_status_label is not None:
+                stamp_status_label.config(text="Preset: brak")
+
+        def enter_stamp_mode(preset: dict) -> None:
+            clear_stamp_mode(update_label=False)
+            state["stamp_base_pixels"] = preset["pixels"]
+            state["stamp_label"] = preset["name"]
+            state["stamp_offset"] = (0, 0)
+            state["stamp_scale_percent"] = float(stamp_scale_var.get())
+            refresh_stamp_from_scale()
+            preview_canvas.config(cursor="hand2")
+            update_stamp_overlay_position(0, 0)
+            if stamp_status_label is not None:
+                stamp_status_label.config(text=f"Preset: {preset['name']} — kliknij, aby wstawić (skala {int(round(state['stamp_scale_percent']))}%)")
+
+        def apply_stamp_at(row: int, col: int) -> None:
+            if state.get("stamp_pixels") is None:
+                return
+            delta_row = row - grid_size // 2
+            delta_col = col - grid_size // 2
+            state["stamp_offset"] = (delta_row, delta_col)
+            update_stamp_overlay_position(delta_row, delta_col)
+            changed = False
+            stamp_pixels = state["stamp_pixels"]
+            neighbor_entry = None
+            if state.get("edge_mode_active") and state.get("edge_current_key"):
+                neighbor_entry = state["edge_neighbors"].get(state["edge_current_key"])
+                if neighbor_entry and not neighbor_entry.get("enabled"):
+                    neighbor_entry = None
+            for src_row in range(grid_size):
+                target_row = src_row + delta_row
+                if not (0 <= target_row < grid_size):
+                    continue
+                for src_col in range(grid_size):
+                    target_col = src_col + delta_col
+                    if not (0 <= target_col < grid_size) or not state["mask"][target_row][target_col]:
+                        continue
+                    color = stamp_pixels[src_row][src_col]
+                    if color is None:
+                        continue
+                    if state["pixels"][target_row][target_col] != color:
+                        state["pixels"][target_row][target_col] = color
+                        changed = True
+                    if neighbor_entry and color is not None:
+                        if apply_color_to_neighbor(neighbor_entry, target_row, target_col, color):
+                            changed = True
+            if changed:
+                state["history_edit_dirty"] = True
+                draw_grid()
+
+        def canvas_motion(event):
+            if state.get("stamp_pixels") is None:
+                return
+            col = int((event.x - grid_offset) // cell_size)
+            row = int((event.y - grid_offset) // cell_size)
+            if 0 <= row < grid_size and 0 <= col < grid_size:
+                update_stamp_overlay_position(row - grid_size // 2, col - grid_size // 2)
+
 
         def draw_grid():
             preview_canvas.delete("background")
@@ -1811,6 +2658,8 @@ class MapEditor:
             preview_canvas.delete("cell")
             preview_canvas.delete("outline")
             preview_canvas.delete("neighbor_outline")
+            preview_canvas.delete("stamp_preview")
+            preview_canvas.delete("edge_band")
             for row in range(grid_size):
                 for col in range(grid_size):
                     if not state["mask"][row][col]:
@@ -1845,8 +2694,166 @@ class MapEditor:
                 tags="outline",
                 smooth=False
             )
+            if state.get("edge_mode_active") and state.get("edge_current_key"):
+                edge_entry = state["edge_neighbors"].get(state["edge_current_key"])
+                if edge_entry and edge_entry.get("enabled"):
+                    for row in range(grid_size):
+                        band_row = edge_entry["band_mask"][row]
+                        if not any(band_row):
+                            continue
+                        for col in range(grid_size):
+                            if not band_row[col]:
+                                continue
+                            x0 = col * cell_size + grid_offset
+                            y0 = row * cell_size + grid_offset
+                            preview_canvas.create_rectangle(
+                                x0,
+                                y0,
+                                x0 + cell_size,
+                                y0 + cell_size,
+                                outline="#ffd966",
+                                width=1,
+                                tags="edge_band"
+                            )
+                    preview_canvas.tag_lower("edge_band", "outline")
+            update_stamp_overlay_position()
+
+        def enter_edge_mode(edge_key: str) -> None:
+            entry = state["edge_neighbors"].get(edge_key)
+            if not entry or not entry.get("enabled"):
+                return
+            if state.get("stamp_pixels") is not None:
+                clear_stamp_mode()
+            state["edge_mode_active"] = True
+            state["edge_current_key"] = edge_key
+            selected_edge_var.set(edge_key)
+            if edge_status_label is not None:
+                edge_status_label.config(text=f"Aktywny: {entry['label']} (sąsiad {entry['neighbor_id']})")
+            draw_grid()
+
+        def exit_edge_mode() -> None:
+            state["edge_mode_active"] = False
+            state["edge_current_key"] = None
+            selected_edge_var.set("")
+            if edge_status_label is not None:
+                edge_status_label.config(text="Aktywny: brak")
+            draw_grid()
+
+        def close_preset_window(ref_key: str) -> None:
+            window = state.get(ref_key)
+            if window and window.winfo_exists():
+                try:
+                    window.destroy()
+                except tk.TclError:
+                    pass
+            state[ref_key] = None
+
+        def open_presets_for_category(category: dict) -> None:
+            existing = state.get("preset_detail_window")
+            if existing and existing.winfo_exists():
+                existing.destroy()
+            win = tk.Toplevel(editor)
+            win.title(f"Presety — {category['label']}")
+            win.configure(bg="darkolivegreen")
+            win.transient(editor)
+            win.geometry("420x420")
+            state["preset_detail_window"] = win
+
+            def on_close_detail() -> None:
+                close_preset_window("preset_detail_window")
+
+            win.protocol("WM_DELETE_WINDOW", on_close_detail)
+
+            header = tk.Label(win, text=category["label"], bg="darkolivegreen", fg="white", font=("Arial", 12, "bold"))
+            header.pack(fill=tk.X, pady=(10, 6))
+
+            content = tk.Frame(win, bg="darkolivegreen")
+            content.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+
+            presets = category["builder"]()
+            state["preset_preview_refs"] = [preset["preview_photo"] for preset in presets]
+
+            if not presets:
+                tk.Label(
+                    content,
+                    text="Brak presetów w tej kategorii",
+                    bg="darkolivegreen",
+                    fg="#f2d7d5",
+                    font=("Arial", 10)
+                ).pack(pady=12)
+                return
+
+            grid = tk.Frame(content, bg="darkolivegreen")
+            grid.pack(fill=tk.BOTH, expand=True)
+            columns = 2
+            for idx, preset in enumerate(presets):
+                grid.grid_columnconfigure(idx % columns, weight=1)
+                btn = tk.Button(
+                    grid,
+                    image=preset["preview_photo"],
+                    text=preset["name"],
+                    compound="top",
+                    bg="darkolivegreen",
+                    fg="white",
+                    activebackground="darkolivegreen",
+                    activeforeground="white",
+                    bd=1,
+                    relief=tk.RIDGE,
+                    wraplength=150,
+                    justify="center",
+                    command=lambda p=preset: (
+                        enter_stamp_mode(p),
+                        close_preset_window("preset_detail_window")
+                    )
+                )
+                btn.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky="nsew")
+
+        def open_preset_library() -> None:
+            existing = state.get("preset_category_window")
+            if existing and existing.winfo_exists():
+                existing.deiconify()
+                existing.lift()
+                return
+            win = tk.Toplevel(editor)
+            win.title("Biblioteka presetów")
+            win.configure(bg="darkolivegreen")
+            win.transient(editor)
+            win.geometry("340x360")
+            win.resizable(False, False)
+            state["preset_category_window"] = win
+
+            def on_close() -> None:
+                close_preset_window("preset_category_window")
+
+            win.protocol("WM_DELETE_WINDOW", on_close)
+
+            tk.Label(
+                win,
+                text="Wybierz kategorię",
+                bg="darkolivegreen",
+                fg="white",
+                font=("Arial", 12, "bold")
+            ).pack(fill=tk.X, pady=(12, 6))
+
+            container = tk.Frame(win, bg="darkolivegreen")
+            container.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+
+            for category in preset_categories:
+                btn = tk.Button(
+                    container,
+                    text=f"{category['icon']}  {category['label']}",
+                    anchor="w",
+                    command=lambda c=category: open_presets_for_category(c),
+                    bg="saddlebrown",
+                    fg="white",
+                    activebackground="saddlebrown",
+                    activeforeground="white"
+                )
+                btn.pack(fill=tk.X, pady=4)
 
         def set_current_color(color: str | None):
+            if state.get("stamp_pixels") is not None:
+                clear_stamp_mode()
             state["current_color"] = color
             state["eraser"] = False
             if color:
@@ -1860,38 +2867,82 @@ class MapEditor:
                 set_current_color(color_code[1])
 
         def toggle_eraser():
+            if state.get("stamp_pixels") is not None:
+                clear_stamp_mode()
             state["eraser"] = not state["eraser"]
             eraser_btn.config(relief="sunken" if state["eraser"] else "raised")
 
         def apply_color_to_cell(row: int, col: int):
-            if 0 <= row < grid_size and 0 <= col < grid_size and state["mask"][row][col]:
-                new_val = None if state["eraser"] else state["current_color"]
-                if state["pixels"][row][col] != new_val:
-                    state["pixels"][row][col] = new_val
-                    fill = new_val if new_val else ""
-                    preview_canvas.itemconfig(f"cell_{row}_{col}", fill=fill)
+            if not (0 <= row < grid_size and 0 <= col < grid_size):
+                return
+            if not state["mask"][row][col]:
+                return
+            edge_entry = None
+            if state.get("edge_mode_active"):
+                edge_key = state.get("edge_current_key")
+                if not edge_key:
+                    return
+                edge_entry = state["edge_neighbors"].get(edge_key)
+                if not edge_entry or not edge_entry.get("enabled"):
+                    return
+                if not edge_entry["band_mask"][row][col]:
+                    return
+            new_val = None if state["eraser"] else state["current_color"]
+            pixel_changed = False
+            if state["pixels"][row][col] != new_val:
+                state["pixels"][row][col] = new_val
+                fill = new_val if new_val else ""
+                preview_canvas.itemconfig(f"cell_{row}_{col}", fill=fill)
+                pixel_changed = True
+            neighbor_changed = False
+            if edge_entry:
+                neighbor_changed = apply_color_to_neighbor(edge_entry, row, col, new_val)
+            if pixel_changed or neighbor_changed:
+                state["history_edit_dirty"] = True
 
         def canvas_paint(event):
             col = int((event.x - grid_offset) // cell_size)
             row = int((event.y - grid_offset) // cell_size)
+            if state.get("stamp_pixels") is not None:
+                if 0 <= row < grid_size and 0 <= col < grid_size:
+                    apply_stamp_at(row, col)
+                return
             apply_color_to_cell(row, col)
 
         def canvas_pick_color(event):
             col = int((event.x - grid_offset) // cell_size)
             row = int((event.y - grid_offset) // cell_size)
-            if 0 <= row < grid_size and 0 <= col < grid_size and state["mask"][row][col]:
-                color = state["pixels"][row][col]
-                if color:
-                    set_current_color(color)
+            if not (0 <= row < grid_size and 0 <= col < grid_size):
+                return
+            if not state["mask"][row][col]:
+                return
+            if state.get("edge_mode_active"):
+                edge_key = state.get("edge_current_key")
+                if not edge_key:
+                    return
+                edge_entry = state["edge_neighbors"].get(edge_key)
+                if not edge_entry or not edge_entry.get("enabled") or not edge_entry["band_mask"][row][col]:
+                    return
+            color = state["pixels"][row][col]
+            if color:
+                if state.get("stamp_pixels") is not None:
+                    clear_stamp_mode()
+                set_current_color(color)
 
-        preview_canvas.bind("<Button-1>", canvas_paint)
+        def handle_left_press(event):
+            begin_edit_action()
+            canvas_paint(event)
+
+        preview_canvas.bind("<ButtonPress-1>", handle_left_press)
         preview_canvas.bind("<B1-Motion>", canvas_paint)
+        preview_canvas.bind("<ButtonRelease-1>", finish_edit_action)
         preview_canvas.bind("<Button-3>", canvas_pick_color)
+        preview_canvas.bind("<Motion>", canvas_motion)
 
-        toolbar = tk.Frame(editor, bg="darkolivegreen")
+        toolbar = tk.Frame(editor, bg="darkolivegreen", width=360)
         toolbar.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 4))
 
-        tools = tk.Frame(editor, bg="darkolivegreen")
+        tools = tk.Frame(editor, bg="darkolivegreen", width=360)
         tools.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
 
         tk.Label(tools, text="Aktualny kolor", bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
@@ -1933,10 +2984,117 @@ class MapEditor:
         tk.Label(tools, text="Lewy przycisk: maluj", bg="darkolivegreen", fg="white").pack(anchor="w", pady=(4, 0))
         tk.Label(tools, text="Prawy przycisk: pipeta", bg="darkolivegreen", fg="white").pack(anchor="w")
 
+        tk.Button(
+            tools,
+            text="Biblioteka presetów…",
+            command=open_preset_library,
+            bg="saddlebrown",
+            fg="white"
+        ).pack(fill=tk.X, pady=(10, 4))
+
+        tk.Button(
+            tools,
+            text="Wyłącz preset",
+            command=clear_stamp_mode,
+            bg="#555555",
+            fg="white"
+        ).pack(fill=tk.X, pady=(0, 4))
+
+        stamp_status_label = tk.Label(tools, text="Preset: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=220, justify="left")
+        stamp_status_label.pack(fill=tk.X, padx=2, pady=(0, 6))
+
+        scale_frame = tk.LabelFrame(tools, text="Skala presetów", bg="darkolivegreen", fg="white")
+        scale_frame.pack(fill=tk.X, pady=(0, 8))
+        stamp_scale_label = tk.Label(scale_frame, text="Skala: 100%", bg="darkolivegreen", fg="#d4f2bf", anchor="w")
+        stamp_scale_label.pack(fill=tk.X, padx=4, pady=(4, 0))
+        stamp_scale_widget = tk.Scale(
+            scale_frame,
+            from_=10,
+            to=100,
+            resolution=5,
+            orient=tk.HORIZONTAL,
+            variable=stamp_scale_var,
+            command=on_scale_change,
+            length=220,
+            bg="darkolivegreen",
+            highlightthickness=0,
+            troughcolor="#555555"
+        )
+        stamp_scale_widget.pack(fill=tk.X, padx=4, pady=(2, 4))
+        on_scale_change(str(stamp_scale_var.get()))
+
+        edge_frame = tk.LabelFrame(tools, text="Pas styku", bg="darkolivegreen", fg="white")
+        edge_frame.pack(fill=tk.X, pady=(12, 6))
+        tk.Label(
+            edge_frame,
+            text="Wybierz krawędź, aby malować styki dwóch heksów jednocześnie.",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            wraplength=180,
+            justify="left"
+        ).pack(fill=tk.X, padx=4, pady=(2, 4))
+        for edge_entry in edge_definitions:
+            edge_info = edge_mode_data[edge_entry["key"]]
+            label_text = f"{edge_entry['label']} → {edge_info['neighbor_id']}"
+            btn = tk.Radiobutton(
+                edge_frame,
+                text=label_text,
+                variable=selected_edge_var,
+                value=edge_entry["key"],
+                command=lambda key=edge_entry["key"]: enter_edge_mode(key),
+                bg="darkolivegreen",
+                fg="white",
+                selectcolor="darkolivegreen",
+                anchor="w"
+            )
+            if not edge_info.get("enabled"):
+                btn.config(state=tk.DISABLED, fg="#555555")
+            btn.pack(fill=tk.X, padx=4, pady=1)
+        tk.Button(
+            edge_frame,
+            text="Wyłącz pas styku",
+            command=exit_edge_mode,
+            bg="#555555",
+            fg="white"
+        ).pack(fill=tk.X, padx=4, pady=(6, 2))
+        edge_status_label = tk.Label(edge_frame, text="Aktywny: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=180, justify="left")
+        edge_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+
         def save_and_close():
+            clear_stamp_mode(update_label=False)
+            close_preset_window("preset_detail_window")
+            close_preset_window("preset_category_window")
             texture_rel = self._save_hex_texture(hex_id, state["pixels"])
             self.hex_data.setdefault(hex_id, {}).update({"texture": texture_rel})
-            self.hex_texture_cache = {k: v for k, v in self.hex_texture_cache.items() if k[0] != texture_rel}
+            textures_to_drop = {texture_rel}
+            neighbor_updates: list[str] = []
+            for edge_entry in state["edge_neighbors"].values():
+                if not edge_entry.get("enabled") or not edge_entry.get("dirty"):
+                    continue
+                neighbor_pixels = edge_entry.get("neighbor_pixels")
+                if neighbor_pixels is None:
+                    continue
+                neighbor_id = edge_entry["neighbor_id"]
+                neighbor_texture_rel = self._save_hex_texture(neighbor_id, neighbor_pixels)
+                neighbor_record = self.hex_data.get(neighbor_id)
+                if neighbor_record is None:
+                    neighbor_record = {
+                        "terrain_key": "teren_płaski",
+                        "move_mod": 0,
+                        "defense_mod": 0,
+                    }
+                    self.hex_data[neighbor_id] = neighbor_record
+                neighbor_record["texture"] = neighbor_texture_rel
+                edge_entry["neighbor_texture_rel"] = neighbor_texture_rel
+                edge_entry["dirty"] = False
+                textures_to_drop.add(neighbor_texture_rel)
+                neighbor_updates.append(neighbor_id)
+                if getattr(self, "selected_hex", None) == neighbor_id:
+                    self.update_hex_info_display(neighbor_id)
+            if textures_to_drop:
+                self.hex_texture_cache = {k: v for k, v in self.hex_texture_cache.items() if k[0] not in textures_to_drop}
+            if neighbor_updates:
+                print(f"Zapisano pas styku dla sąsiadów: {', '.join(neighbor_updates)}")
             editor.grab_release()
             editor.destroy()
             self._texture_editor_window = None
@@ -1945,12 +3103,25 @@ class MapEditor:
             self.auto_save_and_export("zapisano teksturę heksa")
 
         def close_editor():
+            clear_stamp_mode(update_label=False)
+            close_preset_window("preset_detail_window")
+            close_preset_window("preset_category_window")
             editor.grab_release()
             editor.destroy()
             self._texture_editor_window = None
 
+        undo_btn = tk.Button(toolbar, text="Cofnij (Ctrl+Z)", command=undo_action, bg="saddlebrown", fg="white", width=14, state=tk.DISABLED)
+        undo_btn.pack(side=tk.LEFT, padx=4)
+        redo_btn = tk.Button(toolbar, text="Ponów (Ctrl+Y)", command=redo_action, bg="saddlebrown", fg="white", width=14, state=tk.DISABLED)
+        redo_btn.pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="Zapisz", command=save_and_close, bg="forestgreen", fg="white", width=12).pack(side=tk.LEFT, padx=4)
         tk.Button(toolbar, text="Anuluj", command=close_editor, bg="saddlebrown", fg="white", width=12).pack(side=tk.LEFT, padx=4)
+        update_history_buttons()
+
+        editor.bind("<Control-z>", undo_action)
+        editor.bind("<Control-Z>", undo_action)
+        editor.bind("<Control-y>", redo_action)
+        editor.bind("<Control-Y>", redo_action)
 
         draw_grid()
 
