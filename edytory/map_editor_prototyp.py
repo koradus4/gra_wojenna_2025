@@ -439,13 +439,13 @@ class MapEditor:
         # === DOLNA CZĘŚĆ: Panel informacyjny ===
         self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
         # Dolny panel pokazuje tylko informacje o aktywnym heksie, więc trzymamy go kompaktowo
-        self.main_paned.add(self.lower_frame, minsize=160, stretch="never")
+        self.main_paned.add(self.lower_frame, minsize=230, stretch="never")
 
         # === PANEL INFORMACYJNY ===
         self.build_info_panel_in_frame(self.lower_frame)
         self.root.update_idletasks()
         try:
-            self.main_paned.paneconfigure(self.lower_frame, height=200)
+            self.main_paned.paneconfigure(self.lower_frame, height=250)
         except Exception:
             pass
 
@@ -942,9 +942,10 @@ class MapEditor:
 
     def build_info_panel_in_frame(self, parent_frame):
         """Buduje panel informacyjny o wybranym heksie w podanym frame"""
-        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3, height=160)
+        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3, height=220)
         # Panel z informacjami siedzi na dole i nie rozciąga się w pionie
         self.control_panel_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=2, pady=2)
+        self.control_panel_frame.pack_propagate(False)
         
         tk.Label(self.control_panel_frame, text="Informacje o heksie", 
                  bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
@@ -966,7 +967,7 @@ class MapEditor:
         self.texture_info_label.pack(anchor="w", pady=1)
 
         tools_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
-        tools_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=(6, 2))
+        tools_frame.pack(fill=tk.X, padx=5, pady=(8, 6), anchor="n")
 
         self.edit_texture_button = tk.Button(
             tools_frame,
@@ -3013,6 +3014,7 @@ class MapEditor:
             draw_grid()
 
         def close_preset_window(ref_key: str) -> None:
+            nonlocal stamp_scale_label, stamp_scale_widget
             window = state.get(ref_key)
             if window and window.winfo_exists():
                 try:
@@ -3020,6 +3022,9 @@ class MapEditor:
                 except tk.TclError:
                     pass
             state[ref_key] = None
+            if ref_key == "preset_category_window":
+                stamp_scale_label = None
+                stamp_scale_widget = None
 
         def open_presets_for_category(category: dict) -> None:
             existing = state.get("preset_detail_window")
@@ -3082,16 +3087,19 @@ class MapEditor:
                 btn.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky="nsew")
 
         def open_preset_library() -> None:
+            nonlocal stamp_scale_label, stamp_scale_widget
             existing = state.get("preset_category_window")
             if existing and existing.winfo_exists():
                 existing.deiconify()
                 existing.lift()
+                if stamp_scale_label is not None:
+                    stamp_scale_label.config(text=f"Skala: {int(round(stamp_scale_var.get()))}%")
                 return
             win = tk.Toplevel(editor)
             win.title("Biblioteka presetów")
             win.configure(bg="darkolivegreen")
             win.transient(editor)
-            win.geometry("340x360")
+            win.geometry("360x500")
             win.resizable(False, False)
             state["preset_category_window"] = win
 
@@ -3123,6 +3131,42 @@ class MapEditor:
                     activeforeground="white"
                 )
                 btn.pack(fill=tk.X, pady=4)
+
+            def disable_preset_from_library() -> None:
+                clear_stamp_mode()
+                close_preset_window("preset_detail_window")
+
+            controls = tk.Frame(win, bg="darkolivegreen")
+            controls.pack(fill=tk.X, padx=12, pady=(0, 12))
+            tk.Button(
+                controls,
+                text="Wyłącz preset",
+                command=disable_preset_from_library,
+                bg="#555555",
+                fg="white",
+                activebackground="#555555",
+                activeforeground="white"
+            ).pack(fill=tk.X)
+
+            scale_frame = tk.LabelFrame(controls, text="Skala presetów", bg="darkolivegreen", fg="white")
+            scale_frame.pack(fill=tk.X, pady=(12, 0))
+            stamp_scale_label = tk.Label(scale_frame, text="Skala: 100%", bg="darkolivegreen", fg="#d4f2bf", anchor="w")
+            stamp_scale_label.pack(fill=tk.X, padx=4, pady=(4, 0))
+            stamp_scale_widget = tk.Scale(
+                scale_frame,
+                from_=10,
+                to=100,
+                resolution=5,
+                orient=tk.HORIZONTAL,
+                variable=stamp_scale_var,
+                command=on_scale_change,
+                length=220,
+                bg="darkolivegreen",
+                highlightthickness=0,
+                troughcolor="#555555"
+            )
+            stamp_scale_widget.pack(fill=tk.X, padx=4, pady=(2, 4))
+            on_scale_change(str(stamp_scale_var.get()))
 
         def set_current_color(color: str | None):
             if state.get("stamp_pixels") is not None:
@@ -3267,9 +3311,6 @@ class MapEditor:
         eraser_btn = tk.Button(tools, text="Gumka", command=toggle_eraser, bg="#444", fg="white")
         eraser_btn.pack(fill=tk.X, pady=(8, 2))
 
-        tk.Label(tools, text="Lewy przycisk: maluj", bg="darkolivegreen", fg="white").pack(anchor="w", pady=(4, 0))
-        tk.Label(tools, text="Prawy przycisk: pipeta", bg="darkolivegreen", fg="white").pack(anchor="w")
-
         tk.Button(
             tools,
             text="Biblioteka presetów…",
@@ -3278,36 +3319,8 @@ class MapEditor:
             fg="white"
         ).pack(fill=tk.X, pady=(10, 4))
 
-        tk.Button(
-            tools,
-            text="Wyłącz preset",
-            command=clear_stamp_mode,
-            bg="#555555",
-            fg="white"
-        ).pack(fill=tk.X, pady=(0, 4))
-
         stamp_status_label = tk.Label(tools, text="Preset: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=220, justify="left")
         stamp_status_label.pack(fill=tk.X, padx=2, pady=(0, 6))
-
-        scale_frame = tk.LabelFrame(tools, text="Skala presetów", bg="darkolivegreen", fg="white")
-        scale_frame.pack(fill=tk.X, pady=(0, 8))
-        stamp_scale_label = tk.Label(scale_frame, text="Skala: 100%", bg="darkolivegreen", fg="#d4f2bf", anchor="w")
-        stamp_scale_label.pack(fill=tk.X, padx=4, pady=(4, 0))
-        stamp_scale_widget = tk.Scale(
-            scale_frame,
-            from_=10,
-            to=100,
-            resolution=5,
-            orient=tk.HORIZONTAL,
-            variable=stamp_scale_var,
-            command=on_scale_change,
-            length=220,
-            bg="darkolivegreen",
-            highlightthickness=0,
-            troughcolor="#555555"
-        )
-        stamp_scale_widget.pack(fill=tk.X, padx=4, pady=(2, 4))
-        on_scale_change(str(stamp_scale_var.get()))
 
         edge_frame = tk.LabelFrame(tools, text="Pas styku", bg="darkolivegreen", fg="white")
         edge_frame.pack(fill=tk.X, pady=(12, 6))
