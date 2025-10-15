@@ -3,6 +3,7 @@ from tkinter import messagebox, filedialog, simpledialog, ttk, colorchooser
 import json
 import math
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -34,14 +35,38 @@ DEFAULT_MAP_DIR = ASSET_ROOT
 # Zmieniamy domyślną ścieżkę zapisu danych mapy na data/map_data.json
 DATA_FILENAME_WORKING = DATA_ROOT / "map_data.json"
 SOLID_BACKGROUND_COLOR = (48, 64, 40)
-HEX_TEXTURE_GRID_SIZE = 64
-HEX_TEXTURE_EXPORT_SIZE = 512
+HEX_TEXTURE_GRID_OPTIONS = (64, 128)
+DEFAULT_HEX_TEXTURE_GRID_SIZE = HEX_TEXTURE_GRID_OPTIONS[0]
+HEX_TEXTURE_EXPORT_SIZES = {
+    64: 512,
+    128: 1024,
+}
 NEIGHBOR_PREVIEW_SCALE = 1.0
 CONTEXT_CANVAS_SCALE = 1.8
 EDGE_BAND_CELLS = 3
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
 HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
+
+CUSTOM_ASSET_ROOT = ASSET_ROOT / "terrain" / "presets" / "user_assets"
+CUSTOM_ASSET_ROOT.mkdir(parents=True, exist_ok=True)
+USER_ASSET_THUMB_SIZE = 128
+
+USER_ASSET_CATEGORY_DEFS = {
+    "forest": {"label": "Lasy", "icon": "🌲"},
+    "settlement": {"label": "Budynki i dworce", "icon": "🏘️"},
+    "bridge": {"label": "Mosty", "icon": "🌉"},
+    "mountain": {"label": "Góry / pagórki / skały", "icon": "⛰️"},
+    "lake": {"label": "Jeziora", "icon": "🌊"},
+    "swamp": {"label": "Bagna", "icon": "🪵"},
+}
+
+
+def sanitize_asset_slug(name: str) -> str:
+    slug = name.strip().lower()
+    slug = re.sub(r"[^a-z0-9_-]+", "_", slug)
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return slug or "asset"
 
 def to_rel(path: str) -> str:
     """Zwraca ścieżkę assets/... względem katalogu projektu."""
@@ -1624,7 +1649,13 @@ class MapEditor:
             return
         self.open_hex_texture_editor(self.selected_hex)
 
-    def open_hex_texture_editor(self, hex_id: str):
+    def open_hex_texture_editor(
+        self,
+        hex_id: str,
+        *,
+        grid_size: int | None = None,
+        initial_pixels: list[list[str | None]] | None = None,
+    ) -> None:
         # Zamknij poprzednie okno jeśli jeszcze istnieje
         if hasattr(self, "_texture_editor_window") and self._texture_editor_window:
             try:
@@ -1638,7 +1669,18 @@ class MapEditor:
             "defense_mod": 0,
         })
 
-        pixels = self._load_hex_texture_pixels(terrain.get("texture"))
+        candidate_grid = grid_size if grid_size is not None else terrain.get("texture_grid")
+        try:
+            selected_grid = int(candidate_grid) if candidate_grid is not None else DEFAULT_HEX_TEXTURE_GRID_SIZE
+        except (TypeError, ValueError):
+            selected_grid = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        if selected_grid not in HEX_TEXTURE_GRID_OPTIONS:
+            selected_grid = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+        if initial_pixels is not None:
+            pixels = initial_pixels
+        else:
+            pixels = self._load_hex_texture_pixels(terrain.get("texture"), selected_grid)
 
         editor = tk.Toplevel(self.root)
         editor.title(f"Edytor tekstury heksa {hex_id}")
@@ -1661,7 +1703,7 @@ class MapEditor:
 
         self._texture_editor_window = editor
 
-        grid_size = HEX_TEXTURE_GRID_SIZE
+        grid_size = selected_grid
         canvas_target_size = 480
         cell_size = max(14, min(28, canvas_target_size // grid_size))
         if cell_size <= 0:
@@ -1685,11 +1727,12 @@ class MapEditor:
             width=context_canvas_size,
             height=context_canvas_size,
             bg="#111111",
-            highlightthickness=0
+            highlightthickness=0,
+            takefocus=1
         )
         preview_canvas.place(relx=0.5, rely=0.5, anchor="center")
 
-        hex_mask = self._precompute_hex_mask()
+        hex_mask = self._precompute_hex_mask(grid_size)
         center = grid_size / 2.0
         mask_vertices = getattr(self, "_hex_texture_vertices", {}).get(grid_size)
         if not mask_vertices:
@@ -1786,7 +1829,10 @@ class MapEditor:
                 iterations = max(0, EDGE_BAND_CELLS - 1)
                 edge_data["band_mask"] = dilate_mask(base_band, iterations)
                 neighbor_terrain = self.hex_data.get(neighbor_id)
-                neighbor_pixels = self._load_hex_texture_pixels(neighbor_terrain.get("texture") if neighbor_terrain else None)
+                neighbor_pixels = self._load_hex_texture_pixels(
+                    neighbor_terrain.get("texture") if neighbor_terrain else None,
+                    grid_size,
+                )
                 edge_data["neighbor_pixels"] = neighbor_pixels
                 edge_data["neighbor_texture_rel"] = neighbor_terrain.get("texture") if neighbor_terrain else None
                 has_band = any(any(row) for row in edge_data["band_mask"])
@@ -2073,10 +2119,200 @@ class MapEditor:
                         "name": f"📷 {png_file.stem.replace('_', ' ').title()}",
                         "pixels": grid,
                         "preview_photo": build_preset_preview_photo(grid),
+                        "hotspot": (grid_size / 2.0, grid_size / 2.0),
                     })
                 except Exception as exc:
                     print(f"⚠️  Nie udało się załadować {png_file.name}: {exc}")
             return presets
+
+        def load_user_asset_presets(category_key: str) -> list[dict]:
+            presets: list[dict] = []
+            target_dir = CUSTOM_ASSET_ROOT / category_key
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            if not target_dir.exists():
+                return presets
+            for meta_file in sorted(target_dir.glob("*.json")):
+                try:
+                    with meta_file.open("r", encoding="utf-8") as fh:
+                        meta = json.load(fh)
+                except Exception as exc:
+                    print(f"⚠️  Nie udało się odczytać metadanych {meta_file.name}: {exc}")
+                    continue
+                image_path = target_dir / f"{meta_file.stem}.png"
+                if not image_path.exists():
+                    continue
+                try:
+                    img = Image.open(image_path).convert("RGBA")
+                except Exception as exc:
+                    print(f"⚠️  Nie udało się załadować {image_path.name}: {exc}")
+                    continue
+                source_grid_size = int(meta.get("grid_size", grid_size)) or grid_size
+                origin_meta = meta.get("origin") or {}
+                size_meta = meta.get("size") or {}
+                try:
+                    origin_row = int(round(origin_meta.get("row", 0)))
+                    origin_col = int(round(origin_meta.get("col", 0)))
+                    size_rows = int(round(size_meta.get("rows", img.height)))
+                    size_cols = int(round(size_meta.get("cols", img.width)))
+                    use_origin = True
+                except (TypeError, ValueError):
+                    origin_row = 0
+                    origin_col = 0
+                    size_rows = img.height
+                    size_cols = img.width
+                    use_origin = False
+
+                size_rows = max(1, min(size_rows, source_grid_size))
+                size_cols = max(1, min(size_cols, source_grid_size))
+
+                if use_origin:
+                    source_canvas = Image.new("RGBA", (source_grid_size, source_grid_size), (0, 0, 0, 0))
+                    paste_x = max(0, min(source_grid_size - size_cols, origin_col))
+                    paste_y = max(0, min(source_grid_size - size_rows, origin_row))
+                    if (size_cols, size_rows) != img.size:
+                        img = img.resize((size_cols, size_rows), Image.NEAREST)
+                    source_canvas.paste(img, (paste_x, paste_y), img)
+                else:
+                    source_canvas = img
+                    if source_canvas.size != (source_grid_size, source_grid_size):
+                        source_canvas = source_canvas.resize((source_grid_size, source_grid_size), Image.NEAREST)
+
+                if source_grid_size != grid_size:
+                    source_canvas = source_canvas.resize((grid_size, grid_size), Image.NEAREST)
+
+                grid = blank_pixel_grid()
+                px = source_canvas.load()
+                for row in range(grid_size):
+                    for col in range(grid_size):
+                        if not hex_mask[row][col]:
+                            continue
+                        r_val, g_val, b_val, a_val = px[col, row]
+                        if a_val:
+                            grid[row][col] = f"#{r_val:02x}{g_val:02x}{b_val:02x}"
+                display_name = meta.get("name") or meta_file.stem
+                hotspot_meta = meta.get("hotspot")
+                if isinstance(hotspot_meta, dict):
+                    hotspot_row = float(hotspot_meta.get("row", grid_size / 2.0))
+                    hotspot_col = float(hotspot_meta.get("col", grid_size / 2.0))
+                else:
+                    bounds_meta = meta.get("bounds", {})
+                    row_min = bounds_meta.get("row_min", 0)
+                    row_max = bounds_meta.get("row_max", grid_size - 1)
+                    col_min = bounds_meta.get("col_min", 0)
+                    col_max = bounds_meta.get("col_max", grid_size - 1)
+                    hotspot_row = row_min + (row_max - row_min + 1) / 2.0
+                    hotspot_col = col_min + (col_max - col_min + 1) / 2.0
+                presets.append({
+                    "id": f"user_{category_key}_{meta_file.stem}",
+                    "name": f"⭐ {display_name}",
+                    "pixels": grid,
+                    "preview_photo": build_preset_preview_photo(grid),
+                    "hotspot": (hotspot_row, hotspot_col),
+                    "meta_path": meta_file,
+                    "image_path": image_path,
+                    "thumb_path": target_dir / f"{meta_file.stem}_thumb.png",
+                    "category_key": category_key,
+                })
+            return presets
+
+        def delete_user_asset(preset: dict, category: dict) -> None:
+            meta_path_raw = preset.get("meta_path")
+            if not meta_path_raw:
+                return
+            meta_path = Path(meta_path_raw)
+            confirm_parent = state.get("preset_detail_window")
+            confirm = messagebox.askyesno(
+                "Usuń asset",
+                f"Czy na pewno usunąć asset „{preset.get('name', meta_path.stem)}”?",
+                parent=confirm_parent if confirm_parent and confirm_parent.winfo_exists() else editor,
+            )
+            if not confirm:
+                return
+            files_to_remove: list[Path] = []
+            for key in ("image_path", "thumb_path"):
+                raw_path = preset.get(key)
+                if raw_path:
+                    files_to_remove.append(Path(raw_path))
+            files_to_remove.append(meta_path)
+            errors: list[str] = []
+            for path in files_to_remove:
+                try:
+                    if path.exists():
+                        path.unlink()
+                except Exception as exc:
+                    errors.append(f"{path.name}: {exc}")
+            if errors:
+                messagebox.showerror(
+                    "Usuń asset",
+                    "Nie udało się usunąć plików:\n" + "\n".join(errors),
+                    parent=confirm_parent if confirm_parent and confirm_parent.winfo_exists() else editor,
+                )
+            else:
+                if state.get("stamp_label") == preset.get("name"):
+                    clear_stamp_mode()
+                messagebox.showinfo(
+                    "Usuń asset",
+                    "Asset został usunięty.",
+                    parent=confirm_parent if confirm_parent and confirm_parent.winfo_exists() else editor,
+                )
+            window = state.get("preset_detail_window")
+            if window and window.winfo_exists():
+                try:
+                    window.destroy()
+                except tk.TclError:
+                    pass
+            open_presets_for_category(category)
+
+        def delete_all_user_assets(category: dict) -> None:
+            user_key = category.get("user_key")
+            if not user_key:
+                return
+            target_dir = CUSTOM_ASSET_ROOT / user_key
+            if not target_dir.exists():
+                return
+            window = state.get("preset_detail_window")
+            confirm = messagebox.askyesno(
+                "Usuń assety",
+                f"Usunąć wszystkie assety w kategorii „{category.get('label', user_key)}”?",
+                parent=window if window and window.winfo_exists() else editor,
+            )
+            if not confirm:
+                return
+            errors: list[str] = []
+            removed_any = False
+            for meta_file in list(target_dir.glob("*.json")):
+                stem = meta_file.stem
+                related_files = [meta_file, target_dir / f"{stem}.png", target_dir / f"{stem}_thumb.png"]
+                for path in related_files:
+                    try:
+                        if path.exists():
+                            path.unlink()
+                            removed_any = True
+                    except Exception as exc:
+                        errors.append(f"{path.name}: {exc}")
+            if errors:
+                messagebox.showerror(
+                    "Usuń assety",
+                    "Nie wszystkie pliki udało się usunąć:\n" + "\n".join(errors),
+                    parent=window if window and window.winfo_exists() else editor,
+                )
+            else:
+                if removed_any:
+                    clear_stamp_mode()
+                messagebox.showinfo(
+                    "Usuń assety",
+                    "Assety kategorii zostały usunięte.",
+                    parent=window if window and window.winfo_exists() else editor,
+                )
+            if window and window.winfo_exists():
+                try:
+                    window.destroy()
+                except tk.TclError:
+                    pass
+            open_presets_for_category(category)
 
         def build_forest_presets() -> list[dict]:
             canopy_palette = ["#173220", "#1f4a2f", "#2e663f", "#3f8454", "#58a86c"]
@@ -2536,48 +2772,21 @@ class MapEditor:
 
         preset_categories = [
             {
-                "key": "forest",
-                "label": "Lasy",
-                "icon": "🌲",
-                "builder": build_forest_presets,
-            },
-            {
-                "key": "rivers",
-                "label": "Rzeki",
-                "icon": "🌊",
-                "builder": build_river_presets,
-            },
-            {
-                "key": "cities",
-                "label": "Miasta",
-                "icon": "🏙️",
-                "builder": build_city_presets,
-            },
-            {
-                "key": "bridges",
-                "label": "Mosty",
-                "icon": "🌉",
-                "builder": build_bridge_presets,
-            },
-            {
-                "key": "roads",
-                "label": "Drogi",
-                "icon": "🛣️",
-                "builder": build_road_presets,
-            },
-            {
-                "key": "rail",
-                "label": "Kolej",
-                "icon": "🚆",
-                "builder": build_rail_presets,
-            },
-            {
                 "key": "custom",
-                "label": "Własne grafiki",
-                "icon": "🖼️",
+                "label": "Importowane PNG",
+                "icon": "🗂️",
                 "builder": load_custom_image_presets,
             },
         ]
+
+        for user_key, user_meta in USER_ASSET_CATEGORY_DEFS.items():
+            preset_categories.append({
+                "key": f"user_{user_key}",
+                "label": f"{user_meta['label']} • własne",
+                "icon": user_meta["icon"],
+                "builder": (lambda ck=user_key: load_user_asset_presets(ck)),
+                "user_key": user_key,
+            })
 
         neighbor_outline_points: list[list[float]] = []
         for dq, dr in neighbor_dirs:
@@ -2610,7 +2819,7 @@ class MapEditor:
                 return None
             texture_rel = terrain_data.get("texture")
             if texture_rel:
-                return self._load_hex_texture_pixels(texture_rel)
+                return self._load_hex_texture_pixels(texture_rel, grid_size)
             terrain_key = terrain_data.get("terrain_key")
             if terrain_key:
                 preview_color = TERRAIN_PREVIEW_COLORS.get(terrain_key)
@@ -2646,8 +2855,29 @@ class MapEditor:
         for vx, vy in mask_vertices:
             outline_points.extend((vx * cell_size + grid_offset, vy * cell_size + grid_offset))
 
+        def resample_pixel_grid(
+            source_pixels: list[list[str | None]],
+            source_size: int,
+            target_size: int,
+        ) -> list[list[str | None]]:
+            if target_size == source_size:
+                return [row[:] for row in source_pixels]
+            source_image = pixels_to_image(source_pixels)
+            resized = source_image.resize((target_size, target_size), Image.NEAREST)
+            target_mask = self._precompute_hex_mask(target_size)
+            result = [[None for _ in range(target_size)] for _ in range(target_size)]
+            for row in range(target_size):
+                for col in range(target_size):
+                    if not target_mask[row][col]:
+                        continue
+                    r_px, g_px, b_px, a_px = resized.getpixel((col, row))
+                    if a_px:
+                        result[row][col] = f"#{r_px:02x}{g_px:02x}{b_px:02x}"
+            return result
+
         state = {
             "pixels": pixels,
+            "grid_size": grid_size,
             "current_color": "#ffffff",
             "eraser": False,
             "mask": hex_mask,
@@ -2656,6 +2886,8 @@ class MapEditor:
             "stamp_overlay_photo": None,
             "stamp_preview_id": None,
             "stamp_offset": (0, 0),
+            "stamp_hotspot": (grid_size / 2.0, grid_size / 2.0),
+            "stamp_pointer_position": (grid_size / 2.0, grid_size / 2.0),
             "preset_preview_refs": [],
             "preset_category_window": None,
             "preset_detail_window": None,
@@ -2670,6 +2902,11 @@ class MapEditor:
             "stamp_scale_percent": 100.0,
             "stamp_base_pixels": None,
             "stamp_label": None,
+            "view_offset": (0, 0),
+            "asset_mode_active": False,
+            "asset_selection_start": None,
+            "asset_selection_rect": None,
+            "asset_selection_bounds": None,
         }
 
         stamp_status_label = None
@@ -2680,6 +2917,7 @@ class MapEditor:
         stamp_scale_label = None
         stamp_scale_widget = None
         stamp_scale_var = tk.DoubleVar(master=editor, value=100.0)
+        asset_mode_btn = None
 
         HISTORY_LIMIT = 40
 
@@ -2794,7 +3032,7 @@ class MapEditor:
             state["stamp_overlay_photo"] = ImageTk.PhotoImage(create_stamp_overlay_image(scaled))
             if state.get("stamp_preview_id") is not None:
                 preview_canvas.itemconfig(state["stamp_preview_id"], image=state["stamp_overlay_photo"])
-            update_stamp_overlay_position(*state.get("stamp_offset", (0, 0)))
+            update_stamp_overlay_position()
 
         def on_scale_change(value: str) -> None:
             try:
@@ -2831,18 +3069,34 @@ class MapEditor:
             edge_entry["dirty"] = True
             return True
 
-        def update_stamp_overlay_position(delta_row: int | None = None, delta_col: int | None = None) -> None:
+        def update_stamp_overlay_position(target_row: float | None = None, target_col: float | None = None, *, from_pointer: bool = True) -> None:
             if state.get("stamp_pixels") is None or state.get("stamp_overlay_photo") is None:
                 if state.get("stamp_preview_id") is not None:
                     preview_canvas.delete(state["stamp_preview_id"])
                     state["stamp_preview_id"] = None
                 return
-            if delta_row is None or delta_col is None:
-                delta_row, delta_col = state.get("stamp_offset", (0, 0))
+            hotspot_row, hotspot_col = state.get("stamp_hotspot", (grid_size / 2.0, grid_size / 2.0))
+            if target_row is None or target_col is None:
+                pointer_row, pointer_col = state.get("stamp_pointer_position", (float(hotspot_row), float(hotspot_col)))
+                from_pointer = False
             else:
-                state["stamp_offset"] = (delta_row, delta_col)
-            x = grid_offset + delta_col * cell_size
-            y = grid_offset + delta_row * cell_size
+                pointer_row = float(target_row)
+                pointer_col = float(target_col)
+                if from_pointer:
+                    state["stamp_pointer_position"] = (pointer_row, pointer_col)
+            if from_pointer:
+                preview_top_left_row = pointer_row - hotspot_row
+                preview_top_left_col = pointer_col - hotspot_col
+                state["stamp_offset"] = (
+                    int(math.floor(preview_top_left_row)),
+                    int(math.floor(preview_top_left_col)),
+                )
+            else:
+                preview_top_left_row = pointer_row - hotspot_row
+                preview_top_left_col = pointer_col - hotspot_col
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            x = grid_offset + preview_top_left_col * cell_size + offset_x
+            y = grid_offset + preview_top_left_row * cell_size + offset_y
             if state.get("stamp_preview_id") is None:
                 state["stamp_preview_id"] = preview_canvas.create_image(
                     x,
@@ -2854,6 +3108,322 @@ class MapEditor:
             else:
                 preview_canvas.coords(state["stamp_preview_id"], x, y)
             preview_canvas.tag_lower("stamp_preview", "outline")
+
+        def get_cell_from_event(event, clamp: bool = True) -> tuple[int, int] | None:
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            col = int((event.x - grid_offset - offset_x) // cell_size)
+            row = int((event.y - grid_offset - offset_y) // cell_size)
+            if clamp:
+                col = max(0, min(grid_size - 1, col))
+                row = max(0, min(grid_size - 1, row))
+                return row, col
+            if 0 <= row < grid_size and 0 <= col < grid_size:
+                return row, col
+            return None
+
+        def get_pointer_position(event, clamp: bool = False) -> tuple[float, float] | None:
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            col = (event.x - grid_offset - offset_x) / cell_size
+            row = (event.y - grid_offset - offset_y) / cell_size
+            if clamp:
+                col = max(0.0, min(grid_size - 1e-6, col))
+                row = max(0.0, min(grid_size - 1e-6, row))
+                return row, col
+            if 0 <= row < grid_size and 0 <= col < grid_size:
+                return row, col
+            return None
+
+        def asset_bounds_to_canvas_coords(bounds: tuple[int, int, int, int]) -> tuple[float, float, float, float]:
+            row_min, row_max, col_min, col_max = bounds
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            x0 = grid_offset + col_min * cell_size + offset_x
+            y0 = grid_offset + row_min * cell_size + offset_y
+            x1 = grid_offset + (col_max + 1) * cell_size + offset_x
+            y1 = grid_offset + (row_max + 1) * cell_size + offset_y
+            return x0, y0, x1, y1
+
+        def clear_asset_selection_overlay() -> None:
+            rect_id = state.get("asset_selection_rect")
+            if rect_id is not None:
+                try:
+                    preview_canvas.delete(rect_id)
+                except tk.TclError:
+                    pass
+            state["asset_selection_rect"] = None
+
+        def draw_asset_selection(bounds: tuple[int, int, int, int]) -> None:
+            coords = asset_bounds_to_canvas_coords(bounds)
+            rect_id = state.get("asset_selection_rect")
+            if rect_id is None:
+                rect_id = preview_canvas.create_rectangle(
+                    *coords,
+                    outline="#ffcc66",
+                    width=2,
+                    dash=(6, 4),
+                    fill="",
+                    tags="asset_selection"
+                )
+                state["asset_selection_rect"] = rect_id
+            else:
+                preview_canvas.coords(rect_id, *coords)
+            preview_canvas.tag_raise("asset_selection")
+
+        def compute_content_bounds(bounds: tuple[int, int, int, int]) -> tuple[int, int, int, int] | None:
+            row_min, row_max, col_min, col_max = bounds
+            found = False
+            content_row_min = row_max
+            content_row_max = row_min
+            content_col_min = col_max
+            content_col_max = col_min
+            for row in range(row_min, row_max + 1):
+                for col in range(col_min, col_max + 1):
+                    if not hex_mask[row][col]:
+                        continue
+                    if state["pixels"][row][col] is None:
+                        continue
+                    if row < content_row_min:
+                        content_row_min = row
+                    if row > content_row_max:
+                        content_row_max = row
+                    if col < content_col_min:
+                        content_col_min = col
+                    if col > content_col_max:
+                        content_col_max = col
+                    found = True
+            if not found:
+                return None
+            return content_row_min, content_row_max, content_col_min, content_col_max
+
+        def deactivate_asset_mode(update_button: bool = True) -> None:
+            state["asset_mode_active"] = False
+            state["asset_selection_start"] = None
+            state["asset_selection_bounds"] = None
+            clear_asset_selection_overlay()
+            if update_button and asset_mode_btn is not None:
+                asset_mode_btn.config(relief=tk.RAISED)
+
+        def toggle_asset_mode() -> None:
+            if state.get("asset_mode_active"):
+                deactivate_asset_mode()
+                preview_canvas.config(cursor="")
+                return
+            if state.get("stamp_pixels") is not None:
+                clear_stamp_mode()
+            state["asset_mode_active"] = True
+            state["asset_selection_start"] = None
+            state["asset_selection_bounds"] = None
+            if asset_mode_btn is not None:
+                asset_mode_btn.config(relief=tk.SUNKEN)
+            preview_canvas.config(cursor="tcross")
+
+        def start_asset_selection(event) -> None:
+            cell = get_cell_from_event(event)
+            if not state.get("asset_mode_active") or cell is None:
+                return
+            row, col = cell
+            clear_asset_selection_overlay()
+            state["asset_selection_start"] = (row, col)
+            state["asset_selection_bounds"] = (row, row, col, col)
+            draw_asset_selection((row, row, col, col))
+
+        def update_asset_selection(event) -> None:
+            if not state.get("asset_mode_active"):
+                return
+            start = state.get("asset_selection_start")
+            if start is None:
+                return
+            cell = get_cell_from_event(event)
+            if cell is None:
+                return
+            row, col = cell
+            start_row, start_col = start
+            row_min = min(start_row, row)
+            row_max = max(start_row, row)
+            col_min = min(start_col, col)
+            col_max = max(start_col, col)
+            bounds = (row_min, row_max, col_min, col_max)
+            state["asset_selection_bounds"] = bounds
+            draw_asset_selection(bounds)
+
+        def prompt_asset_metadata(default_name: str) -> tuple[str, str] | None:
+            dialog = tk.Toplevel(editor)
+            dialog.title("Nowy asset")
+            dialog.configure(bg="darkolivegreen")
+            dialog.transient(editor)
+            dialog.grab_set()
+            name_var = tk.StringVar(value=default_name)
+            label_to_key = {meta["label"]: key for key, meta in USER_ASSET_CATEGORY_DEFS.items()}
+            labels = list(label_to_key.keys())
+            default_label = labels[0] if labels else ""
+            category_var = tk.StringVar(value=default_label)
+
+            tk.Label(dialog, text="Nazwa assetu", bg="darkolivegreen", fg="white").pack(fill=tk.X, padx=12, pady=(12, 4))
+            name_entry = tk.Entry(dialog, textvariable=name_var)
+            name_entry.pack(fill=tk.X, padx=12)
+
+            tk.Label(dialog, text="Kategoria", bg="darkolivegreen", fg="white").pack(fill=tk.X, padx=12, pady=(10, 4))
+            category_combo = ttk.Combobox(dialog, values=labels, state="readonly", textvariable=category_var)
+            category_combo.pack(fill=tk.X, padx=12)
+            if labels:
+                category_combo.current(0)
+
+            result: dict[str, tuple[str, str] | None] = {"value": None}
+
+            def accept() -> None:
+                name_value = name_var.get().strip()
+                label_value = category_var.get()
+                if not name_value:
+                    messagebox.showwarning("Asset", "Podaj nazwę assetu.", parent=dialog)
+                    return
+                key = label_to_key.get(label_value)
+                if not key:
+                    messagebox.showwarning("Asset", "Wybierz kategorię.", parent=dialog)
+                    return
+                result["value"] = (name_value, key)
+                dialog.destroy()
+
+            def cancel() -> None:
+                result["value"] = None
+                dialog.destroy()
+
+            button_row = tk.Frame(dialog, bg="darkolivegreen")
+            button_row.pack(fill=tk.X, padx=12, pady=(14, 12))
+            tk.Button(button_row, text="Zapisz", command=accept, bg="forestgreen", fg="white").pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 6))
+            tk.Button(button_row, text="Anuluj", command=cancel, bg="#555555", fg="white").pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+            name_entry.focus_set()
+            dialog.wait_window()
+            return result["value"]
+
+        def save_asset_from_selection(name: str, category_key: str, bounds: tuple[int, int, int, int]) -> bool:
+            slug = sanitize_asset_slug(name)
+            target_dir = CUSTOM_ASSET_ROOT / category_key
+            try:
+                target_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as exc:
+                messagebox.showerror("Asset", f"Nie udało się utworzyć katalogu docelowego: {exc}")
+                return False
+            base_path = target_dir / slug
+            suffix_counter = 1
+            png_path = base_path.with_suffix(".png")
+            json_path = base_path.with_suffix(".json")
+            thumb_path = target_dir / f"{slug}_thumb.png"
+            while png_path.exists() or json_path.exists() or thumb_path.exists():
+                suffix_counter += 1
+                slug_variant = f"{slug}_{suffix_counter}"
+                base_path = target_dir / slug_variant
+                png_path = base_path.with_suffix(".png")
+                json_path = base_path.with_suffix(".json")
+                thumb_path = target_dir / f"{slug_variant}_thumb.png"
+
+            row_min, row_max, col_min, col_max = bounds
+            width = col_max - col_min + 1
+            height = row_max - row_min + 1
+            export_img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            for local_row, row in enumerate(range(row_min, row_max + 1)):
+                for local_col, col in enumerate(range(col_min, col_max + 1)):
+                    if not hex_mask[row][col]:
+                        continue
+                    color_val = state["pixels"][row][col]
+                    if color_val:
+                        r_val = int(color_val[1:3], 16)
+                        g_val = int(color_val[3:5], 16)
+                        b_val = int(color_val[5:7], 16)
+                        export_img.putpixel((local_col, local_row), (r_val, g_val, b_val, 255))
+
+            try:
+                export_img.save(png_path)
+            except Exception as exc:
+                messagebox.showerror("Asset", f"Nie udało się zapisać obrazu: {exc}")
+                return False
+
+            try:
+                if width > 0 and height > 0:
+                    scale = min(
+                        USER_ASSET_THUMB_SIZE / max(1, width),
+                        USER_ASSET_THUMB_SIZE / max(1, height),
+                    )
+                    thumb_width = max(1, int(round(width * scale)))
+                    thumb_height = max(1, int(round(height * scale)))
+                    scaled = export_img.resize((thumb_width, thumb_height), Image.NEAREST)
+                    thumb_canvas = Image.new("RGBA", (USER_ASSET_THUMB_SIZE, USER_ASSET_THUMB_SIZE), (0, 0, 0, 0))
+                    paste_x = (USER_ASSET_THUMB_SIZE - thumb_width) // 2
+                    paste_y = (USER_ASSET_THUMB_SIZE - thumb_height) // 2
+                    thumb_canvas.paste(scaled, (paste_x, paste_y), scaled)
+                    thumb_canvas.save(thumb_path)
+            except Exception as exc:
+                print(f"⚠️  Nie udało się zapisać miniatury {thumb_path.name}: {exc}")
+
+            metadata = {
+                "name": name,
+                "category": category_key,
+                "grid_size": grid_size,
+                "bounds": {
+                    "row_min": row_min,
+                    "row_max": row_max,
+                    "col_min": col_min,
+                    "col_max": col_max,
+                },
+                "origin": {
+                    "row": row_min,
+                    "col": col_min,
+                },
+                "size": {
+                    "rows": height,
+                    "cols": width,
+                },
+                "hotspot": {
+                    "row": row_min + (row_max - row_min + 1) / 2.0,
+                    "col": col_min + (col_max - col_min + 1) / 2.0,
+                },
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "source_hex": hex_id,
+                "image": to_rel(str(png_path)),
+                "thumbnail": to_rel(str(thumb_path)) if thumb_path.exists() else None,
+            }
+
+            try:
+                with json_path.open("w", encoding="utf-8") as fh:
+                    json.dump(metadata, fh, indent=2, ensure_ascii=False)
+            except Exception as exc:
+                messagebox.showerror("Asset", f"Nie udało się zapisać metadanych: {exc}")
+                return False
+
+            print(f"✅ Zapisano asset: {json_path.name} ({metadata['category']})")
+            return True
+
+        def finalize_asset_selection(event) -> None:
+            if not state.get("asset_mode_active"):
+                return
+            if state.get("asset_selection_start") is None:
+                return
+            update_asset_selection(event)
+            bounds = state.get("asset_selection_bounds")
+            if not bounds:
+                return
+            content_bounds = compute_content_bounds(bounds)
+            if content_bounds is None:
+                messagebox.showwarning("Asset", "Zaznaczenie nie zawiera kolorów, nie można utworzyć assetu.", parent=editor)
+                return
+            state["asset_selection_bounds"] = content_bounds
+            draw_asset_selection(content_bounds)
+            name_suggestion = f"asset_{hex_id.replace(',', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            response = prompt_asset_metadata(name_suggestion)
+            if response is None:
+                return
+            asset_name, category_key = response
+            if save_asset_from_selection(asset_name, category_key, content_bounds):
+                deactivate_asset_mode()
+                preview_canvas.config(cursor="")
+                if state.get("preset_detail_window"):
+                    close_preset_window("preset_detail_window")
+                if state.get("preset_category_window"):
+                    close_preset_window("preset_category_window")
+                messagebox.showinfo("Asset", f"Zapisano asset „{asset_name}”.", parent=editor)
+
+        def cancel_asset_mode() -> None:
+            deactivate_asset_mode()
+            preview_canvas.config(cursor="")
 
         def clear_stamp_mode(update_label: bool = True) -> None:
             state["stamp_pixels"] = None
@@ -2870,23 +3440,37 @@ class MapEditor:
 
         def enter_stamp_mode(preset: dict) -> None:
             clear_stamp_mode(update_label=False)
+            deactivate_asset_mode()
             state["stamp_base_pixels"] = preset["pixels"]
             state["stamp_label"] = preset["name"]
+            preset_hotspot = preset.get("hotspot")
+            if isinstance(preset_hotspot, dict):
+                hotspot_row = float(preset_hotspot.get("row", grid_size / 2.0))
+                hotspot_col = float(preset_hotspot.get("col", grid_size / 2.0))
+                state["stamp_hotspot"] = (hotspot_row, hotspot_col)
+            elif isinstance(preset_hotspot, (list, tuple)) and len(preset_hotspot) >= 2:
+                state["stamp_hotspot"] = (float(preset_hotspot[0]), float(preset_hotspot[1]))
+            else:
+                state["stamp_hotspot"] = (grid_size / 2.0, grid_size / 2.0)
             state["stamp_offset"] = (0, 0)
             state["stamp_scale_percent"] = float(stamp_scale_var.get())
             refresh_stamp_from_scale()
             preview_canvas.config(cursor="hand2")
-            update_stamp_overlay_position(0, 0)
+            pointer_row, pointer_col = state.get("stamp_pointer_position", (grid_size / 2.0, grid_size / 2.0))
+            update_stamp_overlay_position(pointer_row, pointer_col)
             if stamp_status_label is not None:
                 stamp_status_label.config(text=f"Preset: {preset['name']} — kliknij, aby wstawić (skala {int(round(state['stamp_scale_percent']))}%)")
 
-        def apply_stamp_at(row: int, col: int) -> None:
+        def apply_stamp_at(pointer_row: float, pointer_col: float) -> None:
             if state.get("stamp_pixels") is None:
                 return
-            delta_row = row - grid_size // 2
-            delta_col = col - grid_size // 2
-            state["stamp_offset"] = (delta_row, delta_col)
-            update_stamp_overlay_position(delta_row, delta_col)
+            hotspot_row, hotspot_col = state.get("stamp_hotspot", (grid_size / 2.0, grid_size / 2.0))
+            top_left_row_float = pointer_row - hotspot_row
+            top_left_col_float = pointer_col - hotspot_col
+            top_left_row = int(math.floor(top_left_row_float))
+            top_left_col = int(math.floor(top_left_col_float))
+            state["stamp_offset"] = (top_left_row, top_left_col)
+            update_stamp_overlay_position(pointer_row, pointer_col)
             changed = False
             stamp_pixels = state["stamp_pixels"]
             neighbor_entry = None
@@ -2895,11 +3479,11 @@ class MapEditor:
                 if neighbor_entry and not neighbor_entry.get("enabled"):
                     neighbor_entry = None
             for src_row in range(grid_size):
-                target_row = src_row + delta_row
+                target_row = top_left_row + src_row
                 if not (0 <= target_row < grid_size):
                     continue
                 for src_col in range(grid_size):
-                    target_col = src_col + delta_col
+                    target_col = top_left_col + src_col
                     if not (0 <= target_col < grid_size) or not state["mask"][target_row][target_col]:
                         continue
                     color = stamp_pixels[src_row][src_col]
@@ -2916,18 +3500,55 @@ class MapEditor:
                 draw_grid()
 
         def canvas_motion(event):
+            if state.get("asset_mode_active"):
+                if state.get("asset_selection_start") is not None:
+                    update_asset_selection(event)
+                return
             if state.get("stamp_pixels") is None:
                 return
-            col = int((event.x - grid_offset) // cell_size)
-            row = int((event.y - grid_offset) // cell_size)
-            if 0 <= row < grid_size and 0 <= col < grid_size:
-                update_stamp_overlay_position(row - grid_size // 2, col - grid_size // 2)
+            pointer = get_pointer_position(event, clamp=False)
+            if pointer is None:
+                return
+            row, col = pointer
+            update_stamp_overlay_position(row, col)
+
+        def reset_view_offset(event=None) -> str | None:
+            if state.get("view_offset") != (0, 0):
+                state["view_offset"] = (0, 0)
+                draw_grid()
+            return "break" if event is not None else None
+
+        def pan_view(delta_x_px: int, delta_y_px: int) -> None:
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            max_span = grid_size * cell_size + grid_offset
+            new_x = max(-max_span, min(max_span, offset_x + delta_x_px))
+            new_y = max(-max_span, min(max_span, offset_y + delta_y_px))
+            if (new_x, new_y) != (offset_x, offset_y):
+                state["view_offset"] = (new_x, new_y)
+                draw_grid()
+
+        def handle_pan_key(event) -> str:
+            base_step = max(cell_size * 3, 42)
+            if event.state & 0x0001:  # Shift pressed
+                base_step *= 2
+            if event.keysym == "Left":
+                pan_view(base_step, 0)
+            elif event.keysym == "Right":
+                pan_view(-base_step, 0)
+            elif event.keysym == "Up":
+                pan_view(0, base_step)
+            elif event.keysym == "Down":
+                pan_view(0, -base_step)
+            else:
+                return "break"
+            return "break"
 
 
         def draw_grid():
             preview_canvas.delete("background")
+            offset_x, offset_y = state.get("view_offset", (0, 0))
             if state.get("background_photo"):
-                preview_canvas.create_image(0, 0, anchor="nw", image=state["background_photo"], tags="background")
+                preview_canvas.create_image(offset_x, offset_y, anchor="nw", image=state["background_photo"], tags="background")
                 preview_canvas._background_photo = state["background_photo"]
             preview_canvas.delete("cell")
             preview_canvas.delete("outline")
@@ -2938,8 +3559,8 @@ class MapEditor:
                 for col in range(grid_size):
                     if not state["mask"][row][col]:
                         continue
-                    x0 = col * cell_size + grid_offset
-                    y0 = row * cell_size + grid_offset
+                    x0 = col * cell_size + grid_offset + offset_x
+                    y0 = row * cell_size + grid_offset + offset_y
                     fill = state["pixels"][row][col] or ""
                     preview_canvas.create_rectangle(
                         x0,
@@ -2952,16 +3573,24 @@ class MapEditor:
                         tags=("cell", f"cell_{row}_{col}")
                     )
             for poly_points in neighbor_outline_points:
+                shifted = []
+                for idx in range(0, len(poly_points), 2):
+                    shifted.append(poly_points[idx] + offset_x)
+                    shifted.append(poly_points[idx + 1] + offset_y)
                 preview_canvas.create_polygon(
-                    *poly_points,
+                    *shifted,
                     outline="#555555",
                     fill="",
                     width=1,
                     tags="neighbor_outline",
                     smooth=False
                 )
+            shifted_outline = []
+            for idx in range(0, len(outline_points), 2):
+                shifted_outline.append(outline_points[idx] + offset_x)
+                shifted_outline.append(outline_points[idx + 1] + offset_y)
             preview_canvas.create_polygon(
-                *outline_points,
+                *shifted_outline,
                 outline="#bbbbbb",
                 fill="",
                 width=2,
@@ -2978,8 +3607,8 @@ class MapEditor:
                         for col in range(grid_size):
                             if not band_row[col]:
                                 continue
-                            x0 = col * cell_size + grid_offset
-                            y0 = row * cell_size + grid_offset
+                            x0 = col * cell_size + grid_offset + offset_x
+                            y0 = row * cell_size + grid_offset + offset_y
                             preview_canvas.create_rectangle(
                                 x0,
                                 y0,
@@ -2990,12 +3619,15 @@ class MapEditor:
                                 tags="edge_band"
                             )
                     preview_canvas.tag_lower("edge_band", "outline")
+            if state.get("asset_mode_active") and state.get("asset_selection_bounds"):
+                draw_asset_selection(state["asset_selection_bounds"])
             update_stamp_overlay_position()
 
         def enter_edge_mode(edge_key: str) -> None:
             entry = state["edge_neighbors"].get(edge_key)
             if not entry or not entry.get("enabled"):
                 return
+            deactivate_asset_mode()
             if state.get("stamp_pixels") is not None:
                 clear_stamp_mode()
             state["edge_mode_active"] = True
@@ -3048,12 +3680,50 @@ class MapEditor:
             content = tk.Frame(win, bg="darkolivegreen")
             content.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
+            scroll_container = tk.Frame(content, bg="darkolivegreen")
+            scroll_container.pack(fill=tk.BOTH, expand=True)
+
+            presets_canvas = tk.Canvas(
+                scroll_container,
+                bg="darkolivegreen",
+                highlightthickness=0
+            )
+            presets_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            presets_scrollbar = ttk.Scrollbar(
+                scroll_container,
+                orient=tk.VERTICAL,
+                command=presets_canvas.yview
+            )
+            presets_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            presets_canvas.configure(yscrollcommand=presets_scrollbar.set)
+
+            presets_inner = tk.Frame(presets_canvas, bg="darkolivegreen")
+            presets_window = presets_canvas.create_window((0, 0), window=presets_inner, anchor="nw")
+
+            def update_scroll_region(event=None) -> None:
+                presets_canvas.configure(scrollregion=presets_canvas.bbox("all"))
+
+            presets_inner.bind("<Configure>", update_scroll_region)
+
+            def sync_inner_width(event=None) -> None:
+                presets_canvas.itemconfigure(presets_window, width=presets_canvas.winfo_width())
+
+            presets_canvas.bind("<Configure>", sync_inner_width)
+
+            def _on_mousewheel(event):
+                presets_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+            presets_canvas.bind("<MouseWheel>", _on_mousewheel)
+            presets_inner.bind("<MouseWheel>", _on_mousewheel)
+
             presets = category["builder"]()
             state["preset_preview_refs"] = [preset["preview_photo"] for preset in presets]
 
             if not presets:
                 tk.Label(
-                    content,
+                    presets_inner,
                     text="Brak presetów w tej kategorii",
                     bg="darkolivegreen",
                     fg="#f2d7d5",
@@ -3061,13 +3731,34 @@ class MapEditor:
                 ).pack(pady=12)
                 return
 
-            grid = tk.Frame(content, bg="darkolivegreen")
+            if category.get("user_key"):
+                bulk_actions = tk.Frame(presets_inner, bg="darkolivegreen")
+                bulk_actions.pack(fill=tk.X, pady=(0, 8))
+                tk.Button(
+                    bulk_actions,
+                    text="Usuń wszystkie assety z tej kategorii",
+                    command=lambda c=category: delete_all_user_assets(c),
+                    bg="#663333",
+                    fg="white",
+                    activebackground="#884444",
+                    activeforeground="white",
+                    bd=1,
+                ).pack(fill=tk.X)
+
+            grid = tk.Frame(presets_inner, bg="darkolivegreen")
             grid.pack(fill=tk.BOTH, expand=True)
             columns = 2
             for idx, preset in enumerate(presets):
                 grid.grid_columnconfigure(idx % columns, weight=1)
-                btn = tk.Button(
-                    grid,
+                item = tk.Frame(grid, bg="darkolivegreen", bd=1, relief=tk.GROOVE)
+                item.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky="nsew")
+
+                def _select_preset(preset=preset):
+                    enter_stamp_mode(preset)
+                    close_preset_window("preset_detail_window")
+
+                preview_btn = tk.Button(
+                    item,
                     image=preset["preview_photo"],
                     text=preset["name"],
                     compound="top",
@@ -3079,12 +3770,21 @@ class MapEditor:
                     relief=tk.RIDGE,
                     wraplength=150,
                     justify="center",
-                    command=lambda p=preset: (
-                        enter_stamp_mode(p),
-                        close_preset_window("preset_detail_window")
-                    )
+                    command=_select_preset,
                 )
-                btn.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky="nsew")
+                preview_btn.pack(fill=tk.BOTH, expand=True)
+
+                if preset.get("meta_path"):
+                    tk.Button(
+                        item,
+                        text="Usuń",
+                        command=lambda p=preset, c=category: delete_user_asset(p, c),
+                        bg="#803333",
+                        fg="white",
+                        activebackground="#a94444",
+                        activeforeground="white",
+                        bd=1,
+                    ).pack(fill=tk.X, padx=4, pady=(4, 4))
 
         def open_preset_library() -> None:
             nonlocal stamp_scale_label, stamp_scale_widget
@@ -3099,8 +3799,9 @@ class MapEditor:
             win.title("Biblioteka presetów")
             win.configure(bg="darkolivegreen")
             win.transient(editor)
-            win.geometry("360x500")
-            win.resizable(False, False)
+            win.geometry("440x620")
+            win.minsize(360, 520)
+            win.resizable(True, True)
             state["preset_category_window"] = win
 
             def on_close() -> None:
@@ -3218,19 +3919,29 @@ class MapEditor:
                 state["history_edit_dirty"] = True
 
         def canvas_paint(event):
-            col = int((event.x - grid_offset) // cell_size)
-            row = int((event.y - grid_offset) // cell_size)
-            if state.get("stamp_pixels") is not None:
-                if 0 <= row < grid_size and 0 <= col < grid_size:
-                    apply_stamp_at(row, col)
+            if state.get("asset_mode_active"):
                 return
+            if state.get("stamp_pixels") is not None:
+                pointer = get_pointer_position(event, clamp=False)
+                if pointer is None:
+                    return
+                row_f, col_f = pointer
+                apply_stamp_at(row_f, col_f)
+                return
+            cell = get_cell_from_event(event, clamp=False)
+            if cell is None:
+                return
+            row, col = cell
             apply_color_to_cell(row, col)
 
         def canvas_pick_color(event):
-            col = int((event.x - grid_offset) // cell_size)
-            row = int((event.y - grid_offset) // cell_size)
-            if not (0 <= row < grid_size and 0 <= col < grid_size):
+            if state.get("asset_mode_active"):
                 return
+            preview_canvas.focus_set()
+            cell = get_cell_from_event(event, clamp=False)
+            if cell is None:
+                return
+            row, col = cell
             if not state["mask"][row][col]:
                 return
             if state.get("edge_mode_active"):
@@ -3247,17 +3958,103 @@ class MapEditor:
                 set_current_color(color)
 
         def handle_left_press(event):
+            preview_canvas.focus_set()
+            if state.get("asset_mode_active"):
+                start_asset_selection(event)
+                return
             begin_edit_action()
             canvas_paint(event)
 
+        def handle_left_drag(event):
+            if state.get("asset_mode_active"):
+                update_asset_selection(event)
+                return
+            canvas_paint(event)
+
+        def handle_left_release(event):
+            if state.get("asset_mode_active"):
+                finalize_asset_selection(event)
+                return "break"
+            finish_edit_action(event)
+            return None
+
         preview_canvas.bind("<ButtonPress-1>", handle_left_press)
-        preview_canvas.bind("<B1-Motion>", canvas_paint)
-        preview_canvas.bind("<ButtonRelease-1>", finish_edit_action)
+        preview_canvas.bind("<B1-Motion>", handle_left_drag)
+        preview_canvas.bind("<ButtonRelease-1>", handle_left_release)
         preview_canvas.bind("<Button-3>", canvas_pick_color)
         preview_canvas.bind("<Motion>", canvas_motion)
+        preview_canvas.bind("<KeyPress-Left>", handle_pan_key)
+        preview_canvas.bind("<KeyPress-Right>", handle_pan_key)
+        preview_canvas.bind("<KeyPress-Up>", handle_pan_key)
+        preview_canvas.bind("<KeyPress-Down>", handle_pan_key)
+        preview_canvas.bind("<KeyPress-space>", reset_view_offset)
+        preview_canvas.focus_set()
 
         toolbar = tk.Frame(editor, bg="darkolivegreen", width=360)
         toolbar.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=(12, 4))
+
+        size_label_map = {size: f"{size}x{size}" for size in HEX_TEXTURE_GRID_OPTIONS}
+        label_to_size = {label: size for size, label in size_label_map.items()}
+        grid_size_var = tk.StringVar(value=size_label_map[grid_size])
+
+        def handle_grid_size_change(event=None):
+            label = grid_size_var.get()
+            target = label_to_size.get(label)
+            if target is None or target == state.get("grid_size", grid_size):
+                return
+            finish_edit_action()
+            if state.get("history_edit_dirty") or state.get("undo_stack"):
+                confirm = messagebox.askyesno(
+                    "Zmiana rozdzielczości",
+                    "Przełączyć siatkę na nową rozdzielczość? Aktualna edycja zostanie przeskalowana.",
+                    parent=editor,
+                )
+                if not confirm:
+                    grid_size_var.set(size_label_map[state.get("grid_size", grid_size)])
+                    return
+            converted = resample_pixel_grid(state["pixels"], state["grid_size"], target)
+
+            def reopen() -> None:
+                close_editor()
+                self.open_hex_texture_editor(hex_id, grid_size=target, initial_pixels=converted)
+
+            editor.after(10, reopen)
+
+        grid_selector_frame = tk.Frame(toolbar, bg="darkolivegreen")
+        grid_selector_frame.pack(side=tk.LEFT, padx=(0, 8))
+        tk.Label(
+            grid_selector_frame,
+            text="Siatka",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9, "bold")
+        ).pack(anchor="w")
+        grid_selector = ttk.Combobox(
+            grid_selector_frame,
+            textvariable=grid_size_var,
+            values=[size_label_map[size] for size in HEX_TEXTURE_GRID_OPTIONS],
+            state="readonly",
+            width=10
+        )
+        grid_selector.pack(anchor="w", pady=(2, 0))
+        grid_selector.bind("<<ComboboxSelected>>", handle_grid_size_change)
+
+        tk.Button(
+            toolbar,
+            text="Wyśrodkuj podgląd",
+            command=reset_view_offset,
+            bg="#444444",
+            fg="white"
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        asset_mode_btn = tk.Button(
+            toolbar,
+            text="Tworzenie assetu",
+            command=toggle_asset_mode,
+            bg="#556b2f",
+            fg="white"
+        )
+        asset_mode_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         tools = tk.Frame(editor, bg="darkolivegreen", width=360)
         tools.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
@@ -3360,11 +4157,16 @@ class MapEditor:
         edge_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
 
         def save_and_close():
+            deactivate_asset_mode(update_button=False)
             clear_stamp_mode(update_label=False)
             close_preset_window("preset_detail_window")
             close_preset_window("preset_category_window")
-            texture_rel = self._save_hex_texture(hex_id, state["pixels"])
-            self.hex_data.setdefault(hex_id, {}).update({"texture": texture_rel})
+            grid_size_local = state.get("grid_size", grid_size)
+            texture_rel = self._save_hex_texture(hex_id, state["pixels"], grid_size_local)
+            self.hex_data.setdefault(hex_id, {}).update({
+                "texture": texture_rel,
+                "texture_grid": grid_size_local,
+            })
             textures_to_drop = {texture_rel}
             neighbor_updates: list[str] = []
             for edge_entry in state["edge_neighbors"].values():
@@ -3374,7 +4176,7 @@ class MapEditor:
                 if neighbor_pixels is None:
                     continue
                 neighbor_id = edge_entry["neighbor_id"]
-                neighbor_texture_rel = self._save_hex_texture(neighbor_id, neighbor_pixels)
+                neighbor_texture_rel = self._save_hex_texture(neighbor_id, neighbor_pixels, grid_size_local)
                 neighbor_record = self.hex_data.get(neighbor_id)
                 if neighbor_record is None:
                     neighbor_record = {
@@ -3384,6 +4186,7 @@ class MapEditor:
                     }
                     self.hex_data[neighbor_id] = neighbor_record
                 neighbor_record["texture"] = neighbor_texture_rel
+                neighbor_record["texture_grid"] = grid_size_local
                 edge_entry["neighbor_texture_rel"] = neighbor_texture_rel
                 edge_entry["dirty"] = False
                 textures_to_drop.add(neighbor_texture_rel)
@@ -3402,6 +4205,7 @@ class MapEditor:
             self.auto_save_and_export("zapisano teksturę heksa")
 
         def close_editor():
+            deactivate_asset_mode(update_button=False)
             clear_stamp_mode(update_label=False)
             close_preset_window("preset_detail_window")
             close_preset_window("preset_category_window")
@@ -3435,9 +4239,8 @@ class MapEditor:
 
         editor.protocol("WM_DELETE_WINDOW", close_editor)
 
-    def _load_hex_texture_pixels(self, texture_rel: str | None) -> list[list[str | None]]:
-        grid_size = HEX_TEXTURE_GRID_SIZE
-        mask = self._precompute_hex_mask()
+    def _load_hex_texture_pixels(self, texture_rel: str | None, grid_size: int) -> list[list[str | None]]:
+        mask = self._precompute_hex_mask(grid_size)
         pixels: list[list[str | None]] = [[None for _ in range(grid_size)] for _ in range(grid_size)]
         if not texture_rel:
             return pixels
@@ -3461,9 +4264,8 @@ class MapEditor:
             print(f"Nie udało się wczytać tekstury heksa: {exc}")
         return pixels
 
-    def _save_hex_texture(self, hex_id: str, pixels: list[list[str | None]]) -> str:
-        grid_size = HEX_TEXTURE_GRID_SIZE
-        mask = self._precompute_hex_mask()
+    def _save_hex_texture(self, hex_id: str, pixels: list[list[str | None]], grid_size: int) -> str:
+        mask = self._precompute_hex_mask(grid_size)
         base_img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
         for row in range(grid_size):
             for col in range(grid_size):
@@ -3475,7 +4277,8 @@ class MapEditor:
                     g = int(color[3:5], 16)
                     b = int(color[5:7], 16)
                     base_img.putpixel((col, row), (r, g, b, 255))
-        export_img = base_img.resize((HEX_TEXTURE_EXPORT_SIZE, HEX_TEXTURE_EXPORT_SIZE), Image.NEAREST)
+        export_size = HEX_TEXTURE_EXPORT_SIZES.get(grid_size, grid_size)
+        export_img = base_img.resize((export_size, export_size), Image.NEAREST)
         filename = f"hex_{hex_id.replace(',', '_')}.png"
         output_path = HEX_TEXTURE_DIR / filename
         export_img.save(output_path)
@@ -3501,8 +4304,7 @@ class MapEditor:
             print(f"Nie udało się wczytać obrazu tekstury: {exc}")
             return None
 
-    def _precompute_hex_mask(self) -> list[list[bool]]:
-        grid_size = HEX_TEXTURE_GRID_SIZE
+    def _precompute_hex_mask(self, grid_size: int) -> list[list[bool]]:
         cache = getattr(self, "_hex_texture_masks", None)
         if cache and grid_size in cache:
             return cache[grid_size]
@@ -3559,10 +4361,15 @@ class MapEditor:
         self.token_info_label.config(text=token_info)
 
         texture_rel = terrain.get("texture")
+        grid_info = terrain.get("texture_grid") or DEFAULT_HEX_TEXTURE_GRID_SIZE
+        try:
+            grid_info = int(grid_info)
+        except (TypeError, ValueError):
+            grid_info = DEFAULT_HEX_TEXTURE_GRID_SIZE
         if texture_rel:
-            self.texture_info_label.config(text=f"Tekstura: {texture_rel}")
+            self.texture_info_label.config(text=f"Tekstura: {texture_rel} ({grid_info}x{grid_info})")
         else:
-            self.texture_info_label.config(text="Tekstura: domyślna")
+            self.texture_info_label.config(text=f"Tekstura: domyślna ({grid_info}x{grid_info})")
         self.edit_texture_button.config(state=tk.NORMAL)
         
         # Sprawdź czy to Key Point

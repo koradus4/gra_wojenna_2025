@@ -1,0 +1,27 @@
+{
+  "name": "drzewo_lisciaste_1",
+  "category": "forest",
+  "grid_size": 64,
+  "bounds": {
+    "row_min": 32,
+    "row_max": 38,
+    "col_min": 48,
+    "col_max": 52
+  },
+  "origin": {
+    "row": 32,
+    "col": 48
+  },
+  "size": {
+    "rows": 7,
+    "cols": 5
+  },
+  "hotspot": {
+    "row": 35.5,
+    "col": 50.5
+  },
+  "created_at": "2025-10-15T23:21:28",
+  "source_hex": "2,4",
+  "image": "terrain\\presets\\user_assets\\forest\\drzewo_lisciaste_1.png",
+  "thumbnail": "terrain\\presets\\user_assets\\forest\\drzewo_lisciaste_1_thumb.png"
+}

@@ -847,7 +847,8 @@
       "terrain_key": "mała rzeka",
       "move_mod": 2,
       "defense_mod": 1,
-      "texture": "terrain\\hex_painted\\hex_2_4.png"
+      "texture": "terrain\\hex_painted\\hex_2_4.png",
+      "texture_grid": 64
     },
     "2,5": {
       "terrain_key": "teren_płaski",
