@@ -3,11 +3,13 @@ from tkinter import messagebox, filedialog, simpledialog, ttk, colorchooser
 import json
 import math
 import os
+import random
 import re
 import shutil
+from collections import deque
 from datetime import datetime
 from pathlib import Path
-from PIL import Image, ImageTk, ImageFont
+from PIL import Image, ImageTk, ImageFont, ImageDraw
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -43,7 +45,20 @@ HEX_TEXTURE_EXPORT_SIZES = {
 }
 NEIGHBOR_PREVIEW_SCALE = 1.0
 CONTEXT_CANVAS_SCALE = 1.8
-EDGE_BAND_CELLS = 3
+EDGE_BAND_CELLS_DEFAULT = 6
+EDGE_BAND_CELLS_MIN = 2
+EDGE_BAND_CELLS_MAX = 12
+EDGE_BLEND_DEFAULT_STRENGTH = 65
+EDGE_BLEND_PROFILE_DEFAULT = "smooth"
+EDGE_BLEND_PROFILES = {
+    "linear": {"label": "Liniowy", "exponent": 1.0},
+    "smooth": {"label": "Łagodny", "exponent": 1.6},
+    "strong": {"label": "Silny", "exponent": 2.4},
+}
+EDGE_BLEND_PROFILE_LABEL_TO_KEY = {meta["label"]: key for key, meta in EDGE_BLEND_PROFILES.items()}
+BRUSH_RADIUS_MIN = 0
+BRUSH_RADIUS_MAX = 4
+BRUSH_RADIUS_DEFAULT = 1
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
 HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
@@ -100,6 +115,129 @@ TERRAIN_PREVIEW_COLORS = {
     "miasto": "#8a7c74",
     "most": "#d1b27c",
 }
+
+
+def clamp_channel(value: int) -> int:
+    return max(0, min(255, value))
+
+
+def hex_to_rgb(color: str) -> tuple[int, int, int]:
+    stripped = color.lstrip("#")
+    if len(stripped) != 6:
+        raise ValueError(f"Niepoprawny kolor HEX: {color}")
+    return int(stripped[0:2], 16), int(stripped[2:4], 16), int(stripped[4:6], 16)
+
+
+def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    r, g, b = rgb
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def adjust_rgb(rgb: tuple[int, int, int], delta: tuple[int, int, int]) -> tuple[int, int, int]:
+    return tuple(clamp_channel(channel + shift) for channel, shift in zip(rgb, delta))
+
+
+def blend_rgb(rgb_a: tuple[int, int, int], rgb_b: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
+    mix = max(0.0, min(1.0, factor))
+    return (
+        clamp_channel(int(rgb_a[0] * (1 - mix) + rgb_b[0] * mix)),
+        clamp_channel(int(rgb_a[1] * (1 - mix) + rgb_b[1] * mix)),
+        clamp_channel(int(rgb_a[2] * (1 - mix) + rgb_b[2] * mix)),
+    )
+
+
+def mix_hex_colors(color_a: str | None, color_b: str | None, factor: float) -> str | None:
+    blend = max(0.0, min(1.0, factor))
+    if color_a is None and color_b is None:
+        return None
+    if color_a is None:
+        return color_b
+    if color_b is None:
+        return color_a
+    rgb_a = hex_to_rgb(color_a)
+    rgb_b = hex_to_rgb(color_b)
+    return rgb_to_hex(blend_rgb(rgb_a, rgb_b, blend))
+
+
+FLAT_TERRAIN_TEXTURE_PRESETS = [
+    {
+        "key": "none",
+        "name": "Brak tekstury",
+        "description": "Czyści dodatkową teksturę i pozostawia domyślny wygląd terenu płaskiego.",
+        "type": "clear",
+    },
+    {
+        "key": "grass_dense",
+        "name": "Trawa gęsta",
+        "description": "Gęste, ciemniejsze kępki trawy z delikatnie losową fakturą.",
+        "type": "builtin",
+        "seed": 101,
+        "base_color": "#6f9151",
+        "noise": 16,
+        "accent_color": "#4f7038",
+        "accent_chance": 0.08,
+        "highlight_color": "#96bf6c",
+        "highlight_chance": 0.04,
+        "pattern": "noise",
+    },
+    {
+        "key": "grass_dry",
+        "name": "Trawa sucha",
+        "description": "Jaśniejsza, wysuszona trawa z jaśniejszymi przebłyskami.",
+        "type": "builtin",
+        "seed": 305,
+        "base_color": "#9bad6c",
+        "noise": 12,
+        "accent_color": "#c9d892",
+        "accent_chance": 0.06,
+        "highlight_color": "#f0f3c2",
+        "highlight_chance": 0.03,
+        "pattern": "noise",
+    },
+    {
+        "key": "grass_fields",
+        "name": "Łany pól",
+        "description": "Regularne pasy pól uprawnych układające się w łany.",
+        "type": "builtin",
+        "seed": 712,
+        "base_color": "#8aa45c",
+        "secondary_color": "#b8cc7b",
+        "band_width": 7,
+        "band_strength": 0.55,
+        "noise": 8,
+        "pattern": "stripes",
+    },
+    {
+        "key": "grass_muddy_mix",
+        "name": "Mokry teren",
+        "description": "Mieszanka zieleni z błotnistymi plamami po opadach.",
+        "type": "builtin",
+        "seed": 512,
+        "base_color": "#6e7b4a",
+        "secondary_color": "#4f3b2b",
+        "patch_size": 8,
+        "patch_jitter": 0.25,
+        "noise": 10,
+        "pattern": "patches",
+    },
+    {
+        "key": "grass_sandy_mix",
+        "name": "Piaskowo-trawiasty",
+        "description": "Przesuszone fragmenty piasku wymieszane z zielenią.",
+        "type": "builtin",
+        "seed": 914,
+        "base_color": "#bca66d",
+        "secondary_color": "#8aa15b",
+        "patch_size": 6,
+        "patch_jitter": 0.35,
+        "noise": 9,
+        "pattern": "patches",
+        "accent_color": "#d5c89c",
+        "accent_chance": 0.05,
+    },
+]
+
+FLAT_TERRAIN_PRESET_LOOKUP = {preset["key"]: preset for preset in FLAT_TERRAIN_TEXTURE_PRESETS}
 
 # mapowanie państw → kolor mgiełki
 SPAWN_OVERLAY = {
@@ -215,6 +353,9 @@ class MapEditor:
         self.hex_tokens: dict[str, str] = {}
         self.token_images: dict[str, ImageTk.PhotoImage] = {}
         self.hex_texture_cache: dict[tuple[str, int], ImageTk.PhotoImage] = {}
+        self.flat_texture_preview_cache: dict[str, ImageTk.PhotoImage] = {}
+        self.selected_flat_texture_preset: str | None = None
+        self.flat_texture_window: tk.Toplevel | None = None
 
         # --- Nowy system palety żetonów ---
         self.token_index: list[dict] = []  # Lista wszystkich żetonów z index.json
@@ -271,7 +412,7 @@ class MapEditor:
         self.filtered_tokens = []
         
         # Debug info
-        print(f"🔍 Filtrowanie żetonów: total={len(self.token_index)}")
+        print(f"[FILTER] Filtrowanie zetonow: total={len(self.token_index)}")
         
         # Pobierz używane żetony jeśli unikalność włączona
         used_tokens = set()
@@ -280,7 +421,7 @@ class MapEditor:
                 token = terrain.get("token")
                 if token and "unit" in token:
                     used_tokens.add(token["unit"])
-            print(f"🔒 Użyte żetony (unikalność ON): {len(used_tokens)}")
+            print(f"[UNIQUE] Uzyte zetony (unikalnosc ON): {len(used_tokens)}")
         
         for token in self.token_index:
             # Filtr unikalności
@@ -427,6 +568,29 @@ class MapEditor:
             )
             btn.pack(padx=2, pady=1, fill=tk.X)
             self.terrain_buttons[terrain_key] = btn
+
+        self.flat_texture_status_var = tk.StringVar(value="Aktywny wzór: brak")
+        flat_texture_button = tk.Button(
+            terrain_frame,
+            text="Tekstury terenu płaskiego (Ctrl+Shift+F)",
+            command=self.open_flat_texture_window,
+            bg="forestgreen",
+            fg="white",
+            activebackground="forestgreen",
+            activeforeground="white"
+        )
+        flat_texture_button.pack(padx=2, pady=(6, 2), fill=tk.X)
+
+        self.flat_texture_status_label = tk.Label(
+            terrain_frame,
+            textvariable=self.flat_texture_status_var,
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 8, "italic"),
+            anchor="w"
+        )
+        self.flat_texture_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+        self.update_flat_texture_status()
 
         # === SEKCJA PUNKTÓW KLUCZOWYCH ===
         key_points_frame = tk.LabelFrame(self.upper_frame, text="Punkty kluczowe", bg="darkolivegreen", fg="white",
@@ -583,26 +747,21 @@ class MapEditor:
                 export_tokens=export_var.get(),
                 make_backup=backup_var.get()
             )
-            if result:
-                messagebox.showinfo("Konfiguracja mapy", result)
-                dialog.destroy()
-
-        tk.Button(buttons, text="Zastosuj", command=apply_changes, bg="forestgreen", fg="white", width=10).pack(side=tk.RIGHT)
-
-        cols_var.trace_add("write", lambda *_: update_preview())
-        rows_var.trace_add("write", lambda *_: update_preview())
-        hex_var.trace_add("write", lambda *_: update_preview())
-
-        update_preview()
-
-    def _calculate_config_change_effects(self, cols: int, rows: int, hex_size: int) -> dict:
-        errors = []
-        warnings = []
-
-        min_cols, max_cols = self.size_hard_limits["cols"]
-        min_rows, max_rows = self.size_hard_limits["rows"]
-        min_hex, max_hex = self.size_hard_limits["hex_size"]
-
+            preview_canvas.tag_lower("neighbor_preview", "edge_band")
+            if edge_sync_status_label is not None:
+                status_text = (
+                    f"Podgląd sąsiada: {entry['neighbor_id']} "
+                    f"(aktywny pas: {local_band_total} pól, druga strona: {neighbor_band_total} pól"
+                )
+                if drawn and drawn != local_band_total:
+                    status_text += f", podgląd koloru: {drawn}"
+                elif not drawn:
+                    status_text += ", podgląd koloru: brak"
+                status_text += ")"
+                edge_sync_status_label.config(
+                    text=status_text,
+                    fg="#b7f28d" if neighbor_band_total else "#f2d7d5",
+                )
         if not (min_cols <= cols <= max_cols):
             errors.append(f"Kolumny poza zakresem ({min_cols}-{max_cols}).")
         if not (min_rows <= rows <= max_rows):
@@ -991,6 +1150,9 @@ class MapEditor:
         self.texture_info_label = tk.Label(basic_info_frame, text="Tekstura: domyślna", bg="darkolivegreen", fg="white", font=("Arial", 9))
         self.texture_info_label.pack(anchor="w", pady=1)
 
+        self.flat_texture_info_label = tk.Label(basic_info_frame, text="Wzór płaski: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.flat_texture_info_label.pack(anchor="w", pady=1)
+
         tools_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
         tools_frame.pack(fill=tk.X, padx=5, pady=(8, 6), anchor="n")
 
@@ -1036,6 +1198,7 @@ class MapEditor:
         self.root.bind("<Delete>", self.delete_token_from_selected_hex)
         self.root.bind("<KeyPress-Shift_L>", self.enable_multi_placement)
         self.root.bind("<KeyRelease-Shift_L>", self.disable_multi_placement)
+        self.root.bind("<Control-Shift-F>", self.toggle_flat_texture_window)
         self.root.focus_set()  # Aby klawiatura działała
         
         # Zmienne dla drag & drop
@@ -1768,26 +1931,11 @@ class MapEditor:
             dy_cells = int(round(dy_units))
             return dx_cells * cell_size, dy_cells * cell_size
 
-        def dilate_mask(base_mask: list[list[bool]], iterations: int) -> list[list[bool]]:
-            current = [row[:] for row in base_mask]
-            if iterations <= 0:
-                return current
-            for _ in range(iterations):
-                expanded = [row[:] for row in current]
-                for row in range(grid_size):
-                    for col in range(grid_size):
-                        if expanded[row][col] or not hex_mask[row][col]:
-                            continue
-                        for d_row, d_col in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                            n_row = row + d_row
-                            n_col = col + d_col
-                            if 0 <= n_row < grid_size and 0 <= n_col < grid_size and current[n_row][n_col]:
-                                expanded[row][col] = True
-                                break
-                current = expanded
-            return current
-
-        def build_edge_mode_data() -> dict[str, dict]:
+        def build_edge_mode_data(
+            band_cells: int,
+            existing_neighbors: dict[str, dict] | None = None,
+        ) -> dict[str, dict]:
+            band_limit = max(EDGE_BAND_CELLS_MIN, min(EDGE_BAND_CELLS_MAX, int(band_cells)))
             data: dict[str, dict] = {}
             for entry in edge_definitions:
                 dq, dr = entry["direction"]
@@ -1802,9 +1950,14 @@ class MapEditor:
                     "dx_cells": 0,
                     "dy_cells": 0,
                     "band_mask": [[False for _ in range(grid_size)] for _ in range(grid_size)],
+                    "band_distance": [[None for _ in range(grid_size)] for _ in range(grid_size)],
+                    "band_max_distance": 0,
                     "neighbor_pixels": None,
                     "neighbor_texture_rel": None,
                     "neighbor_mask": hex_mask,
+                    "neighbor_band_mask": [[False for _ in range(grid_size)] for _ in range(grid_size)],
+                    "neighbor_band_distance": [[None for _ in range(grid_size)] for _ in range(grid_size)],
+                    "neighbor_band_max_distance": 0,
                     "dirty": False,
                 }
                 if not enabled:
@@ -1826,21 +1979,92 @@ class MapEditor:
                         n_col = col - dx_cells
                         if 0 <= n_row < grid_size and 0 <= n_col < grid_size and hex_mask[n_row][n_col]:
                             base_band[row][col] = True
-                iterations = max(0, EDGE_BAND_CELLS - 1)
-                edge_data["band_mask"] = dilate_mask(base_band, iterations)
-                neighbor_terrain = self.hex_data.get(neighbor_id)
-                neighbor_pixels = self._load_hex_texture_pixels(
-                    neighbor_terrain.get("texture") if neighbor_terrain else None,
-                    grid_size,
-                )
+                distances = [[None for _ in range(grid_size)] for _ in range(grid_size)]
+                queue: deque[tuple[int, int]] = deque()
+                for row in range(grid_size):
+                    for col in range(grid_size):
+                        if base_band[row][col]:
+                            distances[row][col] = 0
+                            queue.append((row, col))
+                max_distance = 0
+                while queue:
+                    row, col = queue.popleft()
+                    current_dist = distances[row][col]
+                    if current_dist is None or current_dist >= band_limit - 1:
+                        continue
+                    for d_row, d_col in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        n_row = row + d_row
+                        n_col = col + d_col
+                        if 0 <= n_row < grid_size and 0 <= n_col < grid_size and hex_mask[n_row][n_col]:
+                            if distances[n_row][n_col] is None:
+                                next_dist = current_dist + 1
+                                distances[n_row][n_col] = next_dist
+                                queue.append((n_row, n_col))
+                                if next_dist > max_distance:
+                                    max_distance = next_dist
+                band_mask = [[distances[row][col] is not None for col in range(grid_size)] for row in range(grid_size)]
+                edge_data["band_mask"] = band_mask
+                edge_data["band_distance"] = distances
+                edge_data["band_max_distance"] = max_distance
+                neighbor_distances = [[None for _ in range(grid_size)] for _ in range(grid_size)]
+                neighbor_queue: deque[tuple[int, int]] = deque()
+                for row in range(grid_size):
+                    band_row = band_mask[row]
+                    if not any(band_row):
+                        continue
+                    for col in range(grid_size):
+                        if not band_row[col]:
+                            continue
+                        nr = row - dy_cells
+                        nc = col - dx_cells
+                        if 0 <= nr < grid_size and 0 <= nc < grid_size and hex_mask[nr][nc]:
+                            if neighbor_distances[nr][nc] is None:
+                                neighbor_distances[nr][nc] = 0
+                                neighbor_queue.append((nr, nc))
+                neighbor_max_distance = 0
+                while neighbor_queue:
+                    nr, nc = neighbor_queue.popleft()
+                    current_dist = neighbor_distances[nr][nc]
+                    if current_dist is None or current_dist >= band_limit - 1:
+                        continue
+                    for d_row, d_col in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nnr = nr + d_row
+                        nnc = nc + d_col
+                        if 0 <= nnr < grid_size and 0 <= nnc < grid_size and hex_mask[nnr][nnc]:
+                            if neighbor_distances[nnr][nnc] is None:
+                                next_dist = current_dist + 1
+                                neighbor_distances[nnr][nnc] = next_dist
+                                neighbor_queue.append((nnr, nnc))
+                                if next_dist > neighbor_max_distance:
+                                    neighbor_max_distance = next_dist
+                neighbor_band_mask = [[neighbor_distances[row][col] is not None for col in range(grid_size)] for row in range(grid_size)]
+                edge_data["neighbor_band_distance"] = neighbor_distances
+                edge_data["neighbor_band_mask"] = neighbor_band_mask
+                edge_data["neighbor_band_max_distance"] = neighbor_max_distance
+                neighbor_record = self.hex_data.get(neighbor_id)
+                neighbor_texture_rel = neighbor_record.get("texture") if neighbor_record else None
+                existing_entry = existing_neighbors.get(entry["key"]) if existing_neighbors else None
+                if existing_entry and existing_entry.get("neighbor_pixels") is not None:
+                    neighbor_pixels = existing_entry["neighbor_pixels"]
+                else:
+                    neighbor_pixels = self._load_hex_texture_pixels(
+                        neighbor_texture_rel,
+                        grid_size,
+                    )
                 edge_data["neighbor_pixels"] = neighbor_pixels
-                edge_data["neighbor_texture_rel"] = neighbor_terrain.get("texture") if neighbor_terrain else None
+                if existing_entry and existing_entry.get("neighbor_texture_rel") is not None:
+                    edge_data["neighbor_texture_rel"] = existing_entry.get("neighbor_texture_rel")
+                else:
+                    edge_data["neighbor_texture_rel"] = neighbor_texture_rel
+                if existing_entry:
+                    edge_data["dirty"] = existing_entry.get("dirty", False)
                 has_band = any(any(row) for row in edge_data["band_mask"])
                 edge_data["enabled"] = enabled and has_band
                 data[entry["key"]] = edge_data
             return data
 
-        edge_mode_data = build_edge_mode_data()
+        initial_edge_band_cells = EDGE_BAND_CELLS_DEFAULT
+        edge_mode_data = build_edge_mode_data(initial_edge_band_cells)
 
         def pixels_to_image(pixel_grid: list[list[str | None]]) -> Image.Image:
             img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
@@ -2811,9 +3035,18 @@ class MapEditor:
             preview_color_cache[color] = grid
             return grid
 
-        def get_context_pixels(target_hex_id: str) -> list[list[str | None]] | None:
+        def get_context_pixels(
+            target_hex_id: str,
+            overrides: dict[str, dict] | None = None,
+        ) -> list[list[str | None]] | None:
             if target_hex_id == hex_id:
                 return None
+            if overrides:
+                for entry in overrides.values():
+                    if entry.get("neighbor_id") == target_hex_id:
+                        override_pixels = entry.get("neighbor_pixels")
+                        if override_pixels is not None:
+                            return override_pixels
             terrain_data = self.hex_data.get(target_hex_id)
             if not terrain_data:
                 return None
@@ -2827,12 +3060,14 @@ class MapEditor:
                     return solid_color_pixels(preview_color)
             return None
 
-        def build_texture_context() -> Image.Image | None:
+        def build_texture_context(
+            overrides: dict[str, dict] | None = None,
+        ) -> Image.Image | None:
             context_img = Image.new("RGBA", (context_canvas_size, context_canvas_size), (0, 0, 0, 0))
             has_any = False
             for dq, dr in neighbor_dirs:
                 neighbor_id = f"{q + dq},{r + dr}"
-                neighbor_pixels = get_context_pixels(neighbor_id)
+                neighbor_pixels = get_context_pixels(neighbor_id, overrides)
                 if not neighbor_pixels:
                     continue
                 neighbor_img = pixels_to_image(neighbor_pixels)
@@ -2849,7 +3084,7 @@ class MapEditor:
                 has_any = True
             return context_img if has_any else None
 
-        context_background = build_texture_context()
+        context_background = build_texture_context(edge_mode_data)
         background_photo = ImageTk.PhotoImage(context_background) if context_background else None
         outline_points: list[float] = []
         for vx, vy in mask_vertices:
@@ -2882,6 +3117,7 @@ class MapEditor:
             "eraser": False,
             "mask": hex_mask,
             "background_photo": background_photo,
+            "background_item_id": None,
             "stamp_pixels": None,
             "stamp_overlay_photo": None,
             "stamp_preview_id": None,
@@ -2895,6 +3131,9 @@ class MapEditor:
             "edge_mode_active": False,
             "edge_current_key": None,
             "edge_neighbors": edge_mode_data,
+            "edge_band_cells": initial_edge_band_cells,
+            "edge_blend_strength": EDGE_BLEND_DEFAULT_STRENGTH,
+            "edge_blend_profile": EDGE_BLEND_PROFILE_DEFAULT,
             "undo_stack": [],
             "redo_stack": [],
             "history_action_active": False,
@@ -2907,11 +3146,24 @@ class MapEditor:
             "asset_selection_start": None,
             "asset_selection_rect": None,
             "asset_selection_bounds": None,
+            "brush_radius": BRUSH_RADIUS_DEFAULT,
         }
 
         stamp_status_label = None
         selected_edge_var = tk.StringVar(value="")
         edge_status_label = None
+        edge_sync_status_label = None
+        edge_band_width_value_label = None
+        edge_blend_strength_value_label = None
+        edge_button_widgets: dict[str, tk.Radiobutton] = {}
+        edge_band_width_var = tk.IntVar(master=editor, value=state["edge_band_cells"])
+        edge_blend_strength_var = tk.IntVar(master=editor, value=int(state["edge_blend_strength"]))
+        edge_blend_profile_display_var = tk.StringVar(
+            master=editor,
+            value=EDGE_BLEND_PROFILES[state["edge_blend_profile"]]["label"],
+        )
+        brush_radius_var = tk.IntVar(master=editor, value=state["brush_radius"])
+        brush_radius_value_label = None
         undo_btn = None
         redo_btn = None
         stamp_scale_label = None
@@ -2985,6 +3237,7 @@ class MapEditor:
                 state["redo_stack"].pop(0)
             restore_snapshot(snapshot)
             draw_grid()
+            refresh_edge_preview(refresh_background=True)
             update_history_buttons()
             return "break"
 
@@ -2999,6 +3252,7 @@ class MapEditor:
                 state["undo_stack"].pop(0)
             restore_snapshot(snapshot)
             draw_grid()
+            refresh_edge_preview(refresh_background=True)
             update_history_buttons()
             return "break"
 
@@ -3472,6 +3726,7 @@ class MapEditor:
             state["stamp_offset"] = (top_left_row, top_left_col)
             update_stamp_overlay_position(pointer_row, pointer_col)
             changed = False
+            neighbor_changed = False
             stamp_pixels = state["stamp_pixels"]
             neighbor_entry = None
             if state.get("edge_mode_active") and state.get("edge_current_key"):
@@ -3495,9 +3750,12 @@ class MapEditor:
                     if neighbor_entry and color is not None:
                         if apply_color_to_neighbor(neighbor_entry, target_row, target_col, color):
                             changed = True
+                            neighbor_changed = True
             if changed:
                 state["history_edit_dirty"] = True
                 draw_grid()
+                if neighbor_changed:
+                    refresh_edge_preview(refresh_background=True)
 
         def canvas_motion(event):
             if state.get("asset_mode_active"):
@@ -3546,10 +3804,21 @@ class MapEditor:
 
         def draw_grid():
             preview_canvas.delete("background")
+            preview_canvas.delete("neighbor_preview")
             offset_x, offset_y = state.get("view_offset", (0, 0))
-            if state.get("background_photo"):
-                preview_canvas.create_image(offset_x, offset_y, anchor="nw", image=state["background_photo"], tags="background")
-                preview_canvas._background_photo = state["background_photo"]
+            background_photo = state.get("background_photo")
+            if background_photo:
+                bg_id = preview_canvas.create_image(
+                    offset_x,
+                    offset_y,
+                    anchor="nw",
+                    image=background_photo,
+                    tags="background",
+                )
+                state["background_item_id"] = bg_id
+                preview_canvas._background_photo = background_photo
+            else:
+                state["background_item_id"] = None
             preview_canvas.delete("cell")
             preview_canvas.delete("outline")
             preview_canvas.delete("neighbor_outline")
@@ -3622,20 +3891,198 @@ class MapEditor:
             if state.get("asset_mode_active") and state.get("asset_selection_bounds"):
                 draw_asset_selection(state["asset_selection_bounds"])
             update_stamp_overlay_position()
+            refresh_edge_preview()
+
+        def refresh_edge_preview(*, refresh_background: bool = False) -> None:
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            if refresh_background:
+                context_image = build_texture_context(state.get("edge_neighbors"))
+                if context_image:
+                    new_photo = ImageTk.PhotoImage(context_image)
+                    state["background_photo"] = new_photo
+                    bg_id = state.get("background_item_id")
+                    if bg_id:
+                        preview_canvas.itemconfig(bg_id, image=new_photo)
+                    else:
+                        bg_id = preview_canvas.create_image(
+                            offset_x,
+                            offset_y,
+                            anchor="nw",
+                            image=new_photo,
+                            tags="background",
+                        )
+                        state["background_item_id"] = bg_id
+                    preview_canvas._background_photo = new_photo
+                else:
+                    state["background_photo"] = None
+                    if state.get("background_item_id"):
+                        preview_canvas.delete("background")
+                        state["background_item_id"] = None
+            preview_canvas.delete("neighbor_preview")
+            default_status = "Podgląd sąsiada: wyłączony"
+            default_color = "#d4f2bf"
+            if not state.get("edge_mode_active") or not state.get("edge_current_key"):
+                if edge_sync_status_label is not None:
+                    edge_sync_status_label.config(text=default_status, fg=default_color)
+                return
+            entry = state["edge_neighbors"].get(state["edge_current_key"])
+            if not entry or not entry.get("enabled"):
+                if edge_sync_status_label is not None:
+                    edge_sync_status_label.config(
+                        text="Podgląd sąsiada: niedostępny",
+                        fg="#f2b6b6",
+                    )
+                return
+            neighbor_pixels = entry.get("neighbor_pixels")
+            if neighbor_pixels is None:
+                if edge_sync_status_label is not None:
+                    edge_sync_status_label.config(
+                        text=f"Podgląd sąsiada: {entry['neighbor_id']} (brak danych)",
+                        fg="#f2d7d5",
+                    )
+                return
+            neighbor_mask = entry.get("neighbor_mask", hex_mask)
+            band_mask = entry.get("band_mask")
+            if not band_mask:
+                if edge_sync_status_label is not None:
+                    edge_sync_status_label.config(
+                        text=f"Podgląd sąsiada: {entry['neighbor_id']} (pas niedostępny)",
+                        fg="#f2d7d5",
+                    )
+                return
+            neighbor_band_mask = entry.get("neighbor_band_mask")
+            if neighbor_band_mask is None:
+                neighbor_band_mask = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+            dx_cells = entry.get("dx_cells", 0)
+            dy_cells = entry.get("dy_cells", 0)
+            local_band_total = sum(sum(1 for cell in row if cell) for row in band_mask)
+            neighbor_band_total = sum(sum(1 for cell in row if cell) for row in neighbor_band_mask)
+            # Rysuj siatkę sąsiada, żeby było widać kratki
+            for nr in range(grid_size):
+                row_mask = neighbor_mask[nr]
+                if not any(row_mask):
+                    continue
+                for nc in range(grid_size):
+                    if not row_mask[nc]:
+                        continue
+                    x0 = (nc + dx_cells) * cell_size + grid_offset + offset_x
+                    y0 = (nr + dy_cells) * cell_size + grid_offset + offset_y
+                    preview_canvas.create_rectangle(
+                        x0,
+                        y0,
+                        x0 + cell_size,
+                        y0 + cell_size,
+                        outline="#3e3e3e",
+                        width=1,
+                        fill="",
+                        tags=("neighbor_preview", "neighbor_grid"),
+                    )
+
+            drawn = 0
+            for nr in range(grid_size):
+                for nc in range(grid_size):
+                    if not neighbor_mask[nr][nc]:
+                        continue
+                    row = nr + dy_cells
+                    col = nc + dx_cells
+                    if not (0 <= row < grid_size and 0 <= col < grid_size):
+                        continue
+                    if not band_mask[row][col]:
+                        continue
+                    color = neighbor_pixels[nr][nc]
+                    if not color:
+                        continue
+                    display_color = color
+                    x0 = (nc + dx_cells) * cell_size + grid_offset + offset_x
+                    y0 = (nr + dy_cells) * cell_size + grid_offset + offset_y
+                    preview_canvas.create_rectangle(
+                        x0,
+                        y0,
+                        x0 + cell_size,
+                        y0 + cell_size,
+                        fill=display_color,
+                        outline="#6f8a3a",
+                        width=1,
+                        tags="neighbor_preview",
+                    )
+                    drawn += 1
+            
+            # Wizualizacja pasów w przestrzeni kontekstu sąsiada
+            projected_band_cells = 0
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    if not band_mask[row][col]:
+                        continue
+                    nr = row - dy_cells
+                    nc = col - dx_cells
+                    if not (0 <= nr < grid_size and 0 <= nc < grid_size):
+                        continue
+                    if not neighbor_mask[nr][nc]:
+                        continue
+                    x0 = (nc + dx_cells) * cell_size + grid_offset + offset_x
+                    y0 = (nr + dy_cells) * cell_size + grid_offset + offset_y
+                    preview_canvas.create_rectangle(
+                        x0,
+                        y0,
+                        x0 + cell_size,
+                        y0 + cell_size,
+                        outline="#ff9933",
+                        width=2,
+                        fill="",
+                        tags="neighbor_preview",
+                    )
+                    projected_band_cells += 1
+
+            neighbor_band_drawn = 0
+            for nr in range(grid_size):
+                band_row = neighbor_band_mask[nr]
+                if not any(band_row):
+                    continue
+                for nc in range(grid_size):
+                    if not band_row[nc]:
+                        continue
+                    x0 = (nc + dx_cells) * cell_size + grid_offset + offset_x
+                    y0 = (nr + dy_cells) * cell_size + grid_offset + offset_y
+                    preview_canvas.create_rectangle(
+                        x0,
+                        y0,
+                        x0 + cell_size,
+                        y0 + cell_size,
+                        outline="#ff9933",
+                        width=2,
+                        fill="",
+                        tags=("neighbor_preview", "neighbor_band"),
+                    )
+                    neighbor_band_drawn += 1
+
+            status_text = (
+                f"Podgląd sąsiada: {entry['neighbor_id']} "
+                f"(aktywny pas: {local_band_total} pól, druga strona: {neighbor_band_total} pól"
+            )
+            if drawn and drawn != local_band_total:
+                status_text += f", podgląd koloru: {drawn}"
+            if projected_band_cells and projected_band_cells != local_band_total:
+                status_text += f", projekcja pasa: {projected_band_cells}"
+            if neighbor_band_drawn and neighbor_band_drawn != neighbor_band_total:
+                status_text += f", pas sąsiada: {neighbor_band_drawn}"
+            status_text += ")"
+            if edge_sync_status_label is not None:
+                edge_sync_status_label.config(text=status_text, fg="#d4f2bf")
 
         def enter_edge_mode(edge_key: str) -> None:
             entry = state["edge_neighbors"].get(edge_key)
             if not entry or not entry.get("enabled"):
                 return
-            deactivate_asset_mode()
-            if state.get("stamp_pixels") is not None:
-                clear_stamp_mode()
+            clear_stamp_mode()
             state["edge_mode_active"] = True
             state["edge_current_key"] = edge_key
             selected_edge_var.set(edge_key)
             if edge_status_label is not None:
-                edge_status_label.config(text=f"Aktywny: {entry['label']} (sąsiad {entry['neighbor_id']})")
+                edge_status_label.config(
+                    text=f"Aktywny: {entry['label']} (sąsiad {entry['neighbor_id']})"
+                )
             draw_grid()
+            refresh_edge_preview(refresh_background=True)
 
         def exit_edge_mode() -> None:
             state["edge_mode_active"] = False
@@ -3644,6 +4091,122 @@ class MapEditor:
             if edge_status_label is not None:
                 edge_status_label.config(text="Aktywny: brak")
             draw_grid()
+            refresh_edge_preview(refresh_background=True)
+
+        def refresh_edge_button_states() -> None:
+            for key, widget in edge_button_widgets.items():
+                entry = state["edge_neighbors"].get(key)
+                if not entry or not entry.get("enabled"):
+                    widget.config(state=tk.DISABLED, fg="#555555")
+                else:
+                    widget.config(state=tk.NORMAL, fg="white")
+
+        def on_edge_band_width_change(value: str) -> None:
+            nonlocal edge_mode_data
+            try:
+                new_width = int(float(value))
+            except (TypeError, ValueError):
+                new_width = state.get("edge_band_cells", EDGE_BAND_CELLS_DEFAULT)
+            new_width = max(EDGE_BAND_CELLS_MIN, min(EDGE_BAND_CELLS_MAX, new_width))
+            if state.get("edge_band_cells") == new_width:
+                if edge_band_width_value_label is not None:
+                    edge_band_width_value_label.config(text=f"Szerokość: {new_width} komórek")
+                return
+            state["edge_band_cells"] = new_width
+            existing_neighbors = state.get("edge_neighbors")
+            edge_mode_data = build_edge_mode_data(new_width, existing_neighbors)
+            state["edge_neighbors"] = edge_mode_data
+            refresh_edge_button_states()
+            current_key = state.get("edge_current_key")
+            if current_key:
+                current_entry = state["edge_neighbors"].get(current_key)
+                if not current_entry or not current_entry.get("enabled"):
+                    exit_edge_mode()
+            if edge_band_width_value_label is not None:
+                edge_band_width_value_label.config(text=f"Szerokość: {new_width} komórek")
+            draw_grid()
+            refresh_edge_preview(refresh_background=True)
+
+        def on_edge_blend_strength_change(value: str) -> None:
+            try:
+                strength = int(float(value))
+            except (TypeError, ValueError):
+                strength = EDGE_BLEND_DEFAULT_STRENGTH
+            strength = max(0, min(100, strength))
+            state["edge_blend_strength"] = strength
+            if edge_blend_strength_value_label is not None:
+                edge_blend_strength_value_label.config(text=f"Moc: {strength}%")
+
+        def on_edge_blend_profile_change(event=None) -> None:
+            label = edge_blend_profile_display_var.get()
+            profile_key = EDGE_BLEND_PROFILE_LABEL_TO_KEY.get(label, EDGE_BLEND_PROFILE_DEFAULT)
+            state["edge_blend_profile"] = profile_key
+
+        def blend_active_edge() -> None:
+            edge_key = state.get("edge_current_key")
+            if not state.get("edge_mode_active") or not edge_key:
+                if edge_status_label is not None:
+                    edge_status_label.config(text="Aktywny: brak — wybierz krawędź do wygładzenia")
+                return
+            entry = state["edge_neighbors"].get(edge_key)
+            if not entry or not entry.get("enabled"):
+                if edge_status_label is not None:
+                    edge_status_label.config(text="Aktywny: brak — wybierz krawędź do wygładzenia")
+                return
+            band_mask = entry.get("band_mask")
+            distance_map = entry.get("band_distance")
+            max_distance = entry.get("band_max_distance", 0)
+            neighbor_pixels = entry.get("neighbor_pixels")
+            if not band_mask or distance_map is None or neighbor_pixels is None:
+                return
+            strength = max(0, min(100, int(state.get("edge_blend_strength", EDGE_BLEND_DEFAULT_STRENGTH))))
+            if strength <= 0:
+                return
+            strength_factor = strength / 100.0
+            profile_key = state.get("edge_blend_profile", EDGE_BLEND_PROFILE_DEFAULT)
+            profile_meta = EDGE_BLEND_PROFILES.get(profile_key, EDGE_BLEND_PROFILES[EDGE_BLEND_PROFILE_DEFAULT])
+            exponent = profile_meta.get("exponent", 1.0)
+            begin_edit_action()
+            changes_made = False
+            try:
+                for row in range(grid_size):
+                    for col in range(grid_size):
+                        if not band_mask[row][col]:
+                            continue
+                        distance_value = distance_map[row][col]
+                        if distance_value is None:
+                            continue
+                        ratio = 0.0 if max_distance <= 0 else float(distance_value) / float(max_distance)
+                        weight = strength_factor * (1.0 - math.pow(ratio, exponent))
+                        if weight <= 0.0:
+                            continue
+                        current_color = state["pixels"][row][col]
+                        neighbor_row = row - entry["dy_cells"]
+                        neighbor_col = col - entry["dx_cells"]
+                        neighbor_color = None
+                        if 0 <= neighbor_row < grid_size and 0 <= neighbor_col < grid_size:
+                            neighbor_color = neighbor_pixels[neighbor_row][neighbor_col]
+                        new_color = mix_hex_colors(current_color, neighbor_color, weight)
+                        if new_color != current_color:
+                            state["pixels"][row][col] = new_color
+                            preview_canvas.itemconfig(f"cell_{row}_{col}", fill=new_color if new_color else "")
+                            changes_made = True
+                        if 0 <= neighbor_row < grid_size and 0 <= neighbor_col < grid_size:
+                            new_neighbor_color = mix_hex_colors(neighbor_color, current_color, weight)
+                            if new_neighbor_color != neighbor_color:
+                                neighbor_pixels[neighbor_row][neighbor_col] = new_neighbor_color
+                                entry["dirty"] = True
+                                changes_made = True
+                if changes_made:
+                    state["history_edit_dirty"] = True
+                    draw_grid()
+                    refresh_edge_preview(refresh_background=True)
+                    if edge_status_label is not None:
+                        edge_status_label.config(
+                            text=f"Aktywny: {entry['label']} (sąsiad {entry['neighbor_id']}) — wygładzono"
+                        )
+            finally:
+                finish_edit_action()
 
         def close_preset_window(ref_key: str) -> None:
             nonlocal stamp_scale_label, stamp_scale_widget
@@ -3890,21 +4453,37 @@ class MapEditor:
             state["eraser"] = not state["eraser"]
             eraser_btn.config(relief="sunken" if state["eraser"] else "raised")
 
-        def apply_color_to_cell(row: int, col: int):
+        def brush_label_for_radius(radius: int) -> str:
+            diameter = radius * 2 + 1
+            if radius <= 0:
+                return "Promień: 0 (1×1)"
+            return f"Promień: {radius} (do {diameter}×{diameter})"
+
+        def on_brush_radius_change(value: str) -> None:
+            try:
+                radius = int(float(value))
+            except (TypeError, ValueError):
+                radius = state.get("brush_radius", BRUSH_RADIUS_DEFAULT)
+            radius = max(BRUSH_RADIUS_MIN, min(BRUSH_RADIUS_MAX, radius))
+            state["brush_radius"] = radius
+            if brush_radius_value_label is not None:
+                brush_radius_value_label.config(text=brush_label_for_radius(radius))
+
+        def apply_color_to_cell(row: int, col: int) -> bool:
             if not (0 <= row < grid_size and 0 <= col < grid_size):
-                return
+                return False
             if not state["mask"][row][col]:
-                return
+                return False
             edge_entry = None
             if state.get("edge_mode_active"):
                 edge_key = state.get("edge_current_key")
                 if not edge_key:
-                    return
+                    return False
                 edge_entry = state["edge_neighbors"].get(edge_key)
                 if not edge_entry or not edge_entry.get("enabled"):
-                    return
+                    return False
                 if not edge_entry["band_mask"][row][col]:
-                    return
+                    return False
             new_val = None if state["eraser"] else state["current_color"]
             pixel_changed = False
             if state["pixels"][row][col] != new_val:
@@ -3917,6 +4496,31 @@ class MapEditor:
                 neighbor_changed = apply_color_to_neighbor(edge_entry, row, col, new_val)
             if pixel_changed or neighbor_changed:
                 state["history_edit_dirty"] = True
+            return neighbor_changed
+
+        def paint_with_brush(center_row: int, center_col: int) -> None:
+            radius = int(state.get("brush_radius", BRUSH_RADIUS_DEFAULT))
+            if radius <= 0:
+                neighbor_touched = apply_color_to_cell(center_row, center_col)
+                if neighbor_touched:
+                    refresh_edge_preview(refresh_background=True)
+                return
+            neighbor_touched = False
+            for row in range(center_row - radius, center_row + radius + 1):
+                if row < 0 or row >= grid_size:
+                    continue
+                row_offset = row - center_row
+                for col in range(center_col - radius, center_col + radius + 1):
+                    if col < 0 or col >= grid_size:
+                        continue
+                    if not state["mask"][row][col]:
+                        continue
+                    col_offset = col - center_col
+                    if math.hypot(row_offset, col_offset) <= radius + 0.35:
+                        if apply_color_to_cell(row, col):
+                            neighbor_touched = True
+            if neighbor_touched:
+                refresh_edge_preview(refresh_background=True)
 
         def canvas_paint(event):
             if state.get("asset_mode_active"):
@@ -3932,7 +4536,7 @@ class MapEditor:
             if cell is None:
                 return
             row, col = cell
-            apply_color_to_cell(row, col)
+            paint_with_brush(row, col)
 
         def canvas_pick_color(event):
             if state.get("asset_mode_active"):
@@ -4056,8 +4660,36 @@ class MapEditor:
         )
         asset_mode_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-        tools = tk.Frame(editor, bg="darkolivegreen", width=360)
-        tools.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
+        tools_container = tk.Frame(editor, bg="darkolivegreen", width=360)
+        tools_container.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
+
+        tools_canvas = tk.Canvas(
+            tools_container,
+            bg="darkolivegreen",
+            highlightthickness=0,
+        )
+        tools_scrollbar = tk.Scrollbar(tools_container, orient=tk.VERTICAL, command=tools_canvas.yview)
+        tools_canvas.configure(yscrollcommand=tools_scrollbar.set)
+
+        tools_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tools_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        tools_inner = tk.Frame(tools_canvas, bg="darkolivegreen")
+        tools_window_id = tools_canvas.create_window((0, 0), window=tools_inner, anchor="nw")
+
+        def _sync_tools_scrollregion(event=None) -> None:
+            tools_canvas.configure(scrollregion=tools_canvas.bbox("all"))
+            tools_canvas.itemconfig(tools_window_id, width=tools_canvas.winfo_width())
+
+        def _tools_mousewheel(event) -> None:
+            tools_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        tools_inner.bind("<Configure>", _sync_tools_scrollregion)
+        tools_canvas.bind("<Configure>", _sync_tools_scrollregion)
+        tools_canvas.bind("<MouseWheel>", _tools_mousewheel)
+        tools_inner.bind("<MouseWheel>", _tools_mousewheel)
+
+        tools = tools_inner
 
         tk.Label(tools, text="Aktualny kolor", bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
         current_color_preview = tk.Label(tools, bg=state["current_color"], width=10, height=2, relief=tk.SUNKEN, bd=2)
@@ -4108,6 +4740,32 @@ class MapEditor:
         eraser_btn = tk.Button(tools, text="Gumka", command=toggle_eraser, bg="#444", fg="white")
         eraser_btn.pack(fill=tk.X, pady=(8, 2))
 
+        brush_frame = tk.LabelFrame(tools, text="Pędzel", bg="darkolivegreen", fg="white")
+        brush_frame.pack(fill=tk.X, pady=(6, 4))
+        brush_radius_value_label = tk.Label(
+            brush_frame,
+            text=brush_label_for_radius(state["brush_radius"]),
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w"
+        )
+        brush_radius_value_label.pack(fill=tk.X, padx=4, pady=(2, 0))
+        brush_scale = tk.Scale(
+            brush_frame,
+            from_=BRUSH_RADIUS_MIN,
+            to=BRUSH_RADIUS_MAX,
+            orient=tk.HORIZONTAL,
+            resolution=1,
+            variable=brush_radius_var,
+            command=on_brush_radius_change,
+            length=200,
+            bg="darkolivegreen",
+            highlightthickness=0,
+            troughcolor="#555555"
+        )
+        brush_scale.pack(fill=tk.X, padx=4, pady=(2, 4))
+        on_brush_radius_change(str(state["brush_radius"]))
+
         tk.Button(
             tools,
             text="Biblioteka presetów…",
@@ -4123,17 +4781,45 @@ class MapEditor:
         edge_frame.pack(fill=tk.X, pady=(12, 6))
         tk.Label(
             edge_frame,
-            text="Wybierz krawędź, aby malować styki dwóch heksów jednocześnie.",
+            text="Wybierz krawędź, aby malować styki dwóch heksów lub wygładzać je między heksami.",
             bg="darkolivegreen",
             fg="#d4f2bf",
-            wraplength=180,
+            wraplength=200,
             justify="left"
         ).pack(fill=tk.X, padx=4, pady=(2, 4))
+
+        band_controls = tk.Frame(edge_frame, bg="darkolivegreen")
+        band_controls.pack(fill=tk.X, padx=4, pady=(0, 6))
+        edge_band_width_value_label = tk.Label(
+            band_controls,
+            text=f"Szerokość: {state['edge_band_cells']} komórek",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w"
+        )
+        edge_band_width_value_label.pack(fill=tk.X, pady=(0, 2))
+        edge_band_scale = tk.Scale(
+            band_controls,
+            from_=EDGE_BAND_CELLS_MIN,
+            to=EDGE_BAND_CELLS_MAX,
+            orient=tk.HORIZONTAL,
+            resolution=1,
+            variable=edge_band_width_var,
+            command=on_edge_band_width_change,
+            length=200,
+            bg="darkolivegreen",
+            highlightthickness=0,
+            troughcolor="#555555"
+        )
+        edge_band_scale.pack(fill=tk.X)
+
+        edges_list_frame = tk.Frame(edge_frame, bg="darkolivegreen")
+        edges_list_frame.pack(fill=tk.X, padx=4, pady=(4, 4))
         for edge_entry in edge_definitions:
             edge_info = edge_mode_data[edge_entry["key"]]
             label_text = f"{edge_entry['label']} → {edge_info['neighbor_id']}"
             btn = tk.Radiobutton(
-                edge_frame,
+                edges_list_frame,
                 text=label_text,
                 variable=selected_edge_var,
                 value=edge_entry["key"],
@@ -4145,7 +4831,68 @@ class MapEditor:
             )
             if not edge_info.get("enabled"):
                 btn.config(state=tk.DISABLED, fg="#555555")
-            btn.pack(fill=tk.X, padx=4, pady=1)
+            btn.pack(fill=tk.X, pady=1)
+            edge_button_widgets[edge_entry["key"]] = btn
+
+        blend_frame = tk.LabelFrame(edge_frame, text="Wygładzanie", bg="darkolivegreen", fg="white")
+        blend_frame.pack(fill=tk.X, padx=4, pady=(4, 6))
+        edge_blend_strength_value_label = tk.Label(
+            blend_frame,
+            text=f"Moc: {int(state['edge_blend_strength'])}%",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w"
+        )
+        edge_blend_strength_value_label.pack(fill=tk.X, pady=(2, 0))
+        blend_strength_scale = tk.Scale(
+            blend_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            resolution=1,
+            variable=edge_blend_strength_var,
+            command=on_edge_blend_strength_change,
+            length=200,
+            bg="darkolivegreen",
+            highlightthickness=0,
+            troughcolor="#555555"
+        )
+        blend_strength_scale.pack(fill=tk.X, pady=(0, 4))
+
+        tk.Label(
+            blend_frame,
+            text="Profil wygładzania",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w"
+        ).pack(fill=tk.X, pady=(2, 0))
+        blend_profile_combo = ttk.Combobox(
+            blend_frame,
+            textvariable=edge_blend_profile_display_var,
+            values=[meta["label"] for meta in EDGE_BLEND_PROFILES.values()],
+            state="readonly"
+        )
+        blend_profile_combo.pack(fill=tk.X, pady=(0, 4))
+        try:
+            current_index = [meta["label"] for meta in EDGE_BLEND_PROFILES.values()].index(
+                edge_blend_profile_display_var.get()
+            )
+            blend_profile_combo.current(current_index)
+        except ValueError:
+            default_label = EDGE_BLEND_PROFILES[EDGE_BLEND_PROFILE_DEFAULT]["label"]
+            edge_blend_profile_display_var.set(default_label)
+            blend_profile_combo.current(0)
+            on_edge_blend_profile_change()
+        blend_profile_combo.bind("<<ComboboxSelected>>", on_edge_blend_profile_change)
+
+        tk.Button(
+            blend_frame,
+            text="Wygładź aktywny pas",
+            command=blend_active_edge,
+            bg="#4c7035",
+            fg="white"
+        ).pack(fill=tk.X, pady=(2, 4))
+
         tk.Button(
             edge_frame,
             text="Wyłącz pas styku",
@@ -4153,8 +4900,21 @@ class MapEditor:
             bg="#555555",
             fg="white"
         ).pack(fill=tk.X, padx=4, pady=(6, 2))
-        edge_status_label = tk.Label(edge_frame, text="Aktywny: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=180, justify="left")
+        edge_status_label = tk.Label(edge_frame, text="Aktywny: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=200, justify="left")
         edge_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+        edge_sync_status_label = tk.Label(
+            edge_frame,
+            text="Podgląd sąsiada: wyłączony",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w",
+            wraplength=200,
+            justify="left",
+        )
+        edge_sync_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+        refresh_edge_button_states()
+        on_edge_blend_strength_change(str(state["edge_blend_strength"]))
+        on_edge_blend_profile_change()
 
         def save_and_close():
             deactivate_asset_mode(update_button=False)
@@ -4238,6 +4998,173 @@ class MapEditor:
                 pass
 
         editor.protocol("WM_DELETE_WINDOW", close_editor)
+
+    def _clear_flat_texture_from_record(self, record: dict) -> None:
+        record.pop("texture", None)
+        record.pop("texture_grid", None)
+        record.pop("flat_texture_preset", None)
+
+    def _apply_flat_texture_preset_to_record(self, record: dict, preset_key: str, grid_size: int | None = None) -> None:
+        preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
+        if not preset_meta or preset_meta.get("type") == "clear":
+            self._clear_flat_texture_from_record(record)
+            return
+        grid = grid_size or DEFAULT_HEX_TEXTURE_GRID_SIZE
+        texture_rel = self._ensure_flat_texture_asset(preset_key, grid)
+        record["texture"] = texture_rel
+        record["texture_grid"] = grid
+        record["flat_texture_preset"] = preset_key
+
+    def _ensure_flat_texture_asset(self, preset_key: str, grid_size: int) -> str:
+        output_name = f"flat_{preset_key}_{grid_size}.png"
+        output_path = HEX_TEXTURE_DIR / output_name
+        if not output_path.exists():
+            pixels = self._generate_flat_texture_pixels(preset_key, grid_size)
+            img = self._pixel_grid_to_image(pixels)
+            export_size = HEX_TEXTURE_EXPORT_SIZES.get(grid_size, grid_size)
+            export_img = img.resize((export_size, export_size), Image.NEAREST)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            export_img.save(output_path)
+        return to_rel(str(output_path))
+
+    def _pixel_grid_to_image(self, pixel_grid: list[list[str | None]]) -> Image.Image:
+        size = len(pixel_grid)
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        for row in range(size):
+            for col in range(size):
+                color = pixel_grid[row][col]
+                if color:
+                    r, g, b = hex_to_rgb(color)
+                    img.putpixel((col, row), (r, g, b, 255))
+        return img
+
+    def _generate_flat_texture_pixels(self, preset_key: str, grid_size: int) -> list[list[str | None]]:
+        preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
+        if not preset_meta or preset_meta.get("type") != "builtin":
+            raise ValueError(f"Brak wzoru typu 'builtin' dla klucza: {preset_key}")
+
+        mask = self._precompute_hex_mask(grid_size)
+        pixels: list[list[str | None]] = [[None for _ in range(grid_size)] for _ in range(grid_size)]
+        rng = random.Random(f"{preset_key}-{grid_size}")
+
+        base_rgb = hex_to_rgb(preset_meta["base_color"])
+        noise = int(preset_meta.get("noise", 0))
+        accent_color = preset_meta.get("accent_color")
+        accent_chance = float(preset_meta.get("accent_chance", 0.0))
+        highlight_color = preset_meta.get("highlight_color")
+        highlight_chance = float(preset_meta.get("highlight_chance", 0.0))
+        pattern = preset_meta.get("pattern", "noise")
+
+        secondary_color = preset_meta.get("secondary_color")
+        secondary_rgb = hex_to_rgb(secondary_color) if secondary_color else base_rgb
+
+        if pattern == "noise":
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    if not mask[row][col]:
+                        continue
+                    delta = (
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                    )
+                    pixel_rgb = adjust_rgb(base_rgb, delta)
+                    if accent_color and rng.random() < accent_chance:
+                        pixel_rgb = hex_to_rgb(accent_color)
+                    elif highlight_color and rng.random() < highlight_chance:
+                        pixel_rgb = hex_to_rgb(highlight_color)
+                    pixels[row][col] = rgb_to_hex(pixel_rgb)
+
+        elif pattern == "stripes":
+            band_width = max(2, int(preset_meta.get("band_width", 6)))
+            band_strength = float(preset_meta.get("band_strength", 0.5))
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    if not mask[row][col]:
+                        continue
+                    delta = (
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                    )
+                    pixel_rgb = adjust_rgb(base_rgb, delta)
+                    stripe_index = ((row + int(col * 0.4)) // band_width) % 2
+                    if stripe_index == 1 and secondary_color:
+                        pixel_rgb = blend_rgb(pixel_rgb, secondary_rgb, band_strength)
+                    if accent_color and rng.random() < accent_chance:
+                        pixel_rgb = hex_to_rgb(accent_color)
+                    pixels[row][col] = rgb_to_hex(pixel_rgb)
+
+        elif pattern == "patches":
+            patch_size = max(3, int(preset_meta.get("patch_size", 6)))
+            patch_jitter = float(preset_meta.get("patch_jitter", 0.3))
+            patch_cache: dict[tuple[int, int], float] = {}
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    if not mask[row][col]:
+                        continue
+                    delta = (
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                    )
+                    pixel_rgb = adjust_rgb(base_rgb, delta)
+                    patch_key = (row // patch_size, col // patch_size)
+                    base_value = patch_cache.setdefault(patch_key, rng.random())
+                    threshold = 0.6 + rng.uniform(-patch_jitter, patch_jitter)
+                    if secondary_color and base_value > threshold:
+                        pixel_rgb = secondary_rgb
+                    if accent_color and rng.random() < accent_chance:
+                        pixel_rgb = hex_to_rgb(accent_color)
+                    pixels[row][col] = rgb_to_hex(pixel_rgb)
+
+        else:
+            # domyślnie fallback do podstawowego szumu
+            for row in range(grid_size):
+                for col in range(grid_size):
+                    if not mask[row][col]:
+                        continue
+                    delta = (
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                        rng.randint(-noise, noise) if noise else 0,
+                    )
+                    pixel_rgb = adjust_rgb(base_rgb, delta)
+                    pixels[row][col] = rgb_to_hex(pixel_rgb)
+
+        return pixels
+
+    def _build_clear_texture_preview(self) -> Image.Image:
+        size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        mask = self._precompute_hex_mask(size)
+        base_color = hex_to_rgb(TERRAIN_PREVIEW_COLORS.get("teren_płaski", "#91a86b"))
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        for row in range(size):
+            for col in range(size):
+                if not mask[row][col]:
+                    continue
+                img.putpixel((col, row), (*base_color, 110))
+        draw = ImageDraw.Draw(img)
+        draw.line((0, 0, size, size), fill=(255, 255, 255, 180), width=4)
+        draw.line((0, size, size, 0), fill=(255, 255, 255, 180), width=4)
+        return img
+
+    def _get_flat_texture_preview(self, preset_key: str) -> ImageTk.PhotoImage:
+        cached = self.flat_texture_preview_cache.get(preset_key)
+        if cached is not None:
+            return cached
+
+        if preset_key == "none":
+            img = self._build_clear_texture_preview()
+        else:
+            pixels = self._generate_flat_texture_pixels(preset_key, DEFAULT_HEX_TEXTURE_GRID_SIZE)
+            img = self._pixel_grid_to_image(pixels)
+
+        preview_size = 104
+        preview_img = img.resize((preview_size, preview_size), Image.NEAREST)
+        photo = ImageTk.PhotoImage(preview_img)
+        self.flat_texture_preview_cache[preset_key] = photo
+        return photo
 
     def _load_hex_texture_pixels(self, texture_rel: str | None, grid_size: int) -> list[list[str | None]]:
         mask = self._precompute_hex_mask(grid_size)
@@ -4371,6 +5298,15 @@ class MapEditor:
         else:
             self.texture_info_label.config(text=f"Tekstura: domyślna ({grid_info}x{grid_info})")
         self.edit_texture_button.config(state=tk.NORMAL)
+
+        preset_key = terrain.get("flat_texture_preset")
+        if hasattr(self, "flat_texture_info_label"):
+            if preset_key:
+                preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
+                preset_label = preset_meta.get("name", preset_key) if preset_meta else preset_key
+                self.flat_texture_info_label.config(text=f"Wzór płaski: {preset_label}")
+            else:
+                self.flat_texture_info_label.config(text="Wzór płaski: brak")
         
         # Sprawdź czy to Key Point
         key_point_info = ""
@@ -4791,7 +5727,9 @@ class MapEditor:
             return
         terrain = TERRAIN_TYPES.get(terrain_key)
         if terrain:
-            updated_record = self.hex_data.get(self.selected_hex, {}).copy()
+            current_record = self.hex_data.get(self.selected_hex, {})
+            updated_record = current_record.copy()
+            previous_texture = current_record.get("texture")
             updated_record["terrain_key"] = terrain_key
             updated_record["move_mod"] = terrain["move_mod"]
             updated_record["defense_mod"] = terrain["defense_mod"]
@@ -4810,15 +5748,230 @@ class MapEditor:
                     "defense_mod": terrain["defense_mod"]
                 }
 
+            if terrain_key == "teren_płaski":
+                brush_preset = self.selected_flat_texture_preset
+                if brush_preset == "none":
+                    self._clear_flat_texture_from_record(updated_record)
+                elif brush_preset:
+                    self._apply_flat_texture_preset_to_record(updated_record, brush_preset)
+                elif "flat_texture_preset" in updated_record and updated_record.get("texture") is None:
+                    self._clear_flat_texture_from_record(updated_record)
+            else:
+                self._clear_flat_texture_from_record(updated_record)
+
             self.hex_data[self.selected_hex] = updated_record
             terrain_for_draw = updated_record
             # Zapisz dane i odrysuj heks
             self.save_data()
-            cx, cy = self.hex_centers[self.selected_hex]
-            self.draw_hex(self.selected_hex, cx, cy, self.hex_size, terrain_for_draw)
+            new_texture = updated_record.get("texture")
+            needs_full_redraw = previous_texture != new_texture
+            if needs_full_redraw:
+                self.draw_grid()
+            else:
+                cx, cy = self.hex_centers[self.selected_hex]
+                self.draw_hex(self.selected_hex, cx, cy, self.hex_size, terrain_for_draw)
+            self.update_hex_info_display(self.selected_hex)
             messagebox.showinfo("Zapisano", f"Dla heksu {self.selected_hex} ustawiono teren: {terrain_key}")
+            self.auto_save('malowanie terenu')
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
+
+    def toggle_flat_texture_window(self, event=None):
+        if self.flat_texture_window and self.flat_texture_window.winfo_exists():
+            self.close_flat_texture_window()
+        else:
+            self.open_flat_texture_window()
+        return "break"
+
+    def open_flat_texture_window(self, event=None):
+        if self.flat_texture_window and self.flat_texture_window.winfo_exists():
+            try:
+                self.flat_texture_window.deiconify()
+                self.flat_texture_window.lift()
+                self.flat_texture_window.focus_set()
+            except Exception:
+                pass
+            return
+
+        window = tk.Toplevel(self.root)
+        window.title("Tekstury terenu płaskiego")
+        window.configure(bg="darkolivegreen")
+        window.geometry("420x560")
+        window.minsize(360, 440)
+        window.transient(self.root)
+
+        container = tk.Frame(window, bg="darkolivegreen")
+        container.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
+
+        canvas = tk.Canvas(container, bg="darkolivegreen", highlightthickness=0)
+        canvas.configure(width=300)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = tk.Scrollbar(container, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        inner = tk.Frame(canvas, bg="darkolivegreen")
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind(
+            "<Configure>",
+            lambda event, canv=canvas: canv.configure(scrollregion=canv.bbox("all"))
+        )
+
+        for preset in FLAT_TERRAIN_TEXTURE_PRESETS:
+            self._build_flat_texture_entry(inner, preset)
+
+        tips_frame = tk.Frame(inner, bg="darkolivegreen")
+        tips_frame.pack(fill=tk.X, padx=10, pady=(6, 10))
+        tk.Label(
+            tips_frame,
+            text="Wskazówka: wybierz wzór jako aktywny, aby malować nim teren płaski.",
+            wraplength=300,
+            justify="left",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 8, "italic")
+        ).pack(anchor="w")
+
+        window.bind("<Control-Shift-F>", self.toggle_flat_texture_window)
+        window.bind("<Escape>", self.close_flat_texture_window)
+        window.protocol("WM_DELETE_WINDOW", self.close_flat_texture_window)
+        self.flat_texture_window = window
+
+    def close_flat_texture_window(self, event=None):
+        if self.flat_texture_window and self.flat_texture_window.winfo_exists():
+            try:
+                self.flat_texture_window.destroy()
+            except Exception:
+                pass
+        self.flat_texture_window = None
+        return "break"
+
+    def _build_flat_texture_entry(self, parent, preset_meta: dict) -> None:
+        entry_frame = tk.Frame(parent, bg="darkolivegreen", bd=1, relief=tk.GROOVE, padx=6, pady=6)
+        entry_frame.pack(fill=tk.X, padx=8, pady=4)
+
+        preview_label = tk.Label(entry_frame, bg="darkolivegreen")
+        preview_label.pack(side=tk.LEFT, padx=(0, 8))
+
+        preview_image = self._get_flat_texture_preview(preset_meta["key"])
+        preview_label.configure(image=preview_image)
+        preview_label.image = preview_image
+
+        text_frame = tk.Frame(entry_frame, bg="darkolivegreen")
+        text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            text_frame,
+            text=preset_meta.get("name", preset_meta["key"]),
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            anchor="w"
+        ).pack(anchor="w")
+
+        description = preset_meta.get("description")
+        if description:
+            tk.Label(
+                text_frame,
+                text=description,
+                wraplength=220,
+                justify="left",
+                bg="darkolivegreen",
+                fg="white",
+                font=("Arial", 8)
+            ).pack(anchor="w", pady=(2, 6))
+
+        buttons_frame = tk.Frame(text_frame, bg="darkolivegreen")
+        buttons_frame.pack(fill=tk.X)
+
+        tk.Button(
+            buttons_frame,
+            text="Aktywny pędzel",
+            command=lambda key=preset_meta["key"]: self.set_flat_texture_brush(key),
+            bg="saddlebrown",
+            fg="white",
+            activebackground="saddlebrown",
+            activeforeground="white"
+        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 4))
+
+        tk.Button(
+            buttons_frame,
+            text="Zastosuj na heksie",
+            command=lambda key=preset_meta["key"]: self.apply_flat_texture_preset(key),
+            bg="forestgreen",
+            fg="white",
+            activebackground="forestgreen",
+            activeforeground="white"
+        ).pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+    def set_flat_texture_brush(self, preset_key: str) -> None:
+        preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
+        if not preset_meta:
+            messagebox.showerror("Błąd", f"Nieznany wzór terenu: {preset_key}")
+            return
+        if preset_meta.get("type") == "clear":
+            self.selected_flat_texture_preset = "none"
+        else:
+            self.selected_flat_texture_preset = preset_key
+        self.update_flat_texture_status()
+        self.set_status(f"Aktywny wzór terenu płaskiego: {preset_meta.get('name', preset_key)}")
+
+    def update_flat_texture_status(self) -> None:
+        if not hasattr(self, "flat_texture_status_var"):
+            return
+        if not self.selected_flat_texture_preset or self.selected_flat_texture_preset == "none":
+            self.flat_texture_status_var.set("Aktywny wzór: brak")
+        else:
+            preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(self.selected_flat_texture_preset, {})
+            preset_name = preset_meta.get("name", self.selected_flat_texture_preset)
+            self.flat_texture_status_var.set(f"Aktywny wzór: {preset_name}")
+
+    def apply_flat_texture_preset(self, preset_key: str, target_hex: str | None = None) -> None:
+        preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
+        if not preset_meta:
+            messagebox.showerror("Błąd", f"Nieznany wzór terenu: {preset_key}")
+            return
+
+        if target_hex is None:
+            if self.selected_hex is None:
+                messagebox.showinfo("Informacja", "Najpierw wybierz heks do zastosowania wzoru.")
+                return
+            target_hex = self.selected_hex
+
+        if target_hex not in self.hex_centers:
+            messagebox.showerror("Błąd", f"Heks {target_hex} nie istnieje na mapie.")
+            return
+
+        record = self.hex_data.get(target_hex, {}).copy()
+        base_flat = TERRAIN_TYPES["teren_płaski"]
+        record["terrain_key"] = "teren_płaski"
+        record["move_mod"] = base_flat["move_mod"]
+        record["defense_mod"] = base_flat["defense_mod"]
+
+        previous_texture = record.get("texture")
+        if preset_meta.get("type") == "clear":
+            self._clear_flat_texture_from_record(record)
+            preset_name = preset_meta.get("name", "Brak tekstury")
+        else:
+            self._apply_flat_texture_preset_to_record(record, preset_key)
+            preset_name = preset_meta.get("name", preset_key)
+
+        self.hex_data[target_hex] = record
+        self.save_data()
+
+        new_texture = record.get("texture")
+        if previous_texture != new_texture:
+            self.draw_grid()
+        else:
+            cx, cy = self.hex_centers[target_hex]
+            self.draw_hex(target_hex, cx, cy, self.hex_size, record)
+
+        if self.selected_hex == target_hex:
+            self.update_hex_info_display(target_hex)
+
+        self.auto_save('tekstura płaska')
+        self.set_status(f"Zastosowano wzór '{preset_name}' na heksie {target_hex}")
 
     def clear_token_selection(self):
         """Czyści aktualnie wybrany żeton do wystawienia."""
@@ -5068,7 +6221,9 @@ class MapEditor:
         hex_id = f"{q},{r}"
         terrain = TERRAIN_TYPES.get(terrain_key)
         if terrain:
-            updated_record = self.hex_data.get(hex_id, {}).copy()
+            current_record = self.hex_data.get(hex_id, {})
+            updated_record = current_record.copy()
+            previous_texture = current_record.get("texture")
             updated_record["terrain_key"] = terrain_key
             updated_record["move_mod"] = terrain["move_mod"]
             updated_record["defense_mod"] = terrain["defense_mod"]
@@ -5087,11 +6242,29 @@ class MapEditor:
                     "defense_mod": terrain["defense_mod"]
                 }
 
+            if terrain_key == "teren_płaski":
+                brush_preset = self.selected_flat_texture_preset
+                if brush_preset == "none":
+                    self._clear_flat_texture_from_record(updated_record)
+                elif brush_preset:
+                    self._apply_flat_texture_preset_to_record(updated_record, brush_preset)
+                elif "flat_texture_preset" in updated_record and updated_record.get("texture") is None:
+                    self._clear_flat_texture_from_record(updated_record)
+            else:
+                self._clear_flat_texture_from_record(updated_record)
+
             self.hex_data[hex_id] = updated_record
             terrain_for_draw = updated_record
             self.save_data()
-            cx, cy = self.hex_centers[hex_id]
-            self.draw_hex(hex_id, cx, cy, self.hex_size, terrain_for_draw)
+            new_texture = updated_record.get("texture")
+            needs_full_redraw = previous_texture != new_texture
+            if needs_full_redraw:
+                self.draw_grid()
+            else:
+                cx, cy = self.hex_centers[hex_id]
+                self.draw_hex(hex_id, cx, cy, self.hex_size, terrain_for_draw)
+            if self.selected_hex == hex_id:
+                self.update_hex_info_display(hex_id)
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
         self.auto_save('malowanie terenu')

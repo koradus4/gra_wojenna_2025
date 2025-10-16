@@ -4870,17 +4870,26 @@
     "12,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "12,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat_grass_dense_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "12,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat_grass_fields_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_fields"
     },
     "12,5": {
       "terrain_key": "teren_płaski",
@@ -5270,17 +5279,26 @@
     "13,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "13,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_13_3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_fields"
     },
     "13,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_13_4.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_sandy_mix"
     },
     "13,5": {
       "terrain_key": "teren_płaski",
@@ -5670,22 +5688,33 @@
     "14,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "14,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_14_2.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "14,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_14_3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_muddy_mix"
     },
     "14,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_14_4.png",
+      "texture_grid": 64
     },
     "14,5": {
       "terrain_key": "teren_płaski",
@@ -6075,12 +6104,17 @@
     "15,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_15_2.png",
+      "texture_grid": 64
     },
     "15,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_15_3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_muddy_mix"
     },
     "15,4": {
       "terrain_key": "teren_płaski",
