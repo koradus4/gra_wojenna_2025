@@ -3077,6 +3077,21 @@ class MapEditor:
 
         preview_color_cache: dict[str, list[list[str | None]]] = {}
 
+        cache_debug_enabled = os.environ.get("HEX_EDITOR_CACHE_DEBUG") == "1"
+
+        def debug_cache(message: str) -> None:
+            if not cache_debug_enabled:
+                return
+            active_hex = None
+            try:
+                active_hex = state.get("current_hex_id")  # type: ignore[name-defined]
+            except NameError:
+                active_hex = hex_id
+            except AttributeError:
+                active_hex = hex_id
+            label = active_hex or hex_id
+            print(f"[edge-cache] {label}: {message}")
+
         def solid_color_pixels(color: str) -> list[list[str | None]]:
             cached = preview_color_cache.get(color)
             if cached is not None:
@@ -3092,40 +3107,88 @@ class MapEditor:
         def get_context_pixels(
             target_hex_id: str,
             overrides: dict[str, dict] | None = None,
+            neighbor_cache: dict[str, dict] | None = None,
         ) -> list[list[str | None]] | None:
-            if target_hex_id == hex_id:
+            try:
+                current_hex_identifier = state.get("current_hex_id", hex_id)
+            except NameError:
+                current_hex_identifier = hex_id
+            if target_hex_id == current_hex_identifier:
+                debug_cache(
+                    f"get_context_pixels {target_hex_id}: skipped (current hex {current_hex_identifier})"
+                )
                 return None
+            sources = None
+            try:
+                sources = state.get("last_context_sources")
+            except NameError:
+                sources = None
             if overrides:
                 for entry in overrides.values():
                     if entry.get("neighbor_id") == target_hex_id:
                         override_pixels = entry.get("neighbor_pixels")
                         if override_pixels is not None:
+                            if sources is not None:
+                                sources[target_hex_id] = "override"
+                            debug_cache(f"get_context_pixels {target_hex_id}: using override entry")
                             return override_pixels
+            if neighbor_cache:
+                cached_entry = neighbor_cache.get(target_hex_id)
+                if cached_entry is not None:
+                    cached_pixels = cached_entry.get("pixels")
+                    if cached_pixels is not None:
+                        if sources is not None:
+                            sources[target_hex_id] = "neighbor_cache"
+                        debug_cache(f"get_context_pixels {target_hex_id}: using neighbor_cache copy")
+                        return [row[:] for row in cached_pixels]
             terrain_data = self.hex_data.get(target_hex_id)
             if not terrain_data:
+                if sources is not None:
+                    sources[target_hex_id] = "none"
+                debug_cache(f"get_context_pixels {target_hex_id}: missing terrain data")
                 return None
             texture_rel = terrain_data.get("texture")
             if texture_rel:
+                if sources is not None:
+                    sources[target_hex_id] = "texture_disk"
+                debug_cache(f"get_context_pixels {target_hex_id}: loaded texture_rel {texture_rel}")
                 return self._load_hex_texture_pixels(texture_rel, grid_size)
             terrain_key = terrain_data.get("terrain_key")
             if terrain_key:
                 preview_color = TERRAIN_PREVIEW_COLORS.get(terrain_key)
                 if preview_color:
+                    if sources is not None:
+                        sources[target_hex_id] = "terrain_color"
+                    debug_cache(f"get_context_pixels {target_hex_id}: using terrain preview color {terrain_key}")
                     return solid_color_pixels(preview_color)
+            if sources is not None:
+                sources[target_hex_id] = "none"
+            debug_cache(f"get_context_pixels {target_hex_id}: no data available")
             return None
 
         def build_texture_context(
             overrides: dict[str, dict] | None = None,
+            neighbor_cache: dict[str, dict] | None = None,
         ) -> Image.Image | None:
+            try:
+                state.get("last_context_sources", {}).clear()
+            except NameError:
+                pass
+            debug_cache(
+                "build_texture_context start "
+                f"overrides={bool(overrides)} cache={bool(neighbor_cache)}"
+            )
             context_img = Image.new("RGBA", (context_canvas_size, context_canvas_size), (0, 0, 0, 0))
             has_any = False
             for dq, dr in neighbor_dirs:
                 neighbor_id = f"{q + dq},{r + dr}"
-                neighbor_pixels = get_context_pixels(neighbor_id, overrides)
+                neighbor_pixels = get_context_pixels(neighbor_id, overrides, neighbor_cache)
                 if not neighbor_pixels:
+                    debug_cache(f"build_texture_context neighbor {neighbor_id}: no pixels")
                     continue
                 neighbor_img = pixels_to_image(neighbor_pixels)
                 if neighbor_img.getbbox() is None:
+                    debug_cache(f"build_texture_context neighbor {neighbor_id}: empty bbox")
                     continue
                 neighbor_size = max(canvas_size, int(round(canvas_size * NEIGHBOR_PREVIEW_SCALE)))
                 neighbor_size = min(context_canvas_size, neighbor_size)
@@ -3135,11 +3198,14 @@ class MapEditor:
                 paste_x = int(round(center_px + offset_x - neighbor_size / 2.0))
                 paste_y = int(round(center_px + offset_y - neighbor_size / 2.0))
                 context_img.paste(neighbor_img, (paste_x, paste_y), neighbor_img)
+                debug_cache(
+                    f"build_texture_context neighbor {neighbor_id}: pasted {neighbor_size}x{neighbor_size}"
+                )
                 has_any = True
+            debug_cache(f"build_texture_context complete has_any={has_any}")
             return context_img if has_any else None
 
-        context_background = build_texture_context(edge_mode_data)
-        background_photo = ImageTk.PhotoImage(context_background) if context_background else None
+        background_photo = None
         outline_points: list[float] = []
         for vx, vy in mask_vertices:
             outline_points.extend((vx * cell_size + grid_offset, vy * cell_size + grid_offset))
@@ -3204,7 +3270,19 @@ class MapEditor:
             "brush_radius": BRUSH_RADIUS_DEFAULT,
             "current_hex_id": hex_id,
             "neighbor_hex_data": {},
+            "last_context_sources": {},
+            "cache_debug_enabled": cache_debug_enabled,
         }
+
+        context_background = build_texture_context(
+            state.get("edge_neighbors"),
+            state.get("neighbor_hex_data"),
+        )
+        if context_background:
+            background_photo = ImageTk.PhotoImage(context_background)
+            state["background_photo"] = background_photo
+        else:
+            state["background_photo"] = None
 
         stamp_status_label = None
         selected_edge_var = tk.StringVar(value="")
@@ -3956,7 +4034,10 @@ class MapEditor:
         def refresh_edge_preview(*, refresh_background: bool = False) -> None:
             offset_x, offset_y = state.get("view_offset", (0, 0))
             if refresh_background:
-                context_image = build_texture_context(state.get("edge_neighbors"))
+                context_image = build_texture_context(
+                    state.get("edge_neighbors"),
+                    state.get("neighbor_hex_data"),
+                )
                 if context_image:
                     new_photo = ImageTk.PhotoImage(context_image)
                     state["background_photo"] = new_photo
@@ -5154,12 +5235,23 @@ class MapEditor:
                 "pixels": clone_pixels(state["pixels"]),
                 "dirty": dirty_flag,
             }
+            cached_snapshot = state["neighbor_hex_data"][current_id]
+            debug_cache(f"switch_to_hex {current_id} -> {target_hex_id}: storing snapshot; dirty={dirty_flag}")
+            for edge_key, edge_entry in state["edge_neighbors"].items():
+                if edge_entry.get("neighbor_id") == current_id:
+                    edge_entry["neighbor_pixels"] = clone_pixels(cached_snapshot["pixels"])
+                    edge_entry["dirty"] = cached_snapshot.get("dirty", False)
+                    debug_cache(
+                        f"switch_to_hex {current_id}: mirrored pixels into edge {edge_key}; "
+                        f"dirty={edge_entry['dirty']}"
+                    )
             state["history_edit_dirty"] = False
             
             # Załaduj dane nowego heksa
             if target_hex_id in state["neighbor_hex_data"]:
                 target_data = state["neighbor_hex_data"][target_hex_id]
                 state["pixels"] = clone_pixels(target_data["pixels"])
+                debug_cache(f"switch_to_hex {current_id} -> {target_hex_id}: loaded pixels from cache")
             else:
                 # Wczytaj z bazy
                 target_terrain = self.hex_data.get(target_hex_id, {})
@@ -5168,6 +5260,10 @@ class MapEditor:
                 if target_pixels is None:
                     target_pixels = blank_pixel_grid()
                 state["pixels"] = target_pixels
+                debug_cache(
+                    f"switch_to_hex {current_id} -> {target_hex_id}: loaded from storage "
+                    f"texture_rel={target_texture_rel}"
+                )
             
             current_hex_id = target_hex_id
             state["current_hex_id"] = current_hex_id
@@ -5189,6 +5285,10 @@ class MapEditor:
                 state.get("neighbor_hex_data"),
             )
             state["edge_neighbors"] = edge_mode_data
+            debug_cache(
+                f"switch_to_hex {current_hex_id}: rebuilt edge_mode_data "
+                f"with {len(edge_mode_data)} entries"
+            )
             
             # Odśwież interfejs
             current_hex_label.config(text=f"Edytujesz: {current_hex_id}")
