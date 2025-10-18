@@ -50,6 +50,7 @@ EDGE_BAND_CELLS_MIN = 2
 EDGE_BAND_CELLS_MAX = 12
 EDGE_BLEND_DEFAULT_STRENGTH = 65
 EDGE_BLEND_PROFILE_DEFAULT = "smooth"
+EDGE_BLEED_DEPTH_DEFAULT = 1
 EDGE_BLEND_PROFILES = {
     "linear": {"label": "Liniowy", "exponent": 1.0},
     "smooth": {"label": "Łagodny", "exponent": 1.6},
@@ -464,6 +465,25 @@ class MapEditor:
         if hasattr(self, 'tokens_canvas'):
             self.tokens_canvas.update_idletasks()
 
+    def clear_texture_caches(self) -> None:
+        self.hex_texture_cache.clear()
+        self.flat_texture_preview_cache.clear()
+        self._ghost_cache.clear()
+        if hasattr(self, "_hex_texture_masks"):
+            self._hex_texture_masks.clear()
+        if hasattr(self, "_hex_texture_vertices"):
+            self._hex_texture_vertices.clear()
+        print("🧹 Wyczyszczono cache tekstur i podglądów")
+        try:
+            self.draw_grid()
+        except Exception as exc:
+            print(f"Nie udało się odświeżyć siatki po czyszczeniu cache: {exc}")
+        messagebox.showinfo(
+            "Cache",
+            "Cache tekstur został wyczyszczony. Podgląd mapy odświeżony.",
+            parent=self.root,
+        )
+
     def get_last_modified_map(self):
         # zawsze używamy predefiniowanej mapy
         if os.path.exists(DEFAULT_MAP_FILE):
@@ -518,6 +538,17 @@ class MapEditor:
             activeforeground="white"
         )
         self.configure_map_button.pack(padx=5, pady=2, fill=tk.X)
+
+        self.clear_cache_button = tk.Button(
+            buttons_frame,
+            text="Wyczyść cache tekstur",
+            command=self.clear_texture_caches,
+            bg="#444444",
+            fg="white",
+            activebackground="#444444",
+            activeforeground="white"
+        )
+        self.clear_cache_button.pack(padx=5, pady=2, fill=tk.X)
 
         # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
         # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
@@ -1905,11 +1936,9 @@ class MapEditor:
         mask_radius_units = grid_size / 2.0 - 0.5
         mask_radius_px = mask_radius_units * cell_size
         q, r = map(int, hex_id.split(","))
+        current_hex_id = hex_id
         neighbor_dirs = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
         centers = getattr(self, "hex_centers", {})
-        main_center = centers.get(hex_id)
-        units_scale = (mask_radius_units / self.hex_size) if (main_center and self.hex_size) else None
-
         edge_definitions = [
             {"key": "E", "label": "Prawa krawędź", "direction": (1, 0)},
             {"key": "NE", "label": "Prawa górna krawędź", "direction": (1, -1)},
@@ -1920,10 +1949,12 @@ class MapEditor:
         ]
 
         def canvas_offset_for_hex(target_hex_id: str, dq: int, dr: int) -> tuple[float, float]:
-            if units_scale and target_hex_id in centers and main_center:
-                target_center = centers[target_hex_id]
-                dx_units = (target_center[0] - main_center[0]) * units_scale
-                dy_units = (target_center[1] - main_center[1]) * units_scale
+            current_center = centers.get(current_hex_id)
+            target_center = centers.get(target_hex_id)
+            units_scale = (mask_radius_units / self.hex_size) if (current_center and target_center and self.hex_size) else None
+            if units_scale:
+                dx_units = (target_center[0] - current_center[0]) * units_scale
+                dy_units = (target_center[1] - current_center[1]) * units_scale
             else:
                 dx_units = (3.0 / 2.0) * dq * mask_radius_units
                 dy_units = (math.sqrt(3) * (dr + dq / 2.0)) * mask_radius_units
@@ -1934,6 +1965,7 @@ class MapEditor:
         def build_edge_mode_data(
             band_cells: int,
             existing_neighbors: dict[str, dict] | None = None,
+            cached_neighbors: dict[str, dict] | None = None,
         ) -> dict[str, dict]:
             band_limit = max(EDGE_BAND_CELLS_MIN, min(EDGE_BAND_CELLS_MAX, int(band_cells)))
             data: dict[str, dict] = {}
@@ -2008,6 +2040,8 @@ class MapEditor:
                 edge_data["band_max_distance"] = max_distance
                 neighbor_distances = [[None for _ in range(grid_size)] for _ in range(grid_size)]
                 neighbor_queue: deque[tuple[int, int]] = deque()
+                neighbor_source_row = [[None for _ in range(grid_size)] for _ in range(grid_size)]
+                neighbor_source_col = [[None for _ in range(grid_size)] for _ in range(grid_size)]
                 for row in range(grid_size):
                     band_row = band_mask[row]
                     if not any(band_row):
@@ -2020,6 +2054,8 @@ class MapEditor:
                         if 0 <= nr < grid_size and 0 <= nc < grid_size and hex_mask[nr][nc]:
                             if neighbor_distances[nr][nc] is None:
                                 neighbor_distances[nr][nc] = 0
+                                neighbor_source_row[nr][nc] = row
+                                neighbor_source_col[nr][nc] = col
                                 neighbor_queue.append((nr, nc))
                 neighbor_max_distance = 0
                 while neighbor_queue:
@@ -2034,6 +2070,8 @@ class MapEditor:
                             if neighbor_distances[nnr][nnc] is None:
                                 next_dist = current_dist + 1
                                 neighbor_distances[nnr][nnc] = next_dist
+                                neighbor_source_row[nnr][nnc] = neighbor_source_row[nr][nc]
+                                neighbor_source_col[nnr][nnc] = neighbor_source_col[nr][nc]
                                 neighbor_queue.append((nnr, nnc))
                                 if next_dist > neighbor_max_distance:
                                     neighbor_max_distance = next_dist
@@ -2041,9 +2079,13 @@ class MapEditor:
                 edge_data["neighbor_band_distance"] = neighbor_distances
                 edge_data["neighbor_band_mask"] = neighbor_band_mask
                 edge_data["neighbor_band_max_distance"] = neighbor_max_distance
+                edge_data["neighbor_source_row"] = neighbor_source_row
+                edge_data["neighbor_source_col"] = neighbor_source_col
                 neighbor_record = self.hex_data.get(neighbor_id)
                 neighbor_texture_rel = neighbor_record.get("texture") if neighbor_record else None
                 existing_entry = existing_neighbors.get(entry["key"]) if existing_neighbors else None
+                if existing_entry and existing_entry.get("neighbor_id") != neighbor_id:
+                    existing_entry = None
                 if existing_entry and existing_entry.get("neighbor_pixels") is not None:
                     neighbor_pixels = existing_entry["neighbor_pixels"]
                 else:
@@ -2051,6 +2093,12 @@ class MapEditor:
                         neighbor_texture_rel,
                         grid_size,
                     )
+                if cached_neighbors:
+                    cached_entry = cached_neighbors.get(neighbor_id)
+                    if cached_entry:
+                        cached_pixels = cached_entry.get("pixels")
+                        if cached_pixels is not None:
+                            neighbor_pixels = [row[:] for row in cached_pixels]
                 edge_data["neighbor_pixels"] = neighbor_pixels
                 if existing_entry and existing_entry.get("neighbor_texture_rel") is not None:
                     edge_data["neighbor_texture_rel"] = existing_entry.get("neighbor_texture_rel")
@@ -3013,13 +3061,19 @@ class MapEditor:
             })
 
         neighbor_outline_points: list[list[float]] = []
-        for dq, dr in neighbor_dirs:
-            dx_canvas, dy_canvas = canvas_offset_for_hex(f"{q + dq},{r + dr}", dq, dr)
-            poly_points: list[float] = []
-            for vx, vy in mask_vertices:
-                poly_points.extend((vx * cell_size + grid_offset + dx_canvas,
-                                    vy * cell_size + grid_offset + dy_canvas))
-            neighbor_outline_points.append(poly_points)
+
+        def rebuild_neighbor_outlines() -> None:
+            neighbor_outline_points.clear()
+            for dq, dr in neighbor_dirs:
+                neighbor_id = f"{q + dq},{r + dr}"
+                dx_canvas, dy_canvas = canvas_offset_for_hex(neighbor_id, dq, dr)
+                poly_points: list[float] = []
+                for vx, vy in mask_vertices:
+                    poly_points.extend((vx * cell_size + grid_offset + dx_canvas,
+                                        vy * cell_size + grid_offset + dy_canvas))
+                neighbor_outline_points.append(poly_points)
+
+        rebuild_neighbor_outlines()
 
         preview_color_cache: dict[str, list[list[str | None]]] = {}
 
@@ -3132,6 +3186,7 @@ class MapEditor:
             "edge_current_key": None,
             "edge_neighbors": edge_mode_data,
             "edge_band_cells": initial_edge_band_cells,
+            "edge_bleed_depth": min(initial_edge_band_cells, EDGE_BLEED_DEPTH_DEFAULT),
             "edge_blend_strength": EDGE_BLEND_DEFAULT_STRENGTH,
             "edge_blend_profile": EDGE_BLEND_PROFILE_DEFAULT,
             "undo_stack": [],
@@ -3147,6 +3202,8 @@ class MapEditor:
             "asset_selection_rect": None,
             "asset_selection_bounds": None,
             "brush_radius": BRUSH_RADIUS_DEFAULT,
+            "current_hex_id": hex_id,
+            "neighbor_hex_data": {},
         }
 
         stamp_status_label = None
@@ -3155,9 +3212,12 @@ class MapEditor:
         edge_sync_status_label = None
         edge_band_width_value_label = None
         edge_blend_strength_value_label = None
+        edge_bleed_depth_value_label = None
+        edge_bleed_depth_scale = None
         edge_button_widgets: dict[str, tk.Radiobutton] = {}
         edge_band_width_var = tk.IntVar(master=editor, value=state["edge_band_cells"])
         edge_blend_strength_var = tk.IntVar(master=editor, value=int(state["edge_blend_strength"]))
+        edge_bleed_depth_var = tk.IntVar(master=editor, value=int(state["edge_bleed_depth"]))
         edge_blend_profile_display_var = tk.StringVar(
             master=editor,
             value=EDGE_BLEND_PROFILES[state["edge_blend_profile"]]["label"],
@@ -4114,7 +4174,8 @@ class MapEditor:
                 return
             state["edge_band_cells"] = new_width
             existing_neighbors = state.get("edge_neighbors")
-            edge_mode_data = build_edge_mode_data(new_width, existing_neighbors)
+            cached_neighbors = state.get("neighbor_hex_data")
+            edge_mode_data = build_edge_mode_data(new_width, existing_neighbors, cached_neighbors)
             state["edge_neighbors"] = edge_mode_data
             refresh_edge_button_states()
             current_key = state.get("edge_current_key")
@@ -4124,8 +4185,32 @@ class MapEditor:
                     exit_edge_mode()
             if edge_band_width_value_label is not None:
                 edge_band_width_value_label.config(text=f"Szerokość: {new_width} komórek")
+            max_bleed = state.get("edge_band_cells", new_width)
+            if state.get("edge_bleed_depth", 0) > max_bleed:
+                state["edge_bleed_depth"] = max_bleed
+                edge_bleed_depth_var.set(max_bleed)
+                on_edge_bleed_depth_change(str(max_bleed))
+            else:
+                if edge_bleed_depth_scale is not None:
+                    edge_bleed_depth_scale.config(to=max_bleed)
+                on_edge_bleed_depth_change(str(state.get("edge_bleed_depth", 0)))
             draw_grid()
             refresh_edge_preview(refresh_background=True)
+
+        def on_edge_bleed_depth_change(value: str) -> None:
+            try:
+                depth = int(float(value))
+            except (TypeError, ValueError):
+                depth = state.get("edge_bleed_depth", EDGE_BLEED_DEPTH_DEFAULT)
+            max_allowed = state.get("edge_band_cells", EDGE_BAND_CELLS_DEFAULT)
+            depth = max(0, min(max_allowed, depth))
+            state["edge_bleed_depth"] = depth
+            if edge_bleed_depth_scale is not None:
+                edge_bleed_depth_scale.config(to=max_allowed)
+            if edge_bleed_depth_value_label is not None:
+                edge_bleed_depth_value_label.config(text=bleed_depth_label_for_value(depth))
+            if edge_bleed_depth_var.get() != depth:
+                edge_bleed_depth_var.set(depth)
 
         def on_edge_blend_strength_change(value: str) -> None:
             try:
@@ -4157,6 +4242,16 @@ class MapEditor:
             distance_map = entry.get("band_distance")
             max_distance = entry.get("band_max_distance", 0)
             neighbor_pixels = entry.get("neighbor_pixels")
+            neighbor_distance_map = entry.get("neighbor_band_distance")
+            neighbor_max_distance = entry.get("neighbor_band_max_distance", 0)
+            neighbor_source_row_map = entry.get("neighbor_source_row")
+            neighbor_source_col_map = entry.get("neighbor_source_col")
+            bleed_depth_setting = int(state.get("edge_bleed_depth", EDGE_BLEED_DEPTH_DEFAULT))
+            bleed_depth_setting = max(0, min(bleed_depth_setting, state.get("edge_band_cells", EDGE_BAND_CELLS_DEFAULT)))
+            if bleed_depth_setting <= 0:
+                neighbor_effective_max = -1
+            else:
+                neighbor_effective_max = min(neighbor_max_distance, bleed_depth_setting - 1)
             if not band_mask or distance_map is None or neighbor_pixels is None:
                 return
             strength = max(0, min(100, int(state.get("edge_blend_strength", EDGE_BLEND_DEFAULT_STRENGTH))))
@@ -4178,23 +4273,52 @@ class MapEditor:
                             continue
                         ratio = 0.0 if max_distance <= 0 else float(distance_value) / float(max_distance)
                         weight = strength_factor * (1.0 - math.pow(ratio, exponent))
-                        if weight <= 0.0:
-                            continue
                         current_color = state["pixels"][row][col]
                         neighbor_row = row - entry["dy_cells"]
                         neighbor_col = col - entry["dx_cells"]
                         neighbor_color = None
                         if 0 <= neighbor_row < grid_size and 0 <= neighbor_col < grid_size:
                             neighbor_color = neighbor_pixels[neighbor_row][neighbor_col]
+                        if weight <= 0.0:
+                            continue
                         new_color = mix_hex_colors(current_color, neighbor_color, weight)
                         if new_color != current_color:
                             state["pixels"][row][col] = new_color
-                            preview_canvas.itemconfig(f"cell_{row}_{col}", fill=new_color if new_color else "")
+                            preview_canvas.itemconfig(
+                                f"cell_{row}_{col}",
+                                fill=new_color if new_color else "",
+                            )
                             changes_made = True
-                        if 0 <= neighbor_row < grid_size and 0 <= neighbor_col < grid_size:
-                            new_neighbor_color = mix_hex_colors(neighbor_color, current_color, weight)
+                if (
+                    bleed_depth_setting > 0
+                    and neighbor_distance_map is not None
+                    and neighbor_source_row_map is not None
+                    and neighbor_source_col_map is not None
+                ):
+                    for nr in range(grid_size):
+                        for nc in range(grid_size):
+                            neighbor_distance_value = neighbor_distance_map[nr][nc]
+                            if neighbor_distance_value is None or neighbor_distance_value >= bleed_depth_setting:
+                                continue
+                            if neighbor_effective_max <= 0:
+                                neighbor_weight = strength_factor
+                            else:
+                                neighbor_ratio = 0.0 if neighbor_effective_max <= 0 else float(neighbor_distance_value) / float(neighbor_effective_max)
+                                neighbor_ratio = max(0.0, min(1.0, neighbor_ratio))
+                                neighbor_weight = strength_factor * (1.0 - math.pow(neighbor_ratio, exponent))
+                            if neighbor_weight <= 0.0:
+                                continue
+                            source_row = neighbor_source_row_map[nr][nc]
+                            source_col = neighbor_source_col_map[nr][nc]
+                            if source_row is None or source_col is None:
+                                continue
+                            if not (0 <= source_row < grid_size and 0 <= source_col < grid_size):
+                                continue
+                            source_color = state["pixels"][source_row][source_col]
+                            neighbor_color = neighbor_pixels[nr][nc]
+                            new_neighbor_color = mix_hex_colors(neighbor_color, source_color, neighbor_weight)
                             if new_neighbor_color != neighbor_color:
-                                neighbor_pixels[neighbor_row][neighbor_col] = new_neighbor_color
+                                neighbor_pixels[nr][nc] = new_neighbor_color
                                 entry["dirty"] = True
                                 changes_made = True
                 if changes_made:
@@ -4459,6 +4583,13 @@ class MapEditor:
                 return "Promień: 0 (1×1)"
             return f"Promień: {radius} (do {diameter}×{diameter})"
 
+        def bleed_depth_label_for_value(depth: int) -> str:
+            if depth <= 0:
+                return "Przenikanie: 0 (wyłączone)"
+            if depth == 1:
+                return "Przenikanie: 1 komórka"
+            return f"Przenikanie: {depth} komórek"
+
         def on_brush_radius_change(value: str) -> None:
             try:
                 radius = int(float(value))
@@ -4532,34 +4663,76 @@ class MapEditor:
                 row_f, col_f = pointer
                 apply_stamp_at(row_f, col_f)
                 return
+            
+            # Sprawdź, czy kliknięto w obszar sąsiada (poza centralnym heksem)
             cell = get_cell_from_event(event, clamp=False)
-            if cell is None:
-                return
-            row, col = cell
-            paint_with_brush(row, col)
+            if cell is not None:
+                row, col = cell
+                # Jeśli kliknięto w obszar centralnego heksa, maluj normalnie
+                if hex_mask[row][col]:
+                    paint_with_brush(row, col)
+                    return
+            
+            # Sprawdź kliknięcie w podgląd sąsiada - konwertuj współrzędne kanwy
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            canvas_x = event.x - grid_offset - offset_x
+            canvas_y = event.y - grid_offset - offset_y
+            
+            # Pozycja w komórkach względem centrum
+            col_center = canvas_x / cell_size
+            row_center = canvas_y / cell_size
+            
+            # Sprawdź wszystkich sąsiadów w określonej kolejności
+            for edge_key in ["E", "NE", "NW", "W", "SW", "SE"]:
+                edge_entry = state["edge_neighbors"].get(edge_key)
+                if not edge_entry or not edge_entry.get("enabled"):
+                    continue
+                
+                neighbor_id = edge_entry["neighbor_id"]
+                dx_cells = edge_entry.get("dx_cells", 0)
+                dy_cells = edge_entry.get("dy_cells", 0)
+                
+                # Przelicz na współrzędne w przestrzeni sąsiada
+                neighbor_col = int(col_center - dx_cells)
+                neighbor_row = int(row_center - dy_cells)
+                
+                if not (0 <= neighbor_row < grid_size and 0 <= neighbor_col < grid_size):
+                    continue
+                
+                neighbor_mask = edge_entry.get("neighbor_mask", hex_mask)
+                if neighbor_mask[neighbor_row][neighbor_col]:
+                    # Kliknięto w obszar sąsiada - przełącz na tego sąsiada
+                    switch_to_hex(neighbor_id)
+                    return
 
         def canvas_pick_color(event):
             if state.get("asset_mode_active"):
                 return
             preview_canvas.focus_set()
+            
+            # Sprawdź, czy kliknięto w obszar centralnego heksa
             cell = get_cell_from_event(event, clamp=False)
-            if cell is None:
-                return
-            row, col = cell
-            if not state["mask"][row][col]:
-                return
-            if state.get("edge_mode_active"):
-                edge_key = state.get("edge_current_key")
-                if not edge_key:
-                    return
-                edge_entry = state["edge_neighbors"].get(edge_key)
-                if not edge_entry or not edge_entry.get("enabled") or not edge_entry["band_mask"][row][col]:
-                    return
-            color = state["pixels"][row][col]
-            if color:
-                if state.get("stamp_pixels") is not None:
-                    clear_stamp_mode()
-                set_current_color(color)
+            if cell is not None:
+                row, col = cell
+                if state["mask"][row][col]:
+                    if state.get("edge_mode_active"):
+                        edge_key = state.get("edge_current_key")
+                        if edge_key:
+                            edge_entry = state["edge_neighbors"].get(edge_key)
+                            if edge_entry and edge_entry.get("enabled") and edge_entry["band_mask"][row][col]:
+                                color = state["pixels"][row][col]
+                                if color:
+                                    if state.get("stamp_pixels") is not None:
+                                        clear_stamp_mode()
+                                    set_current_color(color)
+                                return
+                    else:
+                        color = state["pixels"][row][col]
+                        if color:
+                            if state.get("stamp_pixels") is not None:
+                                clear_stamp_mode()
+                            set_current_color(color)
+                        return
 
         def handle_left_press(event):
             preview_canvas.focus_set()
@@ -4859,6 +5032,29 @@ class MapEditor:
         )
         blend_strength_scale.pack(fill=tk.X, pady=(0, 4))
 
+        edge_bleed_depth_value_label = tk.Label(
+            blend_frame,
+            text=bleed_depth_label_for_value(state["edge_bleed_depth"]),
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w"
+        )
+        edge_bleed_depth_value_label.pack(fill=tk.X, pady=(2, 0))
+        edge_bleed_depth_scale = tk.Scale(
+            blend_frame,
+            from_=0,
+            to=state["edge_band_cells"],
+            orient=tk.HORIZONTAL,
+            resolution=1,
+            variable=edge_bleed_depth_var,
+            command=on_edge_bleed_depth_change,
+            length=200,
+            bg="darkolivegreen",
+            highlightthickness=0,
+            troughcolor="#555555"
+        )
+        edge_bleed_depth_scale.pack(fill=tk.X, pady=(0, 4))
+
         tk.Label(
             blend_frame,
             text="Profil wygładzania",
@@ -4913,8 +5109,95 @@ class MapEditor:
         )
         edge_sync_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
         refresh_edge_button_states()
+        on_edge_bleed_depth_change(str(state["edge_bleed_depth"]))
         on_edge_blend_strength_change(str(state["edge_blend_strength"]))
         on_edge_blend_profile_change()
+
+        # Panel nawigacji między heksami
+        hex_nav_frame = tk.LabelFrame(tools, text="Nawigacja", bg="darkolivegreen", fg="white")
+        hex_nav_frame.pack(fill=tk.X, pady=(12, 6))
+        
+        current_hex_label = tk.Label(
+            hex_nav_frame,
+            text=f"Edytujesz: {state['current_hex_id']}",
+            bg="darkolivegreen",
+            fg="#ffcc66",
+            font=("Arial", 9, "bold"),
+            anchor="w"
+        )
+        current_hex_label.pack(fill=tk.X, padx=4, pady=(4, 2))
+        
+        tk.Label(
+            hex_nav_frame,
+            text="Kliknij w podgląd sąsiada, aby przełączyć edycję na ten heks",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            wraplength=200,
+            justify="left",
+            font=("Arial", 8)
+        ).pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        def switch_to_hex(target_hex_id: str) -> None:
+            nonlocal edge_mode_data, q, r, current_hex_id
+            
+            if target_hex_id == state.get("current_hex_id"):
+                return
+            if target_hex_id not in centers:
+                return
+            
+            # Zapisz obecny stan
+            current_id = current_hex_id
+            finish_edit_action()
+            existing_entry = state["neighbor_hex_data"].get(current_id)
+            dirty_flag = state.get("history_edit_dirty", False) or (existing_entry.get("dirty") if existing_entry else False)
+            state["neighbor_hex_data"][current_id] = {
+                "pixels": clone_pixels(state["pixels"]),
+                "dirty": dirty_flag,
+            }
+            state["history_edit_dirty"] = False
+            
+            # Załaduj dane nowego heksa
+            if target_hex_id in state["neighbor_hex_data"]:
+                target_data = state["neighbor_hex_data"][target_hex_id]
+                state["pixels"] = clone_pixels(target_data["pixels"])
+            else:
+                # Wczytaj z bazy
+                target_terrain = self.hex_data.get(target_hex_id, {})
+                target_texture_rel = target_terrain.get("texture")
+                target_pixels = self._load_hex_texture_pixels(target_texture_rel, grid_size)
+                if target_pixels is None:
+                    target_pixels = blank_pixel_grid()
+                state["pixels"] = target_pixels
+            
+            current_hex_id = target_hex_id
+            state["current_hex_id"] = current_hex_id
+            state["undo_stack"].clear()
+            state["redo_stack"].clear()
+            update_history_buttons()
+            
+            # Zaktualizuj współrzędne centralnego heksa
+            q, r = map(int, current_hex_id.split(","))
+
+            # Przebuduj obrysy sąsiadów
+            rebuild_neighbor_outlines()
+            
+            # Przebuduj dane krawędzi dla nowego heksa
+            previous_edge_state = state.get("edge_neighbors")
+            edge_mode_data = build_edge_mode_data(
+                state["edge_band_cells"],
+                previous_edge_state,
+                state.get("neighbor_hex_data"),
+            )
+            state["edge_neighbors"] = edge_mode_data
+            
+            # Odśwież interfejs
+            current_hex_label.config(text=f"Edytujesz: {current_hex_id}")
+            if state.get("edge_mode_active"):
+                exit_edge_mode()
+            state["view_offset"] = (0, 0)
+            refresh_edge_button_states()
+            draw_grid()
+            refresh_edge_preview(refresh_background=True)
 
         def save_and_close():
             deactivate_asset_mode(update_button=False)
@@ -4922,12 +5205,33 @@ class MapEditor:
             close_preset_window("preset_detail_window")
             close_preset_window("preset_category_window")
             grid_size_local = state.get("grid_size", grid_size)
-            texture_rel = self._save_hex_texture(hex_id, state["pixels"], grid_size_local)
-            self.hex_data.setdefault(hex_id, {}).update({
+            
+            # Zapisz główny edytowany heks
+            current_hex = state.get("current_hex_id", hex_id)
+            texture_rel = self._save_hex_texture(current_hex, state["pixels"], grid_size_local)
+            self.hex_data.setdefault(current_hex, {}).update({
                 "texture": texture_rel,
                 "texture_grid": grid_size_local,
             })
             textures_to_drop = {texture_rel}
+            
+            # Zapisz dane sąsiednich heksów, jeśli były edytowane
+            for neighbor_id, neighbor_data in state.get("neighbor_hex_data", {}).items():
+                neighbor_pixels = neighbor_data.get("pixels")
+                if neighbor_pixels is not None and neighbor_data.get("dirty", False):
+                    neighbor_texture_rel = self._save_hex_texture(neighbor_id, neighbor_pixels, grid_size_local)
+                    neighbor_record = self.hex_data.get(neighbor_id)
+                    if neighbor_record is None:
+                        neighbor_record = {
+                            "terrain_key": "teren_płaski",
+                            "move_mod": 0,
+                            "defense_mod": 0,
+                        }
+                        self.hex_data[neighbor_id] = neighbor_record
+                    neighbor_record["texture"] = neighbor_texture_rel
+                    neighbor_record["texture_grid"] = grid_size_local
+                    textures_to_drop.add(neighbor_texture_rel)
+            
             neighbor_updates: list[str] = []
             for edge_entry in state["edge_neighbors"].values():
                 if not edge_entry.get("enabled") or not edge_entry.get("dirty"):
@@ -4960,7 +5264,7 @@ class MapEditor:
             editor.grab_release()
             editor.destroy()
             self._texture_editor_window = None
-            self.update_hex_info_display(hex_id)
+            self.update_hex_info_display(current_hex)
             self.draw_grid()
             self.auto_save_and_export("zapisano teksturę heksa")
 
