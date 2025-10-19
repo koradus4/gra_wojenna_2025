@@ -168,6 +168,20 @@ FLAT_TERRAIN_TEXTURE_PRESETS = [
         "type": "clear",
     },
     {
+        "key": "city_marker",
+        "name": "Znacznik miasta",
+        "description": "Wzór orientacyjny do oznaczania heksów miast.",
+        "type": "builtin",
+        "seed": 20251019,
+        "base_color": "#6f9151",
+        "noise": 18,
+        "accent_color": "#4c6d39",
+        "accent_chance": 0.14,
+        "highlight_color": "#9fbe6d",
+        "highlight_chance": 0.09,
+        "pattern": "noise",
+    },
+    {
         "key": "grass_dense",
         "name": "Trawa gęsta",
         "description": "Gęste, ciemniejsze kępki trawy z delikatnie losową fakturą.",
@@ -484,6 +498,274 @@ class MapEditor:
             parent=self.root,
         )
 
+    def open_cleanup_dialog(self) -> None:
+        existing = getattr(self, "_cleanup_dialog", None)
+        if existing and existing.winfo_exists():
+            existing.deiconify()
+            existing.lift()
+            existing.focus_set()
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Czyszczenie mapy")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.configure(bg="darkolivegreen")
+        dialog.resizable(False, False)
+        self._cleanup_dialog = dialog
+
+        def on_close() -> None:
+            if getattr(self, "_cleanup_dialog", None) is dialog:
+                self._cleanup_dialog = None
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_close)
+
+        container = tk.Frame(dialog, bg="darkolivegreen", padx=16, pady=16)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            container,
+            text="Wybierz elementy do wyczyszczenia:",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            anchor="w"
+        ).pack(fill=tk.X, pady=(0, 8))
+
+        hexes_var = tk.BooleanVar(value=True)
+        tokens_var = tk.BooleanVar(value=False)
+
+        tk.Checkbutton(
+            container,
+            text="Dane heksów (teren, punkty kluczowe, spawn)",
+            variable=hexes_var,
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="darkolivegreen",
+            anchor="w",
+            justify="left"
+        ).pack(fill=tk.X, pady=2)
+
+        tk.Checkbutton(
+            container,
+            text="Żetony (start_tokens.json, assets/tokens, powiązania na mapie)",
+            variable=tokens_var,
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="darkolivegreen",
+            anchor="w",
+            justify="left"
+        ).pack(fill=tk.X, pady=2)
+
+        tk.Label(
+            container,
+            text="Operacje mogą usuwać pliki – wykonaj backup jeśli to konieczne.",
+            bg="darkolivegreen",
+            fg="#f4e19c",
+            font=("Arial", 9),
+            anchor="w",
+            wraplength=360
+        ).pack(fill=tk.X, pady=(10, 12))
+
+        buttons = tk.Frame(container, bg="darkolivegreen")
+        buttons.pack(fill=tk.X)
+
+        def run_cleanup() -> None:
+            selections = {
+                "clear_hexes": hexes_var.get(),
+                "clear_tokens": tokens_var.get(),
+            }
+            if not any(selections.values()):
+                messagebox.showinfo("Czyszczenie mapy", "Zaznacz przynajmniej jedną operację.", parent=dialog)
+                return
+
+            summary_lines = []
+            if selections["clear_hexes"]:
+                summary_lines.append("• Dane heksów")
+            if selections["clear_tokens"]:
+                summary_lines.append("• Żetony")
+
+            confirm_text = "Uruchomić czyszczenie obejmujące:\n" + "\n".join(summary_lines)
+            if not messagebox.askyesno("Potwierdź czyszczenie", confirm_text, parent=dialog):
+                return
+
+            on_close()
+            self.root.after(10, lambda: self._perform_map_cleanup(**selections))
+
+        tk.Button(
+            buttons,
+            text="Anuluj",
+            command=on_close,
+            bg="#6b3d1f",
+            fg="white",
+            activebackground="#6b3d1f",
+            activeforeground="white",
+            width=12
+        ).pack(side=tk.RIGHT, padx=4)
+
+        tk.Button(
+            buttons,
+            text="Uruchom",
+            command=run_cleanup,
+            bg="#2f6b2f",
+            fg="white",
+            activebackground="#2f6b2f",
+            activeforeground="white",
+            width=12
+        ).pack(side=tk.RIGHT, padx=4)
+
+    def _perform_map_cleanup(self, *, clear_hexes: bool, clear_tokens: bool) -> None:
+        results: list[str] = []
+        errors: list[str] = []
+
+        if clear_hexes:
+            ok, msg = self._cleanup_hex_data()
+            (results if ok else errors).append(msg)
+
+        if clear_tokens:
+            ok, msg = self._cleanup_tokens()
+            (results if ok else errors).append(msg)
+
+        if errors:
+            messagebox.showerror(
+                "Czyszczenie mapy",
+                "\n".join(errors + results),
+                parent=self.root,
+            )
+        else:
+            messagebox.showinfo(
+                "Czyszczenie mapy",
+                "\n".join(results) if results else "Operacje zakończone.",
+                parent=self.root,
+            )
+
+    def _cleanup_hex_data(self) -> tuple[bool, str]:
+        original_hexes = self.hex_data
+        hex_count = len(original_hexes)
+        token_count = sum(1 for terrain in original_hexes.values() if isinstance(terrain, dict) and terrain.get("token"))
+        key_points = len(self.key_points)
+        spawn_points = sum(len(v) for v in self.spawn_points.values())
+
+        preserved_keys = {
+            "token",
+            "token_history",
+            "token_rotation",
+            "token_scale",
+            "token_origin",
+        }
+
+        new_hex_data: dict[str, dict] = {}
+        new_hex_tokens: dict[str, str] = {}
+
+        for hex_id, terrain in original_hexes.items():
+            if not isinstance(terrain, dict):
+                continue
+            kept_record: dict[str, object] = {}
+            for key, value in terrain.items():
+                if key in preserved_keys or key.startswith("token"):
+                    kept_record[key] = value
+            token = terrain.get("token")
+            if isinstance(token, dict) and token.get("image"):
+                kept_record.setdefault("token", token)
+                new_hex_tokens[hex_id] = token["image"]
+            if kept_record:
+                new_hex_data[hex_id] = kept_record
+
+        self.hex_data = new_hex_data
+        self.key_points = {}
+        self.spawn_points = {}
+        self.hex_tokens = new_hex_tokens
+        self.selected_hex = None
+
+        self.save_data()
+        self.export_start_tokens(show_message=False)
+        self.draw_grid()
+        self.canvas.delete("highlight")
+        self._reset_hex_info_panel()
+        self.update_filtered_tokens()
+        self.set_status("Wyczyszczono dane mapy.")
+
+        textures_removed, texture_errors = self._cleanup_generated_hex_textures()
+
+        if texture_errors:
+            error_text = "; ".join(texture_errors)
+            return False, (
+                "Wyzerowano dane heksów, ale niektórych tekstur nie udało się usunąć: "
+                + error_text
+            )
+
+        token_msg = " Żetony na mapie zostały zachowane." if token_count else " Brak żetonów do zachowania."
+        texture_msg = (
+            f" Usunięto {textures_removed} plików tekstur heksów." if textures_removed else " Brak tekstur do usunięcia."
+        )
+        self._update_map_info_label()
+
+        return True, (
+            "Wyzerowano dane heksów"
+            f" (heksy: {hex_count}, key points: {key_points}, spawn: {spawn_points})."
+            + token_msg
+            + texture_msg
+        )
+
+    def _cleanup_generated_hex_textures(self) -> tuple[int, list[str]]:
+        removed = 0
+        issues: list[str] = []
+
+        if not HEX_TEXTURE_DIR.exists():
+            return removed, issues
+
+        for texture_path in HEX_TEXTURE_DIR.glob("hex_*.png"):
+            try:
+                texture_path.unlink()
+                removed += 1
+            except Exception as exc:  # noqa: BLE001
+                issues.append(f"{texture_path.name}: {exc}")
+
+        return removed, issues
+
+    def _cleanup_tokens(self) -> tuple[bool, str]:
+        self.save_data()
+        try:
+            from czyszczenie.reset_tokens_simple import clear_map_tokens, purge_tokens_dir, reset_start_tokens
+        except Exception as exc:  # noqa: BLE001
+            return False, f"Nie można zaimportować narzędzia resetu żetonów: {exc}"
+
+        ok_purge = purge_tokens_dir()
+        ok_start = reset_start_tokens()
+        ok_map = clear_map_tokens()
+
+        self.load_data()
+        self.load_token_index()
+        self.clear_token_selection()
+        if hasattr(self, "canvas"):
+            self.canvas.delete("highlight")
+        self._reset_hex_info_panel()
+        self.set_status("Zresetowano żetony.")
+        self._update_map_info_label()
+
+        if ok_purge and ok_start and ok_map:
+            return True, "Żetony zostały zresetowane (assets/tokens, start_tokens.json, map_data.json)."
+        return False, "Zakończono z błędami podczas resetu żetonów – sprawdź log w konsoli."
+
+    def _reset_hex_info_panel(self) -> None:
+        if hasattr(self, "hex_info_label"):
+            self.hex_info_label.config(text="Heks: brak")
+        if hasattr(self, "terrain_info_label"):
+            self.terrain_info_label.config(text="Teren: brak")
+        if hasattr(self, "token_info_label"):
+            self.token_info_label.config(text="Żeton: brak")
+        if hasattr(self, "texture_info_label"):
+            self.texture_info_label.config(text="Tekstura: domyślna")
+        if hasattr(self, "flat_texture_info_label"):
+            self.flat_texture_info_label.config(text="Wzór płaski: brak")
+        if hasattr(self, "key_point_info_label"):
+            self.key_point_info_label.config(text="")
+        if hasattr(self, "spawn_point_info_label"):
+            self.spawn_point_info_label.config(text="")
+        if hasattr(self, "map_info_label"):
+            self._update_map_info_label()
+
     def get_last_modified_map(self):
         # zawsze używamy predefiniowanej mapy
         if os.path.exists(DEFAULT_MAP_FILE):
@@ -549,6 +831,17 @@ class MapEditor:
             activeforeground="white"
         )
         self.clear_cache_button.pack(padx=5, pady=2, fill=tk.X)
+
+        self.map_cleanup_button = tk.Button(
+            buttons_frame,
+            text="Czyszczenie mapy…",
+            command=self.open_cleanup_dialog,
+            bg="#4f2a12",
+            fg="white",
+            activebackground="#4f2a12",
+            activeforeground="white"
+        )
+        self.map_cleanup_button.pack(padx=5, pady=2, fill=tk.X)
 
         # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
         # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
@@ -671,6 +964,7 @@ class MapEditor:
 
         # === CANVAS MAPY ===
         self.build_map_canvas()
+        self._update_map_info_label()
 
     def open_map_configuration_dialog(self):
         dialog = tk.Toplevel(self.root)
@@ -1036,6 +1330,7 @@ class MapEditor:
             if export_tokens:
                 self.export_start_tokens(show_message=False)
             self.force_refresh_palette()
+            self._update_map_info_label()
         finally:
             self.auto_save_enabled = previous_auto_save
 
@@ -1155,37 +1450,71 @@ class MapEditor:
         # Wypełnij paletę
         self.refresh_token_palette()
 
+    def _update_map_info_label(self) -> None:
+        if not hasattr(self, "map_info_label"):
+            return
+        cols_val = self.config.get("grid_cols")
+        rows_val = self.config.get("grid_rows")
+        size_val = self.hex_size
+        try:
+            cols_int = int(cols_val) if cols_val is not None else None
+            rows_int = int(rows_val) if rows_val is not None else None
+            size_int = int(size_val) if size_val is not None else None
+        except (TypeError, ValueError):
+            cols_int = rows_int = size_int = None
+
+        if cols_int and rows_int and size_int:
+            total = cols_int * rows_int
+            self.map_info_label.config(
+                text=(
+                    f"Mapa: {cols_int} × {rows_int} heksów "
+                    f"(łącznie {total}), rozmiar heksa: {size_int} px"
+                )
+            )
+        else:
+            self.map_info_label.config(text="Mapa: -- × -- heksów, rozmiar: --")
+
+    def _update_map_info_label(self) -> None:
+        if not hasattr(self, "map_info_label"):
+            return
+        cols = self.config.get("grid_cols")
+        rows = self.config.get("grid_rows")
+        size = self.hex_size
+        try:
+            cols_val = int(cols) if cols is not None else None
+            rows_val = int(rows) if rows is not None else None
+            size_val = int(size) if size is not None else None
+        except (TypeError, ValueError):
+            cols_val = rows_val = size_val = None
+
+        if cols_val and rows_val and size_val:
+            total = cols_val * rows_val
+            self.map_info_label.config(
+                text=(
+                    f"Mapa: {cols_val} × {rows_val} heksów "
+                    f"(łącznie {total}), rozmiar heksa: {size_val} px"
+                )
+            )
+        else:
+            self.map_info_label.config(text="Mapa: -- × -- heksów, rozmiar: --")
+
     def build_info_panel_in_frame(self, parent_frame):
         """Buduje panel informacyjny o wybranym heksie w podanym frame"""
-        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3, height=220)
+        self.control_panel_frame = tk.Frame(parent_frame, bg="darkolivegreen", relief=tk.RIDGE, bd=3, height=260)
         # Panel z informacjami siedzi na dole i nie rozciąga się w pionie
         self.control_panel_frame.pack(side=tk.BOTTOM, fill=tk.X, expand=False, padx=2, pady=2)
         self.control_panel_frame.pack_propagate(False)
         
-        tk.Label(self.control_panel_frame, text="Informacje o heksie", 
-                 bg="darkolivegreen", fg="white", font=("Arial", 10, "bold")).pack(pady=2)
-        
-        # Kontener na informacje podstawowe
-        basic_info_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
-        basic_info_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
-        
-        self.hex_info_label = tk.Label(basic_info_frame, text="Heks: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
-        self.hex_info_label.pack(anchor="w", pady=1)
-        
-        self.terrain_info_label = tk.Label(basic_info_frame, text="Teren: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
-        self.terrain_info_label.pack(anchor="w", pady=1)
-        
-        self.token_info_label = tk.Label(basic_info_frame, text="Żeton: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
-        self.token_info_label.pack(anchor="w", pady=1)
-
-        self.texture_info_label = tk.Label(basic_info_frame, text="Tekstura: domyślna", bg="darkolivegreen", fg="white", font=("Arial", 9))
-        self.texture_info_label.pack(anchor="w", pady=1)
-
-        self.flat_texture_info_label = tk.Label(basic_info_frame, text="Wzór płaski: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
-        self.flat_texture_info_label.pack(anchor="w", pady=1)
+        tk.Label(
+            self.control_panel_frame,
+            text="Informacje o mapie i heksie",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 10, "bold")
+        ).pack(pady=2)
 
         tools_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
-        tools_frame.pack(fill=tk.X, padx=5, pady=(8, 6), anchor="n")
+        tools_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(4, 6))
 
         self.edit_texture_button = tk.Button(
             tools_frame,
@@ -1198,6 +1527,34 @@ class MapEditor:
         )
         self.edit_texture_button.pack(fill=tk.X)
         self.edit_texture_button.config(state=tk.DISABLED)
+
+        # Kontener na informacje podstawowe
+        basic_info_frame = tk.Frame(self.control_panel_frame, bg="darkolivegreen")
+        basic_info_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=2)
+
+        self.hex_info_label = tk.Label(basic_info_frame, text="Heks: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.hex_info_label.pack(anchor="w", pady=1)
+        
+        self.map_info_label = tk.Label(
+            basic_info_frame,
+            text="Mapa: -- × -- heksów, rozmiar: --",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9)
+        )
+        self.map_info_label.pack(anchor="w", pady=1)
+
+        self.terrain_info_label = tk.Label(basic_info_frame, text="Teren: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.terrain_info_label.pack(anchor="w", pady=1)
+        
+        self.token_info_label = tk.Label(basic_info_frame, text="Żeton: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.token_info_label.pack(anchor="w", pady=1)
+
+        self.texture_info_label = tk.Label(basic_info_frame, text="Tekstura: domyślna", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.texture_info_label.pack(anchor="w", pady=1)
+
+        self.flat_texture_info_label = tk.Label(basic_info_frame, text="Wzór płaski: brak", bg="darkolivegreen", fg="white", font=("Arial", 9))
+        self.flat_texture_info_label.pack(anchor="w", pady=1)
 
     def build_map_canvas(self):
         """Buduje canvas mapy z przewijaniem"""
@@ -3267,6 +3624,9 @@ class MapEditor:
             "asset_selection_start": None,
             "asset_selection_rect": None,
             "asset_selection_bounds": None,
+            "precision_mode_active": False,
+            "precision_points": [],
+            "precision_hover_cell": None,
             "brush_radius": BRUSH_RADIUS_DEFAULT,
             "current_hex_id": hex_id,
             "neighbor_hex_data": {},
@@ -3308,6 +3668,8 @@ class MapEditor:
         stamp_scale_widget = None
         stamp_scale_var = tk.DoubleVar(master=editor, value=100.0)
         asset_mode_btn = None
+        precision_mode_btn = None
+        precision_undo_btn = None
 
         HISTORY_LIMIT = 40
 
@@ -3560,6 +3922,188 @@ class MapEditor:
                 preview_canvas.coords(rect_id, *coords)
             preview_canvas.tag_raise("asset_selection")
 
+        def clear_precision_overlay() -> None:
+            try:
+                preview_canvas.delete("precision_overlay")
+                preview_canvas.delete("precision_hover")
+            except tk.TclError:
+                pass
+
+        def update_precision_overlay() -> None:
+            clear_precision_overlay()
+            if not state.get("precision_mode_active"):
+                refresh_precision_hover()
+                return
+            points = state.get("precision_points") or []
+            if not points:
+                refresh_precision_hover()
+                return
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            line_coords: list[float] = []
+            for row, col in points:
+                x0 = grid_offset + col * cell_size + offset_x
+                y0 = grid_offset + row * cell_size + offset_y
+                x1 = x0 + cell_size
+                y1 = y0 + cell_size
+                preview_canvas.create_rectangle(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    outline="#ffd966",
+                    width=1,
+                    tags=("precision_overlay", "precision_cell"),
+                )
+                line_coords.append(grid_offset + (col + 0.5) * cell_size + offset_x)
+                line_coords.append(grid_offset + (row + 0.5) * cell_size + offset_y)
+            if len(line_coords) >= 4:
+                preview_canvas.create_line(
+                    *line_coords,
+                    fill="#ffd966",
+                    width=2,
+                    tags=("precision_overlay", "precision_path"),
+                )
+            first_row, first_col = points[0]
+            first_x = grid_offset + (first_col + 0.5) * cell_size + offset_x
+            first_y = grid_offset + (first_row + 0.5) * cell_size + offset_y
+            preview_canvas.create_oval(
+                first_x - 4,
+                first_y - 4,
+                first_x + 4,
+                first_y + 4,
+                fill="#ffd966",
+                outline="#333333",
+                width=1,
+                tags=("precision_overlay", "precision_start"),
+            )
+            preview_canvas.tag_raise("precision_overlay")
+            preview_canvas.tag_raise("precision_hover")
+            refresh_precision_hover()
+
+        def refresh_precision_hover() -> None:
+            preview_canvas.delete("precision_hover")
+            if not state.get("precision_mode_active"):
+                return
+            cell = state.get("precision_hover_cell")
+            if cell is None:
+                return
+            offset_x, offset_y = state.get("view_offset", (0, 0))
+            row, col = cell
+            cell_x0 = grid_offset + col * cell_size + offset_x
+            cell_y0 = grid_offset + row * cell_size + offset_y
+            cell_x1 = cell_x0 + cell_size
+            cell_y1 = cell_y0 + cell_size
+            points = state.get("precision_points") or []
+            line_color = "#ff7b7b"
+            path_cells: list[tuple[int, int]] = []
+            path_result: list[tuple[int, int]] | None = None
+            if points:
+                last = points[-1]
+                path_result = compute_precision_path(last, cell) if cell != last else []
+                if path_result is not None:
+                    path_cells = path_result
+                    line_color = "#ffd966"
+                else:
+                    line_color = "#ff7b7b"
+                if cell != last:
+                    coord_sequence: list[tuple[float, float]] = []
+                    coord_sequence.append((grid_offset + (last[1] + 0.5) * cell_size + offset_x, grid_offset + (last[0] + 0.5) * cell_size + offset_y))
+                    if path_cells:
+                        for pr, pc in path_cells:
+                            coord_sequence.append((grid_offset + (pc + 0.5) * cell_size + offset_x, grid_offset + (pr + 0.5) * cell_size + offset_y))
+                    else:
+                        coord_sequence.append((grid_offset + (col + 0.5) * cell_size + offset_x, grid_offset + (row + 0.5) * cell_size + offset_y))
+                    if len(coord_sequence) >= 2:
+                        preview_canvas.create_line(
+                            *[coord for point in coord_sequence for coord in point],
+                            fill=line_color,
+                            width=2,
+                            dash=(4, 2),
+                            tags="precision_hover",
+                        )
+            cell_valid = 0 <= row < grid_size and 0 <= col < grid_size and hex_mask[row][col]
+            if not points:
+                valid_path = cell_valid
+            elif cell == points[-1]:
+                valid_path = True
+            else:
+                valid_path = cell_valid and path_result is not None
+            color = "#ffd966" if valid_path else "#ff7b7b"
+            for pr, pc in path_cells:
+                rect_x0 = grid_offset + pc * cell_size + offset_x
+                rect_y0 = grid_offset + pr * cell_size + offset_y
+                rect_x1 = rect_x0 + cell_size
+                rect_y1 = rect_y0 + cell_size
+                preview_canvas.create_rectangle(
+                    rect_x0,
+                    rect_y0,
+                    rect_x1,
+                    rect_y1,
+                    outline=line_color,
+                    width=1,
+                    dash=(2, 2),
+                    tags="precision_hover",
+                )
+            preview_canvas.create_rectangle(
+                cell_x0,
+                cell_y0,
+                cell_x1,
+                cell_y1,
+                outline=color,
+                width=2,
+                dash=(4, 2),
+                tags="precision_hover",
+            )
+            preview_canvas.tag_raise("precision_hover")
+
+        def update_precision_hover(cell: tuple[int, int] | None) -> None:
+            state["precision_hover_cell"] = cell
+            refresh_precision_hover()
+
+        def update_precision_controls() -> None:
+            if precision_undo_btn is not None:
+                has_points = bool(state.get("precision_points"))
+                precision_undo_btn.config(state=tk.NORMAL if has_points else tk.DISABLED)
+
+        def compute_precision_path(
+            start: tuple[int, int],
+            end: tuple[int, int],
+        ) -> list[tuple[int, int]] | None:
+            sr, sc = start
+            er, ec = end
+            dr = er - sr
+            dc = ec - sc
+            if dr == 0 and dc == 0:
+                return []
+            if abs(dr) <= 1 and abs(dc) <= 1:
+                step_r = dr
+                step_c = dc
+            elif dr == 0:
+                step_r = 0
+                step_c = 1 if dc > 0 else -1
+            elif dc == 0:
+                step_r = 1 if dr > 0 else -1
+                step_c = 0
+            elif abs(dr) == abs(dc):
+                step_r = 1 if dr > 0 else -1
+                step_c = 1 if dc > 0 else -1
+            else:
+                return None
+            length = max(abs(dr), abs(dc))
+            if length == 0:
+                return []
+            path: list[tuple[int, int]] = []
+            cur_r, cur_c = sr, sc
+            for _ in range(length):
+                cur_r += step_r
+                cur_c += step_c
+                if not (0 <= cur_r < grid_size and 0 <= cur_c < grid_size):
+                    return None
+                if not hex_mask[cur_r][cur_c]:
+                    return None
+                path.append((cur_r, cur_c))
+            return path
+
         def compute_content_bounds(bounds: tuple[int, int, int, int]) -> tuple[int, int, int, int] | None:
             row_min, row_max, col_min, col_max = bounds
             found = False
@@ -3586,6 +4130,206 @@ class MapEditor:
                 return None
             return content_row_min, content_row_max, content_col_min, content_col_max
 
+        def deactivate_precision_mode(update_button: bool = True) -> None:
+            if not state.get("precision_mode_active"):
+                return
+            state["precision_mode_active"] = False
+            state["precision_points"] = []
+            state["precision_hover_cell"] = None
+            clear_precision_overlay()
+            if update_button and precision_mode_btn is not None:
+                precision_mode_btn.config(relief=tk.RAISED)
+            cursor = ""
+            if state.get("asset_mode_active"):
+                cursor = "tcross"
+            elif state.get("stamp_pixels") is not None:
+                cursor = "hand2"
+            preview_canvas.config(cursor=cursor)
+            update_precision_controls()
+
+        def activate_precision_mode() -> None:
+            if state.get("precision_mode_active"):
+                return
+            if state.get("stamp_pixels") is not None:
+                clear_stamp_mode()
+            if state.get("asset_mode_active"):
+                deactivate_asset_mode(update_button=True)
+            state["precision_mode_active"] = True
+            state["precision_points"] = []
+            state["precision_hover_cell"] = None
+            clear_precision_overlay()
+            preview_canvas.config(cursor="tcross")
+            if precision_mode_btn is not None:
+                precision_mode_btn.config(relief=tk.SUNKEN)
+            preview_canvas.focus_set()
+            update_precision_overlay()
+            update_precision_controls()
+
+        def toggle_precision_mode() -> None:
+            if state.get("precision_mode_active"):
+                deactivate_precision_mode()
+            else:
+                activate_precision_mode()
+
+        def precision_add_point(event) -> None:
+            if not state.get("precision_mode_active"):
+                return
+            cell = get_cell_from_event(event)
+            if cell is None:
+                return
+            row, col = cell
+            if not hex_mask[row][col]:
+                return
+            points = state.get("precision_points")
+            if not points:
+                state["precision_points"] = [(row, col)]
+                update_precision_overlay()
+                update_precision_controls()
+                update_precision_hover(None)
+                return
+            last_row, last_col = points[-1]
+            if (row, col) == (last_row, last_col):
+                return
+            if (row, col) == points[0]:
+                if len(points) < 3:
+                    messagebox.showwarning("Asset", "Dodaj co najmniej trzy punkty przed zamknięciem obrysu.", parent=editor)
+                    return
+                path_to_start = compute_precision_path(points[-1], points[0]) if points[-1] != points[0] else []
+                if path_to_start is None:
+                    messagebox.showwarning("Asset", "Nie można domknąć obrysu — upewnij się, że ostatni odcinek jest prosty i biegnie przez dozwolone pola.", parent=editor)
+                    return
+                if path_to_start:
+                    intermediate = path_to_start[:-1]
+                    for step in intermediate:
+                        if step in points:
+                            messagebox.showwarning("Asset", "Odcinek domykający nachodzi na istniejące punkty.", parent=editor)
+                            return
+                    points.extend(intermediate)
+                    update_precision_overlay()
+                    update_precision_controls()
+                complete_precision_asset(force_close=True)
+                return
+            if (row, col) in points:
+                messagebox.showwarning("Asset", "To pole jest już w obrysie.", parent=editor)
+                return
+            path = compute_precision_path(points[-1], (row, col))
+            if path is None:
+                messagebox.showwarning("Asset", "Odcinek musi być prosty (w poziomie, pionie lub po skosie) i przechodzić przez dozwolone pola.", parent=editor)
+                return
+            duplicates = [step for step in path if step in points]
+            if duplicates:
+                messagebox.showwarning("Asset", "Odcinek nachodzi na istniejące punkty obrysu.", parent=editor)
+                return
+            points.extend(path)
+            update_precision_overlay()
+            update_precision_controls()
+            update_precision_hover(None)
+
+        def precision_remove_last(event=None):
+            if not state.get("precision_mode_active"):
+                return
+            points = state.get("precision_points")
+            if not points:
+                return "break" if event is not None else None
+            points.pop()
+            if not points:
+                state["precision_hover_cell"] = None
+            update_precision_overlay()
+            update_precision_controls()
+            return "break" if event is not None else None
+
+        def precision_cancel(event=None):
+            if not state.get("precision_mode_active"):
+                return
+            if state.get("precision_points"):
+                state["precision_points"] = []
+                state["precision_hover_cell"] = None
+                clear_precision_overlay()
+                update_precision_controls()
+                update_precision_overlay()
+                return "break" if event is not None else None
+            deactivate_precision_mode()
+            return "break" if event is not None else None
+
+        def precision_attempt_finish(event=None):
+            if not state.get("precision_mode_active"):
+                return
+            complete_precision_asset(force_close=True)
+            return "break"
+
+        def complete_precision_asset(*, force_close: bool = False) -> None:
+            if not state.get("precision_mode_active"):
+                return
+            points = list(state.get("precision_points") or [])
+            if len(points) < 3:
+                messagebox.showwarning("Asset", "Dodaj co najmniej trzy punkty, aby zamknąć obrys.", parent=editor)
+                return
+            loop_points = points[:]
+            if force_close and loop_points[0] != loop_points[-1]:
+                path_to_start = compute_precision_path(loop_points[-1], loop_points[0])
+                if path_to_start is None:
+                    messagebox.showwarning(
+                        "Asset",
+                        "Nie można domknąć obrysu — upewnij się, że ostatni odcinek jest prosty i biegnie przez dozwolone pola.",
+                        parent=editor,
+                    )
+                    return
+                if path_to_start:
+                    loop_points.extend(path_to_start[:-1])
+            polygon_points = loop_points[:]
+            if polygon_points[0] != polygon_points[-1]:
+                polygon_points.append(polygon_points[0])
+            rows = [row for row, _ in polygon_points]
+            cols = [col for _, col in polygon_points]
+            row_min = max(0, min(rows))
+            row_max = min(grid_size - 1, max(rows))
+            col_min = max(0, min(cols))
+            col_max = min(grid_size - 1, max(cols))
+            poly_xy = [(col + 0.5, row + 0.5) for row, col in polygon_points]
+            path_cells = set(loop_points)
+            selected_cells: set[tuple[int, int]] = set()
+            for row in range(row_min, row_max + 1):
+                for col in range(col_min, col_max + 1):
+                    if not hex_mask[row][col]:
+                        continue
+                    if (row, col) in path_cells:
+                        selected_cells.add((row, col))
+                        continue
+                    if point_in_polygon(col + 0.5, row + 0.5, poly_xy):
+                        selected_cells.add((row, col))
+            if not selected_cells:
+                messagebox.showwarning("Asset", "Obrys nie obejmuje żadnych komórek.", parent=editor)
+                return
+            has_color = any(state["pixels"][row][col] for (row, col) in selected_cells)
+            if not has_color:
+                messagebox.showwarning("Asset", "Zaznaczony obszar nie zawiera kolorów.", parent=editor)
+                return
+            rows_selected = [row for row, _ in selected_cells]
+            cols_selected = [col for _, col in selected_cells]
+            bounds = (
+                min(rows_selected),
+                max(rows_selected),
+                min(cols_selected),
+                max(cols_selected),
+            )
+            name_suggestion = f"asset_precise_{hex_id.replace(',', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            response = prompt_asset_metadata(name_suggestion)
+            if response is None:
+                return
+            asset_name, category_key = response
+            selection_meta = {
+                "type": "polygon",
+                "loop": [{"row": r, "col": c} for r, c in loop_points],
+                "cell_count": len(selected_cells),
+            }
+            if save_asset_from_selection(asset_name, category_key, bounds, selected_cells, selection_meta):
+                deactivate_precision_mode()
+                if state.get("preset_detail_window"):
+                    close_preset_window("preset_detail_window")
+                if state.get("preset_category_window"):
+                    close_preset_window("preset_category_window")
+                messagebox.showinfo("Asset", f"Zapisano asset „{asset_name}”.", parent=editor)
+
         def deactivate_asset_mode(update_button: bool = True) -> None:
             state["asset_mode_active"] = False
             state["asset_selection_start"] = None
@@ -3593,14 +4337,21 @@ class MapEditor:
             clear_asset_selection_overlay()
             if update_button and asset_mode_btn is not None:
                 asset_mode_btn.config(relief=tk.RAISED)
+            cursor = ""
+            if state.get("precision_mode_active"):
+                cursor = "tcross"
+            elif state.get("stamp_pixels") is not None:
+                cursor = "hand2"
+            preview_canvas.config(cursor=cursor)
 
         def toggle_asset_mode() -> None:
             if state.get("asset_mode_active"):
                 deactivate_asset_mode()
-                preview_canvas.config(cursor="")
                 return
             if state.get("stamp_pixels") is not None:
                 clear_stamp_mode()
+            if state.get("precision_mode_active"):
+                deactivate_precision_mode(update_button=True)
             state["asset_mode_active"] = True
             state["asset_selection_start"] = None
             state["asset_selection_bounds"] = None
@@ -3687,7 +4438,13 @@ class MapEditor:
             dialog.wait_window()
             return result["value"]
 
-        def save_asset_from_selection(name: str, category_key: str, bounds: tuple[int, int, int, int]) -> bool:
+        def save_asset_from_selection(
+            name: str,
+            category_key: str,
+            bounds: tuple[int, int, int, int],
+            selected_cells: set[tuple[int, int]] | None = None,
+            selection_meta: dict | None = None,
+        ) -> bool:
             slug = sanitize_asset_slug(name)
             target_dir = CUSTOM_ASSET_ROOT / category_key
             try:
@@ -3709,11 +4466,14 @@ class MapEditor:
                 thumb_path = target_dir / f"{slug_variant}_thumb.png"
 
             row_min, row_max, col_min, col_max = bounds
+            allowed_cells = set(selected_cells) if selected_cells else None
             width = col_max - col_min + 1
             height = row_max - row_min + 1
             export_img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             for local_row, row in enumerate(range(row_min, row_max + 1)):
                 for local_col, col in enumerate(range(col_min, col_max + 1)):
+                    if allowed_cells is not None and (row, col) not in allowed_cells:
+                        continue
                     if not hex_mask[row][col]:
                         continue
                     color_val = state["pixels"][row][col]
@@ -3773,6 +4533,8 @@ class MapEditor:
                 "image": to_rel(str(png_path)),
                 "thumbnail": to_rel(str(thumb_path)) if thumb_path.exists() else None,
             }
+            if selection_meta:
+                metadata["selection"] = selection_meta
 
             try:
                 with json_path.open("w", encoding="utf-8") as fh:
@@ -3806,7 +4568,6 @@ class MapEditor:
             asset_name, category_key = response
             if save_asset_from_selection(asset_name, category_key, content_bounds):
                 deactivate_asset_mode()
-                preview_canvas.config(cursor="")
                 if state.get("preset_detail_window"):
                     close_preset_window("preset_detail_window")
                 if state.get("preset_category_window"):
@@ -3815,7 +4576,6 @@ class MapEditor:
 
         def cancel_asset_mode() -> None:
             deactivate_asset_mode()
-            preview_canvas.config(cursor="")
 
         def clear_stamp_mode(update_label: bool = True) -> None:
             state["stamp_pixels"] = None
@@ -3826,12 +4586,16 @@ class MapEditor:
             if state.get("stamp_preview_id") is not None:
                 preview_canvas.delete(state["stamp_preview_id"])
                 state["stamp_preview_id"] = None
-            preview_canvas.config(cursor="")
+            cursor = ""
+            if state.get("asset_mode_active") or state.get("precision_mode_active"):
+                cursor = "tcross"
+            preview_canvas.config(cursor=cursor)
             if update_label and stamp_status_label is not None:
                 stamp_status_label.config(text="Preset: brak")
 
         def enter_stamp_mode(preset: dict) -> None:
             clear_stamp_mode(update_label=False)
+            deactivate_precision_mode(update_button=True)
             deactivate_asset_mode()
             state["stamp_base_pixels"] = preset["pixels"]
             state["stamp_label"] = preset["name"]
@@ -3871,24 +4635,60 @@ class MapEditor:
                 neighbor_entry = state["edge_neighbors"].get(state["edge_current_key"])
                 if neighbor_entry and not neighbor_entry.get("enabled"):
                     neighbor_entry = None
+            neighbor_candidates = [
+                entry
+                for entry in state["edge_neighbors"].values()
+                if entry and entry.get("enabled") and entry.get("neighbor_pixels") is not None
+            ]
             for src_row in range(grid_size):
                 target_row = top_left_row + src_row
                 if not (0 <= target_row < grid_size):
-                    continue
+                    local_row_in_bounds = False
+                else:
+                    local_row_in_bounds = True
                 for src_col in range(grid_size):
                     target_col = top_left_col + src_col
-                    if not (0 <= target_col < grid_size) or not state["mask"][target_row][target_col]:
-                        continue
+                    if not (0 <= target_col < grid_size):
+                        local_col_in_bounds = False
+                    else:
+                        local_col_in_bounds = True
                     color = stamp_pixels[src_row][src_col]
                     if color is None:
                         continue
-                    if state["pixels"][target_row][target_col] != color:
-                        state["pixels"][target_row][target_col] = color
-                        changed = True
-                    if neighbor_entry and color is not None:
-                        if apply_color_to_neighbor(neighbor_entry, target_row, target_col, color):
+                    local_applied = False
+                    if local_row_in_bounds and local_col_in_bounds:
+                        if state["mask"][target_row][target_col]:
+                            if state["pixels"][target_row][target_col] != color:
+                                state["pixels"][target_row][target_col] = color
+                                changed = True
+                            local_applied = True
+                            if neighbor_entry and color is not None:
+                                if apply_color_to_neighbor(neighbor_entry, target_row, target_col, color):
+                                    changed = True
+                                    neighbor_changed = True
+                    if local_applied:
+                        continue
+                    if not neighbor_candidates:
+                        continue
+                    for entry in neighbor_candidates:
+                        dx_cells = entry.get("dx_cells", 0)
+                        dy_cells = entry.get("dy_cells", 0)
+                        nr = target_row - dy_cells
+                        nc = target_col - dx_cells
+                        if not (0 <= nr < grid_size and 0 <= nc < grid_size):
+                            continue
+                        neighbor_mask = entry.get("neighbor_mask", hex_mask)
+                        if not neighbor_mask[nr][nc]:
+                            continue
+                        neighbor_pixels = entry.get("neighbor_pixels")
+                        if neighbor_pixels is None:
+                            continue
+                        if neighbor_pixels[nr][nc] != color:
+                            neighbor_pixels[nr][nc] = color
+                            entry["dirty"] = True
                             changed = True
-                            neighbor_changed = True
+                        neighbor_changed = True
+                    # koniec synchronizacji sąsiadów
             if changed:
                 state["history_edit_dirty"] = True
                 draw_grid()
@@ -3896,6 +4696,9 @@ class MapEditor:
                     refresh_edge_preview(refresh_background=True)
 
         def canvas_motion(event):
+            if state.get("precision_mode_active"):
+                update_precision_hover(get_cell_from_event(event, clamp=False))
+                return
             if state.get("asset_mode_active"):
                 if state.get("asset_selection_start") is not None:
                     update_asset_selection(event)
@@ -4028,6 +4831,7 @@ class MapEditor:
                     preview_canvas.tag_lower("edge_band", "outline")
             if state.get("asset_mode_active") and state.get("asset_selection_bounds"):
                 draw_asset_selection(state["asset_selection_bounds"])
+            update_precision_overlay()
             update_stamp_overlay_position()
             refresh_edge_preview()
 
@@ -4734,7 +5538,44 @@ class MapEditor:
             if neighbor_touched:
                 refresh_edge_preview(refresh_background=True)
 
+        def paint_neighbor_band(entry: dict, neighbor_center_row: int, neighbor_center_col: int) -> bool:
+            if not entry or not entry.get("enabled"):
+                return False
+            neighbor_pixels = entry.get("neighbor_pixels")
+            if neighbor_pixels is None:
+                return False
+            neighbor_mask = entry.get("neighbor_mask", hex_mask)
+            neighbor_band_mask = entry.get("neighbor_band_mask")
+            radius = int(state.get("brush_radius", BRUSH_RADIUS_DEFAULT))
+            new_val = None if state.get("eraser") else state.get("current_color")
+            changed = False
+            for nr in range(neighbor_center_row - radius, neighbor_center_row + radius + 1):
+                if nr < 0 or nr >= grid_size:
+                    continue
+                row_offset = nr - neighbor_center_row
+                for nc in range(neighbor_center_col - radius, neighbor_center_col + radius + 1):
+                    if nc < 0 or nc >= grid_size:
+                        continue
+                    if not neighbor_mask[nr][nc]:
+                        continue
+                    if neighbor_band_mask and not neighbor_band_mask[nr][nc]:
+                        continue
+                    col_offset = nc - neighbor_center_col
+                    if radius > 0 and math.hypot(row_offset, col_offset) > radius + 0.35:
+                        continue
+                    if neighbor_pixels[nr][nc] == new_val:
+                        continue
+                    neighbor_pixels[nr][nc] = new_val
+                    entry["dirty"] = True
+                    changed = True
+            if changed:
+                state["history_edit_dirty"] = True
+                refresh_edge_preview(refresh_background=True)
+            return changed
+
         def canvas_paint(event):
+            if state.get("precision_mode_active"):
+                return
             if state.get("asset_mode_active"):
                 return
             if state.get("stamp_pixels") is not None:
@@ -4782,11 +5623,21 @@ class MapEditor:
                 
                 neighbor_mask = edge_entry.get("neighbor_mask", hex_mask)
                 if neighbor_mask[neighbor_row][neighbor_col]:
+                    if (
+                        state.get("edge_mode_active")
+                        and state.get("edge_current_key")
+                        and state.get("edge_current_key") == edge_key
+                    ):
+                        if paint_neighbor_band(edge_entry, neighbor_row, neighbor_col):
+                            pass
+                        return
                     # Kliknięto w obszar sąsiada - przełącz na tego sąsiada
                     switch_to_hex(neighbor_id)
                     return
 
         def canvas_pick_color(event):
+            if state.get("precision_mode_active"):
+                return
             if state.get("asset_mode_active"):
                 return
             preview_canvas.focus_set()
@@ -4817,6 +5668,9 @@ class MapEditor:
 
         def handle_left_press(event):
             preview_canvas.focus_set()
+            if state.get("precision_mode_active"):
+                precision_add_point(event)
+                return
             if state.get("asset_mode_active"):
                 start_asset_selection(event)
                 return
@@ -4824,12 +5678,18 @@ class MapEditor:
             canvas_paint(event)
 
         def handle_left_drag(event):
+            if state.get("precision_mode_active"):
+                update_precision_hover(get_cell_from_event(event, clamp=False))
+                return
             if state.get("asset_mode_active"):
                 update_asset_selection(event)
                 return
             canvas_paint(event)
 
         def handle_left_release(event):
+            if state.get("precision_mode_active"):
+                update_precision_hover(get_cell_from_event(event, clamp=False))
+                return "break"
             if state.get("asset_mode_active"):
                 finalize_asset_selection(event)
                 return "break"
@@ -4846,6 +5706,9 @@ class MapEditor:
         preview_canvas.bind("<KeyPress-Up>", handle_pan_key)
         preview_canvas.bind("<KeyPress-Down>", handle_pan_key)
         preview_canvas.bind("<KeyPress-space>", reset_view_offset)
+        preview_canvas.bind("<KeyPress-BackSpace>", precision_remove_last)
+        preview_canvas.bind("<KeyPress-Escape>", precision_cancel)
+        preview_canvas.bind("<KeyPress-Return>", precision_attempt_finish)
         preview_canvas.focus_set()
 
         toolbar = tk.Frame(editor, bg="darkolivegreen", width=360)
@@ -4913,6 +5776,26 @@ class MapEditor:
             fg="white"
         )
         asset_mode_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        precision_mode_btn = tk.Button(
+            toolbar,
+            text="Obrys assetu",
+            command=toggle_precision_mode,
+            bg="#6b8e23",
+            fg="white"
+        )
+        precision_mode_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        precision_undo_btn = tk.Button(
+            toolbar,
+            text="Cofnij punkt obrysu",
+            command=precision_remove_last,
+            bg="#444444",
+            fg="white",
+            state=tk.DISABLED
+        )
+        precision_undo_btn.pack(side=tk.LEFT, padx=(0, 8))
+        update_precision_controls()
 
         tools_container = tk.Frame(editor, bg="darkolivegreen", width=360)
         tools_container.grid(row=1, column=1, sticky="nsew", padx=(0, 12), pady=(0, 12))
@@ -5968,6 +6851,7 @@ class MapEditor:
                 self.hex_size = meta.get("hex_size", self.hex_size)
                 self.config["grid_cols"] = meta.get("cols", self.config.get("grid_cols"))
                 self.config["grid_rows"] = meta.get("rows", self.config.get("grid_rows"))
+                self._update_map_info_label()
                 self._apply_background_metadata(meta.get("background"))
             else:
                 self._apply_background_metadata(None)
@@ -5981,6 +6865,9 @@ class MapEditor:
                 self.hex_data   = loaded_data.get("terrain", {})
                 self.key_points = loaded_data.get("key_points", {})
                 self.spawn_points = loaded_data.get("spawn_points", {})
+            if self._ensure_city_marker_textures():
+                # aktualizuj zapis, aby nowa tekstura była dostępna w pliku
+                self.save_data()
             self.hex_tokens = {
                 hex_id: terrain["image"]
                 for hex_id, terrain in self.hex_data.items()
@@ -6019,6 +6906,7 @@ class MapEditor:
             self._apply_background_metadata(None)
             self.load_map_image()
             print("⚠️  Brak danych do wczytania lub plik nie istnieje")
+        self._update_map_info_label()
 
     def clear_variables(self):
         'Kasuje wszystkie niestandardowe ustawienia mapy (reset do płaskiego terenu).'
@@ -6030,6 +6918,7 @@ class MapEditor:
             zapisz_dane_hex({"terrain": {}, "key_points": {}, "spawn_points": {}}, self.current_working_file)
             self.draw_grid()
             messagebox.showinfo("Zresetowano", "Mapa została zresetowana do domyślnego terenu płaskiego.")
+        self._update_map_info_label()
 
     def save_map_and_data(self):
         """Zapisuje dane JSON mapy i eksportuje żetony."""
@@ -6160,6 +7049,8 @@ class MapEditor:
                     self._apply_flat_texture_preset_to_record(updated_record, brush_preset)
                 elif "flat_texture_preset" in updated_record and updated_record.get("texture") is None:
                     self._clear_flat_texture_from_record(updated_record)
+            elif terrain_key == "miasto":
+                self._apply_flat_texture_preset_to_record(updated_record, "city_marker")
             else:
                 self._clear_flat_texture_from_record(updated_record)
 
@@ -6179,6 +7070,18 @@ class MapEditor:
             self.auto_save('malowanie terenu')
         else:
             messagebox.showerror("Błąd", "Niepoprawny rodzaj terenu.")
+
+    def _ensure_city_marker_textures(self) -> bool:
+        """Upewnia się, że wszystkie heksy oznaczone jako miasta mają teksturę orientacyjną."""
+        changed = False
+        for record in self.hex_data.values():
+            if record.get("terrain_key") == "miasto":
+                texture = record.get("texture")
+                preset = record.get("flat_texture_preset")
+                if not texture or preset != "city_marker":
+                    self._apply_flat_texture_preset_to_record(record, "city_marker")
+                    changed = True
+        return changed
 
     def toggle_flat_texture_window(self, event=None):
         if self.flat_texture_window and self.flat_texture_window.winfo_exists():

@@ -1,0 +1,341 @@
+{
+  "name": "drzewo_iglaste_3",
+  "category": "forest",
+  "grid_size": 64,
+  "bounds": {
+    "row_min": 6,
+    "row_max": 40,
+    "col_min": 14,
+    "col_max": 25
+  },
+  "origin": {
+    "row": 6,
+    "col": 14
+  },
+  "size": {
+    "rows": 35,
+    "cols": 12
+  },
+  "hotspot": {
+    "row": 23.5,
+    "col": 20.0
+  },
+  "created_at": "2025-10-19T17:05:27",
+  "source_hex": "14,0",
+  "image": "terrain\\presets\\user_assets\\forest\\drzewo_iglaste_3.png",
+  "thumbnail": "terrain\\presets\\user_assets\\forest\\drzewo_iglaste_3_thumb.png",
+  "selection": {
+    "type": "polygon",
+    "loop": [
+      {
+        "row": 6,
+        "col": 18
+      },
+      {
+        "row": 7,
+        "col": 17
+      },
+      {
+        "row": 8,
+        "col": 17
+      },
+      {
+        "row": 9,
+        "col": 17
+      },
+      {
+        "row": 10,
+        "col": 17
+      },
+      {
+        "row": 11,
+        "col": 17
+      },
+      {
+        "row": 12,
+        "col": 16
+      },
+      {
+        "row": 13,
+        "col": 15
+      },
+      {
+        "row": 14,
+        "col": 15
+      },
+      {
+        "row": 15,
+        "col": 15
+      },
+      {
+        "row": 16,
+        "col": 15
+      },
+      {
+        "row": 17,
+        "col": 15
+      },
+      {
+        "row": 18,
+        "col": 15
+      },
+      {
+        "row": 19,
+        "col": 15
+      },
+      {
+        "row": 20,
+        "col": 15
+      },
+      {
+        "row": 21,
+        "col": 15
+      },
+      {
+        "row": 22,
+        "col": 15
+      },
+      {
+        "row": 23,
+        "col": 14
+      },
+      {
+        "row": 24,
+        "col": 14
+      },
+      {
+        "row": 25,
+        "col": 15
+      },
+      {
+        "row": 26,
+        "col": 15
+      },
+      {
+        "row": 27,
+        "col": 16
+      },
+      {
+        "row": 28,
+        "col": 16
+      },
+      {
+        "row": 29,
+        "col": 17
+      },
+      {
+        "row": 30,
+        "col": 18
+      },
+      {
+        "row": 30,
+        "col": 19
+      },
+      {
+        "row": 31,
+        "col": 19
+      },
+      {
+        "row": 32,
+        "col": 19
+      },
+      {
+        "row": 33,
+        "col": 19
+      },
+      {
+        "row": 34,
+        "col": 19
+      },
+      {
+        "row": 35,
+        "col": 19
+      },
+      {
+        "row": 36,
+        "col": 19
+      },
+      {
+        "row": 37,
+        "col": 19
+      },
+      {
+        "row": 38,
+        "col": 19
+      },
+      {
+        "row": 39,
+        "col": 19
+      },
+      {
+        "row": 39,
+        "col": 18
+      },
+      {
+        "row": 40,
+        "col": 18
+      },
+      {
+        "row": 40,
+        "col": 19
+      },
+      {
+        "row": 40,
+        "col": 20
+      },
+      {
+        "row": 40,
+        "col": 21
+      },
+      {
+        "row": 39,
+        "col": 20
+      },
+      {
+        "row": 38,
+        "col": 20
+      },
+      {
+        "row": 37,
+        "col": 20
+      },
+      {
+        "row": 36,
+        "col": 20
+      },
+      {
+        "row": 35,
+        "col": 20
+      },
+      {
+        "row": 34,
+        "col": 20
+      },
+      {
+        "row": 33,
+        "col": 20
+      },
+      {
+        "row": 33,
+        "col": 21
+      },
+      {
+        "row": 32,
+        "col": 21
+      },
+      {
+        "row": 31,
+        "col": 21
+      },
+      {
+        "row": 30,
+        "col": 21
+      },
+      {
+        "row": 29,
+        "col": 22
+      },
+      {
+        "row": 28,
+        "col": 23
+      },
+      {
+        "row": 27,
+        "col": 24
+      },
+      {
+        "row": 26,
+        "col": 24
+      },
+      {
+        "row": 25,
+        "col": 24
+      },
+      {
+        "row": 24,
+        "col": 25
+      },
+      {
+        "row": 23,
+        "col": 25
+      },
+      {
+        "row": 22,
+        "col": 25
+      },
+      {
+        "row": 21,
+        "col": 25
+      },
+      {
+        "row": 20,
+        "col": 25
+      },
+      {
+        "row": 19,
+        "col": 25
+      },
+      {
+        "row": 18,
+        "col": 25
+      },
+      {
+        "row": 17,
+        "col": 24
+      },
+      {
+        "row": 16,
+        "col": 24
+      },
+      {
+        "row": 15,
+        "col": 24
+      },
+      {
+        "row": 14,
+        "col": 23
+      },
+      {
+        "row": 13,
+        "col": 23
+      },
+      {
+        "row": 12,
+        "col": 23
+      },
+      {
+        "row": 12,
+        "col": 22
+      },
+      {
+        "row": 11,
+        "col": 21
+      },
+      {
+        "row": 10,
+        "col": 21
+      },
+      {
+        "row": 9,
+        "col": 21
+      },
+      {
+        "row": 9,
+        "col": 20
+      },
+      {
+        "row": 8,
+        "col": 19
+      },
+      {
+        "row": 7,
+        "col": 19
+      },
+      {
+        "row": 6,
+        "col": 19
+      }
+    ],
+    "cell_count": 231
+  }
+}

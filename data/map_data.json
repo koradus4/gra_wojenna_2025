@@ -17,6 +17,54 @@
     }
   },
   "terrain": {
+    "8,-1": {
+      "token": {
+        "unit": "P_Pluton__2_PL_P_Pluton",
+        "image": "assets/tokens/Polska/P_Pluton__2_PL_P_Pluton/token.png"
+      }
+    },
+    "8,0": {
+      "token": {
+        "unit": "Z_Pluton__2_PL_Z_Pluton",
+        "image": "assets/tokens/Polska/Z_Pluton__2_PL_Z_Pluton/token.png"
+      }
+    },
+    "16,63": {
+      "token": {
+        "unit": "K_Pluton__3_PL_K_Pluton",
+        "image": "assets/tokens/Polska/K_Pluton__3_PL_K_Pluton/token.png"
+      }
+    },
+    "16,64": {
+      "token": {
+        "unit": "Z_Pluton__3_PL_Z_Pluton",
+        "image": "assets/tokens/Polska/Z_Pluton__3_PL_Z_Pluton/token.png"
+      }
+    },
+    "105,18": {
+      "token": {
+        "unit": "P_Pluton__6_N_P_Pluton",
+        "image": "assets/tokens/Niemcy/P_Pluton__6_N_P_Pluton/token.png"
+      }
+    },
+    "105,19": {
+      "token": {
+        "unit": "Z_Pluton__6_N_Z_Pluton",
+        "image": "assets/tokens/Niemcy/Z_Pluton__6_N_Z_Pluton/token.png"
+      }
+    },
+    "114,-52": {
+      "token": {
+        "unit": "K_Pluton__5_N_K_Pluton",
+        "image": "assets/tokens/Niemcy/K_Pluton__5_N_K_Pluton/token.png"
+      }
+    },
+    "114,-51": {
+      "token": {
+        "unit": "Z_Pluton__5_N_Z_Pluton",
+        "image": "assets/tokens/Niemcy/Z_Pluton__5_N_Z_Pluton/token.png"
+      }
+    },
     "0,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -840,15 +888,12 @@
     "2,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_2_3.png"
+      "defense_mod": 0
     },
     "2,4": {
-      "terrain_key": "mała rzeka",
-      "move_mod": 2,
-      "defense_mod": 1,
-      "texture": "terrain\\hex_painted\\hex_2_4.png",
-      "texture_grid": 64
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
     },
     "2,5": {
       "terrain_key": "teren_płaski",
@@ -1243,14 +1288,12 @@
     "3,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_3_3.png"
+      "defense_mod": 0
     },
     "3,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_3_4.png"
+      "defense_mod": 0
     },
     "3,5": {
       "terrain_key": "teren_płaski",
@@ -1653,9 +1696,9 @@
       "defense_mod": 0
     },
     "4,4": {
-      "terrain_key": "mała rzeka",
-      "move_mod": 2,
-      "defense_mod": 1
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
     },
     "4,5": {
       "terrain_key": "teren_płaski",
@@ -2840,8 +2883,7 @@
     "7,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_7_0.png"
+      "defense_mod": 0
     },
     "7,1": {
       "terrain_key": "teren_płaski",
@@ -3237,24 +3279,6 @@
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
-    },
-    "8,-1": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Pluton__2_PL_P_Pluton",
-        "image": "assets/tokens/Polska/P_Pluton__2_PL_P_Pluton/token.png"
-      }
-    },
-    "8,0": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "Z_Pluton__2_PL_Z_Pluton",
-        "image": "assets/tokens/Polska/Z_Pluton__2_PL_Z_Pluton/token.png"
-      }
     },
     "8,1": {
       "terrain_key": "teren_płaski",
@@ -3654,8 +3678,7 @@
     "9,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_9_0.png"
+      "defense_mod": 0
     },
     "9,1": {
       "terrain_key": "teren_płaski",
@@ -4857,6 +4880,11 @@
       "move_mod": 0,
       "defense_mod": 0
     },
+    "12,-1": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
     "12,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -4870,26 +4898,17 @@
     "12,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_dry"
+      "defense_mod": 0
     },
     "12,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat_grass_dense_64.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_dense"
+      "defense_mod": 0
     },
     "12,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat_grass_fields_64.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_fields"
+      "defense_mod": 0
     },
     "12,5": {
       "terrain_key": "teren_płaski",
@@ -5269,36 +5288,36 @@
     "13,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_13_0.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "city_marker"
     },
     "13,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_13_1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "13,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
+      "texture": "terrain\\hex_painted\\hex_13_2.png",
       "texture_grid": 64,
       "flat_texture_preset": "grass_dry"
     },
     "13,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_13_3.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_fields"
+      "defense_mod": 0
     },
     "13,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_13_4.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_sandy_mix"
+      "defense_mod": 0
     },
     "13,5": {
       "terrain_key": "teren_płaski",
@@ -5678,18 +5697,24 @@
     "14,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_14_-1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "14,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_14_0.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "14,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat_grass_dry_64.png",
+      "texture": "terrain\\hex_painted\\hex_14_1.png",
       "texture_grid": 64,
       "flat_texture_preset": "grass_dry"
     },
@@ -5699,22 +5724,17 @@
       "defense_mod": 0,
       "texture": "terrain\\hex_painted\\hex_14_2.png",
       "texture_grid": 64,
-      "flat_texture_preset": "grass_dense"
+      "flat_texture_preset": "grass_dry"
     },
     "14,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_14_3.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_muddy_mix"
+      "defense_mod": 0
     },
     "14,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_14_4.png",
-      "texture_grid": 64
+      "defense_mod": 0
     },
     "14,5": {
       "terrain_key": "teren_płaski",
@@ -6089,32 +6109,39 @@
     "15,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_15_-1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "15,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_15_0.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "15,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_15_1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "15,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0,
       "texture": "terrain\\hex_painted\\hex_15_2.png",
-      "texture_grid": 64
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "15,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\hex_15_3.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_muddy_mix"
+      "defense_mod": 0
     },
     "15,4": {
       "terrain_key": "teren_płaski",
@@ -6494,22 +6521,34 @@
     "16,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_16_-2.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "16,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_16_-1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "16,0": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_16_0.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "city_marker"
     },
     "16,1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_16_1.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "city_marker"
     },
     "16,2": {
       "terrain_key": "teren_płaski",
@@ -6815,24 +6854,6 @@
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
-    },
-    "16,63": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "K_Pluton__3_PL_K_Pluton",
-        "image": "assets/tokens/Polska/K_Pluton__3_PL_K_Pluton/token.png"
-      }
-    },
-    "16,64": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "Z_Pluton__3_PL_Z_Pluton",
-        "image": "assets/tokens/Polska/Z_Pluton__3_PL_Z_Pluton/token.png"
-      }
     },
     "16,65": {
       "terrain_key": "teren_płaski",
@@ -42419,24 +42440,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "105,18": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "P_Pluton__6_N_P_Pluton",
-        "image": "assets/tokens/Niemcy/P_Pluton__6_N_P_Pluton/token.png"
-      }
-    },
-    "105,19": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "Z_Pluton__6_N_Z_Pluton",
-        "image": "assets/tokens/Niemcy/Z_Pluton__6_N_Z_Pluton/token.png"
-      }
-    },
     "105,20": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -45702,24 +45705,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "114,-52": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "K_Pluton__5_N_K_Pluton",
-        "image": "assets/tokens/Niemcy/K_Pluton__5_N_K_Pluton/token.png"
-      }
-    },
-    "114,-51": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0,
-      "token": {
-        "unit": "Z_Pluton__5_N_Z_Pluton",
-        "image": "assets/tokens/Niemcy/Z_Pluton__5_N_Z_Pluton/token.png"
-      }
-    },
     "114,-50": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -48081,11 +48066,6 @@
       "defense_mod": 0
     },
     "119,20": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "12,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
