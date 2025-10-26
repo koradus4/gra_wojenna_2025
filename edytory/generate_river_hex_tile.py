@@ -12,6 +12,7 @@ import json
 import math
 import random
 import sys
+import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
@@ -23,6 +24,21 @@ ASSET_DIR = Path("assets/terrain/hex_painted")
 DEFAULT_OUTPUT_DIR = ASSET_DIR / "river_contours"
 EXPORT_SIZE_BY_GRID = {64: 512, 128: 1024}
 CENTERLINE_COLOR = (0, 0, 0, 255)
+UINT32_MAX = 0xFFFFFFFF
+
+
+def _next_file_index(output_dir: Path, pattern: str) -> int:
+	max_idx = 0
+	if not output_dir.exists():
+		return 1
+	for path in output_dir.glob(pattern):
+		stem = path.stem
+		if not stem:
+			continue
+		index_str = stem.split("_")[-1]
+		if index_str.isdigit():
+			max_idx = max(max_idx, int(index_str))
+	return max_idx + 1
 
 PATH_SHAPES = ("straight", "curve", "turn")
 PATH_SHAPE_LABELS: Dict[str, str] = {
@@ -75,6 +91,8 @@ class RiverCenterlineOptions:
 	shape: str
 	shape_strength: float
 	shape_direction: int | None
+	noise_amplitude: float
+	noise_frequency: float
 	seed: int
 
 
@@ -249,6 +267,167 @@ def _midpoint(a: Tuple[float, float], b: Tuple[float, float]) -> Tuple[float, fl
 	return (a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5
 
 
+def _hash_to_unit(seed: int, coord: int) -> float:
+	value = (coord * 374761393 + seed * 668265263) & UINT32_MAX
+	value = (value ^ (value >> 13)) & UINT32_MAX
+	value = (value * 1274126177) & UINT32_MAX
+	value = (value ^ (value >> 16)) & UINT32_MAX
+	if value == 0:
+		return 0.0
+	return value / UINT32_MAX
+
+
+def _value_noise_single(seed: int, x: float) -> float:
+	cell = math.floor(x)
+	frac = x - cell
+	n0 = _hash_to_unit(seed, cell)
+	n1 = _hash_to_unit(seed, cell + 1)
+	smooth = frac * frac * (3.0 - 2.0 * frac)
+	return n0 + (n1 - n0) * smooth
+
+
+def _value_noise_fractal(seed: int, x: float, octaves: int = 3) -> float:
+	amplitude = 1.0
+	frequency = 1.0
+	total = 0.0
+	norm = 0.0
+	for octave in range(octaves):
+		total += _value_noise_single(seed + octave * 101, x * frequency) * amplitude
+		norm += amplitude
+		amplitude *= 0.5
+		frequency *= 2.0
+	if norm <= 1e-9:
+		return 0.0
+	return total / norm
+
+
+def _median_filter(values: Sequence[float], window: int) -> List[float]:
+	size = len(values)
+	if window <= 1 or size == 0:
+		return list(values)
+	radius = max(1, window // 2)
+	filtered: List[float] = []
+	for idx in range(size):
+		start = max(0, idx - radius)
+		end = min(size, idx + radius + 1)
+		slice_vals = values[start:end]
+		filtered.append(float(statistics.median(slice_vals)))
+	return filtered
+
+
+def _apply_noise_to_polyline(
+	points: Sequence[Tuple[float, float]],
+	amplitude: float,
+	frequency: float,
+	seed: int,
+	grid: int,
+	polygon: Sequence[Tuple[float, float]],
+) -> Tuple[List[Tuple[float, float]], Dict[str, Any]]:
+	if amplitude <= 1e-5 or len(points) < 3:
+		return list(points), {
+			"applied": False,
+			"amplitude": amplitude,
+			"frequency": frequency,
+			"seed": seed,
+			"max_offset_px": 0.0,
+			"offset_stats": {"min": 0.0, "max": 0.0, "median": 0.0},
+		}
+
+	frequency = max(0.1, frequency)
+	grid_scale = max(1.0, float(grid))
+	max_offset = amplitude * (grid_scale * 0.08)
+	max_offset = max(0.0, min(max_offset, grid_scale * 0.45))
+
+	cumulative = [0.0]
+	for idx in range(1, len(points)):
+		segment = math.hypot(points[idx][0] - points[idx - 1][0], points[idx][1] - points[idx - 1][1])
+		cumulative.append(cumulative[-1] + segment)
+	total_length = cumulative[-1]
+	if total_length < 1e-6:
+		return list(points), {
+			"applied": False,
+			"amplitude": amplitude,
+			"frequency": frequency,
+			"seed": seed,
+			"max_offset_px": 0.0,
+			"offset_stats": {"min": 0.0, "max": 0.0, "median": 0.0},
+		}
+
+	t_values = [dist / total_length if total_length > 0 else 0.0 for dist in cumulative]
+	normals: List[Tuple[float, float]] = []
+	last_normal = (0.0, 1.0)
+	count = len(points)
+	for idx in range(count):
+		if idx == 0:
+			tangent = (
+				points[idx + 1][0] - points[idx][0],
+				points[idx + 1][1] - points[idx][1],
+			)
+		elif idx == count - 1:
+			tangent = (
+				points[idx][0] - points[idx - 1][0],
+				points[idx][1] - points[idx - 1][1],
+			)
+		else:
+			tangent = (
+				points[idx + 1][0] - points[idx - 1][0],
+				points[idx + 1][1] - points[idx - 1][1],
+			)
+		tangent = _normalize(tangent)
+		if tangent == (0.0, 0.0):
+			normal = last_normal
+		else:
+			normal = _normalize((-tangent[1], tangent[0]))
+		if normal == (0.0, 0.0):
+			normal = last_normal
+		last_normal = normal
+		normals.append(normal)
+
+	raw_offsets: List[float] = []
+	for idx, t_val in enumerate(t_values):
+		if idx == 0 or idx == count - 1:
+			raw_offsets.append(0.0)
+			continue
+		sample = _value_noise_fractal(seed, t_val * frequency)
+		sample = sample * 2.0 - 1.0
+		raw_offsets.append(sample * max_offset)
+
+	smoothed = _median_filter(raw_offsets, window=5)
+	if smoothed:
+		smoothed[0] = 0.0
+		smoothed[-1] = 0.0
+
+	noisy_points: List[Tuple[float, float]] = []
+	min_off = 0.0
+	max_off = 0.0
+	for idx, (point, normal, offset) in enumerate(zip(points, normals, smoothed)):
+		if idx == 0 or idx == count - 1:
+			offset = 0.0
+		min_off = min(min_off, offset)
+		max_off = max(max_off, offset)
+		deformed = (
+			point[0] + normal[0] * offset,
+			point[1] + normal[1] * offset,
+		)
+		if idx not in (0, count - 1):
+			deformed = _project_inside_hex(deformed, grid, polygon)
+		noisy_points.append(deformed)
+
+	median_off = float(statistics.median(smoothed)) if smoothed else 0.0
+	return noisy_points, {
+		"applied": True,
+		"amplitude": amplitude,
+		"frequency": frequency,
+		"seed": seed,
+		"max_offset_px": max_offset,
+		"offset_stats": {
+			"min": min_off,
+			"max": max_off,
+			"median": median_off,
+		},
+	}
+
+
 def _distance_point_segment(
 	point: Tuple[float, float],
 	segment_start: Tuple[float, float],
@@ -332,6 +511,9 @@ def build_centerline_points(
 	shape: str,
 	shape_strength: float,
 	shape_direction: int | None,
+	noise_amplitude: float,
+	noise_frequency: float,
+	noise_seed: int,
 	mask: Sequence[Sequence[bool]],
 	rng: random.Random,
 ) -> Tuple[List[Tuple[float, float]], Dict[str, Any]]:
@@ -394,6 +576,14 @@ def build_centerline_points(
 	p2 = _project_inside_hex(p2, grid, polygon)
 
 	points = _flatten_bezier_adaptive(p0, p1, p2, p3, flatness=0.25)
+	points, noise_metadata = _apply_noise_to_polyline(
+		points,
+		noise_amplitude,
+		noise_frequency,
+		noise_seed,
+		grid,
+		polygon,
+	)
 
 	metadata = {
 		"control_points": [
@@ -411,6 +601,7 @@ def build_centerline_points(
 		"span_direction": {"x": span_dir[0], "y": span_dir[1]},
 		"lateral": {"x": lateral[0], "y": lateral[1]},
 		"lateral_sign": lateral_sign,
+		"noise": noise_metadata,
 	}
 	return points, metadata
 
@@ -496,6 +687,9 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 		opts.shape,
 		opts.shape_strength,
 		opts.shape_direction,
+		opts.noise_amplitude,
+		opts.noise_frequency,
+		opts.seed,
 		mask,
 		rng,
 	)
@@ -518,6 +712,9 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 		"shape_strength": opts.shape_strength,
 		"shape_direction": opts.shape_direction,
 		"shape_direction_mode": _shape_direction_mode_from_value(opts.shape_direction),
+		"noise_amplitude": opts.noise_amplitude,
+		"noise_frequency": opts.noise_frequency,
+		"noise_applied": bool(shape_metadata.get("noise", {}).get("applied")),
 		"shape_metadata": shape_metadata,
 	}
 	metadata_path = save_metadata(output_path, metadata)
@@ -626,6 +823,18 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 		choices=(64, 128),
 		help="Rozmiar siatki heksa",
 	)
+	parser.add_argument(
+		"--noise-amplitude",
+		type=float,
+		default=0.0,
+		help="Siła proceduralnego szumu (0-1)",
+	)
+	parser.add_argument(
+		"--noise-frequency",
+		type=float,
+		default=2.0,
+		help="Częstotliwość szumu (ilość fal na heksie)",
+	)
 	parser.add_argument("--seed", type=int, default=42, help="Bazowy seed RNG")
 	parser.add_argument(
 		"--output-dir",
@@ -682,6 +891,19 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 	count = max(1, min(int(args.count), 5))
 	args.output_dir.mkdir(parents=True, exist_ok=True)
 
+	noise_amplitude = max(0.0, min(float(getattr(args, "noise_amplitude", 0.0)), 3.0))
+	noise_frequency = max(0.1, float(getattr(args, "noise_frequency", 2.0)))
+	noise_suffix = ""
+	if noise_amplitude > 1e-3:
+		noise_suffix = f"_noise{int(round(noise_amplitude * 100)):02d}f{int(round(noise_frequency * 10)):02d}"
+
+	bg_label = "transparent" if background_path is None else background_path.stem
+	base_pattern = (
+		f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
+		f"{args.shape}{direction_suffix}{noise_suffix}_g{args.grid}_*.png"
+	)
+	next_index = _next_file_index(args.output_dir, base_pattern)
+
 	for index in range(count):
 		seed = args.seed + index
 		opts = RiverCenterlineOptions(
@@ -692,14 +914,15 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 			shape=args.shape,
 			shape_strength=max(0.0, min(args.shape_strength, 1.0)),
 			shape_direction=shape_direction if args.shape in {"curve", "turn"} else None,
+			noise_amplitude=noise_amplitude,
+			noise_frequency=noise_frequency,
 			seed=seed,
 		)
-		suffix = f"{index + 1:02d}"
-		bg_label = "transparent" if background_path is None else background_path.stem
+		suffix = f"{next_index + index:02d}"
 		direction_part = direction_suffix if args.shape in {"curve", "turn"} else ""
 		file_name = (
 			f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
-			f"{args.shape}{direction_part}_g{args.grid}_{suffix}.png"
+			f"{args.shape}{direction_part}{noise_suffix}_g{args.grid}_{suffix}.png"
 		)
 		output_path = args.output_dir / file_name
 		result = generate_centerline(opts, output_path)
@@ -736,6 +959,9 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 	grid_var = tk.IntVar(value=64)
 	status_var = tk.StringVar(value="Gotowy")
 	shape_strength_value_var = tk.StringVar(value="0.50")
+	noise_amplitude_var = tk.DoubleVar(value=0.0)
+	noise_amplitude_value_var = tk.StringVar(value="0.00")
+	noise_frequency_var = tk.DoubleVar(value=2.0)
 	shape_display_pairs = [(PATH_SHAPE_LABELS[key], key) for key in PATH_SHAPES]
 	display_to_shape = {display: key for display, key in shape_display_pairs}
 	shape_direction_display_pairs = [
@@ -821,9 +1047,47 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 	shape_strength_scale.configure(command=on_shape_strength_change)
 	on_shape_strength_change(str(shape_strength_var.get()))
 
-	ttk.Label(frame, text="Siatka (64/128):").grid(row=7, column=0, sticky="w", pady=4)
+	ttk.Label(frame, text="Amplituda szumu (0-1):").grid(row=7, column=0, sticky="w", pady=4)
+	noise_amplitude_scale = ttk.Scale(
+		frame,
+		from_=0.0,
+		to=3.0,
+		orient="horizontal",
+		variable=noise_amplitude_var,
+	)
+	noise_amplitude_scale.grid(row=7, column=1, sticky="we", pady=4)
+	noise_amplitude_value_label = ttk.Label(
+		frame,
+		textvariable=noise_amplitude_value_var,
+		width=5,
+		anchor="e",
+	)
+	noise_amplitude_value_label.grid(row=7, column=2, sticky="e", padx=(6, 0))
+
+	def on_noise_amplitude_change(value: str) -> None:
+		try:
+			num = float(value)
+		except ValueError:
+			num = noise_amplitude_var.get()
+		noise_amplitude_value_var.set(f"{num:.2f}")
+
+	noise_amplitude_scale.configure(command=on_noise_amplitude_change)
+	on_noise_amplitude_change(str(noise_amplitude_var.get()))
+
+	ttk.Label(frame, text="Częstotliwość szumu:").grid(row=8, column=0, sticky="w", pady=4)
+	noise_frequency_spin = ttk.Spinbox(
+		frame,
+		from_=0.5,
+		to=10.0,
+		increment=0.5,
+		textvariable=noise_frequency_var,
+		width=6,
+	)
+	noise_frequency_spin.grid(row=8, column=1, sticky="we", pady=4)
+
+	ttk.Label(frame, text="Siatka (64/128):").grid(row=9, column=0, sticky="w", pady=4)
 	grid_box = ttk.Combobox(frame, values=[64, 128], state="readonly", textvariable=grid_var)
-	grid_box.grid(row=7, column=1, sticky="we", pady=4)
+	grid_box.grid(row=9, column=1, sticky="we", pady=4)
 
 	status_label = ttk.Label(frame, textvariable=status_var, foreground="#305068")
 
@@ -858,6 +1122,17 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 			return
 		shape_direction_effective = shape_direction if shape_key in {"curve", "turn"} else None
 
+		raw_amplitude = str(noise_amplitude_var.get()).strip().replace(",", ".")
+		try:
+			noise_amplitude = max(0.0, min(3.0, float(raw_amplitude)))
+		except (ValueError, tk.TclError):
+			noise_amplitude = 0.0
+		raw_frequency = str(noise_frequency_var.get()).strip().replace(",", ".")
+		try:
+			noise_frequency = max(0.1, float(raw_frequency))
+		except (ValueError, tk.TclError):
+			noise_frequency = 2.0
+
 		try:
 			grid = int(grid_var.get())
 		except ValueError:
@@ -874,6 +1149,19 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 
 		DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 		base_seed = random.randint(0, 1_000_000)
+		bg_label = "transparent" if background_path is None else background_path.stem
+		direction_part = ""
+		if shape_key in {"curve", "turn"} and shape_direction_key != "auto":
+			direction_part = f"_{shape_direction_key}"
+		noise_part = ""
+		if noise_amplitude > 1e-3:
+			noise_part = f"_noise{int(round(noise_amplitude * 100)):02d}f{int(round(noise_frequency * 10)):02d}"
+		pattern = (
+			"hex_river_centerline_"
+			f"{bg_label}_{entry_side_key}_to_{exit_side_key}_"
+			f"{shape_key}{direction_part}{noise_part}_g{grid}_*.png"
+		)
+		next_index = _next_file_index(DEFAULT_OUTPUT_DIR, pattern)
 
 		generated: List[RiverCenterlineResult] = []
 		for index in range(count):
@@ -886,16 +1174,14 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 				shape=shape_key,
 				shape_strength=shape_strength,
 				shape_direction=shape_direction_effective,
+				noise_amplitude=noise_amplitude,
+				noise_frequency=noise_frequency,
 				seed=seed,
 			)
-			suffix = f"{index + 1:02d}"
-			bg_label = "transparent" if background_path is None else background_path.stem
-			direction_part = ""
-			if shape_key in {"curve", "turn"} and shape_direction_key != "auto":
-				direction_part = f"_{shape_direction_key}"
+			suffix = f"{next_index + index:02d}"
 			file_name = (
 				f"hex_river_centerline_{bg_label}_{entry_side_key}_to_{exit_side_key}_"
-				f"{shape_key}{direction_part}_g{grid}_{suffix}.png"
+				f"{shape_key}{direction_part}{noise_part}_g{grid}_{suffix}.png"
 			)
 			output_path = DEFAULT_OUTPUT_DIR / file_name
 			try:
@@ -913,7 +1199,7 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 			status_var.set("Brak wygenerowanych plików")
 
 	generate_button = ttk.Button(frame, text="Generuj", command=handle_generate)
-	generate_button.grid(row=8, column=0, columnspan=2, sticky="we", pady=(8, 4))
+	generate_button.grid(row=10, column=0, columnspan=2, sticky="we", pady=(8, 4))
 
 	def handle_clear_outputs() -> None:
 		files: List[Path] = []
@@ -948,9 +1234,9 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 			status_var.set(f"Usunięto {len(files)} plików")
 
 	clear_button = ttk.Button(frame, text="Usuń wygenerowane", command=handle_clear_outputs)
-	clear_button.grid(row=9, column=0, columnspan=2, sticky="we", pady=4)
+	clear_button.grid(row=11, column=0, columnspan=2, sticky="we", pady=4)
 
-	status_label.grid(row=10, column=0, columnspan=2, sticky="we", pady=(8, 0))
+	status_label.grid(row=12, column=0, columnspan=2, sticky="we", pady=(8, 0))
 
 	root.mainloop()
 	return True
