@@ -12,10 +12,19 @@ from pathlib import Path
 from PIL import Image, ImageTk, ImageFont, ImageDraw
 
 try:
-    from generate_river_hex_tile import RiverCenterlineOptions, generate_centerline
+    from generate_river_hex_tile import (
+        MAX_TRIBUTARY_JOIN,
+        MIN_TRIBUTARY_JOIN,
+        RiverCenterlineOptions,
+        TributaryOptions,
+        generate_centerline,
+    )
 except ImportError:  # pragma: no cover - w trybie edytora brak generatora
     RiverCenterlineOptions = None
+    TributaryOptions = None
     generate_centerline = None
+    MIN_TRIBUTARY_JOIN = 0.2
+    MAX_TRIBUTARY_JOIN = 0.8
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -81,6 +90,20 @@ RIVER_SHAPE_LABELS = {
 }
 RIVER_SHAPE_LABEL_TO_KEY = {label: key for key, label in RIVER_SHAPE_LABELS.items()}
 
+TRIBUTARY_SHAPE_LABELS = {
+    "straight": "Dopływ prosty",
+    "curve": "Dopływ zakole",
+    "turn": "Dopływ ostry zakręt",
+}
+TRIBUTARY_SHAPE_LABEL_TO_KEY = {label: key for key, label in TRIBUTARY_SHAPE_LABELS.items()}
+
+TRIBUTARY_DIRECTION_LABELS = {
+    "auto": "Losowo",
+    "left": "Lewy łuk",
+    "right": "Prawy łuk",
+}
+TRIBUTARY_DIRECTION_LABEL_TO_KEY = {label: key for key, label in TRIBUTARY_DIRECTION_LABELS.items()}
+
 SQRT_3 = math.sqrt(3.0)
 
 AXIAL_DIRECTION_TO_SIDE = {
@@ -111,6 +134,12 @@ HEX_SIDE_LABELS_PL = {
     "bottom_left": "dolna lewa",
     "top_left": "górna lewa",
 }
+
+HEX_SIDE_DISPLAY_LABELS = {
+    key: value.title() if isinstance(value, str) else str(value)
+    for key, value in HEX_SIDE_LABELS_PL.items()
+}
+HEX_SIDE_DISPLAY_TO_KEY = {label: key for key, label in HEX_SIDE_DISPLAY_LABELS.items()}
 
 AXIAL_DIRECTION_TO_CARTESIAN = {
     (1, 0): (1.5, SQRT_3 / 2.0),
@@ -460,7 +489,19 @@ class MapEditor:
         self.river_grid_var = tk.StringVar(value=str(DEFAULT_HEX_TEXTURE_GRID_SIZE))
         self.river_status_var = tk.StringVar(value="Ścieżka rzeki: 0 heksów")
         self._river_resume_expected_exit: str | None = None
+        self._river_resume_branch: str = "main"
         self._skip_river_mode_popup = False
+        self.river_tributary_enabled_var = tk.BooleanVar(value=False)
+        self.river_tributary_entry_var = tk.StringVar(value=HEX_SIDE_DISPLAY_LABELS["top_left"])
+        self.river_tributary_join_var = tk.DoubleVar(value=55.0)
+        self.river_tributary_shape_var = tk.StringVar(value=TRIBUTARY_SHAPE_LABELS["curve"])
+        self.river_tributary_strength_var = tk.DoubleVar(value=0.6)
+        self.river_tributary_noise_var = tk.DoubleVar(value=0.0)
+        self.river_tributary_frequency_var = tk.DoubleVar(value=2.5)
+        self.river_tributary_direction_var = tk.StringVar(value=TRIBUTARY_DIRECTION_LABELS["auto"])
+        self.river_tributary_seed_offset_var = tk.IntVar(value=1_000_000)
+        self._river_tributary_widgets: list[tuple[tk.Widget, str]] = []
+        self.river_tributary_enabled_var.trace_add("write", lambda *_: self._update_tributary_controls_state())
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -913,18 +954,46 @@ class MapEditor:
         )
         self.map_cleanup_button.pack(padx=5, pady=2, fill=tk.X)
 
+        # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
+        # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
+        self.main_paned = tk.PanedWindow(self.panel_frame, orient=tk.VERTICAL, bg="darkolivegreen")
+        self.main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # === GÓRNA CZĘŚĆ: Paleta żetonów i inne sekcje ===
+        self.upper_container = tk.Frame(self.main_paned, bg="darkolivegreen")
+        # Górny panel ma przejmować całą dodatkową przestrzeń na scrollowane sekcje
+        self.main_paned.add(self.upper_container, minsize=200, stretch="always")
+        self.upper_canvas = tk.Canvas(self.upper_container, bg="darkolivegreen", highlightthickness=0)
+        self.upper_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.upper_scrollbar = tk.Scrollbar(self.upper_container, orient=tk.VERTICAL, command=self.upper_canvas.yview)
+        self.upper_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.upper_canvas.configure(yscrollcommand=self.upper_scrollbar.set)
+        self.upper_frame = tk.Frame(self.upper_canvas, bg="darkolivegreen")
+        self.upper_frame_window = self.upper_canvas.create_window((0, 0), window=self.upper_frame, anchor="nw")
+        self.upper_frame.bind("<Configure>", lambda _e: self.upper_canvas.configure(scrollregion=self.upper_canvas.bbox("all")))
+        self.upper_canvas.bind("<Configure>", lambda e: self.upper_canvas.itemconfigure(self.upper_frame_window, width=e.width))
+        self.upper_canvas.bind("<MouseWheel>", self._scroll_upper_panel)
+        self.upper_frame.bind("<MouseWheel>", self._scroll_upper_panel)
+        self.upper_canvas.bind("<Button-4>", self._scroll_upper_panel)
+        self.upper_canvas.bind("<Button-5>", self._scroll_upper_panel)
+        self.upper_frame.bind("<Button-4>", self._scroll_upper_panel)
+        self.upper_frame.bind("<Button-5>", self._scroll_upper_panel)
+
+        # === PALETA ŻETONÓW ===
+        self.build_token_palette_in_frame(self.upper_frame)
+
         # === NARZĘDZIE RZEK ===
-        river_frame = tk.LabelFrame(
-            buttons_frame,
+        self.river_frame = tk.LabelFrame(
+            self.upper_frame,
             text="Rzeki (beta)",
             bg="darkolivegreen",
             fg="white",
             font=("Arial", 9, "bold"),
         )
-        river_frame.pack(padx=5, pady=(8, 4), fill=tk.X)
+        self.river_frame.pack(fill=tk.X, padx=5, pady=(6, 4))
 
         self.toggle_river_mode_button = tk.Button(
-            river_frame,
+            self.river_frame,
             text="Włącz tryb rzeki",
             command=self.toggle_river_mode,
             bg="#1f5d7a",
@@ -934,18 +1003,18 @@ class MapEditor:
         )
         self.toggle_river_mode_button.pack(fill=tk.X, pady=(0, 4))
 
-        status_label = tk.Label(
-            river_frame,
+        self.river_status_label = tk.Label(
+            self.river_frame,
             textvariable=self.river_status_var,
             bg="darkolivegreen",
             fg="#d4f2bf",
             anchor="w",
             justify="left",
-            wraplength=180,
+            wraplength=190,
         )
-        status_label.pack(fill=tk.X, pady=(0, 4))
+        self.river_status_label.pack(fill=tk.X, pady=(0, 4))
 
-        river_controls = tk.Frame(river_frame, bg="darkolivegreen")
+        river_controls = tk.Frame(self.river_frame, bg="darkolivegreen")
         river_controls.pack(fill=tk.X)
         river_controls.columnconfigure(1, weight=1)
 
@@ -955,15 +1024,20 @@ class MapEditor:
             shape_label_widget,
             "Wybierz przebieg rzeki: Automatycznie dopasowuje kształt, Prosty utrzymuje linię, Zakole dodaje łuki, Zakręt mocno zmienia kierunek.",
         )
+        shape_values = tuple(RIVER_SHAPE_LABELS[key] for key in ("auto", "straight", "curve", "turn"))
         self.river_shape_combo = ttk.Combobox(
             river_controls,
             textvariable=self.river_shape_var,
-            values=tuple(RIVER_SHAPE_LABELS[key] for key in ("auto", "straight", "curve", "turn")),
+            values=shape_values,
             state="readonly",
             width=11,
         )
         self.river_shape_combo.grid(row=0, column=1, sticky="we", pady=1)
-        self.river_shape_combo.current(0)
+        try:
+            shape_index = shape_values.index(self.river_shape_var.get())
+        except ValueError:
+            shape_index = 0
+        self.river_shape_combo.current(shape_index)
 
         strength_label = tk.Label(river_controls, text="Siła (?)", bg="darkolivegreen", fg="white")
         strength_label.grid(row=1, column=0, sticky="w")
@@ -971,14 +1045,15 @@ class MapEditor:
             strength_label,
             "Steruje nasilenie zakoli. 0 = niemal prosta linia, 1 = bardzo wyraźne łuki i odgięcia.",
         )
-        tk.Spinbox(
+        self.river_strength_spinbox = tk.Spinbox(
             river_controls,
             from_=0.0,
             to=1.0,
             increment=0.05,
             textvariable=self.river_strength_var,
             width=6,
-        ).grid(row=1, column=1, sticky="we", pady=1)
+        )
+        self.river_strength_spinbox.grid(row=1, column=1, sticky="we", pady=1)
 
         noise_label = tk.Label(river_controls, text="Szum (?)", bg="darkolivegreen", fg="white")
         noise_label.grid(row=2, column=0, sticky="w")
@@ -986,14 +1061,15 @@ class MapEditor:
             noise_label,
             "Dodaje losowe odchylenia koryta. Większa wartość = bardziej poszarpany nurt.",
         )
-        tk.Spinbox(
+        self.river_noise_spinbox = tk.Spinbox(
             river_controls,
             from_=0.0,
             to=3.0,
             increment=0.05,
             textvariable=self.river_noise_var,
             width=6,
-        ).grid(row=2, column=1, sticky="we", pady=1)
+        )
+        self.river_noise_spinbox.grid(row=2, column=1, sticky="we", pady=1)
 
         freq_label = tk.Label(river_controls, text="Częst. (?)", bg="darkolivegreen", fg="white")
         freq_label.grid(row=3, column=0, sticky="w")
@@ -1001,14 +1077,15 @@ class MapEditor:
             freq_label,
             "Reguluje gęstość falowania przy włączonym szumie. Wyższa wartość = więcej drobnych załamań.",
         )
-        tk.Spinbox(
+        self.river_frequency_spinbox = tk.Spinbox(
             river_controls,
             from_=0.1,
             to=6.0,
             increment=0.1,
             textvariable=self.river_frequency_var,
             width=6,
-        ).grid(row=3, column=1, sticky="we", pady=1)
+        )
+        self.river_frequency_spinbox.grid(row=3, column=1, sticky="we", pady=1)
 
         seed_label = tk.Label(river_controls, text="Seed (?)", bg="darkolivegreen", fg="white")
         seed_label.grid(row=4, column=0, sticky="w")
@@ -1016,14 +1093,15 @@ class MapEditor:
             seed_label,
             "Ustaw numer, do którego chcesz wrócić. Ta sama wartość zawsze da identyczny kształt rzeki.",
         )
-        tk.Spinbox(
+        self.river_seed_spinbox = tk.Spinbox(
             river_controls,
             from_=0,
             to=999999,
             increment=1,
             textvariable=self.river_seed_var,
             width=8,
-        ).grid(row=4, column=1, sticky="we", pady=1)
+        )
+        self.river_seed_spinbox.grid(row=4, column=1, sticky="we", pady=1)
 
         grid_label = tk.Label(river_controls, text="Siatka (?)", bg="darkolivegreen", fg="white")
         grid_label.grid(row=5, column=0, sticky="w")
@@ -1031,21 +1109,211 @@ class MapEditor:
             grid_label,
             "Rozdzielczość tekstury heksu. 64 = 512 px, 128 = 1024 px po eksporcie.",
         )
+        grid_values = [str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS]
         self.river_grid_combo = ttk.Combobox(
             river_controls,
-            values=[str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS],
+            values=grid_values,
             textvariable=self.river_grid_var,
             state="readonly",
             width=6,
         )
         self.river_grid_combo.grid(row=5, column=1, sticky="we", pady=1)
         try:
-            default_index = [str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS].index(self.river_grid_var.get())
+            grid_index = grid_values.index(self.river_grid_var.get())
         except ValueError:
-            default_index = 0
-        self.river_grid_combo.current(default_index)
+            grid_index = 0
+        self.river_grid_combo.current(grid_index)
 
-        buttons_inner = tk.Frame(river_frame, bg="darkolivegreen")
+        tributary_frame = tk.LabelFrame(
+            self.river_frame,
+            text="Dopływ (opcjonalnie)",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9, "bold"),
+        )
+        tributary_frame.pack(fill=tk.X, pady=(4, 4))
+
+        tributary_toggle = tk.Checkbutton(
+            tributary_frame,
+            text="Dodaj dopływ do generowanego heksu",
+            variable=self.river_tributary_enabled_var,
+            bg="darkolivegreen",
+            fg="white",
+            activebackground="darkolivegreen",
+            activeforeground="white",
+            selectcolor="#2f6b2f",
+            indicatoron=True,
+            highlightthickness=0,
+            onvalue=True,
+            offvalue=False,
+            anchor="w",
+        )
+        tributary_toggle.pack(fill=tk.X, padx=4, pady=(2, 4))
+        self.create_tooltip(
+            tributary_toggle,
+            "Jeśli dopływ jest aktywny, heks dostanie dodatkowe koryto łączące się z główną rzeką.",
+        )
+
+        tributary_controls = tk.Frame(tributary_frame, bg="darkolivegreen")
+        tributary_controls.pack(fill=tk.X, padx=4, pady=(0, 2))
+        for col_idx in (1,):
+            tributary_controls.columnconfigure(col_idx, weight=1)
+
+        side_values = list(HEX_SIDE_DISPLAY_LABELS.values())
+        tk.Label(tributary_controls, text="Wejście", bg="darkolivegreen", fg="white").grid(
+            row=0, column=0, sticky="w"
+        )
+        self.river_tributary_entry_combo = ttk.Combobox(
+            tributary_controls,
+            values=side_values,
+            textvariable=self.river_tributary_entry_var,
+            state="readonly",
+            width=14,
+        )
+        self.river_tributary_entry_combo.grid(row=0, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_entry_combo, enabled_state="readonly")
+        self.create_tooltip(
+            self.river_tributary_entry_combo,
+            "Wybierz bok heksu, z którego dopływ ma wpływać do głównego nurtu.",
+        )
+
+        tk.Label(tributary_controls, text="Połączenie (%)", bg="darkolivegreen", fg="white").grid(
+            row=1, column=0, sticky="w"
+        )
+        self.river_tributary_join_spinbox = tk.Spinbox(
+            tributary_controls,
+            from_=int(MIN_TRIBUTARY_JOIN * 100),
+            to=int(MAX_TRIBUTARY_JOIN * 100),
+            increment=1,
+            textvariable=self.river_tributary_join_var,
+            width=6,
+        )
+        self.river_tributary_join_spinbox.grid(row=1, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_join_spinbox)
+        self.create_tooltip(
+            self.river_tributary_join_spinbox,
+            "Określa punkt połączenia dopływu (20% to początek nurtu, 80% blisko końca).",
+        )
+
+        tk.Label(tributary_controls, text="Kształt", bg="darkolivegreen", fg="white").grid(
+            row=2, column=0, sticky="w"
+        )
+        tributary_shape_values = list(TRIBUTARY_SHAPE_LABELS.values())
+        self.river_tributary_shape_combo = ttk.Combobox(
+            tributary_controls,
+            values=tributary_shape_values,
+            textvariable=self.river_tributary_shape_var,
+            state="readonly",
+            width=14,
+        )
+        self.river_tributary_shape_combo.grid(row=2, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_shape_combo, enabled_state="readonly")
+        self.create_tooltip(
+            self.river_tributary_shape_combo,
+            "Decyduje o łuku dopływu (prosty, łagodny lub ostry zakręt).",
+        )
+
+        tk.Label(tributary_controls, text="Siła", bg="darkolivegreen", fg="white").grid(
+            row=3, column=0, sticky="w"
+        )
+        self.river_tributary_strength_spinbox = tk.Spinbox(
+            tributary_controls,
+            from_=0.0,
+            to=1.0,
+            increment=0.05,
+            textvariable=self.river_tributary_strength_var,
+            width=6,
+        )
+        self.river_tributary_strength_spinbox.grid(row=3, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_strength_spinbox)
+        self.create_tooltip(
+            self.river_tributary_strength_spinbox,
+            "Im wyższa wartość, tym mocniej dopływ odgina się względem linii prostej.",
+        )
+
+        tk.Label(tributary_controls, text="Kierunek", bg="darkolivegreen", fg="white").grid(
+            row=4, column=0, sticky="w"
+        )
+        tributary_direction_values = list(TRIBUTARY_DIRECTION_LABELS.values())
+        self.river_tributary_direction_combo = ttk.Combobox(
+            tributary_controls,
+            values=tributary_direction_values,
+            textvariable=self.river_tributary_direction_var,
+            state="readonly",
+            width=14,
+        )
+        self.river_tributary_direction_combo.grid(row=4, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_direction_combo, enabled_state="readonly")
+        self.create_tooltip(
+            self.river_tributary_direction_combo,
+            "Losowy kierunek łuku lub wymuszenie skrętu w lewo/prawo względem nurtu.",
+        )
+
+        tk.Label(tributary_controls, text="Szum", bg="darkolivegreen", fg="white").grid(
+            row=5, column=0, sticky="w"
+        )
+        self.river_tributary_noise_spinbox = tk.Spinbox(
+            tributary_controls,
+            from_=0.0,
+            to=3.0,
+            increment=0.05,
+            textvariable=self.river_tributary_noise_var,
+            width=6,
+        )
+        self.river_tributary_noise_spinbox.grid(row=5, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_noise_spinbox)
+        self.create_tooltip(
+            self.river_tributary_noise_spinbox,
+            "Dodaje poszarpanie do dopływu. Więcej = bardziej nierówny brzeg.",
+        )
+
+        tk.Label(tributary_controls, text="Częst.", bg="darkolivegreen", fg="white").grid(
+            row=6, column=0, sticky="w"
+        )
+        self.river_tributary_frequency_spinbox = tk.Spinbox(
+            tributary_controls,
+            from_=0.1,
+            to=6.0,
+            increment=0.1,
+            textvariable=self.river_tributary_frequency_var,
+            width=6,
+        )
+        self.river_tributary_frequency_spinbox.grid(row=6, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_frequency_spinbox)
+        self.create_tooltip(
+            self.river_tributary_frequency_spinbox,
+            "Gęstość falowania dopływu. Wyższa wartość = więcej małych odchyleń.",
+        )
+
+        tk.Label(tributary_controls, text="Seed offset", bg="darkolivegreen", fg="white").grid(
+            row=7, column=0, sticky="w"
+        )
+        self.river_tributary_seed_spinbox = tk.Spinbox(
+            tributary_controls,
+            from_=0,
+            to=9_999_999,
+            increment=1,
+            textvariable=self.river_tributary_seed_offset_var,
+            width=8,
+        )
+        self.river_tributary_seed_spinbox.grid(row=7, column=1, sticky="we", pady=1)
+        self._register_tributary_control(self.river_tributary_seed_spinbox)
+        self.create_tooltip(
+            self.river_tributary_seed_spinbox,
+            "Dla tej samej wartości dopływ zachowa identyczny kształt przy kolejnych generacjach.",
+        )
+
+        tk.Label(
+            tributary_frame,
+            text="Dopływ łączy się z heksowym nurtem; parametry zapiszą się w metadanych.",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        ).pack(fill=tk.X, padx=4, pady=(2, 0))
+
+        buttons_inner = tk.Frame(self.river_frame, bg="darkolivegreen")
         buttons_inner.pack(fill=tk.X, pady=(4, 0))
 
         self.river_generate_button = tk.Button(
@@ -1088,42 +1356,16 @@ class MapEditor:
         self.river_clear_button.pack(fill=tk.X, pady=(0, 1))
 
         tk.Label(
-            river_frame,
+            self.river_frame,
             text="LPM dodaje, PPM cofa ost. heks.",
             bg="darkolivegreen",
             fg="#d4f2bf",
             font=("Arial", 8, "italic"),
             anchor="w",
-            wraplength=180,
+            wraplength=190,
         ).pack(fill=tk.X, pady=(2, 0))
 
-        # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
-        # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
-        self.main_paned = tk.PanedWindow(self.panel_frame, orient=tk.VERTICAL, bg="darkolivegreen")
-        self.main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # === GÓRNA CZĘŚĆ: Paleta żetonów i inne sekcje ===
-        self.upper_container = tk.Frame(self.main_paned, bg="darkolivegreen")
-        # Górny panel ma przejmować całą dodatkową przestrzeń na scrollowane sekcje
-        self.main_paned.add(self.upper_container, minsize=200, stretch="always")
-        self.upper_canvas = tk.Canvas(self.upper_container, bg="darkolivegreen", highlightthickness=0)
-        self.upper_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.upper_scrollbar = tk.Scrollbar(self.upper_container, orient=tk.VERTICAL, command=self.upper_canvas.yview)
-        self.upper_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.upper_canvas.configure(yscrollcommand=self.upper_scrollbar.set)
-        self.upper_frame = tk.Frame(self.upper_canvas, bg="darkolivegreen")
-        self.upper_frame_window = self.upper_canvas.create_window((0, 0), window=self.upper_frame, anchor="nw")
-        self.upper_frame.bind("<Configure>", lambda _e: self.upper_canvas.configure(scrollregion=self.upper_canvas.bbox("all")))
-        self.upper_canvas.bind("<Configure>", lambda e: self.upper_canvas.itemconfigure(self.upper_frame_window, width=e.width))
-        self.upper_canvas.bind("<MouseWheel>", self._scroll_upper_panel)
-        self.upper_frame.bind("<MouseWheel>", self._scroll_upper_panel)
-        self.upper_canvas.bind("<Button-4>", self._scroll_upper_panel)
-        self.upper_canvas.bind("<Button-5>", self._scroll_upper_panel)
-        self.upper_frame.bind("<Button-4>", self._scroll_upper_panel)
-        self.upper_frame.bind("<Button-5>", self._scroll_upper_panel)
-
-        # === PALETA ŻETONÓW ===
-        self.build_token_palette_in_frame(self.upper_frame)
+        self._river_update_status()
 
         # === SEKCJA TERENU ===
         terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
@@ -2534,12 +2776,120 @@ class MapEditor:
             self.river_undo_button.config(state=undo_state)
         if hasattr(self, "river_clear_button"):
             self.river_clear_button.config(state=undo_state)
+        self._update_tributary_controls_state()
+
+    def _register_tributary_control(self, widget: tk.Widget, *, enabled_state: str = "normal") -> None:
+        self._river_tributary_widgets.append((widget, enabled_state))
+
+    def _update_tributary_controls_state(self) -> None:
+        enabled = bool(self.river_tributary_enabled_var.get())
+        for widget, enabled_state in self._river_tributary_widgets:
+            try:
+                state = enabled_state if enabled else "disabled"
+                widget.configure(state=state)
+            except tk.TclError:
+                continue
+        if enabled:
+            self._ensure_tributary_defaults()
+
+    def _ensure_tributary_defaults(self) -> None:
+        if self.river_tributary_join_var.get() in ("", None):
+            self.river_tributary_join_var.set(55.0)
+        if self.river_tributary_shape_var.get() in ("", None):
+            self.river_tributary_shape_var.set(TRIBUTARY_SHAPE_LABELS["curve"])
+        if self.river_tributary_direction_var.get() in ("", None):
+            self.river_tributary_direction_var.set(TRIBUTARY_DIRECTION_LABELS["auto"])
+        if self.river_tributary_strength_var.get() in ("", None):
+            self.river_tributary_strength_var.set(0.6)
+        if self.river_tributary_noise_var.get() in ("", None):
+            self.river_tributary_noise_var.set(0.0)
+        if self.river_tributary_frequency_var.get() in ("", None):
+            self.river_tributary_frequency_var.set(2.5)
+        try:
+            _ = self.river_tributary_seed_offset_var.get()
+        except tk.TclError:
+            self.river_tributary_seed_offset_var.set(1_000_000)
+
+    def _build_tributary_options(self) -> TributaryOptions | None:
+        if TributaryOptions is None:
+            messagebox.showwarning(
+                "Generator rzeki",
+                "Moduł generujący dopływy nie jest dostępny. Zainstaluj generate_river_hex_tile.py.",
+                parent=self.root,
+            )
+            return None
+
+        entry_display = (self.river_tributary_entry_var.get() or "").strip()
+        entry_side = HEX_SIDE_DISPLAY_TO_KEY.get(entry_display)
+        if not entry_side:
+            messagebox.showerror(
+                "Dopływ",
+                "Wybierz poprawną krawędź wejścia dopływu.",
+                parent=self.root,
+            )
+            return None
+
+        try:
+            join_percent = float(self.river_tributary_join_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            join_percent = 55.0
+        join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, join_percent / 100.0))
+
+        shape_label = (self.river_tributary_shape_var.get() or "").strip()
+        shape_key = TRIBUTARY_SHAPE_LABEL_TO_KEY.get(shape_label, "curve")
+
+        try:
+            strength = float(self.river_tributary_strength_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            strength = 0.6
+        strength = max(0.0, min(1.0, strength))
+
+        try:
+            noise_amp = float(self.river_tributary_noise_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            noise_amp = 0.0
+        noise_amp = max(0.0, min(3.0, noise_amp))
+
+        try:
+            noise_freq = float(self.river_tributary_frequency_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            noise_freq = 2.5
+        noise_freq = max(0.1, min(6.0, noise_freq))
+
+        direction_label = (self.river_tributary_direction_var.get() or "").strip()
+        direction_key = TRIBUTARY_DIRECTION_LABEL_TO_KEY.get(direction_label, "auto")
+        if direction_key == "left":
+            shape_direction = 1
+        elif direction_key == "right":
+            shape_direction = -1
+        else:
+            shape_direction = None
+
+        try:
+            seed_offset = int(self.river_tributary_seed_offset_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            seed_offset = 1_000_000
+        seed_offset = max(0, seed_offset)
+
+        return TributaryOptions(
+            entry_side=entry_side,
+            join_ratio=join_ratio,
+            shape=shape_key,
+            shape_strength=strength,
+            noise_amplitude=noise_amp,
+            noise_frequency=noise_freq,
+            shape_direction=shape_direction,
+            shape_direction_mode=direction_key,
+            seed_offset=seed_offset,
+        )
 
     def _river_handle_left_click(self, hex_id: str) -> None:
         if not self.river_mode_active:
             return
         if hex_id not in self.hex_centers:
             return
+        if not self.river_path:
+            self._river_resume_branch = "main"
         if self.river_path:
             if self.river_path[-1] == hex_id:
                 return
@@ -2562,12 +2912,17 @@ class MapEditor:
                 expected_delta = SIDE_TO_AXIAL_DIRECTION.get(self._river_resume_expected_exit)
                 if expected_delta and delta != expected_delta:
                     side_label = HEX_SIDE_LABELS_PL.get(self._river_resume_expected_exit, self._river_resume_expected_exit)
-                    messagebox.showwarning(
+                    proceed = messagebox.askyesno(
                         "Kontynuacja rzeki",
-                        f"Ten heks nie leży po oczekiwanej stronie ({side_label}). Wybierz właściwego sąsiada, aby zachować ciągłość rzeki.",
+                        (
+                            "Ten heks nie leży po oczekiwanej stronie "
+                            f"({side_label}). Czy mimo to kontynuować z tego pola?"
+                        ),
                         parent=self.root,
                     )
-                    return
+                    if not proceed:
+                        return
+                    self._river_resume_expected_exit = None
         self.river_path.append(hex_id)
         self.selected_hex = hex_id
         if len(self.river_path) == 2:
@@ -2591,7 +2946,10 @@ class MapEditor:
         if not self.river_path:
             return
         self.river_path.pop()
-        if len(self.river_path) <= 1:
+        if not self.river_path:
+            self._river_resume_expected_exit = None
+            self._river_resume_branch = "main"
+        elif len(self.river_path) == 1:
             self._river_resume_expected_exit = None
         self._river_update_status()
         self.draw_grid()
@@ -2601,6 +2959,7 @@ class MapEditor:
             return
         self.river_path.clear()
         self._river_resume_expected_exit = None
+        self._river_resume_branch = "main"
         self._river_update_status()
         self.draw_grid()
 
@@ -2657,6 +3016,8 @@ class MapEditor:
             )
             return
 
+        branch_mode = getattr(self, "_river_resume_branch", "main")
+
         try:
             coords = [tuple(map(int, hid.split(","))) for hid in self.river_path]
         except ValueError:
@@ -2710,11 +3071,35 @@ class MapEditor:
         shape_label = (self.river_shape_var.get() or "").strip()
         shape_preference = RIVER_SHAPE_LABEL_TO_KEY.get(shape_label, "auto")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tributary_options = None
+        target_tributary_index: int | None = None
+        if self.river_tributary_enabled_var.get():
+            tributary_options = self._build_tributary_options()
+            if tributary_options is None:
+                return
+            target_tributary_index = len(self.river_path) - 1
         generation_results = []
         affected_paths: set[str] = set()
+        old_texture_paths: set[str] = set()
 
+        skip_origin = branch_mode == "tributary"
         for idx, hex_id in enumerate(self.river_path):
+            if skip_origin and idx == 0:
+                generation_results.append(None)
+                continue
             entry_side, exit_side = self._river_entry_exit_for_index(idx, segments)
+            if (
+                tributary_options
+                and target_tributary_index is not None
+                and idx == target_tributary_index
+                and (entry_side == tributary_options.entry_side or exit_side == tributary_options.entry_side)
+            ):
+                messagebox.showwarning(
+                    "Dopływ",
+                    "Dopływ nie może zaczynać się na tej samej krawędzi co wejście lub wyjście głównego nurtu.",
+                    parent=self.root,
+                )
+                return
             shape, shape_direction = self._river_determine_shape(idx, segments, shape_preference)
             terrain = self.hex_data.setdefault(hex_id, {
                 "terrain_key": "teren_płaski",
@@ -2724,12 +3109,17 @@ class MapEditor:
             texture_rel = terrain.get("texture")
             background_path = None
             if texture_rel:
+                old_texture_paths.add(texture_rel)
                 candidate = fix_image_path(texture_rel)
                 if candidate.exists():
                     background_path = candidate
 
             output_filename = f"hex_{hex_id.replace(',', '_')}_river_{timestamp}_{idx:02d}.png"
             output_path = RIVER_OUTPUT_DIR / output_filename
+            current_tributary = None
+            if tributary_options and target_tributary_index is not None and idx == target_tributary_index:
+                current_tributary = tributary_options
+
             options = RiverCenterlineOptions(
                 grid_size=grid_size,
                 background=background_path,
@@ -2741,7 +3131,7 @@ class MapEditor:
                 noise_amplitude=noise,
                 noise_frequency=frequency,
                 seed=seed_base + idx,
-                tributary=None,
+                tributary=current_tributary,
             )
             try:
                 result = generate_centerline(options, output_path)
@@ -2752,6 +3142,8 @@ class MapEditor:
                     parent=self.root,
                 )
                 for produced in generation_results:
+                    if produced is None:
+                        continue
                     try:
                         produced.image_path.unlink(missing_ok=True)
                         produced.metadata_path.unlink(missing_ok=True)
@@ -2769,9 +3161,14 @@ class MapEditor:
                 "defense_mod": 0,
             })
             result = generation_results[idx]
+            if result is None:
+                continue
             rel_path = to_rel(str(result.image_path))
             record["texture"] = rel_path
             record["texture_grid"] = grid_size
+            record["river_metadata_path"] = to_rel(str(result.metadata_path))
+            record["river_has_tributary"] = bool(result.metadata.get("tributary_present"))
+            record["river_generation_meta"] = result.metadata
             affected_paths.add(rel_path)
 
         if affected_paths:
@@ -2779,12 +3176,17 @@ class MapEditor:
                 key: value for key, value in self.hex_texture_cache.items() if key[0] not in affected_paths
             }
 
+        for old_path in old_texture_paths:
+            self._delete_hex_texture_if_unused(old_path)
+
         self.draw_grid()
         self.auto_save_and_export("wygenerowano rzekę")
         self.river_seed_var.set(seed_base + len(self.river_path))
+        produced_count = sum(1 for item in generation_results if item is not None)
+        summary_label = "tekstur rzeki" if branch_mode != "tributary" else "tekstur dopływu"
         messagebox.showinfo(
             "Generator rzeki",
-            f"Zapisano {len(generation_results)} nowych tekstur rzeki.",
+            f"Zapisano {produced_count} nowych {summary_label}.",
             parent=self.root,
         )
         self.clear_river_path()
@@ -8035,6 +8437,25 @@ class MapEditor:
             )
             return
 
+        tributary_meta = metadata.get("tributary") if metadata.get("tributary_present") else None
+        branch_choice = "main"
+        if tributary_meta:
+            response = messagebox.askyesnocancel(
+                "Kontynuacja rzeki",
+                (
+                    "Wybrany heks zawiera dopływ.\n"
+                    "Wybierz, co chcesz kontynuować:\n"
+                    "TAK – główny nurt\n"
+                    "NIE – dopływ\n"
+                    "ANULUJ – przerwij kontynuację"
+                ),
+                parent=self.root,
+            )
+            if response is None:
+                return
+            branch_choice = "main" if response else "tributary"
+        self._river_resume_branch = branch_choice
+
         grid_value = metadata.get("grid")
         if grid_value:
             grid_text = str(grid_value)
@@ -8070,13 +8491,85 @@ class MapEditor:
         except (TypeError, ValueError):
             pass
 
+        self.river_tributary_enabled_var.set(False)
+        if tributary_meta:
+            entry_side = tributary_meta.get("entry_side")
+            entry_label = HEX_SIDE_DISPLAY_LABELS.get(entry_side, self.river_tributary_entry_var.get())
+            self.river_tributary_entry_var.set(entry_label)
+            if hasattr(self, "river_tributary_entry_combo"):
+                self.river_tributary_entry_combo.set(entry_label)
+
+            join_percent = tributary_meta.get("join_ratio_percent")
+            if join_percent is None:
+                try:
+                    join_percent = float(tributary_meta.get("join_ratio", 0.55)) * 100.0
+                except (TypeError, ValueError):
+                    join_percent = 55.0
+            try:
+                self.river_tributary_join_var.set(float(join_percent))
+            except (TypeError, ValueError):
+                self.river_tributary_join_var.set(55.0)
+
+            shape_key = tributary_meta.get("shape", "curve")
+            shape_label = TRIBUTARY_SHAPE_LABELS.get(shape_key, TRIBUTARY_SHAPE_LABELS["curve"])
+            self.river_tributary_shape_var.set(shape_label)
+            if hasattr(self, "river_tributary_shape_combo"):
+                self.river_tributary_shape_combo.set(shape_label)
+
+            try:
+                self.river_tributary_strength_var.set(float(tributary_meta.get("shape_strength", 0.6)))
+            except (TypeError, ValueError):
+                pass
+
+            direction_mode = tributary_meta.get("shape_direction_mode", "auto")
+            direction_label = TRIBUTARY_DIRECTION_LABELS.get(direction_mode, TRIBUTARY_DIRECTION_LABELS["auto"])
+            self.river_tributary_direction_var.set(direction_label)
+            if hasattr(self, "river_tributary_direction_combo"):
+                self.river_tributary_direction_combo.set(direction_label)
+
+            try:
+                self.river_tributary_noise_var.set(float(tributary_meta.get("noise_amplitude", 0.0)))
+            except (TypeError, ValueError):
+                pass
+
+            try:
+                self.river_tributary_frequency_var.set(float(tributary_meta.get("noise_frequency", 2.5)))
+            except (TypeError, ValueError):
+                pass
+
+            base_seed = metadata.get("seed")
+            tributary_seed = tributary_meta.get("seed")
+            try:
+                offset_value = int(tributary_seed) - int(base_seed)
+            except (TypeError, ValueError):
+                offset_value = self.river_tributary_seed_offset_var.get()
+            self.river_tributary_seed_offset_var.set(max(0, offset_value))
+            if hasattr(self, "river_tributary_seed_spinbox"):
+                try:
+                    self.river_tributary_seed_spinbox.delete(0, tk.END)
+                    self.river_tributary_seed_spinbox.insert(0, str(self.river_tributary_seed_offset_var.get()))
+                except tk.TclError:
+                    pass
+        else:
+            self.river_tributary_enabled_var.set(False)
+
         if not self.river_mode_active:
             self._skip_river_mode_popup = True
             self._set_river_mode(True)
         else:
             self._river_resume_expected_exit = None
 
-        self._river_resume_expected_exit = metadata.get("exit_side")
+        self._update_tributary_controls_state()
+
+        if self._river_resume_branch == "tributary" and tributary_meta:
+            entry_side = tributary_meta.get("entry_side")
+            if entry_side in SIDE_TO_AXIAL_DIRECTION:
+                self._river_resume_expected_exit = entry_side
+            else:
+                self._river_resume_branch = "main"
+                self._river_resume_expected_exit = metadata.get("exit_side")
+        else:
+            self._river_resume_expected_exit = metadata.get("exit_side")
 
         self.river_path = [self.selected_hex]
         self._river_update_status()
@@ -8085,13 +8578,19 @@ class MapEditor:
         exit_label = None
         if self._river_resume_expected_exit:
             exit_label = HEX_SIDE_LABELS_PL.get(self._river_resume_expected_exit, self._river_resume_expected_exit)
+            branch_label = "dopływu" if self._river_resume_branch == "tributary" else "rzeki"
             self.set_status(
-                f"Kontynuacja rzeki z heksu {self.selected_hex}. Dodaj sąsiada po stronie: {exit_label}."
+                f"Kontynuacja {branch_label} z heksu {self.selected_hex}. Dodaj sąsiada po stronie: {exit_label}."
             )
         else:
-            self.set_status(f"Kontynuacja rzeki z heksu {self.selected_hex}. Dodaj kolejny heks ścieżki.")
+            branch_label = "dopływu" if self._river_resume_branch == "tributary" else "rzeki"
+            self.set_status(f"Kontynuacja {branch_label} z heksu {self.selected_hex}. Dodaj kolejny heks ścieżki.")
 
-        message = "Dodaj nowe heksy LPM, aby przedłużyć nurt. Zakończ przyciskiem 'Generuj rzekę'."
+        action_label = "dopływ" if self._river_resume_branch == "tributary" else "nurt"
+        message = (
+            f"Dodaj nowe heksy LPM, aby przedłużyć {action_label}. "
+            "Zakończ przyciskiem 'Generuj rzekę'."
+        )
         if exit_label:
             message += f"\nPierwszy sąsiad powinien leżeć po stronie: {exit_label}."
         messagebox.showinfo("Kontynuacja rzeki", message, parent=self.root)
