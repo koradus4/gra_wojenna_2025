@@ -15,7 +15,7 @@ import sys
 import statistics
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from PIL import Image
 
@@ -24,7 +24,10 @@ ASSET_DIR = Path("assets/terrain/hex_painted")
 DEFAULT_OUTPUT_DIR = ASSET_DIR / "river_contours"
 EXPORT_SIZE_BY_GRID = {64: 512, 128: 1024}
 CENTERLINE_COLOR = (0, 0, 0, 255)
+TRIBUTARY_COLOR = (0, 0, 255, 255)
 UINT32_MAX = 0xFFFFFFFF
+MIN_TRIBUTARY_JOIN = 0.2
+MAX_TRIBUTARY_JOIN = 0.8
 
 
 def _next_file_index(output_dir: Path, pattern: str) -> int:
@@ -94,6 +97,7 @@ class RiverCenterlineOptions:
 	noise_amplitude: float
 	noise_frequency: float
 	seed: int
+	tributary: "TributaryOptions" | None = None
 
 
 @dataclass
@@ -101,6 +105,19 @@ class RiverCenterlineResult:
 	image_path: Path
 	metadata_path: Path
 	metadata: Dict[str, Any]
+
+
+@dataclass
+class TributaryOptions:
+	entry_side: str
+	join_ratio: float
+	shape: str
+	shape_strength: float
+	noise_amplitude: float
+	noise_frequency: float
+	shape_direction: int | None = None
+	shape_direction_mode: str = "auto"
+	seed_offset: int = 1_000_000
 
 
 def list_flat_backgrounds(directory: Path = ASSET_DIR) -> Dict[str, Path]:
@@ -231,6 +248,22 @@ def _side_to_edge_index(side: str) -> int:
 	return mapping[side]
 
 
+def _side_midpoint(grid: int, side: str) -> Tuple[float, float]:
+	center = (grid / 2.0, grid / 2.0)
+	radius = grid / 2.0 - 0.5
+	vertices = get_hex_vertices(center[0], center[1], radius)
+	edges = list(zip(vertices, vertices[1:] + vertices[:1]))
+	index = _side_to_edge_index(side)
+	start, end = edges[index]
+	return (start[0] + end[0]) * 0.5, (start[1] + end[1]) * 0.5
+
+
+def _side_inward_vector(grid: int, side: str) -> Tuple[float, float]:
+	midpoint = _side_midpoint(grid, side)
+	center = _hex_center(grid)
+	return _normalize((center[0] - midpoint[0], center[1] - midpoint[1]))
+
+
 def pick_flow_endpoints_by_side(
 	grid: int,
 	entry_side: str,
@@ -313,6 +346,41 @@ def _median_filter(values: Sequence[float], window: int) -> List[float]:
 		slice_vals = values[start:end]
 		filtered.append(float(statistics.median(slice_vals)))
 	return filtered
+
+
+def _sample_polyline_at_ratio(
+	points: Sequence[Tuple[float, float]],
+	ratio: float,
+) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+	if not points:
+		return (0.0, 0.0), (0.0, 0.0)
+	if len(points) == 1:
+		return points[0], (0.0, 1.0)
+	clamped = max(0.0, min(ratio, 1.0))
+	distances = [0.0]
+	for idx in range(1, len(points)):
+		segment = math.hypot(points[idx][0] - points[idx - 1][0], points[idx][1] - points[idx - 1][1])
+		distances.append(distances[-1] + segment)
+	total = distances[-1]
+	if total <= 1e-6:
+		return points[0], (0.0, 1.0)
+	target = clamped * total
+	for idx in range(1, len(points)):
+		if distances[idx] >= target:
+			prev = points[idx - 1]
+			next_point = points[idx]
+			seg_len = distances[idx] - distances[idx - 1]
+			if seg_len <= 1e-6:
+				point = next_point
+			else:
+				frac = (target - distances[idx - 1]) / seg_len
+				point = (
+					prev[0] + (next_point[0] - prev[0]) * frac,
+					prev[1] + (next_point[1] - prev[1]) * frac,
+				)
+			direction = _normalize((next_point[0] - prev[0], next_point[1] - prev[1]))
+			return point, direction
+	return points[-1], _normalize((points[-1][0] - points[-2][0], points[-1][1] - points[-2][1]))
 
 
 def _apply_noise_to_polyline(
@@ -502,24 +570,21 @@ def supercover_line(x0: int, y0: int, x1: int, y1: int) -> List[Tuple[int, int]]
 			seen.add(cell)
 	return unique
 
-
-def build_centerline_points(
+def _build_curve_points(
 	start: Tuple[float, float],
 	end: Tuple[float, float],
 	entry_inward: Tuple[float, float],
 	exit_inward: Tuple[float, float],
 	shape: str,
 	shape_strength: float,
-	shape_direction: int | None,
+	shape_direction: Optional[int],
 	noise_amplitude: float,
 	noise_frequency: float,
 	noise_seed: int,
-	mask: Sequence[Sequence[bool]],
+	grid: int,
+	polygon: Sequence[Tuple[float, float]],
 	rng: random.Random,
 ) -> Tuple[List[Tuple[float, float]], Dict[str, Any]]:
-	grid = len(mask)
-	polygon = _hex_polygon(grid)
-
 	dx = end[0] - start[0]
 	dy = end[1] - start[1]
 	span_len = math.hypot(dx, dy)
@@ -606,6 +671,96 @@ def build_centerline_points(
 	return points, metadata
 
 
+def build_centerline_points(
+	start: Tuple[float, float],
+	end: Tuple[float, float],
+	entry_inward: Tuple[float, float],
+	exit_inward: Tuple[float, float],
+	shape: str,
+	shape_strength: float,
+	shape_direction: int | None,
+	noise_amplitude: float,
+	noise_frequency: float,
+	noise_seed: int,
+	mask: Sequence[Sequence[bool]],
+	rng: random.Random,
+) -> Tuple[List[Tuple[float, float]], Dict[str, Any]]:
+	grid = len(mask)
+	polygon = _hex_polygon(grid)
+	return _build_curve_points(
+		start,
+		end,
+		entry_inward,
+		exit_inward,
+		shape,
+		shape_strength,
+		shape_direction,
+		noise_amplitude,
+		noise_frequency,
+		noise_seed,
+		grid,
+		polygon,
+		rng,
+	)
+
+
+def build_tributary_points(
+	main_points: Sequence[Tuple[float, float]],
+	options: RiverCenterlineOptions,
+	mask: Sequence[Sequence[bool]],
+) -> Optional[Tuple[List[Tuple[float, float]], List[Tuple[int, int]], Dict[str, Any]]]:
+	tributary_opts = options.tributary
+	if not tributary_opts:
+		return None
+	grid = len(mask)
+	polygon = _hex_polygon(grid)
+	start = _side_midpoint(grid, tributary_opts.entry_side)
+	entry_inward = _side_inward_vector(grid, tributary_opts.entry_side)
+	if entry_inward == (0.0, 0.0):
+		entry_inward = (0.0, 1.0)
+	join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, float(tributary_opts.join_ratio)))
+	join_point, join_direction = _sample_polyline_at_ratio(main_points, join_ratio)
+	if join_direction == (0.0, 0.0):
+		join_direction = entry_inward
+	exit_inward = _normalize((start[0] - join_point[0], start[1] - join_point[1]))
+	if exit_inward == (0.0, 0.0):
+		exit_inward = entry_inward
+	noise_seed = options.seed + tributary_opts.seed_offset
+	tributary_rng = random.Random(noise_seed)
+	tributary_points, shape_metadata = _build_curve_points(
+		start,
+		join_point,
+		entry_inward,
+		exit_inward,
+		tributary_opts.shape,
+		max(0.0, min(1.0, tributary_opts.shape_strength)),
+		tributary_opts.shape_direction,
+		tributary_opts.noise_amplitude,
+		tributary_opts.noise_frequency,
+		noise_seed,
+		grid,
+		polygon,
+		tributary_rng,
+	)
+	tributary_cells = rasterize_polyline(tributary_points)
+	metadata = {
+		"entry_side": tributary_opts.entry_side,
+		"join_ratio": join_ratio,
+		"join_ratio_percent": join_ratio * 100.0,
+		"join_point": {"x": join_point[0], "y": join_point[1]},
+		"join_direction": {"x": join_direction[0], "y": join_direction[1]},
+		"shape": tributary_opts.shape,
+		"shape_strength": max(0.0, min(1.0, tributary_opts.shape_strength)),
+		"shape_direction": tributary_opts.shape_direction,
+		"shape_direction_mode": tributary_opts.shape_direction_mode,
+		"noise_amplitude": tributary_opts.noise_amplitude,
+		"noise_frequency": tributary_opts.noise_frequency,
+		"noise_applied": bool(shape_metadata.get("noise", {}).get("applied")),
+		"seed": noise_seed,
+		"shape_metadata": shape_metadata,
+	}
+	return tributary_points, tributary_cells, metadata
+
 def rasterize_polyline(points: Sequence[Tuple[float, float]]) -> List[Tuple[int, int]]:
 	cells: List[Tuple[int, int]] = []
 	if len(points) < 2:
@@ -632,6 +787,7 @@ def compose_image(
 	mask: Sequence[Sequence[bool]],
 	background: Sequence[Sequence[Tuple[int, int, int, int] | None]],
 	centerline_cells: Sequence[Tuple[int, int]],
+	tributary_cells: Sequence[Tuple[int, int]] | None = None,
 ) -> Image.Image:
 	image = Image.new("RGBA", (grid, grid), (0, 0, 0, 0))
 	pixels = image.load()
@@ -647,6 +803,10 @@ def compose_image(
 	for col, row in centerline_cells:
 		if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
 			pixels[col, row] = CENTERLINE_COLOR
+	if tributary_cells:
+		for col, row in tributary_cells:
+			if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
+				pixels[col, row] = TRIBUTARY_COLOR
 	export_size = EXPORT_SIZE_BY_GRID.get(grid, grid * 8)
 	if export_size == grid:
 		return image
@@ -695,8 +855,15 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 	)
 	centerline_cells = rasterize_polyline(centerline_points)
 	centerline_cells = extend_line_to_edges(centerline_cells, mask, entry_inward, exit_inward)
+	tributary_cells: List[Tuple[int, int]] | None = None
+	tributary_metadata: Dict[str, Any] | None = None
+	tributary_result = build_tributary_points(centerline_points, opts, mask)
+	if tributary_result:
+		_, tributary_cells, tributary_metadata = tributary_result
+		if tributary_metadata is not None:
+			tributary_metadata["cell_count"] = len(tributary_cells)
 
-	image = compose_image(opts.grid_size, mask, background, centerline_cells)
+	image = compose_image(opts.grid_size, mask, background, centerline_cells, tributary_cells)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	image.save(output_path)
 
@@ -717,6 +884,9 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 		"noise_applied": bool(shape_metadata.get("noise", {}).get("applied")),
 		"shape_metadata": shape_metadata,
 	}
+	metadata["centerline_cell_count"] = len(centerline_cells)
+	metadata["tributary_present"] = bool(tributary_metadata)
+	metadata["tributary"] = tributary_metadata
 	metadata_path = save_metadata(output_path, metadata)
 
 	return RiverCenterlineResult(
@@ -835,6 +1005,53 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 		default=2.0,
 		help="Częstotliwość szumu (ilość fal na heksie)",
 	)
+	parser.add_argument(
+		"--tributary-entry-side",
+		choices=list(HEX_SIDES),
+		help="Aktywuj dopływ z wybranej krawędzi",
+	)
+	parser.add_argument(
+		"--tributary-join-ratio",
+		type=float,
+		default=0.55,
+		help="Pozycja połączenia dopływu (zakres 0.2-0.8 wzdłuż głównego nurtu)",
+	)
+	parser.add_argument(
+		"--tributary-shape",
+		choices=PATH_SHAPES,
+		default="curve",
+		help="Kształt dopływu",
+	)
+	parser.add_argument(
+		"--tributary-shape-strength",
+		type=float,
+		default=0.6,
+		help="Siła łuku dopływu (0-1)",
+	)
+	parser.add_argument(
+		"--tributary-shape-direction",
+		choices=SHAPE_DIRECTION_CHOICES,
+		default="auto",
+		help="Kierunek łuku dopływu",
+	)
+	parser.add_argument(
+		"--tributary-noise-amplitude",
+		type=float,
+		default=0.0,
+		help="Siła szumu dla dopływu",
+	)
+	parser.add_argument(
+		"--tributary-noise-frequency",
+		type=float,
+		default=2.5,
+		help="Częstotliwość szumu dopływu",
+	)
+	parser.add_argument(
+		"--tributary-seed-offset",
+		type=int,
+		default=1_000_000,
+		help="Offset seed dla dopływu",
+	)
 	parser.add_argument("--seed", type=int, default=42, help="Bazowy seed RNG")
 	parser.add_argument(
 		"--output-dir",
@@ -896,11 +1113,47 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 	noise_suffix = ""
 	if noise_amplitude > 1e-3:
 		noise_suffix = f"_noise{int(round(noise_amplitude * 100)):02d}f{int(round(noise_frequency * 10)):02d}"
+	tributary_opts: TributaryOptions | None = None
+	tributary_entry = getattr(args, "tributary_entry_side", None)
+	trib_suffix = ""
+	if tributary_entry:
+		if tributary_entry in {args.entry_side, args.exit_side}:
+			print(
+				"Dopływ nie może startować z tej samej krawędzi co główny nurt (wejście/wyjście)."
+			)
+			return
+		tributary_join_ratio = max(
+			MIN_TRIBUTARY_JOIN,
+			min(MAX_TRIBUTARY_JOIN, float(getattr(args, "tributary_join_ratio", 0.55))),
+		)
+		tributary_shape = getattr(args, "tributary_shape", "curve")
+		tributary_shape_strength = max(0.0, min(1.0, float(getattr(args, "tributary_shape_strength", 0.6))))
+		tributary_shape_direction_choice = getattr(args, "tributary_shape_direction", "auto")
+		tributary_shape_direction = resolve_shape_direction(tributary_shape_direction_choice)
+		if tributary_shape not in {"curve", "turn"}:
+			tributary_shape_direction = None
+		tributary_noise_amplitude = max(0.0, min(float(getattr(args, "tributary_noise_amplitude", 0.0)), 3.0))
+		tributary_noise_frequency = max(0.1, float(getattr(args, "tributary_noise_frequency", 2.5)))
+		tributary_seed_offset = int(getattr(args, "tributary_seed_offset", 1_000_000))
+		tributary_opts = TributaryOptions(
+			entry_side=tributary_entry,
+			join_ratio=tributary_join_ratio,
+			shape=tributary_shape,
+			shape_strength=tributary_shape_strength,
+			noise_amplitude=tributary_noise_amplitude,
+			noise_frequency=tributary_noise_frequency,
+			shape_direction=tributary_shape_direction,
+			shape_direction_mode=tributary_shape_direction_choice,
+			seed_offset=tributary_seed_offset,
+		)
+	if tributary_opts:
+		join_pct = int(round(tributary_opts.join_ratio * 100))
+		trib_suffix = f"_trib_{tributary_opts.entry_side}_{join_pct:03d}"
 
 	bg_label = "transparent" if background_path is None else background_path.stem
 	base_pattern = (
 		f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
-		f"{args.shape}{direction_suffix}{noise_suffix}_g{args.grid}_*.png"
+		f"{args.shape}{direction_suffix}{noise_suffix}{trib_suffix}_g{args.grid}_*.png"
 	)
 	next_index = _next_file_index(args.output_dir, base_pattern)
 
@@ -917,12 +1170,13 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 			noise_amplitude=noise_amplitude,
 			noise_frequency=noise_frequency,
 			seed=seed,
+			tributary=tributary_opts,
 		)
 		suffix = f"{next_index + index:02d}"
 		direction_part = direction_suffix if args.shape in {"curve", "turn"} else ""
 		file_name = (
 			f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
-			f"{args.shape}{direction_part}{noise_suffix}_g{args.grid}_{suffix}.png"
+			f"{args.shape}{direction_part}{noise_suffix}{trib_suffix}_g{args.grid}_{suffix}.png"
 		)
 		output_path = args.output_dir / file_name
 		result = generate_centerline(opts, output_path)
@@ -962,6 +1216,17 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 	noise_amplitude_var = tk.DoubleVar(value=0.0)
 	noise_amplitude_value_var = tk.StringVar(value="0.00")
 	noise_frequency_var = tk.DoubleVar(value=2.0)
+	tributary_enabled_var = tk.BooleanVar(value=False)
+	tributary_entry_side_var = tk.StringVar(value=side_display_pairs[2][0])
+	tributary_join_ratio_var = tk.DoubleVar(value=55.0)
+	tributary_join_ratio_value_var = tk.StringVar(value="55")
+	tributary_shape_var = tk.StringVar(value=PATH_SHAPE_LABELS["curve"])
+	tributary_shape_strength_var = tk.DoubleVar(value=0.6)
+	tributary_shape_strength_value_var = tk.StringVar(value="0.60")
+	tributary_shape_direction_var = tk.StringVar(value=SHAPE_DIRECTION_LABELS["auto"])
+	tributary_noise_amplitude_var = tk.DoubleVar(value=0.0)
+	tributary_noise_amplitude_value_var = tk.StringVar(value="0.00")
+	tributary_noise_frequency_var = tk.DoubleVar(value=2.5)
 	shape_display_pairs = [(PATH_SHAPE_LABELS[key], key) for key in PATH_SHAPES]
 	display_to_shape = {display: key for display, key in shape_display_pairs}
 	shape_direction_display_pairs = [
@@ -1074,6 +1339,27 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 	noise_amplitude_scale.configure(command=on_noise_amplitude_change)
 	on_noise_amplitude_change(str(noise_amplitude_var.get()))
 
+	def on_tributary_join_change(value: str) -> None:
+		try:
+			num = float(value)
+		except ValueError:
+			num = tributary_join_ratio_var.get()
+		tributary_join_ratio_value_var.set(f"{int(round(num))}")
+
+	def on_tributary_strength_change(value: str) -> None:
+		try:
+			num = float(value)
+		except ValueError:
+			num = tributary_shape_strength_var.get()
+		tributary_shape_strength_value_var.set(f"{num:.2f}")
+
+	def on_tributary_noise_change(value: str) -> None:
+		try:
+			num = float(value)
+		except ValueError:
+			num = tributary_noise_amplitude_var.get()
+		tributary_noise_amplitude_value_var.set(f"{num:.2f}")
+
 	ttk.Label(frame, text="Częstotliwość szumu:").grid(row=8, column=0, sticky="w", pady=4)
 	noise_frequency_spin = ttk.Spinbox(
 		frame,
@@ -1085,9 +1371,109 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 	)
 	noise_frequency_spin.grid(row=8, column=1, sticky="we", pady=4)
 
-	ttk.Label(frame, text="Siatka (64/128):").grid(row=9, column=0, sticky="w", pady=4)
+	tributary_toggle = ttk.Checkbutton(
+		frame,
+		text="Dodaj dopływ",
+		variable=tributary_enabled_var,
+	)
+	tributary_toggle.grid(row=9, column=0, sticky="w", pady=4)
+	tributary_entry_box = ttk.Combobox(
+		frame,
+		values=[display for display, _ in side_display_pairs],
+		state="readonly",
+		textvariable=tributary_entry_side_var,
+	)
+	tributary_entry_box.grid(row=9, column=1, sticky="we", pady=4)
+
+	ttk.Label(frame, text="Połączenie (20-80%):").grid(row=10, column=0, sticky="w", pady=4)
+	tributary_join_scale = ttk.Scale(
+		frame,
+		from_=MIN_TRIBUTARY_JOIN * 100.0,
+		to=MAX_TRIBUTARY_JOIN * 100.0,
+		orient="horizontal",
+		variable=tributary_join_ratio_var,
+	)
+	tributary_join_scale.grid(row=10, column=1, sticky="we", pady=4)
+	tributary_join_label = ttk.Label(
+		frame,
+		textvariable=tributary_join_ratio_value_var,
+		width=5,
+		anchor="e",
+	)
+	tributary_join_label.grid(row=10, column=2, sticky="e", padx=(6, 0))
+
+	ttk.Label(frame, text="Kształt dopływu:").grid(row=11, column=0, sticky="w", pady=4)
+	tributary_shape_box = ttk.Combobox(
+		frame,
+		values=[display for display, _ in shape_display_pairs],
+		state="readonly",
+		textvariable=tributary_shape_var,
+	)
+	tributary_shape_box.grid(row=11, column=1, sticky="we", pady=4)
+
+	ttk.Label(frame, text="Siła dopływu:").grid(row=12, column=0, sticky="w", pady=4)
+	tributary_strength_scale = ttk.Scale(
+		frame,
+		from_=0.0,
+		to=1.0,
+		orient="horizontal",
+		variable=tributary_shape_strength_var,
+	)
+	tributary_strength_scale.grid(row=12, column=1, sticky="we", pady=4)
+	tributary_strength_label = ttk.Label(
+		frame,
+		textvariable=tributary_shape_strength_value_var,
+		width=5,
+		anchor="e",
+	)
+	tributary_strength_label.grid(row=12, column=2, sticky="e", padx=(6, 0))
+
+	ttk.Label(frame, text="Kierunek dopływu:").grid(row=13, column=0, sticky="w", pady=4)
+	tributary_direction_box = ttk.Combobox(
+		frame,
+		values=[display for display, _ in shape_direction_display_pairs],
+		state="readonly",
+		textvariable=tributary_shape_direction_var,
+	)
+	tributary_direction_box.grid(row=13, column=1, sticky="we", pady=4)
+
+	ttk.Label(frame, text="Szum dopływu (0-1):").grid(row=14, column=0, sticky="w", pady=4)
+	tributary_noise_scale = ttk.Scale(
+		frame,
+		from_=0.0,
+		to=3.0,
+		orient="horizontal",
+		variable=tributary_noise_amplitude_var,
+	)
+	tributary_noise_scale.grid(row=14, column=1, sticky="we", pady=4)
+	tributary_noise_label = ttk.Label(
+		frame,
+		textvariable=tributary_noise_amplitude_value_var,
+		width=5,
+		anchor="e",
+	)
+	tributary_noise_label.grid(row=14, column=2, sticky="e", padx=(6, 0))
+
+	ttk.Label(frame, text="Częstotliwość dopływu:").grid(row=15, column=0, sticky="w", pady=4)
+	tributary_noise_freq_spin = ttk.Spinbox(
+		frame,
+		from_=0.5,
+		to=10.0,
+		increment=0.5,
+		textvariable=tributary_noise_frequency_var,
+		width=6,
+	)
+	tributary_noise_freq_spin.grid(row=15, column=1, sticky="we", pady=4)
+	tributary_join_scale.configure(command=on_tributary_join_change)
+	on_tributary_join_change(str(tributary_join_ratio_var.get()))
+	tributary_strength_scale.configure(command=on_tributary_strength_change)
+	on_tributary_strength_change(str(tributary_shape_strength_var.get()))
+	tributary_noise_scale.configure(command=on_tributary_noise_change)
+	on_tributary_noise_change(str(tributary_noise_amplitude_var.get()))
+
+	ttk.Label(frame, text="Siatka (64/128):").grid(row=16, column=0, sticky="w", pady=4)
 	grid_box = ttk.Combobox(frame, values=[64, 128], state="readonly", textvariable=grid_var)
-	grid_box.grid(row=9, column=1, sticky="we", pady=4)
+	grid_box.grid(row=16, column=1, sticky="we", pady=4)
 
 	status_label = ttk.Label(frame, textvariable=status_var, foreground="#305068")
 
@@ -1156,10 +1542,45 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 		noise_part = ""
 		if noise_amplitude > 1e-3:
 			noise_part = f"_noise{int(round(noise_amplitude * 100)):02d}f{int(round(noise_frequency * 10)):02d}"
+		tributary_options: TributaryOptions | None = None
+		trib_suffix = ""
+		if tributary_enabled_var.get():
+			tributary_entry_key = display_to_side.get(tributary_entry_side_var.get(), HEX_SIDES[2])
+			if tributary_entry_key in {entry_side_key, exit_side_key}:
+				messagebox.showerror(
+					"Błędny dopływ",
+					"Dopływ nie może startować z tej samej krawędzi co główny nurt.",
+				)
+				return
+			tributary_join_percent = max(
+				MIN_TRIBUTARY_JOIN * 100.0,
+				min(MAX_TRIBUTARY_JOIN * 100.0, float(tributary_join_ratio_var.get())),
+			)
+			tributary_join_ratio = tributary_join_percent / 100.0
+			tributary_shape_key = display_to_shape.get(tributary_shape_var.get(), "curve")
+			tributary_shape_strength = max(0.0, min(1.0, float(tributary_shape_strength_var.get())))
+			tributary_direction_key = display_to_shape_direction.get(tributary_shape_direction_var.get(), "auto")
+			tributary_direction = resolve_shape_direction(tributary_direction_key)
+			if tributary_shape_key not in {"curve", "turn"}:
+				tributary_direction = None
+			tributary_noise_amplitude = max(0.0, min(3.0, float(tributary_noise_amplitude_var.get())))
+			tributary_noise_frequency = max(0.1, float(tributary_noise_frequency_var.get()))
+			tributary_options = TributaryOptions(
+				entry_side=tributary_entry_key,
+				join_ratio=tributary_join_ratio,
+				shape=tributary_shape_key,
+				shape_strength=tributary_shape_strength,
+				noise_amplitude=tributary_noise_amplitude,
+				noise_frequency=tributary_noise_frequency,
+				shape_direction=tributary_direction,
+				shape_direction_mode=tributary_direction_key,
+				seed_offset=1_000_000,
+			)
+			trib_suffix = f"_trib_{tributary_entry_key}_{int(round(tributary_join_ratio * 100)):03d}"
 		pattern = (
 			"hex_river_centerline_"
 			f"{bg_label}_{entry_side_key}_to_{exit_side_key}_"
-			f"{shape_key}{direction_part}{noise_part}_g{grid}_*.png"
+			f"{shape_key}{direction_part}{noise_part}{trib_suffix}_g{grid}_*.png"
 		)
 		next_index = _next_file_index(DEFAULT_OUTPUT_DIR, pattern)
 
@@ -1177,11 +1598,12 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 				noise_amplitude=noise_amplitude,
 				noise_frequency=noise_frequency,
 				seed=seed,
+				tributary=tributary_options,
 			)
 			suffix = f"{next_index + index:02d}"
 			file_name = (
 				f"hex_river_centerline_{bg_label}_{entry_side_key}_to_{exit_side_key}_"
-				f"{shape_key}{direction_part}{noise_part}_g{grid}_{suffix}.png"
+				f"{shape_key}{direction_part}{noise_part}{trib_suffix}_g{grid}_{suffix}.png"
 			)
 			output_path = DEFAULT_OUTPUT_DIR / file_name
 			try:
@@ -1199,7 +1621,7 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 			status_var.set("Brak wygenerowanych plików")
 
 	generate_button = ttk.Button(frame, text="Generuj", command=handle_generate)
-	generate_button.grid(row=10, column=0, columnspan=2, sticky="we", pady=(8, 4))
+	generate_button.grid(row=17, column=0, columnspan=2, sticky="we", pady=(8, 4))
 
 	def handle_clear_outputs() -> None:
 		files: List[Path] = []
@@ -1234,9 +1656,9 @@ def launch_gui(backgrounds: Dict[str, Path]) -> bool:
 			status_var.set(f"Usunięto {len(files)} plików")
 
 	clear_button = ttk.Button(frame, text="Usuń wygenerowane", command=handle_clear_outputs)
-	clear_button.grid(row=11, column=0, columnspan=2, sticky="we", pady=4)
+	clear_button.grid(row=18, column=0, columnspan=2, sticky="we", pady=4)
 
-	status_label.grid(row=12, column=0, columnspan=2, sticky="we", pady=(8, 0))
+	status_label.grid(row=19, column=0, columnspan=2, sticky="we", pady=(8, 0))
 
 	root.mainloop()
 	return True
