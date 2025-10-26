@@ -11,6 +11,12 @@ from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageTk, ImageFont, ImageDraw
 
+try:
+    from generate_river_hex_tile import RiverCenterlineOptions, generate_centerline
+except ImportError:  # pragma: no cover - w trybie edytora brak generatora
+    RiverCenterlineOptions = None
+    generate_centerline = None
+
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
 
@@ -63,6 +69,57 @@ BRUSH_RADIUS_DEFAULT = 1
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
 HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
+
+RIVER_OUTPUT_DIR = HEX_TEXTURE_DIR / "river_tool"
+RIVER_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+RIVER_SHAPE_LABELS = {
+    "auto": "Automatycznie",
+    "straight": "Odcinek prosty",
+    "curve": "Łagodne zakole",
+    "turn": "Ostry zakręt",
+}
+RIVER_SHAPE_LABEL_TO_KEY = {label: key for key, label in RIVER_SHAPE_LABELS.items()}
+
+SQRT_3 = math.sqrt(3.0)
+
+AXIAL_DIRECTION_TO_SIDE = {
+    (1, 0): "bottom_right",
+    (1, -1): "top_right",
+    (0, -1): "top",
+    (-1, 0): "top_left",
+    (-1, 1): "bottom_left",
+    (0, 1): "bottom",
+}
+
+SIDE_TO_AXIAL_DIRECTION = {value: key for key, value in AXIAL_DIRECTION_TO_SIDE.items()}
+
+SIDE_OPPOSITE = {
+    "top": "bottom",
+    "top_right": "bottom_left",
+    "bottom_right": "top_left",
+    "bottom": "top",
+    "bottom_left": "top_right",
+    "top_left": "bottom_right",
+}
+
+HEX_SIDE_LABELS_PL = {
+    "top": "górna",
+    "top_right": "górna prawa",
+    "bottom_right": "dolna prawa",
+    "bottom": "dolna",
+    "bottom_left": "dolna lewa",
+    "top_left": "górna lewa",
+}
+
+AXIAL_DIRECTION_TO_CARTESIAN = {
+    (1, 0): (1.5, SQRT_3 / 2.0),
+    (1, -1): (1.5, -SQRT_3 / 2.0),
+    (0, -1): (0.0, -SQRT_3),
+    (-1, 0): (-1.5, -SQRT_3 / 2.0),
+    (-1, 1): (-1.5, SQRT_3 / 2.0),
+    (0, 1): (0.0, SQRT_3),
+}
 
 CUSTOM_ASSET_ROOT = ASSET_ROOT / "terrain" / "presets" / "user_assets"
 CUSTOM_ASSET_ROOT.mkdir(parents=True, exist_ok=True)
@@ -391,6 +448,19 @@ class MapEditor:
 
         # --- Cache dla ghost (półprzezroczyste obrazy) ---
         self._ghost_cache: dict[tuple[Path, int], ImageTk.PhotoImage] = {}
+
+        # --- Narzędzie rzek ---
+        self.river_mode_active = False
+        self.river_path: list[str] = []
+        self.river_shape_var = tk.StringVar(value=RIVER_SHAPE_LABELS["auto"])
+        self.river_strength_var = tk.DoubleVar(value=0.5)
+        self.river_noise_var = tk.DoubleVar(value=0.0)
+        self.river_frequency_var = tk.DoubleVar(value=2.0)
+        self.river_seed_var = tk.IntVar(value=random.randint(0, 9999))
+        self.river_grid_var = tk.StringVar(value=str(DEFAULT_HEX_TEXTURE_GRID_SIZE))
+        self.river_status_var = tk.StringVar(value="Ścieżka rzeki: 0 heksów")
+        self._river_resume_expected_exit: str | None = None
+        self._skip_river_mode_popup = False
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -842,6 +912,190 @@ class MapEditor:
             activeforeground="white"
         )
         self.map_cleanup_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === NARZĘDZIE RZEK ===
+        river_frame = tk.LabelFrame(
+            buttons_frame,
+            text="Rzeki (beta)",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9, "bold"),
+        )
+        river_frame.pack(padx=5, pady=(8, 4), fill=tk.X)
+
+        self.toggle_river_mode_button = tk.Button(
+            river_frame,
+            text="Włącz tryb rzeki",
+            command=self.toggle_river_mode,
+            bg="#1f5d7a",
+            fg="white",
+            activebackground="#1f5d7a",
+            activeforeground="white",
+        )
+        self.toggle_river_mode_button.pack(fill=tk.X, pady=(0, 4))
+
+        status_label = tk.Label(
+            river_frame,
+            textvariable=self.river_status_var,
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w",
+            justify="left",
+            wraplength=180,
+        )
+        status_label.pack(fill=tk.X, pady=(0, 4))
+
+        river_controls = tk.Frame(river_frame, bg="darkolivegreen")
+        river_controls.pack(fill=tk.X)
+        river_controls.columnconfigure(1, weight=1)
+
+        shape_label_widget = tk.Label(river_controls, text="Kształt (?)", bg="darkolivegreen", fg="white")
+        shape_label_widget.grid(row=0, column=0, sticky="w")
+        self.create_tooltip(
+            shape_label_widget,
+            "Wybierz przebieg rzeki: Automatycznie dopasowuje kształt, Prosty utrzymuje linię, Zakole dodaje łuki, Zakręt mocno zmienia kierunek.",
+        )
+        self.river_shape_combo = ttk.Combobox(
+            river_controls,
+            textvariable=self.river_shape_var,
+            values=tuple(RIVER_SHAPE_LABELS[key] for key in ("auto", "straight", "curve", "turn")),
+            state="readonly",
+            width=11,
+        )
+        self.river_shape_combo.grid(row=0, column=1, sticky="we", pady=1)
+        self.river_shape_combo.current(0)
+
+        strength_label = tk.Label(river_controls, text="Siła (?)", bg="darkolivegreen", fg="white")
+        strength_label.grid(row=1, column=0, sticky="w")
+        self.create_tooltip(
+            strength_label,
+            "Steruje nasilenie zakoli. 0 = niemal prosta linia, 1 = bardzo wyraźne łuki i odgięcia.",
+        )
+        tk.Spinbox(
+            river_controls,
+            from_=0.0,
+            to=1.0,
+            increment=0.05,
+            textvariable=self.river_strength_var,
+            width=6,
+        ).grid(row=1, column=1, sticky="we", pady=1)
+
+        noise_label = tk.Label(river_controls, text="Szum (?)", bg="darkolivegreen", fg="white")
+        noise_label.grid(row=2, column=0, sticky="w")
+        self.create_tooltip(
+            noise_label,
+            "Dodaje losowe odchylenia koryta. Większa wartość = bardziej poszarpany nurt.",
+        )
+        tk.Spinbox(
+            river_controls,
+            from_=0.0,
+            to=3.0,
+            increment=0.05,
+            textvariable=self.river_noise_var,
+            width=6,
+        ).grid(row=2, column=1, sticky="we", pady=1)
+
+        freq_label = tk.Label(river_controls, text="Częst. (?)", bg="darkolivegreen", fg="white")
+        freq_label.grid(row=3, column=0, sticky="w")
+        self.create_tooltip(
+            freq_label,
+            "Reguluje gęstość falowania przy włączonym szumie. Wyższa wartość = więcej drobnych załamań.",
+        )
+        tk.Spinbox(
+            river_controls,
+            from_=0.1,
+            to=6.0,
+            increment=0.1,
+            textvariable=self.river_frequency_var,
+            width=6,
+        ).grid(row=3, column=1, sticky="we", pady=1)
+
+        seed_label = tk.Label(river_controls, text="Seed (?)", bg="darkolivegreen", fg="white")
+        seed_label.grid(row=4, column=0, sticky="w")
+        self.create_tooltip(
+            seed_label,
+            "Ustaw numer, do którego chcesz wrócić. Ta sama wartość zawsze da identyczny kształt rzeki.",
+        )
+        tk.Spinbox(
+            river_controls,
+            from_=0,
+            to=999999,
+            increment=1,
+            textvariable=self.river_seed_var,
+            width=8,
+        ).grid(row=4, column=1, sticky="we", pady=1)
+
+        grid_label = tk.Label(river_controls, text="Siatka (?)", bg="darkolivegreen", fg="white")
+        grid_label.grid(row=5, column=0, sticky="w")
+        self.create_tooltip(
+            grid_label,
+            "Rozdzielczość tekstury heksu. 64 = 512 px, 128 = 1024 px po eksporcie.",
+        )
+        self.river_grid_combo = ttk.Combobox(
+            river_controls,
+            values=[str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS],
+            textvariable=self.river_grid_var,
+            state="readonly",
+            width=6,
+        )
+        self.river_grid_combo.grid(row=5, column=1, sticky="we", pady=1)
+        try:
+            default_index = [str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS].index(self.river_grid_var.get())
+        except ValueError:
+            default_index = 0
+        self.river_grid_combo.current(default_index)
+
+        buttons_inner = tk.Frame(river_frame, bg="darkolivegreen")
+        buttons_inner.pack(fill=tk.X, pady=(4, 0))
+
+        self.river_generate_button = tk.Button(
+            buttons_inner,
+            text="Generuj rzekę",
+            command=self.generate_river_path,
+            bg="#2f6b2f",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.river_generate_button.pack(fill=tk.X, pady=1)
+
+        self.river_continue_button = tk.Button(
+            buttons_inner,
+            text="Kontynuuj z heksu",
+            command=self.continue_river_from_selected_hex,
+            bg="#1f4a6b",
+            fg="white",
+        )
+        self.river_continue_button.pack(fill=tk.X, pady=1)
+
+        self.river_undo_button = tk.Button(
+            buttons_inner,
+            text="Cofnij ostatni",
+            command=self.river_pop_last_hex,
+            bg="#6b3d1f",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.river_undo_button.pack(fill=tk.X, pady=1)
+
+        self.river_clear_button = tk.Button(
+            buttons_inner,
+            text="Wyczyść ścieżkę",
+            command=self.clear_river_path,
+            bg="#444444",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.river_clear_button.pack(fill=tk.X, pady=(0, 1))
+
+        tk.Label(
+            river_frame,
+            text="LPM dodaje, PPM cofa ost. heks.",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=180,
+        ).pack(fill=tk.X, pady=(2, 0))
 
         # === UTWORZENIE PANED WINDOW DLA LEPSZEGO ZARZĄDZANIA PRZESTRZENIĄ ===
         # Paned window dzieli pozostałą przestrzeń na paletę żetonów i panel informacyjny
@@ -1697,12 +1951,38 @@ class MapEditor:
     def create_tooltip(self, widget, text):
         """Tworzy tooltip dla widgetu"""
         def show_tooltip(event):
-            tooltip = tk.Toplevel()
+            tooltip = tk.Toplevel(widget)
             tooltip.wm_overrideredirect(True)
-            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-            label = tk.Label(tooltip, text=text, background="lightyellow", 
-                           relief="solid", borderwidth=1, font=("Arial", 8))
-            label.pack()
+            label = tk.Label(
+                tooltip,
+                text=text,
+                background="lightyellow",
+                relief="solid",
+                borderwidth=1,
+                font=("Arial", 8),
+                justify="left",
+                wraplength=280,
+            )
+            label.pack(ipadx=4, ipady=2)
+            tooltip.update_idletasks()
+
+            screen_w = widget.winfo_screenwidth()
+            screen_h = widget.winfo_screenheight()
+            width = tooltip.winfo_width()
+            height = tooltip.winfo_height()
+
+            x = event.x_root + 12
+            y = event.y_root + 12
+            if x + width > screen_w:
+                x = event.x_root - width - 12
+            if x < 0:
+                x = 0
+            if y + height > screen_h:
+                y = event.y_root - height - 12
+            if y < 0:
+                y = 0
+
+            tooltip.wm_geometry(f"+{x}+{y}")
             widget.tooltip = tooltip
             
         def hide_tooltip(event):
@@ -1942,6 +2222,9 @@ class MapEditor:
         for hex_id, kp in self.key_points.items():
             self.draw_key_point_marker(kp['type'], kp['value'], hex_id)
 
+        if self.river_path:
+            self._draw_river_path_overlay()
+
         # Podświetlenie wybranego heksu
         if self.selected_hex is not None:
             self.highlight_hex(self.selected_hex)
@@ -2044,6 +2327,11 @@ class MapEditor:
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
         
+        if self.river_mode_active:
+            if hex_id:
+                self._river_handle_left_click(hex_id)
+            return
+
         if hex_id:
             # Jeśli mamy wybrany żeton do wstawienia
             if self.selected_token:
@@ -2084,6 +2372,10 @@ class MapEditor:
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
+
+        if self.river_mode_active:
+            self._river_handle_right_click(hex_id)
+            return
         
         if hex_id and hex_id in self.hex_data:
             terrain = self.hex_data[hex_id]
@@ -2096,6 +2388,8 @@ class MapEditor:
 
     def on_canvas_drag(self, event):
         """Obsługuje przeciąganie żetonów między heksami"""
+        if self.river_mode_active:
+            return
         if not self.drag_start_hex:
             # Rozpocznij przeciąganie jeśli kliknięto na heks z żetonem
             x = self.canvas.canvasx(event.x)
@@ -2111,6 +2405,8 @@ class MapEditor:
 
     def on_canvas_release(self, event):
         """Obsługuje zakończenie przeciągania żetonu"""
+        if self.river_mode_active:
+            return
         if self.drag_start_hex and self.drag_token_data:
             x = self.canvas.canvasx(event.x)
             y = self.canvas.canvasy(event.y)
@@ -2193,6 +2489,354 @@ class MapEditor:
                 pass
         self.selected_token = None
         print("Wyczyszczono wybór żetonu")
+
+    # === Narzędzie rzek ===
+
+    def toggle_river_mode(self) -> None:
+        self._set_river_mode(not self.river_mode_active)
+
+    def _set_river_mode(self, active: bool) -> None:
+        if self.river_mode_active == active:
+            return
+        self.river_mode_active = active
+        skip_popup = getattr(self, "_skip_river_mode_popup", False)
+        self._skip_river_mode_popup = False
+        if not active:
+            self.river_path.clear()
+            self._river_resume_expected_exit = None
+        else:
+            self._river_resume_expected_exit = None
+        if hasattr(self, "toggle_river_mode_button"):
+            if active:
+                self.toggle_river_mode_button.config(text="Wyłącz tryb rzeki", bg="#1c4d66")
+            else:
+                self.toggle_river_mode_button.config(text="Włącz tryb rzeki", bg="#1f5d7a")
+        self._river_update_status()
+        self.draw_grid()
+        if active and not skip_popup:
+            message = (
+                "Tryb rzeki aktywny. Kliknij LPM, aby zbudować ścieżkę, a następnie użyj "
+                "'Generuj rzekę'."
+            )
+            messagebox.showinfo("Tryb rzeki", message, parent=self.root)
+
+    def _river_update_status(self) -> None:
+        count = len(self.river_path)
+        if count:
+            self.river_status_var.set(f"Ścieżka rzeki: {count} heksów")
+        else:
+            self.river_status_var.set("Ścieżka rzeki: 0 heksów")
+        generate_state = tk.NORMAL if self.river_mode_active and count >= 2 else tk.DISABLED
+        undo_state = tk.NORMAL if self.river_mode_active and count >= 1 else tk.DISABLED
+        if hasattr(self, "river_generate_button"):
+            self.river_generate_button.config(state=generate_state)
+        if hasattr(self, "river_undo_button"):
+            self.river_undo_button.config(state=undo_state)
+        if hasattr(self, "river_clear_button"):
+            self.river_clear_button.config(state=undo_state)
+
+    def _river_handle_left_click(self, hex_id: str) -> None:
+        if not self.river_mode_active:
+            return
+        if hex_id not in self.hex_centers:
+            return
+        if self.river_path:
+            if self.river_path[-1] == hex_id:
+                return
+            if len(self.river_path) > 1 and self.river_path[-2] == hex_id:
+                self.river_path.pop()
+                self._river_update_status()
+                self.draw_grid()
+                return
+            last_q, last_r = map(int, self.river_path[-1].split(","))
+            next_q, next_r = map(int, hex_id.split(","))
+            delta = (next_q - last_q, next_r - last_r)
+            if delta not in AXIAL_DIRECTION_TO_SIDE:
+                messagebox.showwarning(
+                    "Ścieżka rzeki",
+                    "Wybrany heks nie sąsiaduje z poprzednim.",
+                    parent=self.root,
+                )
+                return
+            if len(self.river_path) == 1 and self._river_resume_expected_exit:
+                expected_delta = SIDE_TO_AXIAL_DIRECTION.get(self._river_resume_expected_exit)
+                if expected_delta and delta != expected_delta:
+                    side_label = HEX_SIDE_LABELS_PL.get(self._river_resume_expected_exit, self._river_resume_expected_exit)
+                    messagebox.showwarning(
+                        "Kontynuacja rzeki",
+                        f"Ten heks nie leży po oczekiwanej stronie ({side_label}). Wybierz właściwego sąsiada, aby zachować ciągłość rzeki.",
+                        parent=self.root,
+                    )
+                    return
+        self.river_path.append(hex_id)
+        self.selected_hex = hex_id
+        if len(self.river_path) == 2:
+            self._river_resume_expected_exit = None
+        self._river_update_status()
+        self.draw_grid()
+        self.update_hex_info_display(hex_id)
+
+    def _river_handle_right_click(self, hex_id: str | None) -> None:
+        if not self.river_mode_active or not self.river_path:
+            return
+        if hex_id and hex_id in self.river_path:
+            index = self.river_path.index(hex_id)
+            self.river_path = self.river_path[:index]
+        else:
+            self.river_path.pop()
+        self._river_update_status()
+        self.draw_grid()
+
+    def river_pop_last_hex(self) -> None:
+        if not self.river_path:
+            return
+        self.river_path.pop()
+        if len(self.river_path) <= 1:
+            self._river_resume_expected_exit = None
+        self._river_update_status()
+        self.draw_grid()
+
+    def clear_river_path(self) -> None:
+        if not self.river_path:
+            return
+        self.river_path.clear()
+        self._river_resume_expected_exit = None
+        self._river_update_status()
+        self.draw_grid()
+
+    def _draw_river_path_overlay(self) -> None:
+        if not getattr(self, "canvas", None):
+            return
+        coords = []
+        for hex_id in self.river_path:
+            center = self.hex_centers.get(hex_id)
+            if center:
+                coords.append(center)
+        for idx, center in enumerate(coords):
+            if idx > 0:
+                prev_center = coords[idx - 1]
+                self.canvas.create_line(
+                    prev_center[0],
+                    prev_center[1],
+                    center[0],
+                    center[1],
+                    fill="#57a1d2",
+                    width=3,
+                    dash=(4, 2),
+                )
+            radius = max(6, int(self.hex_size * 0.28))
+            outline = "#ffd166" if idx == 0 else "#57a1d2"
+            self.canvas.create_oval(
+                center[0] - radius,
+                center[1] - radius,
+                center[0] + radius,
+                center[1] + radius,
+                outline=outline,
+                width=3,
+            )
+            self.canvas.create_text(
+                center[0],
+                center[1],
+                text=str(idx + 1),
+                fill="white",
+                font=("Arial", 9, "bold"),
+            )
+
+    def generate_river_path(self) -> None:
+        if not self.river_mode_active:
+            messagebox.showinfo("Tryb rzeki", "Aktywuj tryb rzeki, aby generować nowe tekstury.", parent=self.root)
+            return
+        if len(self.river_path) < 2:
+            messagebox.showwarning("Ścieżka rzeki", "Dodaj co najmniej dwa heksy do ścieżki.", parent=self.root)
+            return
+        if RiverCenterlineOptions is None or generate_centerline is None:
+            messagebox.showerror(
+                "Generator niedostępny",
+                "Nie można załadować modułu generate_river_hex_tile.py.",
+                parent=self.root,
+            )
+            return
+
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.river_path]
+        except ValueError:
+            messagebox.showerror("Ścieżka rzeki", "Nieprawidłowe współrzędne heksów.", parent=self.root)
+            return
+
+        segments: list[tuple[int, int]] = []
+        for idx in range(len(coords) - 1):
+            dq = coords[idx + 1][0] - coords[idx][0]
+            dr = coords[idx + 1][1] - coords[idx][1]
+            delta = (dq, dr)
+            if delta not in AXIAL_DIRECTION_TO_SIDE:
+                messagebox.showerror(
+                    "Ścieżka rzeki",
+                    "Ścieżka zawiera heksy, które nie sąsiadują ze sobą.",
+                    parent=self.root,
+                )
+                return
+            segments.append(delta)
+
+        try:
+            grid_size = int(self.river_grid_var.get())
+        except (TypeError, ValueError):
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        if grid_size not in HEX_TEXTURE_GRID_OPTIONS:
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+        try:
+            strength = float(self.river_strength_var.get())
+        except (TypeError, ValueError):
+            strength = 0.5
+        strength = max(0.0, min(strength, 1.0))
+
+        try:
+            noise = float(self.river_noise_var.get())
+        except (TypeError, ValueError):
+            noise = 0.0
+        noise = max(0.0, min(noise, 3.0))
+
+        try:
+            frequency = float(self.river_frequency_var.get())
+        except (TypeError, ValueError):
+            frequency = 2.0
+        frequency = max(0.1, frequency)
+
+        try:
+            seed_base = int(self.river_seed_var.get())
+        except (TypeError, ValueError):
+            seed_base = random.randint(0, 9999)
+
+        shape_label = (self.river_shape_var.get() or "").strip()
+        shape_preference = RIVER_SHAPE_LABEL_TO_KEY.get(shape_label, "auto")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        generation_results = []
+        affected_paths: set[str] = set()
+
+        for idx, hex_id in enumerate(self.river_path):
+            entry_side, exit_side = self._river_entry_exit_for_index(idx, segments)
+            shape, shape_direction = self._river_determine_shape(idx, segments, shape_preference)
+            terrain = self.hex_data.setdefault(hex_id, {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0,
+            })
+            texture_rel = terrain.get("texture")
+            background_path = None
+            if texture_rel:
+                candidate = fix_image_path(texture_rel)
+                if candidate.exists():
+                    background_path = candidate
+
+            output_filename = f"hex_{hex_id.replace(',', '_')}_river_{timestamp}_{idx:02d}.png"
+            output_path = RIVER_OUTPUT_DIR / output_filename
+            options = RiverCenterlineOptions(
+                grid_size=grid_size,
+                background=background_path,
+                entry_side=entry_side,
+                exit_side=exit_side,
+                shape=shape,
+                shape_strength=strength,
+                shape_direction=shape_direction,
+                noise_amplitude=noise,
+                noise_frequency=frequency,
+                seed=seed_base + idx,
+                tributary=None,
+            )
+            try:
+                result = generate_centerline(options, output_path)
+            except Exception as exc:  # noqa: BLE001
+                messagebox.showerror(
+                    "Generator rzeki",
+                    f"Nie udało się wygenerować tekstury dla {hex_id}: {exc}",
+                    parent=self.root,
+                )
+                for produced in generation_results:
+                    try:
+                        produced.image_path.unlink(missing_ok=True)
+                        produced.metadata_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                return
+            generation_results.append(result)
+            if texture_rel:
+                affected_paths.add(texture_rel)
+
+        for idx, hex_id in enumerate(self.river_path):
+            record = self.hex_data.setdefault(hex_id, {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0,
+            })
+            result = generation_results[idx]
+            rel_path = to_rel(str(result.image_path))
+            record["texture"] = rel_path
+            record["texture_grid"] = grid_size
+            affected_paths.add(rel_path)
+
+        if affected_paths:
+            self.hex_texture_cache = {
+                key: value for key, value in self.hex_texture_cache.items() if key[0] not in affected_paths
+            }
+
+        self.draw_grid()
+        self.auto_save_and_export("wygenerowano rzekę")
+        self.river_seed_var.set(seed_base + len(self.river_path))
+        messagebox.showinfo(
+            "Generator rzeki",
+            f"Zapisano {len(generation_results)} nowych tekstur rzeki.",
+            parent=self.root,
+        )
+        self.clear_river_path()
+
+    def _river_entry_exit_for_index(
+        self,
+        index: int,
+        segments: list[tuple[int, int]],
+    ) -> tuple[str, str]:
+        if not segments:
+            return "top", "bottom"
+        if index == 0:
+            exit_side = AXIAL_DIRECTION_TO_SIDE[segments[0]]
+            entry_side = SIDE_OPPOSITE[exit_side]
+            return entry_side, exit_side
+        if index == len(segments):
+            entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[-1]]]
+            exit_side = AXIAL_DIRECTION_TO_SIDE[segments[-1]]
+            return entry_side, exit_side
+        entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[index - 1]]]
+        exit_side = AXIAL_DIRECTION_TO_SIDE[segments[index]]
+        return entry_side, exit_side
+
+    def _river_determine_shape(
+        self,
+        index: int,
+        segments: list[tuple[int, int]],
+        preference: str,
+    ) -> tuple[str, int | None]:
+        total_hexes = len(segments) + 1
+        pref = preference if preference in {"auto", "straight", "curve", "turn"} else "auto"
+        if pref == "auto":
+            entry_side, exit_side = self._river_entry_exit_for_index(index, segments)
+            if SIDE_OPPOSITE.get(entry_side) == exit_side:
+                shape = "straight"
+            else:
+                shape = "turn" if 0 < index < total_hexes - 1 else "straight"
+        else:
+            shape = pref
+        shape_direction = None
+        if shape == "turn" and 0 < index < len(segments):
+            prev_delta = segments[index - 1]
+            next_delta = segments[index]
+            vec_in = AXIAL_DIRECTION_TO_CARTESIAN.get(prev_delta)
+            vec_out = AXIAL_DIRECTION_TO_CARTESIAN.get(next_delta)
+            if vec_in and vec_out:
+                cross = vec_in[0] * vec_out[1] - vec_in[1] * vec_out[0]
+                if cross < -1e-6:
+                    shape_direction = 1
+                elif cross > 1e-6:
+                    shape_direction = -1
+        return shape, shape_direction
 
     def open_selected_hex_texture_editor(self):
         if not getattr(self, "selected_hex", None):
@@ -7292,20 +7936,185 @@ class MapEditor:
         self.selected_token_for_deployment = None
         self.selected_token_button = None
 
+    def _delete_hex_texture_if_unused(self, texture_rel: str | None) -> None:
+        """Usuwa wygenerowaną teksturę, gdy żaden heks z niej nie korzysta."""
+        if not texture_rel:
+            return
+
+        # Jeśli jakiś inny heks nadal korzysta z tej tekstury, nie usuwamy plików.
+        if any(
+            terrain.get("texture") == texture_rel
+            for terrain in self.hex_data.values()
+        ):
+            return
+
+        texture_path = fix_image_path(texture_rel)
+        try:
+            texture_path.relative_to(HEX_TEXTURE_DIR)
+        except ValueError:
+            # Tekstura znajduje się poza katalogiem generowanych plików – pozostawiamy ją.
+            return
+
+        try:
+            texture_path.unlink(missing_ok=True)
+            print(f"🗑️ Usunięto teksturę heksa: {texture_path.name}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ Nie udało się usunąć tekstury {texture_path}: {exc}")
+
+        # Usuń plik metadanych wygenerowanych rzek, jeśli istnieje.
+        try:
+            metadata_path = texture_path.with_suffix(".json")
+            metadata_path.relative_to(RIVER_OUTPUT_DIR)
+        except ValueError:
+            metadata_path = None
+
+        if metadata_path and metadata_path.exists():
+            try:
+                metadata_path.unlink(missing_ok=True)
+                print(f"🗑️ Usunięto metadane rzeki: {metadata_path.name}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ Nie udało się usunąć metadanych rzeki {metadata_path}: {exc}")
+
+        # Wyczyść cache tekstur odnoszące się do usuniętego pliku.
+        self.hex_texture_cache = {
+            key: value for key, value in self.hex_texture_cache.items() if key[0] != texture_rel
+        }
+
+    def continue_river_from_selected_hex(self) -> None:
+        """Przygotowuje narzędzie rzeki do kontynuacji istniejącego nurtu."""
+        if self.selected_hex is None:
+            messagebox.showinfo("Kontynuacja rzeki", "Najpierw wybierz heks z istniejącą rzeką.", parent=self.root)
+            return
+
+        record = self.hex_data.get(self.selected_hex)
+        if not record:
+            messagebox.showwarning(
+                "Kontynuacja rzeki",
+                "Wybrany heks nie ma zapisanych danych terenu.",
+                parent=self.root,
+            )
+            return
+
+        texture_rel = record.get("texture")
+        if not texture_rel:
+            messagebox.showwarning(
+                "Kontynuacja rzeki",
+                "Heks nie posiada wygenerowanej tekstury rzeki.",
+                parent=self.root,
+            )
+            return
+
+        texture_path = fix_image_path(texture_rel)
+        try:
+            texture_path.relative_to(RIVER_OUTPUT_DIR)
+        except ValueError:
+            messagebox.showwarning(
+                "Kontynuacja rzeki",
+                "Tekstura nie pochodzi z generatora rzek – nie można jej kontynuować automatycznie.",
+                parent=self.root,
+            )
+            return
+
+        metadata_path = texture_path.with_suffix(".json")
+        if not metadata_path.exists():
+            messagebox.showwarning(
+                "Kontynuacja rzeki",
+                "Brak pliku metadanych rzeki dla wybranego heksu.",
+                parent=self.root,
+            )
+            return
+
+        try:
+            with metadata_path.open("r", encoding="utf-8") as handle:
+                metadata = json.load(handle)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror(
+                "Kontynuacja rzeki",
+                f"Nie udało się wczytać metadanych rzeki: {exc}",
+                parent=self.root,
+            )
+            return
+
+        grid_value = metadata.get("grid")
+        if grid_value:
+            grid_text = str(grid_value)
+            self.river_grid_var.set(grid_text)
+            if hasattr(self, "river_grid_combo"):
+                self.river_grid_combo.set(grid_text)
+
+        shape_value = metadata.get("shape") or "auto"
+        if shape_value not in {"auto", "straight", "curve", "turn"}:
+            shape_value = "auto"
+        shape_label = RIVER_SHAPE_LABELS.get(shape_value, RIVER_SHAPE_LABELS["auto"])
+        self.river_shape_var.set(shape_label)
+        if hasattr(self, "river_shape_combo"):
+            self.river_shape_combo.set(shape_label)
+
+        try:
+            self.river_strength_var.set(float(metadata.get("shape_strength", self.river_strength_var.get())))
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            self.river_noise_var.set(float(metadata.get("noise_amplitude", self.river_noise_var.get())))
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            self.river_frequency_var.set(float(metadata.get("noise_frequency", self.river_frequency_var.get())))
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            self.river_seed_var.set(int(metadata.get("seed", self.river_seed_var.get())))
+        except (TypeError, ValueError):
+            pass
+
+        if not self.river_mode_active:
+            self._skip_river_mode_popup = True
+            self._set_river_mode(True)
+        else:
+            self._river_resume_expected_exit = None
+
+        self._river_resume_expected_exit = metadata.get("exit_side")
+
+        self.river_path = [self.selected_hex]
+        self._river_update_status()
+        self.draw_grid()
+        self.update_hex_info_display(self.selected_hex)
+        exit_label = None
+        if self._river_resume_expected_exit:
+            exit_label = HEX_SIDE_LABELS_PL.get(self._river_resume_expected_exit, self._river_resume_expected_exit)
+            self.set_status(
+                f"Kontynuacja rzeki z heksu {self.selected_hex}. Dodaj sąsiada po stronie: {exit_label}."
+            )
+        else:
+            self.set_status(f"Kontynuacja rzeki z heksu {self.selected_hex}. Dodaj kolejny heks ścieżki.")
+
+        message = "Dodaj nowe heksy LPM, aby przedłużyć nurt. Zakończ przyciskiem 'Generuj rzekę'."
+        if exit_label:
+            message += f"\nPierwszy sąsiad powinien leżeć po stronie: {exit_label}."
+        messagebox.showinfo("Kontynuacja rzeki", message, parent=self.root)
+
     def reset_selected_hex(self):
         """Czyści wszystkie dane przypisane do wybranego heksu i aktualizuje plik start_tokens.json."""
         if self.selected_hex is None:
             messagebox.showinfo("Informacja", "Najpierw wybierz heks klikając na niego.")
             return
 
+        record = self.hex_data.pop(self.selected_hex, None)
+        texture_rel = record.get("texture") if record else None
+
         # Usuwanie danych przypisanych do heksu
-        self.hex_data.pop(self.selected_hex, None)
         self.key_points.pop(self.selected_hex, None)
         for nation, hexes in self.spawn_points.items():
             if self.selected_hex in hexes:
                 hexes.remove(self.selected_hex)
         # Usuwanie żetonu z hex_tokens
         self.hex_tokens.pop(self.selected_hex, None)
+
+        # Usuń tekstury generowane dla tego heksu, jeśli nie są już nigdzie używane.
+        self._delete_hex_texture_if_unused(texture_rel)
 
         # --- USUWANIE MARTWYCH WPISÓW ŻETONÓW Z CAŁEJ MAPY ---
         for hex_id, terrain in list(self.hex_data.items()):

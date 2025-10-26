@@ -6096,11 +6096,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "15,-3": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "15,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -6513,11 +6508,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "16,-3": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "16,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -6906,16 +6896,6 @@
       "defense_mod": 0
     },
     "17,-5": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "17,-4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "17,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
@@ -7315,16 +7295,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "18,-4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "18,-3": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "18,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -7711,11 +7681,6 @@
       "defense_mod": 0
     },
     "19,-5": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "19,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
@@ -48066,6 +48031,36 @@
       "defense_mod": 0
     },
     "119,20": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "15,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "18,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "17,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "16,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "19,-4": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "18,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
