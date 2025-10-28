@@ -25,9 +25,91 @@ DEFAULT_OUTPUT_DIR = ASSET_DIR / "river_contours"
 EXPORT_SIZE_BY_GRID = {64: 512, 128: 1024}
 CENTERLINE_COLOR = (0, 0, 0, 255)
 TRIBUTARY_COLOR = (0, 0, 255, 255)
+PAINT_CENTERLINE_PIXELS = False
+PAINT_TRIBUTARY_PIXELS = False
+DEFAULT_BANK_COLOR = (214, 192, 138, 255)
+DEFAULT_BANK_OFFSET = 1.5
+DEFAULT_BANK_VARIATION = 0.35
+BANK_COLOR_PRESETS: Dict[str, Tuple[int, int, int, int]] = {
+	"default": DEFAULT_BANK_COLOR,
+	"sand": (214, 192, 138, 255),
+	"mud": (139, 108, 66, 255),
+	"rock": (96, 104, 120, 255),
+	"transparent": (0, 0, 0, 0),
+	"none": (0, 0, 0, 0),
+}
 UINT32_MAX = 0xFFFFFFFF
 MIN_TRIBUTARY_JOIN = 0.2
 MAX_TRIBUTARY_JOIN = 0.8
+
+
+def _clamp_byte(value: int) -> int:
+	return max(0, min(255, value))
+
+
+def parse_color_argument(value: str) -> Tuple[int, int, int, int]:
+	value_stripped = (value or "").strip()
+	if not value_stripped:
+		raise ValueError("Kolor brzegów nie został podany")
+	value_lower = value_stripped.lower()
+	if value_lower in BANK_COLOR_PRESETS:
+		return BANK_COLOR_PRESETS[value_lower]
+	if value_lower.startswith("rgba(") and value_lower.endswith(")"):
+		inside = value_stripped[value_stripped.find("(") + 1 : -1]
+		parts = [part.strip() for part in inside.split(",") if part.strip()]
+		return _parse_color_components(parts)
+	if value_lower.startswith("rgb(") and value_lower.endswith(")"):
+		inside = value_stripped[value_stripped.find("(") + 1 : -1]
+		parts = [part.strip() for part in inside.split(",") if part.strip()]
+		return _parse_color_components(parts)
+	if value_stripped.startswith("#"):
+		hex_value = value_stripped[1:]
+		if len(hex_value) == 6:
+			r = int(hex_value[0:2], 16)
+			g = int(hex_value[2:4], 16)
+			b = int(hex_value[4:6], 16)
+			return (_clamp_byte(r), _clamp_byte(g), _clamp_byte(b), 255)
+		if len(hex_value) == 8:
+			r = int(hex_value[0:2], 16)
+			g = int(hex_value[2:4], 16)
+			b = int(hex_value[4:6], 16)
+			a = int(hex_value[6:8], 16)
+			return (_clamp_byte(r), _clamp_byte(g), _clamp_byte(b), _clamp_byte(a))
+		raise ValueError(f"Niepoprawna długość zapisu heksadecymalnego: '{value_stripped}'")
+	if "," in value_stripped:
+		parts = [part.strip() for part in value_stripped.split(",") if part.strip()]
+		return _parse_color_components(parts)
+	raise ValueError(f"Nieznany format koloru: '{value_stripped}'")
+
+
+def _parse_color_components(parts: Sequence[str]) -> Tuple[int, int, int, int]:
+	if len(parts) not in {3, 4}:
+		raise ValueError("Kolor powinien mieć 3 lub 4 składowe (R,G,B[,A])")
+	components: List[int] = []
+	for index, part in enumerate(parts):
+		try:
+			value = int(part)
+		except ValueError as err:
+			raise ValueError(f"Niepoprawna wartość składowej koloru: '{part}'") from err
+		components.append(_clamp_byte(value))
+	if len(components) == 3:
+		components.append(255)
+	return components[0], components[1], components[2], components[3]
+
+
+def rgba_to_hex(color: Tuple[int, int, int, int]) -> str:
+	return "#{:02X}{:02X}{:02X}{:02X}".format(*color)
+
+
+def parse_optional_color_argument(value: str | None) -> Tuple[int, int, int, int] | None:
+	if value is None:
+		return None
+	value_stripped = value.strip()
+	if not value_stripped:
+		return None
+	if value_stripped.lower() in {"same", "inherit"}:
+		return None
+	return parse_color_argument(value_stripped)
 
 
 def _next_file_index(output_dir: Path, pattern: str) -> int:
@@ -97,6 +179,9 @@ class RiverCenterlineOptions:
 	noise_amplitude: float
 	noise_frequency: float
 	seed: int
+	bank_offset: float = DEFAULT_BANK_OFFSET
+	bank_color: Tuple[int, int, int, int] = DEFAULT_BANK_COLOR
+	bank_variation: float = DEFAULT_BANK_VARIATION
 	tributary: "TributaryOptions" | None = None
 
 
@@ -118,6 +203,9 @@ class TributaryOptions:
 	shape_direction: int | None = None
 	shape_direction_mode: str = "auto"
 	seed_offset: int = 1_000_000
+	bank_offset: float | None = None
+	bank_color: Tuple[int, int, int, int] | None = None
+	bank_variation: float | None = None
 
 
 def list_flat_backgrounds(directory: Path = ASSET_DIR) -> Dict[str, Path]:
@@ -287,6 +375,122 @@ def pick_flow_endpoints_by_side(
 	start = midpoint(entry_edge)
 	end = midpoint(exit_edge)
 	return start, end
+
+
+def _compute_polyline_normals(points: Sequence[Tuple[float, float]]) -> List[Tuple[float, float]]:
+	n = len(points)
+	if n == 0:
+		return []
+	if n == 1:
+		return [(0.0, 0.0)]
+	normals: List[Tuple[float, float]] = []
+	for i, point in enumerate(points):
+		if i == 0:
+			dx = points[1][0] - point[0]
+			dy = points[1][1] - point[1]
+		elif i == n - 1:
+			dx = point[0] - points[i - 1][0]
+			dy = point[1] - points[i - 1][1]
+		else:
+			dx1 = point[0] - points[i - 1][0]
+			dy1 = point[1] - points[i - 1][1]
+			dx2 = points[i + 1][0] - point[0]
+			dy2 = points[i + 1][1] - point[1]
+			dx = dx1 + dx2
+			dy = dy1 + dy2
+		direction = _normalize((dx, dy))
+		normal = (-direction[1], direction[0])
+		normals.append(normal)
+	for idx in range(1, len(normals)):
+		if normals[idx] == (0.0, 0.0) and normals[idx - 1] != (0.0, 0.0):
+			normals[idx] = normals[idx - 1]
+	for idx in range(len(normals) - 2, -1, -1):
+		if normals[idx] == (0.0, 0.0) and normals[idx + 1] != (0.0, 0.0):
+			normals[idx] = normals[idx + 1]
+	return normals
+
+
+def offset_polyline(points: Sequence[Tuple[float, float]], offset: float) -> List[Tuple[float, float]]:
+	if not points or offset == 0.0:
+		return list(points)
+	normals = _compute_polyline_normals(points)
+	offset_points: List[Tuple[float, float]] = []
+	for point, normal in zip(points, normals):
+		offset_points.append((point[0] + normal[0] * offset, point[1] + normal[1] * offset))
+	return offset_points
+
+
+def _generate_offset_profile(
+	length: int,
+	base_offset: float,
+	variation: float,
+	seed: int,
+	scale: float = 4.0,
+) -> List[float]:
+	if length <= 0:
+		return []
+	if variation <= 1e-3:
+		return [max(0.0, base_offset)] * length
+	profile: List[float] = []
+	for idx in range(length):
+		t = idx / max(1, length - 1)
+		noise_value = _value_noise_fractal(seed, t * scale)
+		delta = (noise_value - 0.5) * 2.0 * variation
+		profile.append(max(0.0, base_offset + delta))
+	return profile
+
+
+def _offset_polyline_with_profile(
+	points: Sequence[Tuple[float, float]],
+	normals: Sequence[Tuple[float, float]],
+	profile: Sequence[float],
+	sign: float,
+) -> List[Tuple[float, float]]:
+	result: List[Tuple[float, float]] = []
+	for point, normal, offset in zip(points, normals, profile):
+		result.append((point[0] + normal[0] * offset * sign, point[1] + normal[1] * offset * sign))
+	return result
+
+
+def build_centerline_bank_cells(
+	points: Sequence[Tuple[float, float]],
+	mask: Sequence[Sequence[bool]],
+	entry_dir: Tuple[float, float],
+	exit_dir: Tuple[float, float],
+	offset: float,
+	variation: float,
+	seed: int,
+) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+	normals = _compute_polyline_normals(points)
+	left_profile = _generate_offset_profile(len(points), offset, variation, seed)
+	right_profile = _generate_offset_profile(len(points), offset, variation, seed + 977)
+	left_points = _offset_polyline_with_profile(points, normals, left_profile, 1.0)
+	right_points = _offset_polyline_with_profile(points, normals, right_profile, -1.0)
+	left_cells = rasterize_polyline(left_points)
+	right_cells = rasterize_polyline(right_points)
+	left_cells = extend_line_to_edges(left_cells, mask, entry_dir, exit_dir)
+	right_cells = extend_line_to_edges(right_cells, mask, entry_dir, exit_dir)
+	return left_cells, right_cells
+
+
+def build_tributary_bank_cells(
+	points: Sequence[Tuple[float, float]],
+	mask: Sequence[Sequence[bool]],
+	entry_dir: Tuple[float, float],
+	offset: float,
+	variation: float,
+	seed: int,
+) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+	normals = _compute_polyline_normals(points)
+	left_profile = _generate_offset_profile(len(points), offset, variation, seed)
+	right_profile = _generate_offset_profile(len(points), offset, variation, seed + 977)
+	left_points = _offset_polyline_with_profile(points, normals, left_profile, 1.0)
+	right_points = _offset_polyline_with_profile(points, normals, right_profile, -1.0)
+	left_cells = rasterize_polyline(left_points)
+	right_cells = rasterize_polyline(right_points)
+	left_cells = extend_line_to_entry_edge(left_cells, mask, entry_dir)
+	right_cells = extend_line_to_entry_edge(right_cells, mask, entry_dir)
+	return left_cells, right_cells
 
 
 def _normalize(vec: Tuple[float, float]) -> Tuple[float, float]:
@@ -708,7 +912,15 @@ def build_tributary_points(
 	main_points: Sequence[Tuple[float, float]],
 	options: RiverCenterlineOptions,
 	mask: Sequence[Sequence[bool]],
-) -> Optional[Tuple[List[Tuple[float, float]], List[Tuple[int, int]], Dict[str, Any]]]:
+) -> Optional[
+	Tuple[
+		List[Tuple[float, float]],
+		List[Tuple[int, int]],
+		Dict[str, Any],
+		Tuple[List[Tuple[int, int]], List[Tuple[int, int]]],
+		Tuple[int, int, int, int],
+	]
+]:
 	tributary_opts = options.tributary
 	if not tributary_opts:
 		return None
@@ -743,6 +955,31 @@ def build_tributary_points(
 		tributary_rng,
 	)
 	tributary_cells = rasterize_polyline(tributary_points)
+	tributary_cells = extend_line_to_entry_edge(tributary_cells, mask, entry_inward)
+	tributary_bank_offset = (
+		tributary_opts.bank_offset
+		if tributary_opts.bank_offset is not None
+		else options.bank_offset
+	)
+	tributary_bank_variation = (
+		tributary_opts.bank_variation
+		if tributary_opts.bank_variation is not None
+		else options.bank_variation
+	)
+	bank_seed = noise_seed + 4211
+	tributary_bank_cells = build_tributary_bank_cells(
+		tributary_points,
+		mask,
+		entry_inward,
+		tributary_bank_offset,
+		tributary_bank_variation,
+		bank_seed,
+	)
+	tributary_bank_color = (
+		tributary_opts.bank_color
+		if tributary_opts.bank_color is not None
+		else options.bank_color
+	)
 	metadata = {
 		"entry_side": tributary_opts.entry_side,
 		"join_ratio": join_ratio,
@@ -758,8 +995,46 @@ def build_tributary_points(
 		"noise_applied": bool(shape_metadata.get("noise", {}).get("applied")),
 		"seed": noise_seed,
 		"shape_metadata": shape_metadata,
+		"bank_offset": tributary_bank_offset,
+		"bank_color": {
+			"rgba": list(tributary_bank_color),
+			"hex": rgba_to_hex(tributary_bank_color),
+		},
+		"bank_variation": tributary_bank_variation,
+		"bank_cell_count": {
+			"left": len(tributary_bank_cells[0]),
+			"right": len(tributary_bank_cells[1]),
+		},
 	}
-	return tributary_points, tributary_cells, metadata
+	return (
+		tributary_points,
+		tributary_cells,
+		metadata,
+		tributary_bank_cells,
+		tributary_bank_color,
+	)
+
+def _bresenham_line(ax: int, ay: int, bx: int, by: int) -> List[Tuple[int, int]]:
+	cells: List[Tuple[int, int]] = []
+	dx = abs(bx - ax)
+	dy = -abs(by - ay)
+	sx = 1 if ax < bx else -1
+	sy = 1 if ay < by else -1
+	err = dx + dy
+	x, y = ax, ay
+	while True:
+		cells.append((x, y))
+		if x == bx and y == by:
+			break
+		e2 = 2 * err
+		if e2 >= dy:
+			err += dy
+			x += sx
+		if e2 <= dx:
+			err += dx
+			y += sy
+	return cells
+
 
 def rasterize_polyline(points: Sequence[Tuple[float, float]]) -> List[Tuple[int, int]]:
 	cells: List[Tuple[int, int]] = []
@@ -771,7 +1046,11 @@ def rasterize_polyline(points: Sequence[Tuple[float, float]]) -> List[Tuple[int,
 	for a, b in zip(points, points[1:]):
 		ax, ay = int(round(a[0])), int(round(a[1]))
 		bx, by = int(round(b[0])), int(round(b[1]))
-		cells.extend(supercover_line(ax, ay, bx, by))
+		segment = _bresenham_line(ax, ay, bx, by)
+		if cells:
+			cells.extend(segment[1:])
+		else:
+			cells.extend(segment)
 
 	deduped: List[Tuple[int, int]] = []
 	prev: Tuple[int, int] | None = None
@@ -782,12 +1061,64 @@ def rasterize_polyline(points: Sequence[Tuple[float, float]]) -> List[Tuple[int,
 	return deduped
 
 
+def extend_line_to_entry_edge(
+	line_cells: Sequence[Tuple[int, int]],
+	mask: Sequence[Sequence[bool]],
+	entry_dir: Tuple[float, float],
+) -> List[Tuple[int, int]]:
+	if not line_cells:
+		return list(line_cells)
+
+	ordered = list(line_cells)
+	deduped: List[Tuple[int, int]] = []
+	prev: Tuple[int, int] | None = None
+	for cell in ordered:
+		if cell != prev:
+			deduped.append(cell)
+		prev = cell
+
+	if not deduped:
+		return deduped
+
+	grid = len(mask)
+
+	def walk_to_edge(cell: Tuple[int, int], direction: Tuple[float, float]) -> List[Tuple[int, int]]:
+		dir_norm = _normalize(direction)
+		if dir_norm == (0.0, 0.0):
+			return []
+		x = cell[0] + 0.5
+		y = cell[1] + 0.5
+		trail: List[Tuple[int, int]] = []
+		max_steps = grid * 2
+		for _ in range(max_steps):
+			x += dir_norm[0]
+			y += dir_norm[1]
+			col = int(math.floor(x))
+			row = int(math.floor(y))
+			if not (0 <= row < grid and 0 <= col < grid):
+				break
+			if not mask[row][col]:
+				break
+			next_cell = (col, row)
+			if trail and next_cell == trail[-1]:
+				continue
+			trail.append(next_cell)
+		return trail
+
+	leading = walk_to_edge(deduped[0], (-entry_dir[0], -entry_dir[1]))
+	return list(reversed(leading)) + deduped
+
+
 def compose_image(
 	grid: int,
 	mask: Sequence[Sequence[bool]],
 	background: Sequence[Sequence[Tuple[int, int, int, int] | None]],
 	centerline_cells: Sequence[Tuple[int, int]],
+	centerline_banks: Tuple[Sequence[Tuple[int, int]], Sequence[Tuple[int, int]]] | None = None,
+	centerline_bank_color: Tuple[int, int, int, int] | None = None,
 	tributary_cells: Sequence[Tuple[int, int]] | None = None,
+	tributary_banks: Tuple[Sequence[Tuple[int, int]], Sequence[Tuple[int, int]]] | None = None,
+	tributary_bank_color: Tuple[int, int, int, int] | None = None,
 ) -> Image.Image:
 	image = Image.new("RGBA", (grid, grid), (0, 0, 0, 0))
 	pixels = image.load()
@@ -800,10 +1131,23 @@ def compose_image(
 				pixels[col, row] = (0, 0, 0, 0)
 			else:
 				pixels[col, row] = color
-	for col, row in centerline_cells:
-		if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
-			pixels[col, row] = CENTERLINE_COLOR
-	if tributary_cells:
+	bank_color_main = centerline_bank_color or DEFAULT_BANK_COLOR
+	bank_color_tributary = tributary_bank_color or bank_color_main
+	if centerline_banks:
+		for bank_cells in centerline_banks:
+			for col, row in bank_cells:
+				if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
+					pixels[col, row] = bank_color_main
+	if tributary_banks:
+		for bank_cells in tributary_banks:
+			for col, row in bank_cells:
+				if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
+					pixels[col, row] = bank_color_tributary
+	if PAINT_CENTERLINE_PIXELS:
+		for col, row in centerline_cells:
+			if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
+				pixels[col, row] = CENTERLINE_COLOR
+	if PAINT_TRIBUTARY_PIXELS and tributary_cells:
 		for col, row in tributary_cells:
 			if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
 				pixels[col, row] = TRIBUTARY_COLOR
@@ -855,15 +1199,38 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 	)
 	centerline_cells = rasterize_polyline(centerline_points)
 	centerline_cells = extend_line_to_edges(centerline_cells, mask, entry_inward, exit_inward)
+	centerline_bank_cells = build_centerline_bank_cells(
+		centerline_points,
+		mask,
+		entry_inward,
+		exit_inward,
+		opts.bank_offset,
+		opts.bank_variation,
+		opts.seed + 311,
+	)
 	tributary_cells: List[Tuple[int, int]] | None = None
 	tributary_metadata: Dict[str, Any] | None = None
+	tributary_bank_cells: Tuple[List[Tuple[int, int]], List[Tuple[int, int]]] | None = None
+	tributary_bank_color: Tuple[int, int, int, int] | None = None
 	tributary_result = build_tributary_points(centerline_points, opts, mask)
 	if tributary_result:
-		_, tributary_cells, tributary_metadata = tributary_result
+		_, tributary_cells, tributary_metadata, tributary_bank_cells, tributary_bank_color = (
+			tributary_result
+		)
 		if tributary_metadata is not None:
 			tributary_metadata["cell_count"] = len(tributary_cells)
 
-	image = compose_image(opts.grid_size, mask, background, centerline_cells, tributary_cells)
+	image = compose_image(
+		opts.grid_size,
+		mask,
+		background,
+		centerline_cells,
+		centerline_bank_cells,
+		opts.bank_color,
+		tributary_cells,
+		tributary_bank_cells,
+		tributary_bank_color,
+	)
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	image.save(output_path)
 
@@ -885,6 +1252,16 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 		"shape_metadata": shape_metadata,
 	}
 	metadata["centerline_cell_count"] = len(centerline_cells)
+	metadata["centerline_banks"] = {
+		"offset": opts.bank_offset,
+		"color": {
+			"rgba": list(opts.bank_color),
+			"hex": rgba_to_hex(opts.bank_color),
+		},
+		"variation": opts.bank_variation,
+		"left_cell_count": len(centerline_bank_cells[0]),
+		"right_cell_count": len(centerline_bank_cells[1]),
+	}
 	metadata["tributary_present"] = bool(tributary_metadata)
 	metadata["tributary"] = tributary_metadata
 	metadata_path = save_metadata(output_path, metadata)
@@ -1006,6 +1383,23 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 		help="Częstotliwość szumu (ilość fal na heksie)",
 	)
 	parser.add_argument(
+		"--bank-offset",
+		type=float,
+		default=DEFAULT_BANK_OFFSET,
+		help="Odsunięcie brzegów od nurtu w pikselach",
+	)
+	parser.add_argument(
+		"--bank-variation",
+		type=float,
+		default=DEFAULT_BANK_VARIATION,
+		help="Losowa zmienność odsunięcia brzegów (0 oznacza brak)",
+	)
+	parser.add_argument(
+		"--bank-color",
+		default="default",
+		help="Kolor brzegów (#RRGGBB, #RRGGBBAA, R,G,B[,A] lub preset: sand/mud/rock/transparent)",
+	)
+	parser.add_argument(
 		"--tributary-entry-side",
 		choices=list(HEX_SIDES),
 		help="Aktywuj dopływ z wybranej krawędzi",
@@ -1045,6 +1439,20 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 		type=float,
 		default=2.5,
 		help="Częstotliwość szumu dopływu",
+	)
+	parser.add_argument(
+		"--tributary-bank-offset",
+		type=float,
+		help="Odsunięcie brzegów dopływu (domyślnie takie jak główny nurt)",
+	)
+	parser.add_argument(
+		"--tributary-bank-variation",
+		type=float,
+		help="Zmienność odsunięcia brzegów dopływu (domyślnie jak główny nurt)",
+	)
+	parser.add_argument(
+		"--tributary-bank-color",
+		help="Kolor brzegów dopływu (#RRGGBB, #RRGGBBAA, R,G,B[,A], preset lub 'same')",
 	)
 	parser.add_argument(
 		"--tributary-seed-offset",
@@ -1113,6 +1521,24 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 	noise_suffix = ""
 	if noise_amplitude > 1e-3:
 		noise_suffix = f"_noise{int(round(noise_amplitude * 100)):02d}f{int(round(noise_frequency * 10)):02d}"
+	try:
+		bank_color = parse_color_argument(getattr(args, "bank_color", "default"))
+	except ValueError as err:
+		print(f"Niepoprawny kolor brzegów: {err}")
+		return
+	bank_offset = max(0.0, float(getattr(args, "bank_offset", DEFAULT_BANK_OFFSET)))
+	bank_variation = max(0.0, float(getattr(args, "bank_variation", DEFAULT_BANK_VARIATION)))
+	tributary_bank_offset: float | None = None
+	if getattr(args, "tributary_bank_offset", None) is not None:
+		tributary_bank_offset = max(0.0, float(args.tributary_bank_offset))
+	tributary_bank_variation: float | None = None
+	if getattr(args, "tributary_bank_variation", None) is not None:
+		tributary_bank_variation = max(0.0, float(args.tributary_bank_variation))
+	try:
+		tributary_bank_color = parse_optional_color_argument(getattr(args, "tributary_bank_color", None))
+	except ValueError as err:
+		print(f"Niepoprawny kolor brzegów dopływu: {err}")
+		return
 	tributary_opts: TributaryOptions | None = None
 	tributary_entry = getattr(args, "tributary_entry_side", None)
 	trib_suffix = ""
@@ -1145,6 +1571,9 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 			shape_direction=tributary_shape_direction,
 			shape_direction_mode=tributary_shape_direction_choice,
 			seed_offset=tributary_seed_offset,
+			bank_offset=tributary_bank_offset,
+			bank_color=tributary_bank_color,
+			bank_variation=tributary_bank_variation,
 		)
 	if tributary_opts:
 		join_pct = int(round(tributary_opts.join_ratio * 100))
@@ -1170,6 +1599,9 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 			noise_amplitude=noise_amplitude,
 			noise_frequency=noise_frequency,
 			seed=seed,
+			bank_offset=bank_offset,
+			bank_color=bank_color,
+			bank_variation=bank_variation,
 			tributary=tributary_opts,
 		)
 		suffix = f"{next_index + index:02d}"

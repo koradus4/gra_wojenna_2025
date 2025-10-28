@@ -13,6 +13,8 @@ from PIL import Image, ImageTk, ImageFont, ImageDraw
 
 try:
     from generate_river_hex_tile import (
+        DEFAULT_BANK_OFFSET,
+        DEFAULT_BANK_VARIATION,
         MAX_TRIBUTARY_JOIN,
         MIN_TRIBUTARY_JOIN,
         RiverCenterlineOptions,
@@ -25,6 +27,8 @@ except ImportError:  # pragma: no cover - w trybie edytora brak generatora
     generate_centerline = None
     MIN_TRIBUTARY_JOIN = 0.2
     MAX_TRIBUTARY_JOIN = 0.8
+    DEFAULT_BANK_OFFSET = 1.5
+    DEFAULT_BANK_VARIATION = 0.35
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -58,6 +62,7 @@ HEX_TEXTURE_EXPORT_SIZES = {
     64: 512,
     128: 1024,
 }
+LARGE_RIVER_WIDTH_MULTIPLIER = 2.5
 NEIGHBOR_PREVIEW_SCALE = 1.0
 CONTEXT_CANVAS_SCALE = 1.8
 EDGE_BAND_CELLS_DEFAULT = 6
@@ -486,6 +491,9 @@ class MapEditor:
         self.river_noise_var = tk.DoubleVar(value=0.0)
         self.river_frequency_var = tk.DoubleVar(value=2.0)
         self.river_seed_var = tk.IntVar(value=random.randint(0, 9999))
+        self.river_bank_offset_var = tk.DoubleVar(value=DEFAULT_BANK_OFFSET)
+        self.river_bank_variation_var = tk.DoubleVar(value=DEFAULT_BANK_VARIATION)
+        self.river_large_mode_var = tk.BooleanVar(value=False)
         self.river_grid_var = tk.StringVar(value=str(DEFAULT_HEX_TEXTURE_GRID_SIZE))
         self.river_status_var = tk.StringVar(value="Ścieżka rzeki: 0 heksów")
         self._river_resume_expected_exit: str | None = None
@@ -983,14 +991,28 @@ class MapEditor:
         self.build_token_palette_in_frame(self.upper_frame)
 
         # === NARZĘDZIE RZEK ===
+        self.river_section_container = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        self.river_section_container.pack(fill=tk.X, padx=5, pady=(6, 4))
+
+        self._river_section_expanded = False
+        self.river_section_toggle_button = tk.Button(
+            self.river_section_container,
+            text="[+] Rzeki (beta)",
+            command=self.toggle_river_section_visibility,
+            bg="#2f4d34",
+            fg="white",
+            activebackground="#2f4d34",
+            activeforeground="white",
+        )
+        self.river_section_toggle_button.pack(fill=tk.X)
+
         self.river_frame = tk.LabelFrame(
-            self.upper_frame,
+            self.river_section_container,
             text="Rzeki (beta)",
             bg="darkolivegreen",
             fg="white",
             font=("Arial", 9, "bold"),
         )
-        self.river_frame.pack(fill=tk.X, padx=5, pady=(6, 4))
 
         self.toggle_river_mode_button = tk.Button(
             self.river_frame,
@@ -1123,6 +1145,57 @@ class MapEditor:
         except ValueError:
             grid_index = 0
         self.river_grid_combo.current(grid_index)
+
+        bank_offset_label = tk.Label(river_controls, text="Śr. szer. (?)", bg="darkolivegreen", fg="white")
+        bank_offset_label.grid(row=6, column=0, sticky="w", pady=(4, 0))
+        self.create_tooltip(
+            bank_offset_label,
+            "Średnia szerokość brzegów (w pikselach siatki). Wyższa wartość = szersze łachy piasku.",
+        )
+        self.river_bank_offset_spinbox = tk.Spinbox(
+            river_controls,
+            from_=0.6,
+            to=3.2,
+            increment=0.05,
+            textvariable=self.river_bank_offset_var,
+            width=6,
+            format="%.2f",
+        )
+        self.river_bank_offset_spinbox.grid(row=6, column=1, sticky="we", padx=(0, 4), pady=(4, 0))
+
+        bank_variation_label = tk.Label(river_controls, text="Niereg. (?)", bg="darkolivegreen", fg="white")
+        bank_variation_label.grid(row=7, column=0, sticky="w")
+        self.create_tooltip(
+            bank_variation_label,
+            "Kontroluje falowanie brzegów. Większa wartość = bardziej naturalne, nieregularne krawędzie.",
+        )
+        self.river_bank_variation_spinbox = tk.Spinbox(
+            river_controls,
+            from_=0.0,
+            to=0.8,
+            increment=0.05,
+            textvariable=self.river_bank_variation_var,
+            width=6,
+            format="%.2f",
+        )
+        self.river_bank_variation_spinbox.grid(row=7, column=1, sticky="we", padx=(0, 4), pady=1)
+
+        large_mode_check = tk.Checkbutton(
+            river_controls,
+            text="Duża rzeka (×2.5)",
+            variable=self.river_large_mode_var,
+            bg="darkolivegreen",
+            fg="white",
+            activebackground="darkolivegreen",
+            activeforeground="white",
+            selectcolor="#2f6b2f",
+            anchor="w",
+        )
+        large_mode_check.grid(row=8, column=0, columnspan=2, sticky="we", pady=(2, 0))
+        self.create_tooltip(
+            large_mode_check,
+            "Włącza grubszą warstwę piasku dla głównego nurtu. Mnoży szerokość ×2.5.",
+        )
 
         tributary_frame = tk.LabelFrame(
             self.river_frame,
@@ -1366,6 +1439,7 @@ class MapEditor:
         ).pack(fill=tk.X, pady=(2, 0))
 
         self._river_update_status()
+        self._set_river_section_visibility(False)
 
         # === SEKCJA TERENU ===
         terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
@@ -2734,6 +2808,18 @@ class MapEditor:
 
     # === Narzędzie rzek ===
 
+    def toggle_river_section_visibility(self) -> None:
+        self._set_river_section_visibility(not self._river_section_expanded)
+
+    def _set_river_section_visibility(self, visible: bool) -> None:
+        self._river_section_expanded = visible
+        if visible:
+            self.river_frame.pack(fill=tk.X, pady=(4, 0))
+            self.river_section_toggle_button.config(text="[-] Rzeki (beta)")
+        else:
+            self.river_frame.pack_forget()
+            self.river_section_toggle_button.config(text="[+] Rzeki (beta)")
+
     def toggle_river_mode(self) -> None:
         self._set_river_mode(not self.river_mode_active)
 
@@ -2871,6 +2957,18 @@ class MapEditor:
             seed_offset = 1_000_000
         seed_offset = max(0, seed_offset)
 
+        try:
+            base_bank_offset = float(self.river_bank_offset_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            base_bank_offset = DEFAULT_BANK_OFFSET
+        base_bank_offset = max(0.6, min(3.2, base_bank_offset))
+
+        try:
+            bank_variation = float(self.river_bank_variation_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            bank_variation = DEFAULT_BANK_VARIATION
+        bank_variation = max(0.0, min(0.8, bank_variation))
+
         return TributaryOptions(
             entry_side=entry_side,
             join_ratio=join_ratio,
@@ -2881,6 +2979,8 @@ class MapEditor:
             shape_direction=shape_direction,
             shape_direction_mode=direction_key,
             seed_offset=seed_offset,
+            bank_offset=base_bank_offset,
+            bank_variation=bank_variation,
         )
 
     def _river_handle_left_click(self, hex_id: str) -> None:
@@ -3068,6 +3168,23 @@ class MapEditor:
         except (TypeError, ValueError):
             seed_base = random.randint(0, 9999)
 
+        try:
+            base_bank_offset = float(self.river_bank_offset_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            base_bank_offset = DEFAULT_BANK_OFFSET
+        base_bank_offset = max(0.6, min(3.2, base_bank_offset))
+        bank_offset = (
+            base_bank_offset * LARGE_RIVER_WIDTH_MULTIPLIER
+            if self.river_large_mode_var.get()
+            else base_bank_offset
+        )
+
+        try:
+            bank_variation = float(self.river_bank_variation_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            bank_variation = DEFAULT_BANK_VARIATION
+        bank_variation = max(0.0, min(0.8, bank_variation))
+
         shape_label = (self.river_shape_var.get() or "").strip()
         shape_preference = RIVER_SHAPE_LABEL_TO_KEY.get(shape_label, "auto")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -3131,6 +3248,8 @@ class MapEditor:
                 noise_amplitude=noise,
                 noise_frequency=frequency,
                 seed=seed_base + idx,
+                bank_offset=bank_offset,
+                bank_variation=bank_variation,
                 tributary=current_tributary,
             )
             try:
@@ -3599,57 +3718,100 @@ class MapEditor:
                         idx = min(palette_len - 1, int(dist * (palette_len - 1)))
                         set_pixel_if_empty(grid, row, col, palette[idx])
 
+        def _bresenham_line(r0: int, c0: int, r1: int, c1: int) -> list[tuple[int, int]]:
+            """Classic Bresenham ensures the backbone stays one pixel wide."""
+            path: list[tuple[int, int]] = []
+            x0, y0 = c0, r0
+            x1, y1 = c1, r1
+            dx = abs(x1 - x0)
+            sx = 1 if x0 < x1 else -1
+            dy = -abs(y1 - y0)
+            sy = 1 if y0 < y1 else -1
+            err = dx + dy
+            x, y = x0, y0
+            while True:
+                path.append((y, x))
+                if x == x1 and y == y1:
+                    break
+                e2 = 2 * err
+                if e2 >= dy:
+                    err += dy
+                    x += sx
+                if e2 <= dx:
+                    err += dx
+                    y += sy
+            return path
+
         def draw_polyline(grid: list[list[str | None]], points: list[tuple[int, int]], width: int,
                           palette: list[str], overwrite: bool = True) -> None:
-            if len(points) < 2:
+            if len(points) < 2 or not palette:
                 return
+            width = max(0, width)
             palette_len = len(palette)
+            path_cells: list[tuple[int, int]] = []
             for idx in range(len(points) - 1):
                 r0, c0 = points[idx]
                 r1, c1 = points[idx + 1]
-                steps = max(abs(r1 - r0), abs(c1 - c0)) * 4
-                if steps <= 0:
-                    steps = 1
-                for step in range(steps + 1):
-                    t = step / steps
-                    row = int(round(r0 + (r1 - r0) * t))
-                    col = int(round(c0 + (c1 - c0) * t))
-                    for dy in range(-width, width + 1):
-                        target_row = row + dy
-                        if target_row < 0 or target_row >= grid_size:
+                segment = _bresenham_line(r0, c0, r1, c1)
+                if path_cells:
+                    path_cells.extend(segment[1:])
+                else:
+                    path_cells.extend(segment)
+            for row, col in path_cells:
+                if row < 0 or row >= grid_size or col < 0 or col >= grid_size:
+                    continue
+                if not hex_mask[row][col]:
+                    continue
+                for dy in range(-width, width + 1):
+                    target_row = row + dy
+                    if target_row < 0 or target_row >= grid_size:
+                        continue
+                    for dx in range(-width, width + 1):
+                        target_col = col + dx
+                        if target_col < 0 or target_col >= grid_size or not hex_mask[target_row][target_col]:
                             continue
-                        for dx in range(-width, width + 1):
-                            target_col = col + dx
-                            if target_col < 0 or target_col >= grid_size or not hex_mask[target_row][target_col]:
-                                continue
-                            dist = math.sqrt(dx * dx + dy * dy)
-                            if dist <= width + 0.35:
-                                shade = dist / max(1.0, width)
-                                color_idx = min(palette_len - 1, int(shade * (palette_len - 1)))
-                                if overwrite or grid[target_row][target_col] is None:
-                                    set_pixel(grid, target_row, target_col, palette[color_idx])
+                        dist = math.sqrt(dx * dx + dy * dy)
+                        if dist <= width + 0.35:
+                            shade = dist / max(1.0, width)
+                            color_idx = min(palette_len - 1, int(shade * (palette_len - 1)))
+                            if overwrite or grid[target_row][target_col] is None:
+                                set_pixel(grid, target_row, target_col, palette[color_idx])
 
         def draw_dashed_line(grid: list[list[str | None]], points: list[tuple[int, int]], spacing: float,
                              color: str) -> None:
             if len(points) < 2:
                 return
-            distance_acc = 0.0
-            last_row, last_col = points[0]
+            spacing = max(0.1, spacing)
+            path_cells: list[tuple[int, int]] = []
             for idx in range(len(points) - 1):
                 r0, c0 = points[idx]
                 r1, c1 = points[idx + 1]
-                steps = max(abs(r1 - r0), abs(c1 - c0)) * 4
-                if steps <= 0:
-                    steps = 1
-                for step in range(steps + 1):
-                    t = step / steps
-                    row = int(round(r0 + (r1 - r0) * t))
-                    col = int(round(c0 + (c1 - c0) * t))
-                    segment = math.sqrt((row - last_row) ** 2 + (col - last_col) ** 2)
-                    distance_acc += segment
-                    last_row, last_col = row, col
-                    if int(distance_acc / spacing) % 2 == 0:
-                        set_pixel(grid, row, col, color)
+                segment = _bresenham_line(r0, c0, r1, c1)
+                if path_cells:
+                    path_cells.extend(segment[1:])
+                else:
+                    path_cells.extend(segment)
+            if not path_cells:
+                return
+            distance_acc = 0.0
+            last_row, last_col = path_cells[0]
+            if (
+                0 <= last_row < grid_size
+                and 0 <= last_col < grid_size
+                and hex_mask[last_row][last_col]
+                and int(distance_acc / spacing) % 2 == 0
+            ):
+                set_pixel(grid, last_row, last_col, color)
+            for row, col in path_cells[1:]:
+                segment = math.sqrt((row - last_row) ** 2 + (col - last_col) ** 2)
+                distance_acc += segment
+                last_row, last_col = row, col
+                if row < 0 or row >= grid_size or col < 0 or col >= grid_size:
+                    continue
+                if not hex_mask[row][col]:
+                    continue
+                if int(distance_acc / spacing) % 2 == 0:
+                    set_pixel(grid, row, col, color)
 
         def fill_rect(grid: list[list[str | None]], top: int, left: int, height: int, width_rect: int,
                       palette: list[str]) -> None:
