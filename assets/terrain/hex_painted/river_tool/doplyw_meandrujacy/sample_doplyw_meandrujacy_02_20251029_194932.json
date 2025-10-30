@@ -1,0 +1,182 @@
+{
+  "grid": 64,
+  "entry_side": "bottom",
+  "exit_side": "top_left",
+  "seed": 4687,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_sandy_mix_64.png",
+  "start": {
+    "x": 32.0,
+    "y": 59.27980021920982
+  },
+  "end": {
+    "x": 8.375,
+    "y": 18.36009989039509
+  },
+  "shape": "turn",
+  "shape_strength": 0.64,
+  "shape_direction": 1,
+  "shape_direction_mode": "left",
+  "noise_amplitude": 0.29,
+  "noise_frequency": 2.8,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 32.0,
+        "y": 59.27980021920982
+      },
+      {
+        "x": 39.20186725787139,
+        "y": 21.642340219209814
+      },
+      {
+        "x": 30.167195607113577,
+        "y": 39.257829890395094
+      },
+      {
+        "x": 8.375,
+        "y": 18.36009989039509
+      }
+    ],
+    "handle_lengths": {
+      "entry": 38.320298632077495,
+      "exit": 30.19296124151456
+    },
+    "entry_inward": {
+      "x": 0.0,
+      "y": -1.0
+    },
+    "exit_inward": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "span_direction": {
+      "x": -0.5,
+      "y": -0.8660254037844387
+    },
+    "lateral": {
+      "x": 14.403734515742785,
+      "y": -8.316
+    },
+    "lateral_sign": 1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.29,
+      "frequency": 2.8,
+      "seed": 4687,
+      "max_offset_px": 1.4848,
+      "offset_stats": {
+        "min": -0.2596540395676192,
+        "max": 0.2409598233212697,
+        "median": -0.12301927785604536
+      }
+    }
+  },
+  "centerline_cell_count": 50,
+  "centerline_banks": {
+    "offset": 1.7249999999999999,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.35,
+    "left_cell_count": 54,
+    "right_cell_count": 50
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "top_right",
+    "join_ratio": 0.44,
+    "join_ratio_percent": 44.0,
+    "join_point": {
+      "x": 33.25741579494891,
+      "y": 35.57418964991283
+    },
+    "join_direction": {
+      "x": -0.3317538543698112,
+      "y": -0.9433659841815233
+    },
+    "shape": "turn",
+    "shape_strength": 0.88,
+    "shape_direction": null,
+    "shape_direction_mode": "right",
+    "noise_amplitude": 0.32,
+    "noise_frequency": 3.1,
+    "noise_applied": true,
+    "seed": 1007577,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 55.625,
+          "y": 18.36009989039509
+        },
+        {
+          "x": 41.274515416275435,
+          "y": 34.463442769708294
+        },
+        {
+          "x": 46.03549846015592,
+          "y": 17.12121699766059
+        },
+        {
+          "x": 33.25741579494891,
+          "y": 35.57418964991283
+        }
+      ],
+      "handle_lengths": {
+        "entry": 21.569748716117296,
+        "exit": 22.445302321502222
+      },
+      "entry_inward": {
+        "x": -0.8660254037844386,
+        "y": 0.5
+      },
+      "exit_inward": {
+        "x": 0.7924826103979099,
+        "y": -0.609894509089002
+      },
+      "span_direction": {
+        "x": -0.7924826103979099,
+        "y": 0.609894509089002
+      },
+      "lateral": {
+        "x": 8.331619443606588,
+        "y": 10.825910755244728
+      },
+      "lateral_sign": -1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.32,
+        "frequency": 3.1,
+        "seed": 1007577,
+        "max_offset_px": 1.6384,
+        "offset_stats": {
+          "min": -0.46068826196568624,
+          "max": 0.34155960578416233,
+          "median": 0.0
+        }
+      }
+    },
+    "bank_offset": 1.7249999999999999,
+    "bank_color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "bank_variation": 0.35,
+    "bank_cell_count": {
+      "left": 27,
+      "right": 25
+    },
+    "cell_count": 26
+  }
+}

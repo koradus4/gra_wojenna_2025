@@ -1,0 +1,182 @@
+{
+  "grid": 64,
+  "entry_side": "top_left",
+  "exit_side": "top_right",
+  "seed": 1338,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_sandy_mix_64.png",
+  "start": {
+    "x": 8.375,
+    "y": 18.36009989039509
+  },
+  "end": {
+    "x": 55.625,
+    "y": 18.36009989039509
+  },
+  "shape": "turn",
+  "shape_strength": 0.5,
+  "shape_direction": 1,
+  "shape_direction_mode": "left",
+  "noise_amplitude": 0.3,
+  "noise_frequency": 1.4,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 8.375,
+        "y": 18.36009989039509
+      },
+      {
+        "x": 36.20039622359401,
+        "y": 40.92197489039509
+      },
+      {
+        "x": 27.799603776405984,
+        "y": 27.92822489039509
+      },
+      {
+        "x": 55.625,
+        "y": 18.36009989039509
+      }
+    ],
+    "handle_lengths": {
+      "entry": 35.82304954237739,
+      "exit": 29.42450833940348
+    },
+    "entry_inward": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "exit_inward": {
+      "x": -0.8660254037844386,
+      "y": 0.5
+    },
+    "span_direction": {
+      "x": 1.0,
+      "y": 0.0
+    },
+    "lateral": {
+      "x": -0.0,
+      "y": 12.99375
+    },
+    "lateral_sign": 1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.3,
+      "frequency": 1.4,
+      "seed": 1338,
+      "max_offset_px": 1.536,
+      "offset_stats": {
+        "min": 0.0,
+        "max": 0.4504749759203835,
+        "median": 0.32999487691274576
+      }
+    }
+  },
+  "centerline_cell_count": 49,
+  "centerline_banks": {
+    "offset": 1.5,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.35,
+    "left_cell_count": 52,
+    "right_cell_count": 48
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "bottom_left",
+    "join_ratio": 0.65,
+    "join_ratio_percent": 65.0,
+    "join_point": {
+      "x": 38.73791771559023,
+      "y": 27.098535185401904
+    },
+    "join_direction": {
+      "x": 0.8439848140449503,
+      "y": -0.5363670698891857
+    },
+    "shape": "turn",
+    "shape_strength": 0.85,
+    "shape_direction": null,
+    "shape_direction_mode": "right",
+    "noise_amplitude": 0.4,
+    "noise_frequency": 2.8,
+    "noise_applied": true,
+    "seed": 1001794,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 8.375,
+          "y": 45.63990010960491
+        },
+        {
+          "x": 35.859807784745925,
+          "y": 39.371132452019225
+        },
+        {
+          "x": 11.589177293063276,
+          "y": 33.93318477342883
+        },
+        {
+          "x": 38.73791771559023,
+          "y": 27.098535185401904
+        }
+      ],
+      "handle_lengths": {
+        "entry": 28.190638639612665,
+        "exit": 27.995830788188186
+      },
+      "entry_inward": {
+        "x": 0.8660254037844386,
+        "y": -0.5
+      },
+      "exit_inward": {
+        "x": -0.8534537721781505,
+        "y": 0.5211685511951826
+      },
+      "span_direction": {
+        "x": 0.8534537721781505,
+        "y": -0.5211685511951826
+      },
+      "lateral": {
+        "x": 8.668088102064905,
+        "y": 14.194664032038434
+      },
+      "lateral_sign": 1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.4,
+        "frequency": 2.8,
+        "seed": 1001794,
+        "max_offset_px": 2.048,
+        "offset_stats": {
+          "min": 0.0,
+          "max": 1.0932886054020732,
+          "median": 0.6094142766635792
+        }
+      }
+    },
+    "bank_offset": 1.5,
+    "bank_color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "bank_variation": 0.35,
+    "bank_cell_count": {
+      "left": 37,
+      "right": 36
+    },
+    "cell_count": 38
+  }
+}

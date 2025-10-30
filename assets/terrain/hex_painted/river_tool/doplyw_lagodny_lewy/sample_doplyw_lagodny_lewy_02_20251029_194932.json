@@ -1,0 +1,182 @@
+{
+  "grid": 64,
+  "entry_side": "top",
+  "exit_side": "bottom",
+  "seed": 933,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_fields_64.png",
+  "start": {
+    "x": 32.0,
+    "y": 4.720199780790185
+  },
+  "end": {
+    "x": 32.0,
+    "y": 59.27980021920982
+  },
+  "shape": "curve",
+  "shape_strength": 0.6,
+  "shape_direction": null,
+  "shape_direction_mode": "auto",
+  "noise_amplitude": 0.2,
+  "noise_frequency": 1.8,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 32.0,
+        "y": 4.720199780790185
+      },
+      {
+        "x": 36.91036403945777,
+        "y": 38.438032851733524
+      },
+      {
+        "x": 27.089635960542232,
+        "y": 25.561967148266483
+      },
+      {
+        "x": 32.0,
+        "y": 59.27980021920982
+      }
+    ],
+    "handle_lengths": {
+      "entry": 34.0735079203771,
+      "exit": 34.07350792037709
+    },
+    "entry_inward": {
+      "x": 0.0,
+      "y": 1.0
+    },
+    "exit_inward": {
+      "x": 0.0,
+      "y": -1.0
+    },
+    "span_direction": {
+      "x": 0.0,
+      "y": 1.0
+    },
+    "lateral": {
+      "x": 9.820728078915534,
+      "y": -0.0
+    },
+    "lateral_sign": -1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.2,
+      "frequency": 1.8,
+      "seed": 933,
+      "max_offset_px": 1.024,
+      "offset_stats": {
+        "min": -0.31526499844016326,
+        "max": 0.0,
+        "median": -0.20692399198458464
+      }
+    }
+  },
+  "centerline_cell_count": 56,
+  "centerline_banks": {
+    "offset": 1.5,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.35,
+    "left_cell_count": 56,
+    "right_cell_count": 56
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "top_right",
+    "join_ratio": 0.45,
+    "join_ratio_percent": 45.0,
+    "join_point": {
+      "x": 32.79760814613402,
+      "y": 29.28448215107144
+    },
+    "join_direction": {
+      "x": -0.21091505106968786,
+      "y": 0.9775043944823323
+    },
+    "shape": "curve",
+    "shape_strength": 0.7,
+    "shape_direction": null,
+    "shape_direction_mode": "left",
+    "noise_amplitude": 0.25,
+    "noise_frequency": 2.2,
+    "noise_applied": true,
+    "seed": 1001056,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 55.625,
+          "y": 18.36009989039509
+        },
+        {
+          "x": 42.83329690269967,
+          "y": 28.804524740758975
+        },
+        {
+          "x": 46.16876922782177,
+          "y": 19.939698888625355
+        },
+        {
+          "x": 32.79760814613402,
+          "y": 29.28448215107144
+        }
+      ],
+      "handle_lengths": {
+        "entry": 16.514044888651036,
+        "exit": 16.312967936415916
+      },
+      "entry_inward": {
+        "x": -0.8660254037844386,
+        "y": 0.5
+      },
+      "exit_inward": {
+        "x": 0.9020275459011075,
+        "y": -0.4316784757613305
+      },
+      "span_direction": {
+        "x": -0.9020275459011075,
+        "y": 0.4316784757613305
+      },
+      "lateral": {
+        "x": 2.294120274742033,
+        "y": 4.793752289311856
+      },
+      "lateral_sign": -1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.25,
+        "frequency": 2.2,
+        "seed": 1001056,
+        "max_offset_px": 1.28,
+        "offset_stats": {
+          "min": -0.09096021971983916,
+          "max": 0.0046274097737934025,
+          "median": -0.014391097287246595
+        }
+      }
+    },
+    "bank_offset": 1.5,
+    "bank_color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "bank_variation": 0.35,
+    "bank_cell_count": {
+      "left": 24,
+      "right": 23
+    },
+    "cell_count": 24
+  }
+}

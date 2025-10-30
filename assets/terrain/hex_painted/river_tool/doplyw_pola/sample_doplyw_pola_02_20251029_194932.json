@@ -1,0 +1,182 @@
+{
+  "grid": 64,
+  "entry_side": "top_left",
+  "exit_side": "bottom",
+  "seed": 2412,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_fields_64.png",
+  "start": {
+    "x": 8.375,
+    "y": 18.36009989039509
+  },
+  "end": {
+    "x": 32.0,
+    "y": 59.27980021920982
+  },
+  "shape": "turn",
+  "shape_strength": 0.55,
+  "shape_direction": -1,
+  "shape_direction_mode": "right",
+  "noise_amplitude": 0.18,
+  "noise_frequency": 1.9,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 8.375,
+        "y": 18.36009989039509
+      },
+      {
+        "x": 42.806881841681154,
+        "y": 31.092793640395094
+      },
+      {
+        "x": 25.81089532526677,
+        "y": 30.24113146920982
+      },
+      {
+        "x": 32.0,
+        "y": 59.27980021920982
+      }
+    ],
+    "handle_lengths": {
+      "entry": 36.710706575749555,
+      "exit": 29.69089590172434
+    },
+    "entry_inward": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "exit_inward": {
+      "x": 0.0,
+      "y": -1.0
+    },
+    "span_direction": {
+      "x": 0.5,
+      "y": 0.8660254037844387
+    },
+    "lateral": {
+      "x": 12.378209349466458,
+      "y": -7.146562500000001
+    },
+    "lateral_sign": -1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.18,
+      "frequency": 1.9,
+      "seed": 2412,
+      "max_offset_px": 0.9216,
+      "offset_stats": {
+        "min": -0.09216140827242489,
+        "max": 0.0,
+        "median": -0.07550228845480066
+      }
+    }
+  },
+  "centerline_cell_count": 52,
+  "centerline_banks": {
+    "offset": 1.4249999999999998,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.40249999999999997,
+    "left_cell_count": 51,
+    "right_cell_count": 55
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "top_right",
+    "join_ratio": 0.5,
+    "join_ratio_percent": 50.0,
+    "join_point": {
+      "x": 30.73245853104647,
+      "y": 32.20681265775341
+    },
+    "join_direction": {
+      "x": 0.2710857713080451,
+      "y": 0.9625551956092295
+    },
+    "shape": "curve",
+    "shape_strength": 0.72,
+    "shape_direction": null,
+    "shape_direction_mode": "left",
+    "noise_amplitude": 0.2,
+    "noise_frequency": 2.4,
+    "noise_applied": true,
+    "seed": 1003612,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 55.625,
+          "y": 18.36009989039509
+        },
+        {
+          "x": 38.35167752220709,
+          "y": 24.781067232989475
+        },
+        {
+          "x": 48.149173033463846,
+          "y": 26.03884965039801
+        },
+        {
+          "x": 30.73245853104647,
+          "y": 32.20681265775341
+        }
+      ],
+      "handle_lengths": {
+        "entry": 18.42814399326447,
+        "exit": 18.476626091330107
+      },
+      "entry_inward": {
+        "x": -0.8660254037844386,
+        "y": 0.5
+      },
+      "exit_inward": {
+        "x": 0.8738959894214098,
+        "y": -0.4861129495016311
+      },
+      "span_direction": {
+        "x": -0.8738959894214098,
+        "y": 0.4861129495016311
+      },
+      "lateral": {
+        "x": -2.990889957749397,
+        "y": -5.376788957293963
+      },
+      "lateral_sign": 1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.2,
+        "frequency": 2.4,
+        "seed": 1003612,
+        "max_offset_px": 1.024,
+        "offset_stats": {
+          "min": -0.26059618561932474,
+          "max": 0.0,
+          "median": -0.2389634502733635
+        }
+      }
+    },
+    "bank_offset": 1.4249999999999998,
+    "bank_color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "bank_variation": 0.40249999999999997,
+    "bank_cell_count": {
+      "left": 27,
+      "right": 27
+    },
+    "cell_count": 26
+  }
+}

@@ -1,0 +1,182 @@
+{
+  "grid": 64,
+  "entry_side": "top_left",
+  "exit_side": "top_right",
+  "seed": 3892,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_sandy_mix_64.png",
+  "start": {
+    "x": 8.375,
+    "y": 18.36009989039509
+  },
+  "end": {
+    "x": 55.625,
+    "y": 18.36009989039509
+  },
+  "shape": "turn",
+  "shape_strength": 0.65,
+  "shape_direction": 1,
+  "shape_direction_mode": "left",
+  "noise_amplitude": 0.28,
+  "noise_frequency": 2.5,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 8.375,
+        "y": 18.36009989039509
+      },
+      {
+        "x": 37.45253905365574,
+        "y": 43.59396239039509
+      },
+      {
+        "x": 26.547460946344255,
+        "y": 26.702087390395093
+      },
+      {
+        "x": 55.625,
+        "y": 18.36009989039509
+      }
+    ],
+    "handle_lengths": {
+      "entry": 38.50001420890363,
+      "exit": 30.250488142623936
+    },
+    "entry_inward": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "exit_inward": {
+      "x": -0.8660254037844386,
+      "y": 0.5
+    },
+    "span_direction": {
+      "x": 1.0,
+      "y": 0.0
+    },
+    "lateral": {
+      "x": -0.0,
+      "y": 16.891875000000002
+    },
+    "lateral_sign": 1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.28,
+      "frequency": 2.5,
+      "seed": 3892,
+      "max_offset_px": 1.4336000000000002,
+      "offset_stats": {
+        "min": -0.7227773220410403,
+        "max": 0.09621485955559916,
+        "median": 0.0
+      }
+    }
+  },
+  "centerline_cell_count": 49,
+  "centerline_banks": {
+    "offset": 1.7999999999999998,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.35,
+    "left_cell_count": 52,
+    "right_cell_count": 47
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "bottom_left",
+    "join_ratio": 0.52,
+    "join_ratio_percent": 52.0,
+    "join_point": {
+      "x": 32.5088443557657,
+      "y": 30.504283861457886
+    },
+    "join_direction": {
+      "x": 0.8159827633642572,
+      "y": -0.5780762319040895
+    },
+    "shape": "turn",
+    "shape_strength": 0.9,
+    "shape_direction": null,
+    "shape_direction_mode": "right",
+    "noise_amplitude": 0.35,
+    "noise_frequency": 3.0,
+    "noise_applied": true,
+    "seed": 1005342,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 8.375,
+          "y": 45.63990010960491
+        },
+        {
+          "x": 30.91032499010123,
+          "y": 40.765042286862865
+        },
+        {
+          "x": 10.382443472998151,
+          "y": 36.05844271799465
+        },
+        {
+          "x": 32.5088443557657,
+          "y": 30.504283861457886
+        }
+      ],
+      "handle_lengths": {
+        "entry": 23.056563299881237,
+        "exit": 22.812853758979443
+      },
+      "entry_inward": {
+        "x": 0.8660254037844386,
+        "y": -0.5
+      },
+      "exit_inward": {
+        "x": -0.8471774733304949,
+        "y": 0.5313100118399414
+      },
+      "span_direction": {
+        "x": 0.8471774733304949,
+        "y": -0.5313100118399414
+      },
+      "lateral": {
+        "x": 7.492130042832777,
+        "y": 11.946252956104024
+      },
+      "lateral_sign": 1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.35,
+        "frequency": 3.0,
+        "seed": 1005342,
+        "max_offset_px": 1.7919999999999998,
+        "offset_stats": {
+          "min": -0.762363761697577,
+          "max": 0.0,
+          "median": -0.40025380406656447
+        }
+      }
+    },
+    "bank_offset": 1.7999999999999998,
+    "bank_color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "bank_variation": 0.35,
+    "bank_cell_count": {
+      "left": 30,
+      "right": 30
+    },
+    "cell_count": 30
+  }
+}
