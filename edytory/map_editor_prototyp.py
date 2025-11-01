@@ -56,7 +56,7 @@ DEFAULT_MAP_DIR = ASSET_ROOT
 # Zmieniamy domyślną ścieżkę zapisu danych mapy na data/map_data.json
 DATA_FILENAME_WORKING = DATA_ROOT / "map_data.json"
 SOLID_BACKGROUND_COLOR = (48, 64, 40)
-HEX_TEXTURE_GRID_OPTIONS = (64, 128)
+HEX_TEXTURE_GRID_OPTIONS = (64,)
 DEFAULT_HEX_TEXTURE_GRID_SIZE = HEX_TEXTURE_GRID_OPTIONS[0]
 HEX_TEXTURE_EXPORT_SIZES = {
     64: 512,
@@ -108,6 +108,140 @@ TRIBUTARY_DIRECTION_LABELS = {
     "right": "Prawy łuk",
 }
 TRIBUTARY_DIRECTION_LABEL_TO_KEY = {label: key for key, label in TRIBUTARY_DIRECTION_LABELS.items()}
+
+
+CUSTOM_PROFILE_LABEL = "Niestandardowo (zachowaj)"
+
+RIVER_SIZE_OPTIONS = {
+    CUSTOM_PROFILE_LABEL: None,
+    "Duża rzeka": {
+        "grid_size": 64,
+        "bank_offset": DEFAULT_BANK_OFFSET * 1.55,
+        "bank_variation": DEFAULT_BANK_VARIATION * 1.2,
+    },
+    "Mała rzeka": {
+        "grid_size": 64,
+        "bank_offset": DEFAULT_BANK_OFFSET * 1.05,
+        "bank_variation": DEFAULT_BANK_VARIATION,
+    },
+    "Strumień": {
+        "grid_size": 64,
+        "bank_offset": DEFAULT_BANK_OFFSET * 0.78,
+        "bank_variation": DEFAULT_BANK_VARIATION * 0.85,
+    },
+}
+
+RIVER_CURVATURE_OPTIONS = {
+    CUSTOM_PROFILE_LABEL: None,
+    "Prosta": {
+        "shape_preference": "straight",
+        "shape_strength": 0.25,
+        "noise_amplitude": 0.05,
+        "noise_frequency": 1.2,
+    },
+    "Łagodna": {
+        "shape_preference": "curve",
+        "shape_strength": 0.45,
+        "noise_amplitude": 0.18,
+        "noise_frequency": 1.8,
+    },
+    "Meandrująca": {
+        "shape_preference": "curve",
+        "shape_strength": 0.7,
+        "noise_amplitude": 0.3,
+        "noise_frequency": 2.4,
+    },
+    "Dynamiczna": {
+        "shape_preference": "turn",
+        "shape_strength": 0.85,
+        "noise_amplitude": 0.45,
+        "noise_frequency": 3.0,
+    },
+}
+
+RIVER_BANK_OPTIONS = {
+    CUSTOM_PROFILE_LABEL: None,
+    "Stabilny brzeg": {
+        "offset_multiplier": 1.0,
+        "variation_multiplier": 0.85,
+        "variation_add": 0.0,
+    },
+    "Erozyjny brzeg": {
+        "offset_multiplier": 1.15,
+        "variation_multiplier": 1.25,
+        "variation_add": 0.08,
+    },
+    "Piaszczysty brzeg": {
+        "offset_multiplier": 1.25,
+        "variation_multiplier": 0.95,
+        "variation_add": -0.02,
+    },
+    "Błotnisty brzeg": {
+        "offset_multiplier": 0.9,
+        "variation_multiplier": 1.35,
+        "variation_add": 0.1,
+    },
+}
+
+RIVER_TEMPLATE_SEGMENTS = {
+    "Prosty": [(1, 0), (1, 0), (1, 0)],
+    "Łuk w lewo": [(1, 0), (0, 1), (-1, 1)],
+    "Łuk w prawo": [(1, 0), (1, -1), (0, -1)],
+    "Meander": [(1, 0), (0, 1), (-1, 1), (-1, 0)],
+    "Zygzak": [(1, 0), (1, -1), (1, 0), (1, -1)],
+}
+
+TRIBUTARY_SIZE_OPTIONS = {
+    CUSTOM_PROFILE_LABEL: None,
+    "Mały dopływ": {
+        "bank_offset_scale": 0.65,
+        "variation_scale": 0.9,
+    },
+    "Średni dopływ": {
+        "bank_offset_scale": 0.8,
+        "variation_scale": 1.0,
+    },
+    "Duży dopływ": {
+        "bank_offset_scale": 1.0,
+        "variation_scale": 1.15,
+    },
+}
+
+TRIBUTARY_CHARACTER_OPTIONS = {
+    CUSTOM_PROFILE_LABEL: None,
+    "Łagodny dopływ": {
+        "shape": "curve",
+        "shape_strength": 0.55,
+        "noise_amplitude": 0.18,
+        "noise_frequency": 2.2,
+        "shape_direction_mode": "auto",
+    },
+    "Ostry dopływ": {
+        "shape": "turn",
+        "shape_strength": 0.85,
+        "noise_amplitude": 0.32,
+        "noise_frequency": 2.9,
+        "shape_direction_mode": "auto",
+    },
+    "Esowaty dopływ": {
+        "shape": "curve",
+        "shape_strength": 0.75,
+        "noise_amplitude": 0.28,
+        "noise_frequency": 2.6,
+        "shape_direction_mode": "auto",
+    },
+}
+
+TRIBUTARY_ENTRY_OPTIONS = {
+    "z prawego górnego": {"entry_side": "top_right", "default_join": 0.35},
+    "z górnego": {"entry_side": "top", "default_join": 0.25},
+    "z lewego górnego": {"entry_side": "top_left", "default_join": 0.45},
+    "z prawego dolnego": {"entry_side": "bottom_right", "default_join": 0.65},
+    "z dolnego": {"entry_side": "bottom", "default_join": 0.75},
+    "z lewego dolnego": {"entry_side": "bottom_left", "default_join": 0.55},
+}
+
+TRIBUTARY_ENTRY_SIDE_TO_LABEL = {config["entry_side"]: label for label, config in TRIBUTARY_ENTRY_OPTIONS.items()}
 
 SQRT_3 = math.sqrt(3.0)
 
@@ -493,14 +627,31 @@ class MapEditor:
         self.river_seed_var = tk.IntVar(value=random.randint(0, 9999))
         self.river_bank_offset_var = tk.DoubleVar(value=DEFAULT_BANK_OFFSET)
         self.river_bank_variation_var = tk.DoubleVar(value=DEFAULT_BANK_VARIATION)
-        self.river_large_mode_var = tk.BooleanVar(value=False)
         self.river_grid_var = tk.StringVar(value=str(DEFAULT_HEX_TEXTURE_GRID_SIZE))
+        self.river_grid_info_var = tk.StringVar(value="Siatka: 64 (512 px)")
+        self.river_seed_label_var = tk.StringVar(value=f"Seed: {self.river_seed_var.get()}")
+        self.river_size_profile_var = tk.StringVar(value="Mała rzeka")
+        self.river_curvature_profile_var = tk.StringVar(value="Łagodna")
+        self.river_bank_profile_var = tk.StringVar(value="Stabilny brzeg")
+        self.river_large_mode_var = tk.BooleanVar(value=False)
+        self._current_river_params: dict[str, float | str] = {
+            "grid_size": DEFAULT_HEX_TEXTURE_GRID_SIZE,
+            "shape_preference": "auto",
+            "shape_strength": 0.5,
+            "noise_amplitude": 0.0,
+            "noise_frequency": 2.0,
+            "base_bank_offset": DEFAULT_BANK_OFFSET,
+            "base_bank_variation": DEFAULT_BANK_VARIATION,
+            "bank_offset": DEFAULT_BANK_OFFSET,
+            "bank_variation": DEFAULT_BANK_VARIATION,
+        }
         self.river_status_var = tk.StringVar(value="Ścieżka rzeki: 0 heksów")
         self._river_resume_expected_exit: str | None = None
         self._river_resume_branch: str = "main"
         self._skip_river_mode_popup = False
         self.river_tributary_enabled_var = tk.BooleanVar(value=False)
-        self.river_tributary_entry_var = tk.StringVar(value=HEX_SIDE_DISPLAY_LABELS["top_left"])
+        default_entry_label = next(iter(TRIBUTARY_ENTRY_OPTIONS))
+        self.river_tributary_entry_var = tk.StringVar(value=default_entry_label)
         self.river_tributary_join_var = tk.DoubleVar(value=55.0)
         self.river_tributary_shape_var = tk.StringVar(value=TRIBUTARY_SHAPE_LABELS["curve"])
         self.river_tributary_strength_var = tk.DoubleVar(value=0.6)
@@ -508,6 +659,20 @@ class MapEditor:
         self.river_tributary_frequency_var = tk.DoubleVar(value=2.5)
         self.river_tributary_direction_var = tk.StringVar(value=TRIBUTARY_DIRECTION_LABELS["auto"])
         self.river_tributary_seed_offset_var = tk.IntVar(value=1_000_000)
+        self.tributary_size_profile_var = tk.StringVar(value="Średni dopływ")
+        self.tributary_character_profile_var = tk.StringVar(value="Łagodny dopływ")
+        self.tributary_entry_profile_var = self.river_tributary_entry_var
+        default_size_cfg = TRIBUTARY_SIZE_OPTIONS.get("Średni dopływ", {})
+        default_char_cfg = TRIBUTARY_CHARACTER_OPTIONS.get("Łagodny dopływ", {})
+        self._current_tributary_params: dict[str, float | str] = {
+            "bank_offset_scale": default_size_cfg.get("bank_offset_scale", 0.8),
+            "variation_scale": default_size_cfg.get("variation_scale", 1.0),
+            "shape": default_char_cfg.get("shape", "curve"),
+            "shape_strength": default_char_cfg.get("shape_strength", 0.6),
+            "noise_amplitude": default_char_cfg.get("noise_amplitude", 0.0),
+            "noise_frequency": default_char_cfg.get("noise_frequency", 2.5),
+            "shape_direction_mode": default_char_cfg.get("shape_direction_mode", "auto"),
+        }
         self._river_tributary_widgets: list[tuple[tk.Widget, str]] = []
         self.river_tributary_enabled_var.trace_add("write", lambda *_: self._update_tributary_controls_state())
 
@@ -1040,162 +1205,112 @@ class MapEditor:
         river_controls.pack(fill=tk.X)
         river_controls.columnconfigure(1, weight=1)
 
-        shape_label_widget = tk.Label(river_controls, text="Kształt (?)", bg="darkolivegreen", fg="white")
-        shape_label_widget.grid(row=0, column=0, sticky="w")
-        self.create_tooltip(
-            shape_label_widget,
-            "Wybierz przebieg rzeki: Automatycznie dopasowuje kształt, Prosty utrzymuje linię, Zakole dodaje łuki, Zakręt mocno zmienia kierunek.",
-        )
-        shape_values = tuple(RIVER_SHAPE_LABELS[key] for key in ("auto", "straight", "curve", "turn"))
-        self.river_shape_combo = ttk.Combobox(
+        size_label = tk.Label(river_controls, text="Rozmiar", bg="darkolivegreen", fg="white")
+        size_label.grid(row=0, column=0, sticky="w")
+        size_values = list(RIVER_SIZE_OPTIONS.keys())
+        self.river_size_combo = ttk.Combobox(
             river_controls,
-            textvariable=self.river_shape_var,
-            values=shape_values,
+            textvariable=self.river_size_profile_var,
+            values=size_values,
             state="readonly",
-            width=11,
+            width=18,
         )
-        self.river_shape_combo.grid(row=0, column=1, sticky="we", pady=1)
-        try:
-            shape_index = shape_values.index(self.river_shape_var.get())
-        except ValueError:
-            shape_index = 0
-        self.river_shape_combo.current(shape_index)
-
-        strength_label = tk.Label(river_controls, text="Siła (?)", bg="darkolivegreen", fg="white")
-        strength_label.grid(row=1, column=0, sticky="w")
+        self.river_size_combo.grid(row=0, column=1, sticky="we", pady=1)
+        self.river_size_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_river_profiles())
         self.create_tooltip(
-            strength_label,
-            "Steruje nasilenie zakoli. 0 = niemal prosta linia, 1 = bardzo wyraźne łuki i odgięcia.",
+            self.river_size_combo,
+            "Wybierz szerokość nurtu: od strumienia po dużą rzekę.",
         )
-        self.river_strength_spinbox = tk.Spinbox(
-            river_controls,
-            from_=0.0,
-            to=1.0,
-            increment=0.05,
-            textvariable=self.river_strength_var,
-            width=6,
-        )
-        self.river_strength_spinbox.grid(row=1, column=1, sticky="we", pady=1)
 
-        noise_label = tk.Label(river_controls, text="Szum (?)", bg="darkolivegreen", fg="white")
-        noise_label.grid(row=2, column=0, sticky="w")
-        self.create_tooltip(
-            noise_label,
-            "Dodaje losowe odchylenia koryta. Większa wartość = bardziej poszarpany nurt.",
-        )
-        self.river_noise_spinbox = tk.Spinbox(
+        curve_label = tk.Label(river_controls, text="Krętość", bg="darkolivegreen", fg="white")
+        curve_label.grid(row=1, column=0, sticky="w")
+        curve_values = list(RIVER_CURVATURE_OPTIONS.keys())
+        self.river_curvature_combo = ttk.Combobox(
             river_controls,
-            from_=0.0,
-            to=3.0,
-            increment=0.05,
-            textvariable=self.river_noise_var,
-            width=6,
-        )
-        self.river_noise_spinbox.grid(row=2, column=1, sticky="we", pady=1)
-
-        freq_label = tk.Label(river_controls, text="Częst. (?)", bg="darkolivegreen", fg="white")
-        freq_label.grid(row=3, column=0, sticky="w")
-        self.create_tooltip(
-            freq_label,
-            "Reguluje gęstość falowania przy włączonym szumie. Wyższa wartość = więcej drobnych załamań.",
-        )
-        self.river_frequency_spinbox = tk.Spinbox(
-            river_controls,
-            from_=0.1,
-            to=6.0,
-            increment=0.1,
-            textvariable=self.river_frequency_var,
-            width=6,
-        )
-        self.river_frequency_spinbox.grid(row=3, column=1, sticky="we", pady=1)
-
-        seed_label = tk.Label(river_controls, text="Seed (?)", bg="darkolivegreen", fg="white")
-        seed_label.grid(row=4, column=0, sticky="w")
-        self.create_tooltip(
-            seed_label,
-            "Ustaw numer, do którego chcesz wrócić. Ta sama wartość zawsze da identyczny kształt rzeki.",
-        )
-        self.river_seed_spinbox = tk.Spinbox(
-            river_controls,
-            from_=0,
-            to=999999,
-            increment=1,
-            textvariable=self.river_seed_var,
-            width=8,
-        )
-        self.river_seed_spinbox.grid(row=4, column=1, sticky="we", pady=1)
-
-        grid_label = tk.Label(river_controls, text="Siatka (?)", bg="darkolivegreen", fg="white")
-        grid_label.grid(row=5, column=0, sticky="w")
-        self.create_tooltip(
-            grid_label,
-            "Rozdzielczość tekstury heksu. 64 = 512 px, 128 = 1024 px po eksporcie.",
-        )
-        grid_values = [str(opt) for opt in HEX_TEXTURE_GRID_OPTIONS]
-        self.river_grid_combo = ttk.Combobox(
-            river_controls,
-            values=grid_values,
-            textvariable=self.river_grid_var,
+            textvariable=self.river_curvature_profile_var,
+            values=curve_values,
             state="readonly",
-            width=6,
+            width=18,
         )
-        self.river_grid_combo.grid(row=5, column=1, sticky="we", pady=1)
-        try:
-            grid_index = grid_values.index(self.river_grid_var.get())
-        except ValueError:
-            grid_index = 0
-        self.river_grid_combo.current(grid_index)
-
-        bank_offset_label = tk.Label(river_controls, text="Śr. szer. (?)", bg="darkolivegreen", fg="white")
-        bank_offset_label.grid(row=6, column=0, sticky="w", pady=(4, 0))
+        self.river_curvature_combo.grid(row=1, column=1, sticky="we", pady=1)
+        self.river_curvature_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_river_profiles())
         self.create_tooltip(
-            bank_offset_label,
-            "Średnia szerokość brzegów (w pikselach siatki). Wyższa wartość = szersze łachy piasku.",
+            self.river_curvature_combo,
+            "Określ jak mocno rzeka zakręca: od prostego koryta po dynamiczne meandry.",
         )
-        self.river_bank_offset_spinbox = tk.Spinbox(
-            river_controls,
-            from_=0.6,
-            to=3.2,
-            increment=0.05,
-            textvariable=self.river_bank_offset_var,
-            width=6,
-            format="%.2f",
-        )
-        self.river_bank_offset_spinbox.grid(row=6, column=1, sticky="we", padx=(0, 4), pady=(4, 0))
 
-        bank_variation_label = tk.Label(river_controls, text="Niereg. (?)", bg="darkolivegreen", fg="white")
-        bank_variation_label.grid(row=7, column=0, sticky="w")
+        bank_label = tk.Label(river_controls, text="Typ brzegu", bg="darkolivegreen", fg="white")
+        bank_label.grid(row=2, column=0, sticky="w")
+        bank_values = list(RIVER_BANK_OPTIONS.keys())
+        self.river_bank_combo = ttk.Combobox(
+            river_controls,
+            textvariable=self.river_bank_profile_var,
+            values=bank_values,
+            state="readonly",
+            width=18,
+        )
+        self.river_bank_combo.grid(row=2, column=1, sticky="we", pady=1)
+        self.river_bank_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_river_profiles())
         self.create_tooltip(
-            bank_variation_label,
-            "Kontroluje falowanie brzegów. Większa wartość = bardziej naturalne, nieregularne krawędzie.",
+            self.river_bank_combo,
+            "Wybierz charakter brzegów: stabilne, piaszczyste, błotniste lub erozyjne.",
         )
-        self.river_bank_variation_spinbox = tk.Spinbox(
-            river_controls,
-            from_=0.0,
-            to=0.8,
-            increment=0.05,
-            textvariable=self.river_bank_variation_var,
-            width=6,
-            format="%.2f",
-        )
-        self.river_bank_variation_spinbox.grid(row=7, column=1, sticky="we", padx=(0, 4), pady=1)
 
-        large_mode_check = tk.Checkbutton(
+        grid_info = tk.Label(
             river_controls,
-            text="Duża rzeka (×2.5)",
-            variable=self.river_large_mode_var,
+            textvariable=self.river_grid_info_var,
             bg="darkolivegreen",
-            fg="white",
-            activebackground="darkolivegreen",
-            activeforeground="white",
-            selectcolor="#2f6b2f",
+            fg="#d4f2bf",
             anchor="w",
         )
-        large_mode_check.grid(row=8, column=0, columnspan=2, sticky="we", pady=(2, 0))
+        grid_info.grid(row=3, column=0, columnspan=2, sticky="we", pady=(2, 0))
+
+        seed_frame = tk.Frame(river_controls, bg="darkolivegreen")
+        seed_frame.grid(row=4, column=0, columnspan=2, sticky="we", pady=(2, 0))
+        seed_label = tk.Label(seed_frame, textvariable=self.river_seed_label_var, bg="darkolivegreen", fg="white")
+        seed_label.pack(side=tk.LEFT)
         self.create_tooltip(
-            large_mode_check,
-            "Włącza grubszą warstwę piasku dla głównego nurtu. Mnoży szerokość ×2.5.",
+            seed_label,
+            "Bieżący seed wpływający na losowość koryta. Możesz wylosować nowy gdy chcesz odmienny układ.",
         )
+        seed_button = tk.Button(
+            seed_frame,
+            text="Losuj ziarno",
+            command=self._randomize_river_seed,
+            bg="#446b2f",
+            fg="white",
+            relief=tk.FLAT,
+        )
+        seed_button.pack(side=tk.RIGHT)
+        self.create_tooltip(
+            seed_button,
+            "Losuje nowy seed dla rzeki, zachowując pozostałe ustawienia profilu.",
+        )
+
+        template_frame = tk.LabelFrame(
+            self.river_frame,
+            text="Szablony nurtu",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9, "bold"),
+        )
+        template_frame.pack(fill=tk.X, pady=(4, 4))
+        template_frame.columnconfigure(0, weight=1)
+        template_frame.columnconfigure(1, weight=1)
+        for idx, (template_label, _) in enumerate(RIVER_TEMPLATE_SEGMENTS.items()):
+            btn = tk.Button(
+                template_frame,
+                text=template_label,
+                command=lambda name=template_label: self._apply_river_template(name),
+                bg="#2f6b2f",
+                fg="white",
+            )
+            row_idx, col_idx = divmod(idx, 2)
+            btn.grid(row=row_idx, column=col_idx, sticky="we", padx=2, pady=2)
+            self.create_tooltip(
+                btn,
+                "Dodaje do ścieżki serię heksów zgodnie z wybranym wzorem (wymagany początkowy heks).",
+            )
 
         tributary_frame = tk.LabelFrame(
             self.river_frame,
@@ -1232,26 +1347,63 @@ class MapEditor:
         for col_idx in (1,):
             tributary_controls.columnconfigure(col_idx, weight=1)
 
-        side_values = list(HEX_SIDE_DISPLAY_LABELS.values())
-        tk.Label(tributary_controls, text="Wejście", bg="darkolivegreen", fg="white").grid(
-            row=0, column=0, sticky="w"
+        tk.Label(tributary_controls, text="Rozmiar", bg="darkolivegreen", fg="white").grid(row=0, column=0, sticky="w")
+        tributary_size_values = list(TRIBUTARY_SIZE_OPTIONS.keys())
+        self.tributary_size_combo = ttk.Combobox(
+            tributary_controls,
+            values=tributary_size_values,
+            textvariable=self.tributary_size_profile_var,
+            state="readonly",
+            width=18,
         )
+        self.tributary_size_combo.grid(row=0, column=1, sticky="we", pady=1)
+        self.tributary_size_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_tributary_profiles())
+        self._register_tributary_control(self.tributary_size_combo, enabled_state="readonly")
+        self.create_tooltip(
+            self.tributary_size_combo,
+            "Określ, jak szeroki ma być dopływ względem głównej rzeki.",
+        )
+
+        tk.Label(tributary_controls, text="Charakter", bg="darkolivegreen", fg="white").grid(
+            row=1, column=0, sticky="w"
+        )
+        tributary_character_values = list(TRIBUTARY_CHARACTER_OPTIONS.keys())
+        self.tributary_character_combo = ttk.Combobox(
+            tributary_controls,
+            values=tributary_character_values,
+            textvariable=self.tributary_character_profile_var,
+            state="readonly",
+            width=18,
+        )
+        self.tributary_character_combo.grid(row=1, column=1, sticky="we", pady=1)
+        self.tributary_character_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_tributary_profiles())
+        self._register_tributary_control(self.tributary_character_combo, enabled_state="readonly")
+        self.create_tooltip(
+            self.tributary_character_combo,
+            "Wybierz jak dopływ ma zakręcać: łagodnie, ostro lub esowato.",
+        )
+
+        tk.Label(tributary_controls, text="Kierunek wejścia", bg="darkolivegreen", fg="white").grid(
+            row=2, column=0, sticky="w"
+        )
+        entry_values = list(TRIBUTARY_ENTRY_OPTIONS.keys())
         self.river_tributary_entry_combo = ttk.Combobox(
             tributary_controls,
-            values=side_values,
-            textvariable=self.river_tributary_entry_var,
+            values=entry_values,
+            textvariable=self.tributary_entry_profile_var,
             state="readonly",
-            width=14,
+            width=18,
         )
-        self.river_tributary_entry_combo.grid(row=0, column=1, sticky="we", pady=1)
+        self.river_tributary_entry_combo.grid(row=2, column=1, sticky="we", pady=1)
+        self.river_tributary_entry_combo.bind("<<ComboboxSelected>>", self._on_tributary_entry_change)
         self._register_tributary_control(self.river_tributary_entry_combo, enabled_state="readonly")
         self.create_tooltip(
             self.river_tributary_entry_combo,
-            "Wybierz bok heksu, z którego dopływ ma wpływać do głównego nurtu.",
+            "Wskaż, z której krawędzi heksu dopływ ma wpadać do głównego nurtu.",
         )
 
         tk.Label(tributary_controls, text="Połączenie (%)", bg="darkolivegreen", fg="white").grid(
-            row=1, column=0, sticky="w"
+            row=3, column=0, sticky="w"
         )
         self.river_tributary_join_spinbox = tk.Spinbox(
             tributary_controls,
@@ -1261,119 +1413,11 @@ class MapEditor:
             textvariable=self.river_tributary_join_var,
             width=6,
         )
-        self.river_tributary_join_spinbox.grid(row=1, column=1, sticky="we", pady=1)
+        self.river_tributary_join_spinbox.grid(row=3, column=1, sticky="we", pady=1)
         self._register_tributary_control(self.river_tributary_join_spinbox)
         self.create_tooltip(
             self.river_tributary_join_spinbox,
             "Określa punkt połączenia dopływu (20% to początek nurtu, 80% blisko końca).",
-        )
-
-        tk.Label(tributary_controls, text="Kształt", bg="darkolivegreen", fg="white").grid(
-            row=2, column=0, sticky="w"
-        )
-        tributary_shape_values = list(TRIBUTARY_SHAPE_LABELS.values())
-        self.river_tributary_shape_combo = ttk.Combobox(
-            tributary_controls,
-            values=tributary_shape_values,
-            textvariable=self.river_tributary_shape_var,
-            state="readonly",
-            width=14,
-        )
-        self.river_tributary_shape_combo.grid(row=2, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_shape_combo, enabled_state="readonly")
-        self.create_tooltip(
-            self.river_tributary_shape_combo,
-            "Decyduje o łuku dopływu (prosty, łagodny lub ostry zakręt).",
-        )
-
-        tk.Label(tributary_controls, text="Siła", bg="darkolivegreen", fg="white").grid(
-            row=3, column=0, sticky="w"
-        )
-        self.river_tributary_strength_spinbox = tk.Spinbox(
-            tributary_controls,
-            from_=0.0,
-            to=1.0,
-            increment=0.05,
-            textvariable=self.river_tributary_strength_var,
-            width=6,
-        )
-        self.river_tributary_strength_spinbox.grid(row=3, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_strength_spinbox)
-        self.create_tooltip(
-            self.river_tributary_strength_spinbox,
-            "Im wyższa wartość, tym mocniej dopływ odgina się względem linii prostej.",
-        )
-
-        tk.Label(tributary_controls, text="Kierunek", bg="darkolivegreen", fg="white").grid(
-            row=4, column=0, sticky="w"
-        )
-        tributary_direction_values = list(TRIBUTARY_DIRECTION_LABELS.values())
-        self.river_tributary_direction_combo = ttk.Combobox(
-            tributary_controls,
-            values=tributary_direction_values,
-            textvariable=self.river_tributary_direction_var,
-            state="readonly",
-            width=14,
-        )
-        self.river_tributary_direction_combo.grid(row=4, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_direction_combo, enabled_state="readonly")
-        self.create_tooltip(
-            self.river_tributary_direction_combo,
-            "Losowy kierunek łuku lub wymuszenie skrętu w lewo/prawo względem nurtu.",
-        )
-
-        tk.Label(tributary_controls, text="Szum", bg="darkolivegreen", fg="white").grid(
-            row=5, column=0, sticky="w"
-        )
-        self.river_tributary_noise_spinbox = tk.Spinbox(
-            tributary_controls,
-            from_=0.0,
-            to=3.0,
-            increment=0.05,
-            textvariable=self.river_tributary_noise_var,
-            width=6,
-        )
-        self.river_tributary_noise_spinbox.grid(row=5, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_noise_spinbox)
-        self.create_tooltip(
-            self.river_tributary_noise_spinbox,
-            "Dodaje poszarpanie do dopływu. Więcej = bardziej nierówny brzeg.",
-        )
-
-        tk.Label(tributary_controls, text="Częst.", bg="darkolivegreen", fg="white").grid(
-            row=6, column=0, sticky="w"
-        )
-        self.river_tributary_frequency_spinbox = tk.Spinbox(
-            tributary_controls,
-            from_=0.1,
-            to=6.0,
-            increment=0.1,
-            textvariable=self.river_tributary_frequency_var,
-            width=6,
-        )
-        self.river_tributary_frequency_spinbox.grid(row=6, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_frequency_spinbox)
-        self.create_tooltip(
-            self.river_tributary_frequency_spinbox,
-            "Gęstość falowania dopływu. Wyższa wartość = więcej małych odchyleń.",
-        )
-
-        tk.Label(tributary_controls, text="Seed offset", bg="darkolivegreen", fg="white").grid(
-            row=7, column=0, sticky="w"
-        )
-        self.river_tributary_seed_spinbox = tk.Spinbox(
-            tributary_controls,
-            from_=0,
-            to=9_999_999,
-            increment=1,
-            textvariable=self.river_tributary_seed_offset_var,
-            width=8,
-        )
-        self.river_tributary_seed_spinbox.grid(row=7, column=1, sticky="we", pady=1)
-        self._register_tributary_control(self.river_tributary_seed_spinbox)
-        self.create_tooltip(
-            self.river_tributary_seed_spinbox,
-            "Dla tej samej wartości dopływ zachowa identyczny kształt przy kolejnych generacjach.",
         )
 
         tk.Label(
@@ -1438,6 +1482,10 @@ class MapEditor:
             wraplength=190,
         ).pack(fill=tk.X, pady=(2, 0))
 
+        self._apply_river_profiles()
+        self._apply_tributary_profiles()
+        self._on_tributary_entry_change()
+        self._update_river_seed_label()
         self._river_update_status()
         self._set_river_section_visibility(False)
 
@@ -1535,6 +1583,195 @@ class MapEditor:
         # === CANVAS MAPY ===
         self.build_map_canvas()
         self._update_map_info_label()
+
+    def _update_river_seed_label(self) -> None:
+        try:
+            seed_value = int(self.river_seed_var.get())
+        except (TypeError, ValueError):
+            seed_value = random.randint(0, 9999)
+            self.river_seed_var.set(seed_value)
+        self.river_seed_label_var.set(f"Seed: {seed_value}")
+
+    def _randomize_river_seed(self) -> None:
+        self.river_seed_var.set(random.randint(0, 9999))
+        self._update_river_seed_label()
+
+    def _apply_river_profiles(self) -> None:
+        params = dict(self._current_river_params)
+
+        size_label = (self.river_size_profile_var.get() or CUSTOM_PROFILE_LABEL).strip()
+        size_cfg = RIVER_SIZE_OPTIONS.get(size_label)
+        if size_cfg:
+            grid_size = int(size_cfg.get("grid_size", DEFAULT_HEX_TEXTURE_GRID_SIZE))
+            base_bank_offset = float(size_cfg.get("bank_offset", DEFAULT_BANK_OFFSET))
+            base_bank_variation = float(size_cfg.get("bank_variation", DEFAULT_BANK_VARIATION))
+        else:
+            grid_size = int(params.get("grid_size", DEFAULT_HEX_TEXTURE_GRID_SIZE))
+            try:
+                grid_size = int(self.river_grid_var.get())
+            except (TypeError, ValueError):
+                pass
+            try:
+                base_bank_offset = float(self.river_bank_offset_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                base_bank_offset = float(params.get("base_bank_offset", DEFAULT_BANK_OFFSET))
+            try:
+                base_bank_variation = float(self.river_bank_variation_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                base_bank_variation = float(params.get("base_bank_variation", DEFAULT_BANK_VARIATION))
+
+        curvature_label = (self.river_curvature_profile_var.get() or CUSTOM_PROFILE_LABEL).strip()
+        curvature_cfg = RIVER_CURVATURE_OPTIONS.get(curvature_label)
+        if curvature_cfg:
+            shape_preference = curvature_cfg.get("shape_preference", "auto")
+            shape_strength = float(curvature_cfg.get("shape_strength", 0.5))
+            noise_amplitude = float(curvature_cfg.get("noise_amplitude", 0.0))
+            noise_frequency = float(curvature_cfg.get("noise_frequency", 2.0))
+        else:
+            shape_preference = str(params.get("shape_preference", "auto"))
+            try:
+                shape_strength = float(self.river_strength_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                shape_strength = float(params.get("shape_strength", 0.5))
+            try:
+                noise_amplitude = float(self.river_noise_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                noise_amplitude = float(params.get("noise_amplitude", 0.0))
+            try:
+                noise_frequency = float(self.river_frequency_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                noise_frequency = float(params.get("noise_frequency", 2.0))
+
+        bank_label = (self.river_bank_profile_var.get() or CUSTOM_PROFILE_LABEL).strip()
+        bank_cfg = RIVER_BANK_OPTIONS.get(bank_label)
+        if bank_cfg:
+            bank_offset = base_bank_offset * float(bank_cfg.get("offset_multiplier", 1.0))
+            bank_variation = (
+                base_bank_variation * float(bank_cfg.get("variation_multiplier", 1.0))
+                + float(bank_cfg.get("variation_add", 0.0))
+            )
+        else:
+            try:
+                bank_offset = float(self.river_bank_offset_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                bank_offset = float(params.get("bank_offset", base_bank_offset))
+            try:
+                bank_variation = float(self.river_bank_variation_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                bank_variation = float(params.get("bank_variation", base_bank_variation))
+
+        if grid_size not in HEX_TEXTURE_GRID_OPTIONS:
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        bank_offset = max(0.5, min(3.5, bank_offset))
+        bank_variation = max(0.0, min(0.9, bank_variation))
+        shape_strength = max(0.0, min(1.0, shape_strength))
+        noise_amplitude = max(0.0, min(3.0, noise_amplitude))
+        noise_frequency = max(0.1, min(6.0, noise_frequency))
+
+        export_size = HEX_TEXTURE_EXPORT_SIZES.get(grid_size)
+        self.river_grid_var.set(str(grid_size))
+        if export_size:
+            self.river_grid_info_var.set(f"Siatka: {grid_size} ({export_size} px)")
+        else:
+            self.river_grid_info_var.set(f"Siatka: {grid_size}")
+
+        shape_label = RIVER_SHAPE_LABELS.get(shape_preference, RIVER_SHAPE_LABELS["auto"])
+        self.river_shape_var.set(shape_label)
+        self.river_strength_var.set(round(shape_strength, 3))
+        self.river_noise_var.set(round(noise_amplitude, 3))
+        self.river_frequency_var.set(round(noise_frequency, 3))
+        self.river_bank_offset_var.set(round(bank_offset, 3))
+        self.river_bank_variation_var.set(round(bank_variation, 3))
+        self.river_large_mode_var.set(False)
+
+        params.update(
+            grid_size=grid_size,
+            shape_preference=shape_preference,
+            shape_strength=shape_strength,
+            noise_amplitude=noise_amplitude,
+            noise_frequency=noise_frequency,
+            base_bank_offset=base_bank_offset,
+            base_bank_variation=base_bank_variation,
+            bank_offset=bank_offset,
+            bank_variation=bank_variation,
+        )
+        self._current_river_params = params
+
+    def _apply_tributary_profiles(self) -> None:
+        params = dict(self._current_tributary_params)
+
+        size_label = (self.tributary_size_profile_var.get() or CUSTOM_PROFILE_LABEL).strip()
+        size_cfg = TRIBUTARY_SIZE_OPTIONS.get(size_label)
+        if size_cfg:
+            bank_offset_scale = float(size_cfg.get("bank_offset_scale", 0.8))
+            variation_scale = float(size_cfg.get("variation_scale", 1.0))
+        else:
+            bank_offset_scale = float(params.get("bank_offset_scale", 0.8))
+            variation_scale = float(params.get("variation_scale", 1.0))
+
+        character_label = (self.tributary_character_profile_var.get() or CUSTOM_PROFILE_LABEL).strip()
+        character_cfg = TRIBUTARY_CHARACTER_OPTIONS.get(character_label)
+        if character_cfg:
+            shape_key = character_cfg.get("shape", "curve")
+            shape_strength = float(character_cfg.get("shape_strength", 0.6))
+            noise_amplitude = float(character_cfg.get("noise_amplitude", 0.0))
+            noise_frequency = float(character_cfg.get("noise_frequency", 2.5))
+            direction_mode = character_cfg.get("shape_direction_mode", "auto")
+        else:
+            shape_label = (self.river_tributary_shape_var.get() or TRIBUTARY_SHAPE_LABELS["curve"]).strip()
+            shape_key = TRIBUTARY_SHAPE_LABEL_TO_KEY.get(shape_label, str(params.get("shape", "curve")))
+            try:
+                shape_strength = float(self.river_tributary_strength_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                shape_strength = float(params.get("shape_strength", 0.6))
+            try:
+                noise_amplitude = float(self.river_tributary_noise_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                noise_amplitude = float(params.get("noise_amplitude", 0.0))
+            try:
+                noise_frequency = float(self.river_tributary_frequency_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                noise_frequency = float(params.get("noise_frequency", 2.5))
+            dir_label = (self.river_tributary_direction_var.get() or TRIBUTARY_DIRECTION_LABELS["auto"]).strip()
+            direction_mode = TRIBUTARY_DIRECTION_LABEL_TO_KEY.get(dir_label, str(params.get("shape_direction_mode", "auto")))
+
+        shape_strength = max(0.0, min(1.0, shape_strength))
+        noise_amplitude = max(0.0, min(3.0, noise_amplitude))
+        noise_frequency = max(0.1, min(6.0, noise_frequency))
+        if direction_mode not in TRIBUTARY_DIRECTION_LABELS:
+            direction_mode = "auto"
+
+        self.river_tributary_shape_var.set(TRIBUTARY_SHAPE_LABELS.get(shape_key, TRIBUTARY_SHAPE_LABELS["curve"]))
+        self.river_tributary_strength_var.set(round(shape_strength, 3))
+        self.river_tributary_noise_var.set(round(noise_amplitude, 3))
+        self.river_tributary_frequency_var.set(round(noise_frequency, 3))
+        self.river_tributary_direction_var.set(TRIBUTARY_DIRECTION_LABELS[direction_mode])
+
+        params.update(
+            bank_offset_scale=bank_offset_scale,
+            variation_scale=variation_scale,
+            shape=shape_key,
+            shape_strength=shape_strength,
+            noise_amplitude=noise_amplitude,
+            noise_frequency=noise_frequency,
+            shape_direction_mode=direction_mode,
+        )
+        self._current_tributary_params = params
+
+    def _on_tributary_entry_change(self, *_event: object) -> None:
+        entry_label = (self.tributary_entry_profile_var.get() or "").strip()
+        entry_cfg = TRIBUTARY_ENTRY_OPTIONS.get(entry_label)
+        if not entry_cfg:
+            return
+
+        self.river_tributary_entry_var.set(entry_label)
+        join_ratio = entry_cfg.get("default_join")
+        if join_ratio is not None:
+            self.river_tributary_join_var.set(int(round(join_ratio * 100.0)))
+
+        params = dict(self._current_tributary_params)
+        params.update(entry_side=entry_cfg.get("entry_side"))
+        self._current_tributary_params = params
 
     def open_map_configuration_dialog(self):
         dialog = tk.Toplevel(self.root)
@@ -2864,6 +3101,72 @@ class MapEditor:
             self.river_clear_button.config(state=undo_state)
         self._update_tributary_controls_state()
 
+    def _apply_river_template(self, template_name: str) -> None:
+        segments = RIVER_TEMPLATE_SEGMENTS.get(template_name)
+        if not segments:
+            self.set_status(f"Brak szablonu o nazwie: {template_name}.")
+            return
+        if not self.river_mode_active:
+            messagebox.showinfo(
+                "Szablony nurtu",
+                "Włącz tryb rzeki, aby użyć szablonu.",
+                parent=self.root,
+            )
+            return
+        if not self.river_path:
+            messagebox.showinfo(
+                "Szablony nurtu",
+                "Dodaj początkowy heks do ścieżki przed użyciem szablonu.",
+                parent=self.root,
+            )
+            return
+
+        try:
+            start_q, start_r = map(int, self.river_path[-1].split(","))
+        except ValueError:
+            messagebox.showerror(
+                "Szablony nurtu",
+                "Nie można odczytać współrzędnych ostatniego heksu ścieżki.",
+                parent=self.root,
+            )
+            return
+
+        candidate_hexes: list[str] = []
+        current_q, current_r = start_q, start_r
+        for delta_q, delta_r in segments:
+            if (delta_q, delta_r) not in AXIAL_DIRECTION_TO_SIDE:
+                messagebox.showerror(
+                    "Szablony nurtu",
+                    "Konfiguracja szablonu zawiera nieobsługiwany kierunek.",
+                    parent=self.root,
+                )
+                return
+            current_q += delta_q
+            current_r += delta_r
+            hex_id = f"{current_q},{current_r}"
+            if hex_id not in self.hex_centers:
+                messagebox.showwarning(
+                    "Szablony nurtu",
+                    "Szablon wychodzi poza dozwoloną siatkę. Dodaj brakujący heks ręcznie lub wybierz inny wzór.",
+                    parent=self.root,
+                )
+                return
+            candidate_hexes.append(hex_id)
+
+        if not candidate_hexes:
+            self.set_status("Szablon nie zawiera dodatkowych segmentów.")
+            return
+
+        self.river_path.extend(candidate_hexes)
+        self.selected_hex = candidate_hexes[-1]
+        if len(self.river_path) >= 2:
+            self._river_resume_expected_exit = None
+
+        self._river_update_status()
+        self.draw_grid()
+        self.update_hex_info_display(self.selected_hex)
+        self.set_status(f"Dodano {len(candidate_hexes)} heksów według szablonu '{template_name}'.")
+
     def _register_tributary_control(self, widget: tk.Widget, *, enabled_state: str = "normal") -> None:
         self._river_tributary_widgets.append((widget, enabled_state))
 
@@ -2905,24 +3208,28 @@ class MapEditor:
             )
             return None
 
-        entry_display = (self.river_tributary_entry_var.get() or "").strip()
-        entry_side = HEX_SIDE_DISPLAY_TO_KEY.get(entry_display)
-        if not entry_side:
+        entry_label = (self.river_tributary_entry_var.get() or "").strip()
+        entry_cfg = TRIBUTARY_ENTRY_OPTIONS.get(entry_label)
+        if not entry_cfg:
             messagebox.showerror(
                 "Dopływ",
                 "Wybierz poprawną krawędź wejścia dopływu.",
                 parent=self.root,
             )
             return None
+        entry_side = entry_cfg.get("entry_side")
 
         try:
             join_percent = float(self.river_tributary_join_var.get())
         except (tk.TclError, TypeError, ValueError):
-            join_percent = 55.0
+            join_percent = float(entry_cfg.get("default_join", 0.55) * 100.0)
         join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, join_percent / 100.0))
 
-        shape_label = (self.river_tributary_shape_var.get() or "").strip()
-        shape_key = TRIBUTARY_SHAPE_LABEL_TO_KEY.get(shape_label, "curve")
+        shape_label = (self.river_tributary_shape_var.get() or TRIBUTARY_SHAPE_LABELS["curve"]).strip()
+        shape_key = TRIBUTARY_SHAPE_LABEL_TO_KEY.get(
+            shape_label,
+            str(self._current_tributary_params.get("shape", "curve")),
+        )
 
         try:
             strength = float(self.river_tributary_strength_var.get())
@@ -2942,14 +3249,18 @@ class MapEditor:
             noise_freq = 2.5
         noise_freq = max(0.1, min(6.0, noise_freq))
 
-        direction_label = (self.river_tributary_direction_var.get() or "").strip()
-        direction_key = TRIBUTARY_DIRECTION_LABEL_TO_KEY.get(direction_label, "auto")
+        direction_label = (self.river_tributary_direction_var.get() or TRIBUTARY_DIRECTION_LABELS["auto"]).strip()
+        direction_key = TRIBUTARY_DIRECTION_LABEL_TO_KEY.get(
+            direction_label,
+            str(self._current_tributary_params.get("shape_direction_mode", "auto")),
+        )
         if direction_key == "left":
             shape_direction = 1
         elif direction_key == "right":
             shape_direction = -1
         else:
             shape_direction = None
+            direction_key = "auto"
 
         try:
             seed_offset = int(self.river_tributary_seed_offset_var.get())
@@ -2961,13 +3272,15 @@ class MapEditor:
             base_bank_offset = float(self.river_bank_offset_var.get())
         except (tk.TclError, TypeError, ValueError):
             base_bank_offset = DEFAULT_BANK_OFFSET
-        base_bank_offset = max(0.6, min(3.2, base_bank_offset))
+        bank_offset_scale = float(self._current_tributary_params.get("bank_offset_scale", 0.8))
+        bank_offset = max(0.5, min(3.5, base_bank_offset * bank_offset_scale))
 
         try:
             bank_variation = float(self.river_bank_variation_var.get())
         except (tk.TclError, TypeError, ValueError):
             bank_variation = DEFAULT_BANK_VARIATION
-        bank_variation = max(0.0, min(0.8, bank_variation))
+        variation_scale = float(self._current_tributary_params.get("variation_scale", 1.0))
+        bank_variation = max(0.0, min(0.9, bank_variation * variation_scale))
 
         return TributaryOptions(
             entry_side=entry_side,
@@ -2979,7 +3292,7 @@ class MapEditor:
             shape_direction=shape_direction,
             shape_direction_mode=direction_key,
             seed_offset=seed_offset,
-            bank_offset=base_bank_offset,
+            bank_offset=bank_offset,
             bank_variation=bank_variation,
         )
 
@@ -8618,102 +8931,182 @@ class MapEditor:
             branch_choice = "main" if response else "tributary"
         self._river_resume_branch = branch_choice
 
-        grid_value = metadata.get("grid")
-        if grid_value:
-            grid_text = str(grid_value)
-            self.river_grid_var.set(grid_text)
-            if hasattr(self, "river_grid_combo"):
-                self.river_grid_combo.set(grid_text)
+        grid_value = metadata.get("grid", self._current_river_params.get("grid_size", DEFAULT_HEX_TEXTURE_GRID_SIZE))
+        try:
+            grid_size = int(grid_value)
+        except (TypeError, ValueError):
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
 
-        shape_value = metadata.get("shape") or "auto"
-        if shape_value not in {"auto", "straight", "curve", "turn"}:
-            shape_value = "auto"
-        shape_label = RIVER_SHAPE_LABELS.get(shape_value, RIVER_SHAPE_LABELS["auto"])
+        shape_key = metadata.get("shape") or "auto"
+        if shape_key not in {"auto", "straight", "curve", "turn"}:
+            shape_key = "auto"
+        shape_label = RIVER_SHAPE_LABELS.get(shape_key, RIVER_SHAPE_LABELS["auto"])
+
+        try:
+            shape_strength = float(metadata.get("shape_strength", self._current_river_params.get("shape_strength", 0.5)))
+        except (TypeError, ValueError):
+            shape_strength = float(self._current_river_params.get("shape_strength", 0.5))
+
+        try:
+            noise_amplitude = float(metadata.get("noise_amplitude", self._current_river_params.get("noise_amplitude", 0.0)))
+        except (TypeError, ValueError):
+            noise_amplitude = float(self._current_river_params.get("noise_amplitude", 0.0))
+
+        try:
+            noise_frequency = float(metadata.get("noise_frequency", self._current_river_params.get("noise_frequency", 2.0)))
+        except (TypeError, ValueError):
+            noise_frequency = float(self._current_river_params.get("noise_frequency", 2.0))
+
+        try:
+            bank_offset = float(metadata.get("bank_offset", self._current_river_params.get("bank_offset", DEFAULT_BANK_OFFSET)))
+        except (TypeError, ValueError):
+            bank_offset = float(self._current_river_params.get("bank_offset", DEFAULT_BANK_OFFSET))
+
+        try:
+            bank_variation = float(metadata.get("bank_variation", self._current_river_params.get("bank_variation", DEFAULT_BANK_VARIATION)))
+        except (TypeError, ValueError):
+            bank_variation = float(self._current_river_params.get("bank_variation", DEFAULT_BANK_VARIATION))
+
+        self.river_size_profile_var.set(CUSTOM_PROFILE_LABEL)
+        self.river_curvature_profile_var.set(CUSTOM_PROFILE_LABEL)
+        self.river_bank_profile_var.set(CUSTOM_PROFILE_LABEL)
+        self.river_grid_var.set(str(grid_size))
         self.river_shape_var.set(shape_label)
-        if hasattr(self, "river_shape_combo"):
-            self.river_shape_combo.set(shape_label)
-
-        try:
-            self.river_strength_var.set(float(metadata.get("shape_strength", self.river_strength_var.get())))
-        except (TypeError, ValueError):
-            pass
-
-        try:
-            self.river_noise_var.set(float(metadata.get("noise_amplitude", self.river_noise_var.get())))
-        except (TypeError, ValueError):
-            pass
-
-        try:
-            self.river_frequency_var.set(float(metadata.get("noise_frequency", self.river_frequency_var.get())))
-        except (TypeError, ValueError):
-            pass
+        self.river_strength_var.set(shape_strength)
+        self.river_noise_var.set(noise_amplitude)
+        self.river_frequency_var.set(noise_frequency)
+        self.river_bank_offset_var.set(bank_offset)
+        self.river_bank_variation_var.set(bank_variation)
 
         try:
             self.river_seed_var.set(int(metadata.get("seed", self.river_seed_var.get())))
         except (TypeError, ValueError):
             pass
+        self._update_river_seed_label()
 
-        self.river_tributary_enabled_var.set(False)
+        self._current_river_params.update(
+            grid_size=grid_size,
+            shape_preference=shape_key,
+            shape_strength=shape_strength,
+            noise_amplitude=noise_amplitude,
+            noise_frequency=noise_frequency,
+            base_bank_offset=bank_offset,
+            base_bank_variation=bank_variation,
+            bank_offset=bank_offset,
+            bank_variation=bank_variation,
+        )
+        self._apply_river_profiles()
+
+        self.river_tributary_enabled_var.set(bool(tributary_meta))
         if tributary_meta:
             entry_side = tributary_meta.get("entry_side")
-            entry_label = HEX_SIDE_DISPLAY_LABELS.get(entry_side, self.river_tributary_entry_var.get())
-            self.river_tributary_entry_var.set(entry_label)
-            if hasattr(self, "river_tributary_entry_combo"):
-                self.river_tributary_entry_combo.set(entry_label)
+            entry_label = TRIBUTARY_ENTRY_SIDE_TO_LABEL.get(entry_side, self.river_tributary_entry_var.get())
+            if entry_label:
+                self.tributary_entry_profile_var.set(entry_label)
+                self.river_tributary_entry_var.set(entry_label)
 
-            join_percent = tributary_meta.get("join_ratio_percent")
-            if join_percent is None:
+            join_ratio = tributary_meta.get("join_ratio")
+            if join_ratio is None:
                 try:
-                    join_percent = float(tributary_meta.get("join_ratio", 0.55)) * 100.0
+                    join_ratio = float(tributary_meta.get("join_ratio_percent", 55.0)) / 100.0
                 except (TypeError, ValueError):
-                    join_percent = 55.0
+                    join_ratio = 0.55
+            join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, float(join_ratio)))
+            self.river_tributary_join_var.set(int(round(join_ratio * 100.0)))
+
+            trib_shape_key = tributary_meta.get("shape", self._current_tributary_params.get("shape", "curve"))
+            trib_shape_label = TRIBUTARY_SHAPE_LABELS.get(trib_shape_key, TRIBUTARY_SHAPE_LABELS["curve"])
+            self.river_tributary_shape_var.set(trib_shape_label)
+
             try:
-                self.river_tributary_join_var.set(float(join_percent))
+                trib_strength = float(tributary_meta.get("shape_strength", self._current_tributary_params.get("shape_strength", 0.6)))
             except (TypeError, ValueError):
-                self.river_tributary_join_var.set(55.0)
-
-            shape_key = tributary_meta.get("shape", "curve")
-            shape_label = TRIBUTARY_SHAPE_LABELS.get(shape_key, TRIBUTARY_SHAPE_LABELS["curve"])
-            self.river_tributary_shape_var.set(shape_label)
-            if hasattr(self, "river_tributary_shape_combo"):
-                self.river_tributary_shape_combo.set(shape_label)
+                trib_strength = float(self._current_tributary_params.get("shape_strength", 0.6))
+            self.river_tributary_strength_var.set(trib_strength)
 
             try:
-                self.river_tributary_strength_var.set(float(tributary_meta.get("shape_strength", 0.6)))
+                trib_noise = float(tributary_meta.get("noise_amplitude", self._current_tributary_params.get("noise_amplitude", 0.0)))
             except (TypeError, ValueError):
-                pass
-
-            direction_mode = tributary_meta.get("shape_direction_mode", "auto")
-            direction_label = TRIBUTARY_DIRECTION_LABELS.get(direction_mode, TRIBUTARY_DIRECTION_LABELS["auto"])
-            self.river_tributary_direction_var.set(direction_label)
-            if hasattr(self, "river_tributary_direction_combo"):
-                self.river_tributary_direction_combo.set(direction_label)
+                trib_noise = float(self._current_tributary_params.get("noise_amplitude", 0.0))
+            self.river_tributary_noise_var.set(trib_noise)
 
             try:
-                self.river_tributary_noise_var.set(float(tributary_meta.get("noise_amplitude", 0.0)))
+                trib_frequency = float(tributary_meta.get("noise_frequency", self._current_tributary_params.get("noise_frequency", 2.5)))
             except (TypeError, ValueError):
-                pass
+                trib_frequency = float(self._current_tributary_params.get("noise_frequency", 2.5))
+            self.river_tributary_frequency_var.set(trib_frequency)
+
+            direction_mode = tributary_meta.get(
+                "shape_direction_mode",
+                self._current_tributary_params.get("shape_direction_mode", "auto"),
+            )
+            if direction_mode not in TRIBUTARY_DIRECTION_LABELS:
+                direction_mode = "auto"
+            self.river_tributary_direction_var.set(TRIBUTARY_DIRECTION_LABELS[direction_mode])
 
             try:
-                self.river_tributary_frequency_var.set(float(tributary_meta.get("noise_frequency", 2.5)))
-            except (TypeError, ValueError):
-                pass
-
-            base_seed = metadata.get("seed")
-            tributary_seed = tributary_meta.get("seed")
-            try:
-                offset_value = int(tributary_seed) - int(base_seed)
+                tributary_seed = int(tributary_meta.get("seed"))
+                base_seed = int(metadata.get("seed", 0))
+                offset_value = max(0, tributary_seed - base_seed)
             except (TypeError, ValueError):
                 offset_value = self.river_tributary_seed_offset_var.get()
-            self.river_tributary_seed_offset_var.set(max(0, offset_value))
-            if hasattr(self, "river_tributary_seed_spinbox"):
-                try:
-                    self.river_tributary_seed_spinbox.delete(0, tk.END)
-                    self.river_tributary_seed_spinbox.insert(0, str(self.river_tributary_seed_offset_var.get()))
-                except tk.TclError:
-                    pass
+            self.river_tributary_seed_offset_var.set(offset_value)
+
+            try:
+                main_bank_offset = float(self.river_bank_offset_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                main_bank_offset = bank_offset
+            try:
+                trib_bank_offset = float(tributary_meta.get("bank_offset", main_bank_offset))
+            except (TypeError, ValueError):
+                trib_bank_offset = main_bank_offset
+            bank_offset_scale = trib_bank_offset / main_bank_offset if main_bank_offset else 1.0
+
+            try:
+                main_bank_variation = float(self.river_bank_variation_var.get())
+            except (tk.TclError, TypeError, ValueError):
+                main_bank_variation = bank_variation
+            try:
+                trib_bank_variation = float(tributary_meta.get("bank_variation", main_bank_variation))
+            except (TypeError, ValueError):
+                trib_bank_variation = main_bank_variation
+            variation_scale = trib_bank_variation / main_bank_variation if main_bank_variation else 1.0
+
+            self.tributary_size_profile_var.set(CUSTOM_PROFILE_LABEL)
+            self.tributary_character_profile_var.set(CUSTOM_PROFILE_LABEL)
+
+            self._current_tributary_params.update(
+                bank_offset_scale=bank_offset_scale,
+                variation_scale=variation_scale,
+                shape=trib_shape_key,
+                shape_strength=trib_strength,
+                noise_amplitude=trib_noise,
+                noise_frequency=trib_frequency,
+                shape_direction_mode=direction_mode,
+                entry_side=entry_side,
+            )
+            self._apply_tributary_profiles()
         else:
-            self.river_tributary_enabled_var.set(False)
+            self.tributary_size_profile_var.set("Średni dopływ")
+            self.tributary_character_profile_var.set("Łagodny dopływ")
+            default_entry = next(iter(TRIBUTARY_ENTRY_OPTIONS))
+            self.tributary_entry_profile_var.set(default_entry)
+            self.river_tributary_entry_var.set(default_entry)
+            self.river_tributary_join_var.set(int(round(TRIBUTARY_ENTRY_OPTIONS[default_entry]["default_join"] * 100)))
+            default_size_cfg = TRIBUTARY_SIZE_OPTIONS.get("Średni dopływ", {})
+            default_char_cfg = TRIBUTARY_CHARACTER_OPTIONS.get("Łagodny dopływ", {})
+            self._current_tributary_params.update(
+                bank_offset_scale=default_size_cfg.get("bank_offset_scale", 0.8),
+                variation_scale=default_size_cfg.get("variation_scale", 1.0),
+                shape=default_char_cfg.get("shape", "curve"),
+                shape_strength=default_char_cfg.get("shape_strength", 0.6),
+                noise_amplitude=default_char_cfg.get("noise_amplitude", 0.0),
+                noise_frequency=default_char_cfg.get("noise_frequency", 2.5),
+                shape_direction_mode=default_char_cfg.get("shape_direction_mode", "auto"),
+                entry_side=None,
+            )
+            self._apply_tributary_profiles()
+            self._on_tributary_entry_change()
 
         if not self.river_mode_active:
             self._skip_river_mode_popup = True
