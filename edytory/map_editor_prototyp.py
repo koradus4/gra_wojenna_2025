@@ -20,11 +20,13 @@ try:
         RiverCenterlineOptions,
         TributaryOptions,
         generate_centerline,
+        render_centerline,
     )
 except ImportError:  # pragma: no cover - w trybie edytora brak generatora
     RiverCenterlineOptions = None
     TributaryOptions = None
     generate_centerline = None
+    render_centerline = None
     MIN_TRIBUTARY_JOIN = 0.2
     MAX_TRIBUTARY_JOIN = 0.8
     DEFAULT_BANK_OFFSET = 1.5
@@ -675,6 +677,12 @@ class MapEditor:
         }
         self._river_tributary_widgets: list[tuple[tk.Widget, str]] = []
         self.river_tributary_enabled_var.trace_add("write", lambda *_: self._update_tributary_controls_state())
+        self.river_preview_caption_var = tk.StringVar(
+            value="Podgląd rzeki: dodaj co najmniej dwa heksy."
+        )
+        self.river_preview_label: tk.Label | None = None
+        self._river_preview_photo: ImageTk.PhotoImage | None = None
+        self._river_preview_cache_key: tuple | None = None
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -1482,12 +1490,41 @@ class MapEditor:
             wraplength=190,
         ).pack(fill=tk.X, pady=(2, 0))
 
+        preview_container = tk.LabelFrame(
+            self.river_frame,
+            text="Podgląd heksu",
+            bg="darkolivegreen",
+            fg="white",
+            font=("Arial", 9, "bold"),
+        )
+        preview_container.pack(fill=tk.X, pady=(4, 0))
+
+        preview_caption = tk.Label(
+            preview_container,
+            textvariable=self.river_preview_caption_var,
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w",
+            justify="left",
+            wraplength=190,
+        )
+        preview_caption.pack(fill=tk.X, padx=4, pady=(2, 4))
+
+        self.river_preview_label = tk.Label(
+            preview_container,
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            text="Brak podglądu",
+        )
+        self.river_preview_label.pack(padx=4, pady=(0, 6))
+
         self._apply_river_profiles()
         self._apply_tributary_profiles()
         self._on_tributary_entry_change()
         self._update_river_seed_label()
         self._river_update_status()
         self._set_river_section_visibility(False)
+        self._update_river_preview_image()
 
         # === SEKCJA TERENU ===
         terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
@@ -1595,6 +1632,7 @@ class MapEditor:
     def _randomize_river_seed(self) -> None:
         self.river_seed_var.set(random.randint(0, 9999))
         self._update_river_seed_label()
+        self._update_river_preview_image()
 
     def _apply_river_profiles(self) -> None:
         params = dict(self._current_river_params)
@@ -1696,6 +1734,7 @@ class MapEditor:
             bank_variation=bank_variation,
         )
         self._current_river_params = params
+        self._update_river_preview_image()
 
     def _apply_tributary_profiles(self) -> None:
         params = dict(self._current_tributary_params)
@@ -1757,6 +1796,7 @@ class MapEditor:
             shape_direction_mode=direction_mode,
         )
         self._current_tributary_params = params
+        self._update_river_preview_image()
 
     def _on_tributary_entry_change(self, *_event: object) -> None:
         entry_label = (self.tributary_entry_profile_var.get() or "").strip()
@@ -3180,6 +3220,7 @@ class MapEditor:
                 continue
         if enabled:
             self._ensure_tributary_defaults()
+        self._update_river_preview_image()
 
     def _ensure_tributary_defaults(self) -> None:
         if self.river_tributary_join_var.get() in ("", None):
@@ -3199,23 +3240,25 @@ class MapEditor:
         except tk.TclError:
             self.river_tributary_seed_offset_var.set(1_000_000)
 
-    def _build_tributary_options(self) -> TributaryOptions | None:
+    def _build_tributary_options(self, *, silent: bool = False) -> TributaryOptions | None:
         if TributaryOptions is None:
-            messagebox.showwarning(
-                "Generator rzeki",
-                "Moduł generujący dopływy nie jest dostępny. Zainstaluj generate_river_hex_tile.py.",
-                parent=self.root,
-            )
+            if not silent:
+                messagebox.showwarning(
+                    "Generator rzeki",
+                    "Moduł generujący dopływy nie jest dostępny. Zainstaluj generate_river_hex_tile.py.",
+                    parent=self.root,
+                )
             return None
 
         entry_label = (self.river_tributary_entry_var.get() or "").strip()
         entry_cfg = TRIBUTARY_ENTRY_OPTIONS.get(entry_label)
         if not entry_cfg:
-            messagebox.showerror(
-                "Dopływ",
-                "Wybierz poprawną krawędź wejścia dopływu.",
-                parent=self.root,
-            )
+            if not silent:
+                messagebox.showerror(
+                    "Dopływ",
+                    "Wybierz poprawną krawędź wejścia dopływu.",
+                    parent=self.root,
+                )
             return None
         entry_side = entry_cfg.get("entry_side")
 
@@ -3295,6 +3338,235 @@ class MapEditor:
             bank_offset=bank_offset,
             bank_variation=bank_variation,
         )
+
+    def _update_river_preview_image(self) -> None:
+        label = self.river_preview_label
+        if label is None:
+            return
+
+        def reset_preview(message: str) -> None:
+            self.river_preview_caption_var.set(message)
+            label.configure(image="", text="Brak podglądu")
+            label.image = None
+            self._river_preview_photo = None
+            self._river_preview_cache_key = None
+
+        if render_centerline is None or RiverCenterlineOptions is None:
+            reset_preview("Podgląd rzeki: moduł generatora jest niedostępny.")
+            return
+
+        if len(self.river_path) < 2:
+            reset_preview("Podgląd rzeki: dodaj co najmniej dwa heksy.")
+            return
+
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.river_path]
+        except ValueError:
+            reset_preview("Podgląd rzeki: ścieżka zawiera nieprawidłowe współrzędne.")
+            return
+
+        segments: list[tuple[int, int]] = []
+        for idx in range(len(coords) - 1):
+            dq = coords[idx + 1][0] - coords[idx][0]
+            dr = coords[idx + 1][1] - coords[idx][1]
+            delta = (dq, dr)
+            if delta not in AXIAL_DIRECTION_TO_SIDE:
+                reset_preview("Podgląd rzeki: ścieżka zawiera heksy, które nie sąsiadują ze sobą.")
+                return
+            segments.append(delta)
+
+        branch_mode = getattr(self, "_river_resume_branch", "main")
+        preview_index = len(self.river_path) - 1
+        if branch_mode == "tributary" and len(self.river_path) > 1:
+            preview_index = 1
+        preview_index = max(0, min(preview_index, len(self.river_path) - 1))
+
+        entry_side, exit_side = self._river_entry_exit_for_index(preview_index, segments)
+
+        try:
+            grid_size = int(self.river_grid_var.get())
+        except (TypeError, ValueError):
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        if grid_size not in HEX_TEXTURE_GRID_OPTIONS:
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+        def clamp(value: float, low: float, high: float) -> float:
+            return max(low, min(high, value))
+
+        try:
+            strength = float(self.river_strength_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            strength = 0.5
+        strength = clamp(strength, 0.0, 1.0)
+
+        try:
+            noise = float(self.river_noise_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            noise = 0.0
+        noise = clamp(noise, 0.0, 3.0)
+
+        try:
+            frequency = float(self.river_frequency_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            frequency = 2.0
+        frequency = max(0.1, frequency)
+
+        try:
+            seed_base = int(self.river_seed_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            seed_base = 0
+        seed = seed_base + preview_index
+
+        try:
+            base_bank_offset = float(self.river_bank_offset_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            base_bank_offset = DEFAULT_BANK_OFFSET
+        base_bank_offset = clamp(base_bank_offset, 0.6, 3.2)
+        bank_offset = (
+            base_bank_offset * LARGE_RIVER_WIDTH_MULTIPLIER
+            if self.river_large_mode_var.get()
+            else base_bank_offset
+        )
+
+        try:
+            bank_variation = float(self.river_bank_variation_var.get())
+        except (tk.TclError, TypeError, ValueError):
+            bank_variation = DEFAULT_BANK_VARIATION
+        bank_variation = clamp(bank_variation, 0.0, 0.8)
+
+        shape_label = (self.river_shape_var.get() or "").strip()
+        shape_preference = RIVER_SHAPE_LABEL_TO_KEY.get(shape_label, "auto")
+        shape, shape_direction = self._river_determine_shape(preview_index, segments, shape_preference)
+
+        hex_id = self.river_path[preview_index]
+        terrain = self.hex_data.get(hex_id) or {}
+        texture_rel = terrain.get("texture") if isinstance(terrain, dict) else None
+        background_path = None
+        if texture_rel:
+            candidate = fix_image_path(texture_rel)
+            if candidate.exists():
+                background_path = candidate
+        background_key = texture_rel if background_path is not None else None
+
+        tributary_options = None
+        tributary_key: tuple | None = None
+        target_tributary_index: int | None = None
+        if self.river_tributary_enabled_var.get():
+            tributary_options = self._build_tributary_options(silent=True)
+            if tributary_options is None:
+                reset_preview("Podgląd rzeki: ustawienia dopływu są niekompletne.")
+                return
+            target_tributary_index = len(self.river_path) - 1
+
+        current_tributary = None
+        if (
+            tributary_options is not None
+            and target_tributary_index is not None
+            and preview_index == target_tributary_index
+        ):
+            if (
+                entry_side == tributary_options.entry_side
+                or exit_side == tributary_options.entry_side
+            ):
+                reset_preview(
+                    "Podgląd rzeki: dopływ nie może wchodzić przez używaną krawędź."
+                )
+                return
+            current_tributary = tributary_options
+            tributary_key = (
+                tributary_options.entry_side,
+                round(tributary_options.join_ratio, 4),
+                tributary_options.shape,
+                round(tributary_options.shape_strength, 4),
+                round(tributary_options.noise_amplitude, 4),
+                round(tributary_options.noise_frequency, 4),
+                tributary_options.shape_direction,
+                tributary_options.shape_direction_mode,
+                tributary_options.seed_offset,
+                None if tributary_options.bank_offset is None else round(tributary_options.bank_offset, 4),
+                None if tributary_options.bank_variation is None else round(tributary_options.bank_variation, 4),
+            )
+
+        cache_key = (
+            tuple(self.river_path),
+            preview_index,
+            tuple(segments),
+            grid_size,
+            round(strength, 4),
+            round(noise, 4),
+            round(frequency, 4),
+            seed,
+            round(bank_offset, 4),
+            round(bank_variation, 4),
+            shape,
+            shape_direction,
+            entry_side,
+            exit_side,
+            background_key,
+            bool(self.river_large_mode_var.get()),
+            branch_mode,
+            tributary_key,
+        )
+
+        entry_label_pl = HEX_SIDE_DISPLAY_LABELS.get(entry_side, entry_side)
+        exit_label_pl = HEX_SIDE_DISPLAY_LABELS.get(exit_side, exit_side)
+        shape_label_pl = RIVER_SHAPE_LABELS.get(shape, shape)
+        export_px = HEX_TEXTURE_EXPORT_SIZES.get(grid_size, grid_size)
+        caption_lines = [
+            f"Podgląd heksu {preview_index + 1}/{len(self.river_path)}: {hex_id}",
+            f"Wejście: {entry_label_pl}, wyjście: {exit_label_pl}",
+            f"Siatka {grid_size} ({export_px} px), seed {seed}",
+            f"Profil: {shape_label_pl}, siła {strength:.2f}, szum {noise:.2f}",
+        ]
+        if branch_mode == "tributary":
+            caption_lines.append("Tryb: dopływ")
+        elif self.river_tributary_enabled_var.get() and target_tributary_index is not None:
+            caption_lines.append("Dopływ: aktywny na ostatnim heksie")
+        if self.river_large_mode_var.get():
+            caption_lines.append("Tryb: szeroki nurt")
+        caption = "\n".join(caption_lines)
+
+        if self._river_preview_cache_key == cache_key and self._river_preview_photo is not None:
+            self.river_preview_caption_var.set(caption)
+            label.configure(image=self._river_preview_photo, text="")
+            label.image = self._river_preview_photo
+            return
+
+        try:
+            opts = RiverCenterlineOptions(
+                grid_size=grid_size,
+                background=background_path,
+                entry_side=entry_side,
+                exit_side=exit_side,
+                shape=shape,
+                shape_strength=strength,
+                shape_direction=shape_direction,
+                noise_amplitude=noise,
+                noise_frequency=frequency,
+                seed=seed,
+                bank_offset=bank_offset,
+                bank_variation=bank_variation,
+                tributary=current_tributary,
+            )
+            render = render_centerline(opts)
+        except Exception as exc:  # noqa: BLE001
+            reset_preview(f"Podgląd rzeki: nie udało się wygenerować obrazu ({exc}).")
+            return
+
+        src_img = render.image
+        if src_img.width <= 0 or src_img.height <= 0:
+            reset_preview("Podgląd rzeki: generator zwrócił pusty obraz.")
+            return
+        scale_factor = 3 if src_img.width <= 64 else 2
+        preview_size = max(src_img.width * scale_factor, src_img.width)
+        preview_img = src_img.resize((preview_size, preview_size), Image.NEAREST)
+        photo = ImageTk.PhotoImage(preview_img)
+
+        self._river_preview_photo = photo
+        self._river_preview_cache_key = cache_key
+        self.river_preview_caption_var.set(caption)
+        label.configure(image=photo, text="")
+        label.image = photo
 
     def _river_handle_left_click(self, hex_id: str) -> None:
         if not self.river_mode_active:

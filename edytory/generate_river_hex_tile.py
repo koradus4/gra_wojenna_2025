@@ -201,6 +201,16 @@ class RiverCenterlineResult:
 
 
 @dataclass
+class RiverCenterlineRender:
+	image: Image.Image
+	metadata: Dict[str, Any]
+	centerline_cells: List[Tuple[int, int]]
+	centerline_banks: Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]
+	tributary_cells: List[Tuple[int, int]] | None
+	tributary_banks: Tuple[List[Tuple[int, int]], List[Tuple[int, int]]] | None
+
+
+@dataclass
 class TributaryOptions:
 	entry_side: str
 	join_ratio: float
@@ -1286,10 +1296,7 @@ def compose_image(
 		for col, row in tributary_cells:
 			if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
 				pixels[col, row] = TRIBUTARY_COLOR
-	export_size = EXPORT_SIZE_BY_GRID.get(grid, grid * 8)
-	if export_size == grid:
-		return image
-	return image.resize((export_size, export_size), Image.NEAREST)
+	return image
 
 
 def save_metadata(image_path: Path, metadata: Dict[str, Any]) -> Path:
@@ -1300,7 +1307,7 @@ def save_metadata(image_path: Path, metadata: Dict[str, Any]) -> Path:
 	return meta_path
 
 
-def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> RiverCenterlineResult:
+def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 	rng = random.Random(opts.seed)
 	mask = build_hex_mask(opts.grid_size)
 	background = load_background_pixels(opts.grid_size, mask, opts.background)
@@ -1366,9 +1373,6 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 		tributary_bank_cells,
 		tributary_bank_color,
 	)
-	output_path.parent.mkdir(parents=True, exist_ok=True)
-	image.save(output_path)
-
 	metadata = {
 		"grid": opts.grid_size,
 		"entry_side": opts.entry_side,
@@ -1399,12 +1403,26 @@ def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> Rive
 	}
 	metadata["tributary_present"] = bool(tributary_metadata)
 	metadata["tributary"] = tributary_metadata
-	metadata_path = save_metadata(output_path, metadata)
 
+	return RiverCenterlineRender(
+		image=image,
+		metadata=metadata,
+		centerline_cells=centerline_cells,
+		centerline_banks=centerline_bank_cells,
+		tributary_cells=tributary_cells,
+		tributary_banks=tributary_bank_cells,
+	)
+
+
+def generate_centerline(opts: RiverCenterlineOptions, output_path: Path) -> RiverCenterlineResult:
+	render = render_centerline(opts)
+	output_path.parent.mkdir(parents=True, exist_ok=True)
+	render.image.save(output_path)
+	metadata_path = save_metadata(output_path, render.metadata)
 	return RiverCenterlineResult(
 		image_path=output_path,
 		metadata_path=metadata_path,
-		metadata=metadata,
+		metadata=render.metadata,
 	)
 
 
