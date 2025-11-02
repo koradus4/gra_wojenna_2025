@@ -13,6 +13,7 @@ import math
 import random
 import sys
 import statistics
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -1127,38 +1128,228 @@ def extend_line_to_entry_edge(
 	return list(reversed(leading)) + deduped
 
 
-def fill_water_between_banks(
+def fill_water_regions(
 	pixels: Any,
-	left_bank_cells: Sequence[Tuple[int, int]],
-	right_bank_cells: Sequence[Tuple[int, int]],
-	water_color: Tuple[int, int, int, int],
 	grid_size: int,
 	mask: Sequence[Sequence[bool]],
-	centerline_cells: Sequence[Tuple[int, int]] | None = None,
+	seed_groups: Sequence[Sequence[Tuple[int, int]]],
+	bank_groups: Sequence[Sequence[Tuple[int, int]]],
+	water_color: Tuple[int, int, int, int],
 ) -> None:
-	"""Fill water between banks using scanline + interpolation near ends."""
-	if not left_bank_cells or not right_bank_cells:
+	"""Fill river water using flood-fill bounded by banks and apply gradient."""
+	if not seed_groups or not bank_groups:
 		return
 
-	bank_set = set(left_bank_cells) | set(right_bank_cells)
-	centerline_by_row: Dict[int, List[int]] = {}
-	if centerline_cells:
-		for col, row in centerline_cells:
-			centerline_by_row.setdefault(row, []).append(col)
+	bank_mask = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+	bank_cells: List[Tuple[int, int]] = []
+	for group in bank_groups:
+		for col, row in group:
+			if not (0 <= col < grid_size and 0 <= row < grid_size):
+				continue
+			if not mask[row][col]:
+				continue
+			if not bank_mask[row][col]:
+				bank_mask[row][col] = True
+				bank_cells.append((col, row))
 
-	row_bounds: Dict[int, Tuple[int, int]] = {}
-	for col, row in bank_set:
-		if not (0 <= row < grid_size and 0 <= col < grid_size):
+	if not bank_cells:
+		return
+
+	seed_set: set[Tuple[int, int]] = set()
+	for group in seed_groups:
+		for col, row in group:
+			if not (0 <= col < grid_size and 0 <= row < grid_size):
+				continue
+			if not mask[row][col]:
+				continue
+			if bank_mask[row][col]:
+				continue
+			seed_set.add((col, row))
+
+	if not seed_set:
+		return
+
+	water_mask = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+	queue: deque[Tuple[int, int]] = deque()
+	for col, row in seed_set:
+		water_mask[row][col] = True
+		queue.append((col, row))
+
+	neighbor_offsets = (
+		(-1, 0),
+		(1, 0),
+		(0, -1),
+		(0, 1),
+	)
+
+	while queue:
+		col, row = queue.popleft()
+		for dc, dr in neighbor_offsets:
+			next_col = col + dc
+			next_row = row + dr
+			if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+				continue
+			if not mask[next_row][next_col]:
+				continue
+			if bank_mask[next_row][next_col]:
+				continue
+			if water_mask[next_row][next_col]:
+				continue
+			water_mask[next_row][next_col] = True
+			queue.append((next_col, next_row))
+
+	void_mask = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+	outside_void = [[False for _ in range(grid_size)] for _ in range(grid_size)]
+	queue_void: deque[Tuple[int, int]] = deque()
+	for row in range(grid_size):
+		for col in range(grid_size):
+			if not mask[row][col]:
+				continue
+			if bank_mask[row][col] or water_mask[row][col]:
+				continue
+			void_mask[row][col] = True
+			is_boundary = False
+			if row == 0 or row == grid_size - 1 or col == 0 or col == grid_size - 1:
+				is_boundary = True
+			else:
+				for dc, dr in neighbor_offsets:
+					next_col = col + dc
+					next_row = row + dr
+					if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+						is_boundary = True
+						break
+					if not mask[next_row][next_col]:
+						is_boundary = True
+						break
+			if is_boundary:
+				outside_void[row][col] = True
+				queue_void.append((col, row))
+
+	while queue_void:
+		col, row = queue_void.popleft()
+		for dc, dr in neighbor_offsets:
+			next_col = col + dc
+			next_row = row + dr
+			if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+				continue
+			if not void_mask[next_row][next_col]:
+				continue
+			if outside_void[next_row][next_col]:
+				continue
+			outside_void[next_row][next_col] = True
+			queue_void.append((next_col, next_row))
+
+	for row in range(grid_size):
+		for col in range(grid_size):
+			if not void_mask[row][col]:
+				continue
+			if outside_void[row][col]:
+				continue
+			water_mask[row][col] = True
+
+	bank_keep: set[Tuple[int, int]] = set()
+	queue_bank: deque[Tuple[int, int]] = deque()
+	for col, row in bank_cells:
+		if not (0 <= col < grid_size and 0 <= row < grid_size):
 			continue
 		if not mask[row][col]:
 			continue
-		if row in row_bounds:
-			current_min, current_max = row_bounds[row]
-			row_bounds[row] = (min(current_min, col), max(current_max, col))
-		else:
-			row_bounds[row] = (col, col)
+		adjacent_land = False
+		for dc, dr in neighbor_offsets:
+			next_col = col + dc
+			next_row = row + dr
+			if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+				adjacent_land = True
+				break
+			if not mask[next_row][next_col]:
+				adjacent_land = True
+				break
+			if not water_mask[next_row][next_col] and not bank_mask[next_row][next_col]:
+				adjacent_land = True
+				break
+		if adjacent_land:
+			bank_keep.add((col, row))
+			queue_bank.append((col, row))
 
-	if not row_bounds:
+	while queue_bank:
+		col, row = queue_bank.popleft()
+		for dc, dr in neighbor_offsets:
+			next_col = col + dc
+			next_row = row + dr
+			if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+				continue
+			if not bank_mask[next_row][next_col]:
+				continue
+			if (next_col, next_row) in bank_keep:
+				continue
+			bank_keep.add((next_col, next_row))
+			queue_bank.append((next_col, next_row))
+
+	for col, row in bank_cells:
+		if not (0 <= col < grid_size and 0 <= row < grid_size):
+			continue
+		if not mask[row][col]:
+			continue
+		if (col, row) in bank_keep:
+			continue
+		bank_mask[row][col] = False
+		water_mask[row][col] = True
+
+	final_bank_cells: List[Tuple[int, int]] = []
+	for row in range(grid_size):
+		for col in range(grid_size):
+			if bank_mask[row][col]:
+				final_bank_cells.append((col, row))
+
+	distance = [[float("inf") for _ in range(grid_size)] for _ in range(grid_size)]
+	distance_queue: deque[Tuple[int, int]] = deque()
+	diagonal_cost = math.sqrt(2.0)
+	distance_neighbors = (
+		(-1, 0, 1.0),
+		(1, 0, 1.0),
+		(0, -1, 1.0),
+		(0, 1, 1.0),
+		(-1, -1, diagonal_cost),
+		(-1, 1, diagonal_cost),
+		(1, -1, diagonal_cost),
+		(1, 1, diagonal_cost),
+	)
+
+	for col, row in final_bank_cells:
+		distance[row][col] = 0.0
+		distance_queue.append((col, row))
+
+	while distance_queue:
+		col, row = distance_queue.popleft()
+		for dc, dr, cost in distance_neighbors:
+			next_col = col + dc
+			next_row = row + dr
+			if not (0 <= next_col < grid_size and 0 <= next_row < grid_size):
+				continue
+			if not mask[next_row][next_col]:
+				continue
+			if distance[next_row][next_col] <= distance[row][col] + cost:
+				continue
+			distance[next_row][next_col] = distance[row][col] + cost
+			distance_queue.append((next_col, next_row))
+
+	if not final_bank_cells:
+		return
+
+	water_cells: List[Tuple[int, int]] = []
+	max_distance = 0.0
+	for row in range(grid_size):
+		for col in range(grid_size):
+			if not water_mask[row][col]:
+				continue
+			d = distance[row][col]
+			if math.isinf(d):
+				continue
+			water_cells.append((col, row))
+			if d > max_distance:
+				max_distance = d
+
+	if not water_cells:
 		return
 
 	if water_color == DEFAULT_WATER_COLOR:
@@ -1167,66 +1358,15 @@ def fill_water_between_banks(
 		center_color = water_color
 	shore_color = DEFAULT_WATER_SHORE_COLOR
 
-	def nearest_bounds(search_row: int) -> Tuple[int, int] | None:
-		up_bound: Tuple[int, int] | None = None
-		down_bound: Tuple[int, int] | None = None
-		up_dist = down_dist = 0
-		for delta in range(1, grid_size):
-			if up_bound is None:
-				up_row = search_row - delta
-				if up_row >= 0 and up_row in row_bounds:
-					up_bound = row_bounds[up_row]
-					up_dist = delta
-			if down_bound is None:
-				down_row = search_row + delta
-				if down_row < grid_size and down_row in row_bounds:
-					down_bound = row_bounds[down_row]
-					down_dist = delta
-			if up_bound and down_bound:
-				total = up_dist + down_dist
-				min_col = int(round((up_bound[0] * down_dist + down_bound[0] * up_dist) / total))
-				max_col = int(round((up_bound[1] * down_dist + down_bound[1] * up_dist) / total))
-				return min_col, max_col
-		if up_bound:
-			return up_bound
-		if down_bound:
-			return down_bound
-		return None
+	if max_distance <= 1e-6:
+		max_distance = 1.0
 
-	for row in range(grid_size):
-		bounds = row_bounds.get(row)
-		center_cols = centerline_by_row.get(row)
-		if bounds is None and center_cols:
-			bounds = nearest_bounds(row)
-		if bounds is None:
-			continue
-
-		min_col, max_col = bounds
-		if center_cols:
-			center_min = min(center_cols)
-			center_max = max(center_cols)
-			min_col = min(min_col, center_min)
-			max_col = max(max_col, center_max)
-		if min_col > max_col:
-			min_col, max_col = max_col, min_col
-		center_reference: float
-		if center_cols:
-			center_reference = statistics.mean(center_cols)
-		else:
-			center_reference = (min_col + max_col) * 0.5
-		half_span = max(float(center_reference - min_col), float(max_col - center_reference), 1.0)
-		for col in range(min_col, max_col + 1):
-			if not (0 <= col < grid_size):
-				continue
-			if not mask[row][col]:
-				continue
-			if (col, row) in bank_set:
-				continue
-			dist = abs(col - center_reference) / half_span
-			depth = max(0.0, 1.0 - dist)
-			depth = depth**1.2
-			color = _lerp_color(shore_color, center_color, depth)
-			pixels[col, row] = color
+	for col, row in water_cells:
+		d = min(distance[row][col], max_distance)
+		t = max(0.0, 1.0 - d / max_distance)
+		t = t**1.2
+		color = _lerp_color(shore_color, center_color, t)
+		pixels[col, row] = color
 
 
 def compose_image(
@@ -1266,26 +1406,22 @@ def compose_image(
 				if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
 					pixels[col, row] = bank_color_tributary
 	
-	# Fill water between banks
+	seed_groups: List[Sequence[Tuple[int, int]]] = [centerline_cells]
+	if tributary_cells:
+		seed_groups.append(tributary_cells)
+	bank_groups: List[Sequence[Tuple[int, int]]] = []
 	if centerline_banks:
-		fill_water_between_banks(
-			pixels,
-			centerline_banks[0],
-			centerline_banks[1],
-			DEFAULT_WATER_COLOR,
-			grid,
-			mask,
-			centerline_cells,
-		)
+		bank_groups.extend(centerline_banks)
 	if tributary_banks:
-		fill_water_between_banks(
+		bank_groups.extend(tributary_banks)
+	if bank_groups:
+		fill_water_regions(
 			pixels,
-			tributary_banks[0],
-			tributary_banks[1],
-			DEFAULT_WATER_COLOR,
 			grid,
 			mask,
-			tributary_cells,
+			seed_groups,
+			bank_groups,
+			DEFAULT_WATER_COLOR,
 		)
 	
 	if PAINT_CENTERLINE_PIXELS:

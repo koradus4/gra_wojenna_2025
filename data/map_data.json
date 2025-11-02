@@ -47960,11 +47960,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "17,-3": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "21,-6": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -48050,6 +48045,11 @@
       "move_mod": 0,
       "defense_mod": 0
     },
+    "19,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
     "19,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -48060,7 +48060,7 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "19,-3": {
+    "17,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
