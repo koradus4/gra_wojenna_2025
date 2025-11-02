@@ -8050,11 +8050,6 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "20,-3": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "20,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
@@ -8421,16 +8416,6 @@
       "defense_mod": 0
     },
     "21,-9": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "21,-4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "21,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
@@ -47975,17 +47960,7 @@
       "move_mod": 0,
       "defense_mod": 0
     },
-    "20,-6": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
     "20,-4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "20,-5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
@@ -48003,14 +47978,11 @@
     "17,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_17_-4.png",
+      "texture_grid": 64
     },
     "16,-4": {
-      "terrain_key": "teren_płaski",
-      "move_mod": 0,
-      "defense_mod": 0
-    },
-    "21,-5": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0
@@ -48048,19 +48020,461 @@
     "19,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_19_-3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense",
+      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_19_-3_river_20251102_193501_00.json",
+      "river_has_tributary": false,
+      "river_generation_meta": {
+        "grid": 64,
+        "entry_side": "top_left",
+        "exit_side": "bottom_right",
+        "seed": 4658,
+        "background": "c:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\river_tool\\hex_19_-3_river_20251102_192758_00.png",
+        "start": {
+          "x": 8.375,
+          "y": 18.36009989039509
+        },
+        "end": {
+          "x": 55.625,
+          "y": 45.63990010960491
+        },
+        "shape": "curve",
+        "shape_strength": 0.7,
+        "shape_direction": null,
+        "shape_direction_mode": "auto",
+        "noise_amplitude": 0.3,
+        "noise_frequency": 2.4,
+        "noise_applied": true,
+        "shape_metadata": {
+          "control_points": [
+            {
+              "x": 8.375,
+              "y": 18.36009989039509
+            },
+            {
+              "x": 41.29037902301703,
+              "y": 30.74880282981254
+            },
+            {
+              "x": 22.70962097698297,
+              "y": 33.25119717018747
+            },
+            {
+              "x": 55.625,
+              "y": 45.63990010960491
+            }
+          ],
+          "handle_lengths": {
+            "entry": 35.169619513864525,
+            "exit": 35.16961951386452
+          },
+          "entry_inward": {
+            "x": 0.8660254037844386,
+            "y": 0.5
+          },
+          "exit_inward": {
+            "x": -0.8660254037844386,
+            "y": -0.5
+          },
+          "span_direction": {
+            "x": 0.8660254037844386,
+            "y": 0.5
+          },
+          "lateral": {
+            "x": 5.728758046034062,
+            "y": -9.9225
+          },
+          "lateral_sign": -1,
+          "noise": {
+            "applied": true,
+            "amplitude": 0.3,
+            "frequency": 2.4,
+            "seed": 4658,
+            "max_offset_px": 1.536,
+            "offset_stats": {
+              "min": -0.7455580688480813,
+              "max": 0.0,
+              "median": -0.30132314572332597
+            }
+          }
+        },
+        "centerline_cell_count": 49,
+        "centerline_banks": {
+          "offset": 1.575,
+          "effective_offset": 4.725,
+          "color": {
+            "rgba": [
+              214,
+              192,
+              138,
+              255
+            ],
+            "hex": "#D6C08AFF"
+          },
+          "variation": 0.297,
+          "effective_variation": 0.891,
+          "left_cell_count": 49,
+          "right_cell_count": 49
+        },
+        "tributary_present": false,
+        "tributary": null,
+        "water_depth_noise": {
+          "seed": 4658,
+          "strength": 0.32
+        }
+      }
     },
     "19,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_19_-4.png",
+      "texture_grid": 64
     },
     "18,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_18_-4.png",
+      "texture_grid": 64
     },
     "17,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_17_-3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense",
+      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_17_-3_river_20251102_192758_02.json",
+      "river_has_tributary": true,
+      "river_generation_meta": {
+        "grid": 64,
+        "entry_side": "bottom_right",
+        "exit_side": "top_left",
+        "seed": 4660,
+        "background": "c:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_dense_64.png",
+        "start": {
+          "x": 55.625,
+          "y": 45.63990010960491
+        },
+        "end": {
+          "x": 8.375,
+          "y": 18.36009989039509
+        },
+        "shape": "curve",
+        "shape_strength": 0.7,
+        "shape_direction": null,
+        "shape_direction_mode": "auto",
+        "noise_amplitude": 0.3,
+        "noise_frequency": 2.4,
+        "noise_applied": true,
+        "shape_metadata": {
+          "control_points": [
+            {
+              "x": 55.625,
+              "y": 45.63990010960491
+            },
+            {
+              "x": 22.70962097698297,
+              "y": 33.25119717018747
+            },
+            {
+              "x": 41.29037902301703,
+              "y": 30.74880282981254
+            },
+            {
+              "x": 8.375,
+              "y": 18.36009989039509
+            }
+          ],
+          "handle_lengths": {
+            "entry": 35.16961951386452,
+            "exit": 35.169619513864525
+          },
+          "entry_inward": {
+            "x": -0.8660254037844386,
+            "y": -0.5
+          },
+          "exit_inward": {
+            "x": 0.8660254037844386,
+            "y": 0.5
+          },
+          "span_direction": {
+            "x": -0.8660254037844386,
+            "y": -0.5
+          },
+          "lateral": {
+            "x": -5.728758046034062,
+            "y": 9.9225
+          },
+          "lateral_sign": -1,
+          "noise": {
+            "applied": true,
+            "amplitude": 0.3,
+            "frequency": 2.4,
+            "seed": 4660,
+            "max_offset_px": 1.536,
+            "offset_stats": {
+              "min": -0.0772921799446452,
+              "max": 0.5632661238272336,
+              "median": 0.0
+            }
+          }
+        },
+        "centerline_cell_count": 49,
+        "centerline_banks": {
+          "offset": 2.325,
+          "effective_offset": 6.9750000000000005,
+          "color": {
+            "rgba": [
+              214,
+              192,
+              138,
+              255
+            ],
+            "hex": "#D6C08AFF"
+          },
+          "variation": 0.357,
+          "effective_variation": 1.071,
+          "left_cell_count": 48,
+          "right_cell_count": 50
+        },
+        "tributary_present": true,
+        "tributary": {
+          "entry_side": "top_right",
+          "join_ratio": 0.35,
+          "join_ratio_percent": 35.0,
+          "join_point": {
+            "x": 38.545495751904085,
+            "y": 36.885621722217394
+          },
+          "join_direction": {
+            "x": -0.8007594162559638,
+            "y": -0.5989861077499279
+          },
+          "shape": "curve",
+          "shape_strength": 0.55,
+          "shape_direction": null,
+          "shape_direction_mode": "auto",
+          "noise_amplitude": 0.18,
+          "noise_frequency": 2.2,
+          "noise_applied": true,
+          "seed": 1004660,
+          "shape_metadata": {
+            "control_points": [
+              {
+                "x": 55.625,
+                "y": 18.36009989039509
+              },
+              {
+                "x": 40.80734458402818,
+                "y": 24.623621644237954
+              },
+              {
+                "x": 50.475269390119834,
+                "y": 27.012638027105528
+              },
+              {
+                "x": 38.545495751904085,
+                "y": 36.885621722217394
+              }
+            ],
+            "handle_lengths": {
+              "entry": 16.087094727990564,
+              "exit": 15.485325508461623
+            },
+            "entry_inward": {
+              "x": -0.8660254037844386,
+              "y": 0.5
+            },
+            "exit_inward": {
+              "x": 0.6778304643897275,
+              "y": -0.7352182407593044
+            },
+            "span_direction": {
+              "x": -0.6778304643897275,
+              "y": 0.7352182407593044
+            },
+            "lateral": {
+              "x": -3.05671110225068,
+              "y": -2.8181182009358263
+            },
+            "lateral_sign": 1,
+            "noise": {
+              "applied": true,
+              "amplitude": 0.18,
+              "frequency": 2.2,
+              "seed": 1004660,
+              "max_offset_px": 0.9216,
+              "offset_stats": {
+                "min": -0.15287141485209088,
+                "max": 0.0,
+                "median": -0.0839356327026351
+              }
+            }
+          },
+          "bank_offset": 2.325,
+          "effective_bank_offset": 6.9750000000000005,
+          "bank_color": {
+            "rgba": [
+              214,
+              192,
+              138,
+              255
+            ],
+            "hex": "#D6C08AFF"
+          },
+          "bank_variation": 0.41054999999999997,
+          "effective_bank_variation": 1.23165,
+          "bank_cell_count": {
+            "left": 23,
+            "right": 22
+          },
+          "cell_count": 23
+        },
+        "water_depth_noise": {
+          "seed": 4660,
+          "strength": 0.32
+        }
+      }
+    },
+    "18,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\hex_18_-3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense",
+      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_18_-3_river_20251102_192758_01.json",
+      "river_has_tributary": false,
+      "river_generation_meta": {
+        "grid": 64,
+        "entry_side": "bottom_right",
+        "exit_side": "top_left",
+        "seed": 4659,
+        "background": "c:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_dense_64.png",
+        "start": {
+          "x": 55.625,
+          "y": 45.63990010960491
+        },
+        "end": {
+          "x": 8.375,
+          "y": 18.36009989039509
+        },
+        "shape": "curve",
+        "shape_strength": 0.7,
+        "shape_direction": null,
+        "shape_direction_mode": "auto",
+        "noise_amplitude": 0.3,
+        "noise_frequency": 2.4,
+        "noise_applied": true,
+        "shape_metadata": {
+          "control_points": [
+            {
+              "x": 55.625,
+              "y": 45.63990010960491
+            },
+            {
+              "x": 22.70962097698297,
+              "y": 33.25119717018747
+            },
+            {
+              "x": 41.29037902301703,
+              "y": 30.74880282981254
+            },
+            {
+              "x": 8.375,
+              "y": 18.36009989039509
+            }
+          ],
+          "handle_lengths": {
+            "entry": 35.16961951386452,
+            "exit": 35.169619513864525
+          },
+          "entry_inward": {
+            "x": -0.8660254037844386,
+            "y": -0.5
+          },
+          "exit_inward": {
+            "x": 0.8660254037844386,
+            "y": 0.5
+          },
+          "span_direction": {
+            "x": -0.8660254037844386,
+            "y": -0.5
+          },
+          "lateral": {
+            "x": -5.728758046034062,
+            "y": 9.9225
+          },
+          "lateral_sign": -1,
+          "noise": {
+            "applied": true,
+            "amplitude": 0.3,
+            "frequency": 2.4,
+            "seed": 4659,
+            "max_offset_px": 1.536,
+            "offset_stats": {
+              "min": -0.4779685768830217,
+              "max": 0.0,
+              "median": -0.42813557572862754
+            }
+          }
+        },
+        "centerline_cell_count": 49,
+        "centerline_banks": {
+          "offset": 2.325,
+          "effective_offset": 6.9750000000000005,
+          "color": {
+            "rgba": [
+              214,
+              192,
+              138,
+              255
+            ],
+            "hex": "#D6C08AFF"
+          },
+          "variation": 0.357,
+          "effective_variation": 1.071,
+          "left_cell_count": 49,
+          "right_cell_count": 52
+        },
+        "tributary_present": false,
+        "tributary": null,
+        "water_depth_noise": {
+          "seed": 4659,
+          "strength": 0.32
+        }
+      }
+    },
+    "20,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "21,-3": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "21,-4": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "21,-5": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "20,-5": {
+      "terrain_key": "teren_płaski",
+      "move_mod": 0,
+      "defense_mod": 0
+    },
+    "20,-6": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
       "defense_mod": 0

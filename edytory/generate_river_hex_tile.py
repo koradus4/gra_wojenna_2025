@@ -34,6 +34,11 @@ DEFAULT_WATER_CENTER_COLOR = (45, 90, 150, 255)
 DEFAULT_WATER_SHORE_COLOR = (105, 160, 210, 255)
 DEFAULT_BANK_OFFSET = 1.5
 DEFAULT_BANK_VARIATION = 0.35
+GLOBAL_BANK_WIDTH_MULTIPLIER = 3.0
+DEFAULT_WATER_DEPTH_NOISE_STRENGTH = 0.32
+WATER_DEPTH_NOISE_SCALE_X = 0.085
+WATER_DEPTH_NOISE_SCALE_Y = 0.12
+WATER_DEPTH_NOISE_SCALE_DIAGONAL = 0.1
 BANK_COLOR_PRESETS: Dict[str, Tuple[int, int, int, int]] = {
 	"default": DEFAULT_BANK_COLOR,
 	"sand": (214, 192, 138, 255),
@@ -557,6 +562,16 @@ def _value_noise_fractal(seed: int, x: float, octaves: int = 3) -> float:
 	return total / norm
 
 
+def _sample_water_depth_noise(seed: int, col: int, row: int) -> float:
+	x_sample = col * WATER_DEPTH_NOISE_SCALE_X
+	y_sample = row * WATER_DEPTH_NOISE_SCALE_Y
+	diag_sample = (col + row) * WATER_DEPTH_NOISE_SCALE_DIAGONAL
+	noise_x = _value_noise_fractal(seed, x_sample)
+	noise_y = _value_noise_fractal(seed + 211, y_sample)
+	noise_diag = _value_noise_fractal(seed + 421, diag_sample)
+	return (noise_x + noise_y + noise_diag) / 3.0
+
+
 def _median_filter(values: Sequence[float], window: int) -> List[float]:
 	size = len(values)
 	if window <= 1 or size == 0:
@@ -985,13 +1000,15 @@ def build_tributary_points(
 		if tributary_opts.bank_variation is not None
 		else options.bank_variation
 	)
+	effective_tributary_bank_offset = tributary_bank_offset * GLOBAL_BANK_WIDTH_MULTIPLIER
+	effective_tributary_bank_variation = tributary_bank_variation * GLOBAL_BANK_WIDTH_MULTIPLIER
 	bank_seed = noise_seed + 4211
 	tributary_bank_cells = build_tributary_bank_cells(
 		tributary_points,
 		mask,
 		entry_inward,
-		tributary_bank_offset,
-		tributary_bank_variation,
+		effective_tributary_bank_offset,
+		effective_tributary_bank_variation,
 		bank_seed,
 	)
 	tributary_bank_color = (
@@ -1015,11 +1032,13 @@ def build_tributary_points(
 		"seed": noise_seed,
 		"shape_metadata": shape_metadata,
 		"bank_offset": tributary_bank_offset,
+		"effective_bank_offset": effective_tributary_bank_offset,
 		"bank_color": {
 			"rgba": list(tributary_bank_color),
 			"hex": rgba_to_hex(tributary_bank_color),
 		},
 		"bank_variation": tributary_bank_variation,
+		"effective_bank_variation": effective_tributary_bank_variation,
 		"bank_cell_count": {
 			"left": len(tributary_bank_cells[0]),
 			"right": len(tributary_bank_cells[1]),
@@ -1135,8 +1154,10 @@ def fill_water_regions(
 	seed_groups: Sequence[Sequence[Tuple[int, int]]],
 	bank_groups: Sequence[Sequence[Tuple[int, int]]],
 	water_color: Tuple[int, int, int, int],
+	depth_noise_seed: int | None = None,
+	depth_noise_strength: float = 0.0,
 ) -> None:
-	"""Fill river water using flood-fill bounded by banks and apply gradient."""
+	"""Fill river water using flood-fill bounded by banks and apply gradient/noise."""
 	if not seed_groups or not bank_groups:
 		return
 
@@ -1361,11 +1382,22 @@ def fill_water_regions(
 	if max_distance <= 1e-6:
 		max_distance = 1.0
 
+	noise_strength = max(0.0, depth_noise_strength)
 	for col, row in water_cells:
 		d = min(distance[row][col], max_distance)
 		t = max(0.0, 1.0 - d / max_distance)
 		t = t**1.2
+		if depth_noise_seed is not None and noise_strength > 1e-6:
+			noise_value = _sample_water_depth_noise(depth_noise_seed, col, row)
+			t = max(0.0, min(1.0, t + (noise_value - 0.5) * noise_strength))
 		color = _lerp_color(shore_color, center_color, t)
+		if depth_noise_seed is not None and noise_strength > 1e-6:
+			noise_value = _sample_water_depth_noise(depth_noise_seed + 977, col, row)
+			boost = (noise_value - 0.5) * noise_strength * 32.0
+			r = _clamp_byte(int(color[0] + boost * 0.35))
+			g = _clamp_byte(int(color[1] + boost * 0.5))
+			b = _clamp_byte(int(color[2] + boost))
+			color = (r, g, b, color[3])
 		pixels[col, row] = color
 
 
@@ -1379,6 +1411,8 @@ def compose_image(
 	tributary_cells: Sequence[Tuple[int, int]] | None = None,
 	tributary_banks: Tuple[Sequence[Tuple[int, int]], Sequence[Tuple[int, int]]] | None = None,
 	tributary_bank_color: Tuple[int, int, int, int] | None = None,
+	water_seed: int | None = None,
+	water_noise_strength: float = DEFAULT_WATER_DEPTH_NOISE_STRENGTH,
 ) -> Image.Image:
 	image = Image.new("RGBA", (grid, grid), (0, 0, 0, 0))
 	pixels = image.load()
@@ -1422,6 +1456,8 @@ def compose_image(
 			seed_groups,
 			bank_groups,
 			DEFAULT_WATER_COLOR,
+			water_seed,
+			water_noise_strength if water_seed is not None else 0.0,
 		)
 	
 	if PAINT_CENTERLINE_PIXELS:
@@ -1477,13 +1513,15 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 	)
 	centerline_cells = rasterize_polyline(centerline_points)
 	centerline_cells = extend_line_to_edges(centerline_cells, mask, entry_inward, exit_inward)
+	effective_bank_offset = opts.bank_offset * GLOBAL_BANK_WIDTH_MULTIPLIER
+	effective_bank_variation = opts.bank_variation * GLOBAL_BANK_WIDTH_MULTIPLIER
 	centerline_bank_cells = build_centerline_bank_cells(
 		centerline_points,
 		mask,
 		entry_inward,
 		exit_inward,
-		opts.bank_offset,
-		opts.bank_variation,
+		effective_bank_offset,
+		effective_bank_variation,
 		opts.seed + 311,
 	)
 	tributary_cells: List[Tuple[int, int]] | None = None
@@ -1508,6 +1546,8 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 		tributary_cells,
 		tributary_bank_cells,
 		tributary_bank_color,
+		opts.seed,
+		DEFAULT_WATER_DEPTH_NOISE_STRENGTH,
 	)
 	metadata = {
 		"grid": opts.grid_size,
@@ -1529,16 +1569,22 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 	metadata["centerline_cell_count"] = len(centerline_cells)
 	metadata["centerline_banks"] = {
 		"offset": opts.bank_offset,
+		"effective_offset": effective_bank_offset,
 		"color": {
 			"rgba": list(opts.bank_color),
 			"hex": rgba_to_hex(opts.bank_color),
 		},
 		"variation": opts.bank_variation,
+		"effective_variation": effective_bank_variation,
 		"left_cell_count": len(centerline_bank_cells[0]),
 		"right_cell_count": len(centerline_bank_cells[1]),
 	}
 	metadata["tributary_present"] = bool(tributary_metadata)
 	metadata["tributary"] = tributary_metadata
+	metadata["water_depth_noise"] = {
+		"seed": opts.seed,
+		"strength": DEFAULT_WATER_DEPTH_NOISE_STRENGTH,
+	}
 
 	return RiverCenterlineRender(
 		image=image,

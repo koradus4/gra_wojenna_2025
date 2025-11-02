@@ -1,0 +1,190 @@
+{
+  "grid": 128,
+  "entry_side": "top",
+  "exit_side": "bottom",
+  "seed": 1287,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_muddy_mix_64.png",
+  "start": {
+    "x": 64.0,
+    "y": 9.007386859688147
+  },
+  "end": {
+    "x": 64.0,
+    "y": 118.99261314031185
+  },
+  "shape": "curve",
+  "shape_strength": 0.75,
+  "shape_direction": null,
+  "shape_direction_mode": "auto",
+  "noise_amplitude": 0.3,
+  "noise_frequency": 1.8,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 64.0,
+        "y": 9.007386859688147
+      },
+      {
+        "x": 51.62666204342983,
+        "y": 79.94785781069041
+      },
+      {
+        "x": 76.37333795657017,
+        "y": 48.05214218930958
+      },
+      {
+        "x": 64.0,
+        "y": 118.99261314031185
+      }
+    ],
+    "handle_lengths": {
+      "entry": 72.01145680332745,
+      "exit": 72.01145680332746
+    },
+    "entry_inward": {
+      "x": 0.0,
+      "y": 1.0
+    },
+    "exit_inward": {
+      "x": 0.0,
+      "y": -1.0
+    },
+    "span_direction": {
+      "x": 0.0,
+      "y": 1.0
+    },
+    "lateral": {
+      "x": -24.74667591314033,
+      "y": 0.0
+    },
+    "lateral_sign": 1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.3,
+      "frequency": 1.8,
+      "seed": 1287,
+      "max_offset_px": 3.072,
+      "offset_stats": {
+        "min": -0.9009916165194096,
+        "max": 0.8395899974974154,
+        "median": 0.19796053253847937
+      }
+    }
+  },
+  "centerline_cell_count": 111,
+  "centerline_banks": {
+    "offset": 1.8,
+    "effective_offset": 5.4,
+    "color": {
+      "rgba": [
+        96,
+        104,
+        120,
+        255
+      ],
+      "hex": "#606878FF"
+    },
+    "variation": 0.6,
+    "effective_variation": 1.7999999999999998,
+    "left_cell_count": 111,
+    "right_cell_count": 112
+  },
+  "tributary_present": true,
+  "tributary": {
+    "entry_side": "top_left",
+    "join_ratio": 0.48,
+    "join_ratio_percent": 48.0,
+    "join_point": {
+      "x": 63.081777544627045,
+      "y": 61.905626820600524
+    },
+    "join_direction": {
+      "x": 0.25130162514766924,
+      "y": 0.9679088248374123
+    },
+    "shape": "curve",
+    "shape_strength": 0.7,
+    "shape_direction": null,
+    "shape_direction_mode": "auto",
+    "noise_amplitude": 0.25,
+    "noise_frequency": 2.2,
+    "noise_applied": true,
+    "seed": 1001287,
+    "shape_metadata": {
+      "control_points": [
+        {
+          "x": 16.375,
+          "y": 36.50369342984408
+        },
+        {
+          "x": 42.992029834914916,
+          "y": 58.31516478576081
+        },
+        {
+          "x": 36.04347003227367,
+          "y": 40.84578554189358
+        },
+        {
+          "x": 63.081777544627045,
+          "y": 61.905626820600524
+        }
+      ],
+      "handle_lengths": {
+        "entry": 34.4123024504715,
+        "exit": 34.272248070660815
+      },
+      "entry_inward": {
+        "x": 0.8660254037844387,
+        "y": 0.49999999999999994
+      },
+      "exit_inward": {
+        "x": -0.8784838886179193,
+        "y": -0.4777719722197392
+      },
+      "span_direction": {
+        "x": 0.8784838886179193,
+        "y": 0.4777719722197392
+      },
+      "lateral": {
+        "x": -5.334406012058854,
+        "y": 9.80842328437168
+      },
+      "lateral_sign": 1,
+      "noise": {
+        "applied": true,
+        "amplitude": 0.25,
+        "frequency": 2.2,
+        "seed": 1001287,
+        "max_offset_px": 2.56,
+        "offset_stats": {
+          "min": 0.0,
+          "max": 0.562831482821527,
+          "median": 0.2665552487516527
+        }
+      }
+    },
+    "bank_offset": 1.8,
+    "effective_bank_offset": 5.4,
+    "bank_color": {
+      "rgba": [
+        96,
+        104,
+        120,
+        255
+      ],
+      "hex": "#606878FF"
+    },
+    "bank_variation": 0.6,
+    "effective_bank_variation": 1.7999999999999998,
+    "bank_cell_count": {
+      "left": 49,
+      "right": 49
+    },
+    "cell_count": 49
+  },
+  "water_depth_noise": {
+    "seed": 1287,
+    "strength": 0.32
+  }
+}

@@ -9154,9 +9154,17 @@ class MapEditor:
             return
 
         texture_path = fix_image_path(texture_rel)
+        metadata_rel = record.get("river_metadata_path")
+        metadata_path = fix_image_path(metadata_rel) if metadata_rel else None
+
+        texture_from_generator = False
         try:
             texture_path.relative_to(RIVER_OUTPUT_DIR)
+            texture_from_generator = True
         except ValueError:
+            texture_from_generator = False
+
+        if not texture_from_generator and metadata_path is None:
             messagebox.showwarning(
                 "Kontynuacja rzeki",
                 "Tekstura nie pochodzi z generatora rzek – nie można jej kontynuować automatycznie.",
@@ -9164,8 +9172,12 @@ class MapEditor:
             )
             return
 
-        metadata_path = texture_path.with_suffix(".json")
-        if not metadata_path.exists():
+        if metadata_path is None and texture_from_generator:
+            metadata_path = texture_path.with_suffix(".json")
+            if metadata_path.exists():
+                record["river_metadata_path"] = to_rel(str(metadata_path))
+
+        if metadata_path is None or not metadata_path.exists():
             messagebox.showwarning(
                 "Kontynuacja rzeki",
                 "Brak pliku metadanych rzeki dla wybranego heksu.",
