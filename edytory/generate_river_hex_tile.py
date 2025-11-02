@@ -29,6 +29,8 @@ PAINT_CENTERLINE_PIXELS = False
 PAINT_TRIBUTARY_PIXELS = False
 DEFAULT_BANK_COLOR = (214, 192, 138, 255)
 DEFAULT_WATER_COLOR = (70, 120, 180, 255)
+DEFAULT_WATER_CENTER_COLOR = (45, 90, 150, 255)
+DEFAULT_WATER_SHORE_COLOR = (105, 160, 210, 255)
 DEFAULT_BANK_OFFSET = 1.5
 DEFAULT_BANK_VARIATION = 0.35
 BANK_COLOR_PRESETS: Dict[str, Tuple[int, int, int, int]] = {
@@ -46,6 +48,11 @@ MAX_TRIBUTARY_JOIN = 0.8
 
 def _clamp_byte(value: int) -> int:
 	return max(0, min(255, value))
+
+
+def _lerp_color(a: Tuple[int, int, int, int], b: Tuple[int, int, int, int], t: float) -> Tuple[int, int, int, int]:
+	t_clamped = max(0.0, min(1.0, t))
+	return tuple(int(round(a[i] + (b[i] - a[i]) * t_clamped)) for i in range(4))
 
 
 def parse_color_argument(value: str) -> Tuple[int, int, int, int]:
@@ -1119,63 +1126,97 @@ def fill_water_between_banks(
 	mask: Sequence[Sequence[bool]],
 	centerline_cells: Sequence[Tuple[int, int]] | None = None,
 ) -> None:
-	"""Fill water between left and right bank cells.
-	
-	Uses a scanline algorithm that fills horizontally between banks,
-	and extends to cover narrow sections using centerline as guide.
-	"""
+	"""Fill water between banks using scanline + interpolation near ends."""
 	if not left_bank_cells or not right_bank_cells:
 		return
 
-	# Build set of all bank positions
 	bank_set = set(left_bank_cells) | set(right_bank_cells)
-	centerline_set = set(centerline_cells) if centerline_cells else set()
-	
-	# Build maps of bank positions per row to find boundaries
-	all_banks_by_row: Dict[int, List[int]] = {}
-	
-	for col, row in bank_set:
-		if row not in all_banks_by_row:
-			all_banks_by_row[row] = []
-		all_banks_by_row[row].append(col)
-
-	# Also track centerline positions
 	centerline_by_row: Dict[int, List[int]] = {}
 	if centerline_cells:
 		for col, row in centerline_cells:
-			if row not in centerline_by_row:
-				centerline_by_row[row] = []
-			centerline_by_row[row].append(col)
+			centerline_by_row.setdefault(row, []).append(col)
 
-	# Fill water row by row
+	row_bounds: Dict[int, Tuple[int, int]] = {}
+	for col, row in bank_set:
+		if not (0 <= row < grid_size and 0 <= col < grid_size):
+			continue
+		if not mask[row][col]:
+			continue
+		if row in row_bounds:
+			current_min, current_max = row_bounds[row]
+			row_bounds[row] = (min(current_min, col), max(current_max, col))
+		else:
+			row_bounds[row] = (col, col)
+
+	if not row_bounds:
+		return
+
+	if water_color == DEFAULT_WATER_COLOR:
+		center_color = DEFAULT_WATER_CENTER_COLOR
+	else:
+		center_color = water_color
+	shore_color = DEFAULT_WATER_SHORE_COLOR
+
+	def nearest_bounds(search_row: int) -> Tuple[int, int] | None:
+		up_bound: Tuple[int, int] | None = None
+		down_bound: Tuple[int, int] | None = None
+		up_dist = down_dist = 0
+		for delta in range(1, grid_size):
+			if up_bound is None:
+				up_row = search_row - delta
+				if up_row >= 0 and up_row in row_bounds:
+					up_bound = row_bounds[up_row]
+					up_dist = delta
+			if down_bound is None:
+				down_row = search_row + delta
+				if down_row < grid_size and down_row in row_bounds:
+					down_bound = row_bounds[down_row]
+					down_dist = delta
+			if up_bound and down_bound:
+				total = up_dist + down_dist
+				min_col = int(round((up_bound[0] * down_dist + down_bound[0] * up_dist) / total))
+				max_col = int(round((up_bound[1] * down_dist + down_bound[1] * up_dist) / total))
+				return min_col, max_col
+		if up_bound:
+			return up_bound
+		if down_bound:
+			return down_bound
+		return None
+
 	for row in range(grid_size):
-		cols = all_banks_by_row.get(row, [])
-		
-		if len(cols) >= 2:
-			# Normal case: fill between outermost banks
-			min_col = min(cols)
-			max_col = max(cols)
-			for col in range(min_col, max_col + 1):
-				if 0 <= col < grid_size and mask[row][col]:
-					if (col, row) not in bank_set:
-						pixels[col, row] = water_color
-		elif len(cols) == 1 and row in centerline_by_row:
-			# Narrow section: fill around single bank using centerline
-			bank_col = cols[0]
-			center_cols = centerline_by_row[row]
-			if center_cols:
-				center_col = int(statistics.mean(center_cols))
-				min_col = min(bank_col, center_col)
-				max_col = max(bank_col, center_col)
-				for col in range(min_col, max_col + 1):
-					if 0 <= col < grid_size and mask[row][col]:
-						if (col, row) not in bank_set:
-							pixels[col, row] = water_color
-		elif row in centerline_by_row:
-			# No banks in this row, just paint centerline
-			for col in centerline_by_row[row]:
-				if 0 <= col < grid_size and mask[row][col]:
-					pixels[col, row] = water_color
+		bounds = row_bounds.get(row)
+		center_cols = centerline_by_row.get(row)
+		if bounds is None and center_cols:
+			bounds = nearest_bounds(row)
+		if bounds is None:
+			continue
+
+		min_col, max_col = bounds
+		if center_cols:
+			center_min = min(center_cols)
+			center_max = max(center_cols)
+			min_col = min(min_col, center_min)
+			max_col = max(max_col, center_max)
+		if min_col > max_col:
+			min_col, max_col = max_col, min_col
+		center_reference: float
+		if center_cols:
+			center_reference = statistics.mean(center_cols)
+		else:
+			center_reference = (min_col + max_col) * 0.5
+		half_span = max(float(center_reference - min_col), float(max_col - center_reference), 1.0)
+		for col in range(min_col, max_col + 1):
+			if not (0 <= col < grid_size):
+				continue
+			if not mask[row][col]:
+				continue
+			if (col, row) in bank_set:
+				continue
+			dist = abs(col - center_reference) / half_span
+			depth = max(0.0, 1.0 - dist)
+			depth = depth**1.2
+			color = _lerp_color(shore_color, center_color, depth)
+			pixels[col, row] = color
 
 
 def compose_image(

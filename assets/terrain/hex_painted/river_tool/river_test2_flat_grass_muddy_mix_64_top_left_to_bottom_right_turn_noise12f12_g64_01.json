@@ -1,0 +1,93 @@
+{
+  "grid": 64,
+  "entry_side": "top_left",
+  "exit_side": "bottom_right",
+  "seed": 6123,
+  "background": "C:\\Users\\klif\\OneDrive\\Pulpit\\gra wojenna 17082025\\assets\\terrain\\hex_painted\\flat_grass_muddy_mix_64.png",
+  "start": {
+    "x": 8.375,
+    "y": 18.36009989039509
+  },
+  "end": {
+    "x": 55.625,
+    "y": 45.63990010960491
+  },
+  "shape": "turn",
+  "shape_strength": 0.6,
+  "shape_direction": null,
+  "shape_direction_mode": "auto",
+  "noise_amplitude": 0.12,
+  "noise_frequency": 1.2,
+  "noise_applied": true,
+  "shape_metadata": {
+    "control_points": [
+      {
+        "x": 8.375,
+        "y": 18.36009989039509
+      },
+      {
+        "x": 36.96773296383038,
+        "y": 45.26312196392965
+      },
+      {
+        "x": 27.03226703616962,
+        "y": 18.73687803607035
+      },
+      {
+        "x": 55.625,
+        "y": 45.63990010960491
+      }
+    ],
+    "handle_lengths": {
+      "entry": 39.25960997042635,
+      "exit": 39.25960997042635
+    },
+    "entry_inward": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "exit_inward": {
+      "x": -0.8660254037844386,
+      "y": -0.5
+    },
+    "span_direction": {
+      "x": 0.8660254037844386,
+      "y": 0.5
+    },
+    "lateral": {
+      "x": -9.00233407233924,
+      "y": 15.5925
+    },
+    "lateral_sign": 1,
+    "noise": {
+      "applied": true,
+      "amplitude": 0.12,
+      "frequency": 1.2,
+      "seed": 6123,
+      "max_offset_px": 0.6144,
+      "offset_stats": {
+        "min": -0.2136281485612242,
+        "max": 0.0,
+        "median": -0.12162251501767957
+      }
+    }
+  },
+  "centerline_cell_count": 49,
+  "centerline_banks": {
+    "offset": 1.5,
+    "color": {
+      "rgba": [
+        214,
+        192,
+        138,
+        255
+      ],
+      "hex": "#D6C08AFF"
+    },
+    "variation": 0.35,
+    "left_cell_count": 49,
+    "right_cell_count": 50
+  },
+  "tributary_present": false,
+  "tributary": null
+}
