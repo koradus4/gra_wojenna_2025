@@ -28,6 +28,7 @@ TRIBUTARY_COLOR = (0, 0, 255, 255)
 PAINT_CENTERLINE_PIXELS = False
 PAINT_TRIBUTARY_PIXELS = False
 DEFAULT_BANK_COLOR = (214, 192, 138, 255)
+DEFAULT_WATER_COLOR = (70, 120, 180, 255)
 DEFAULT_BANK_OFFSET = 1.5
 DEFAULT_BANK_VARIATION = 0.35
 BANK_COLOR_PRESETS: Dict[str, Tuple[int, int, int, int]] = {
@@ -1097,16 +1098,84 @@ def extend_line_to_entry_edge(
 			row = int(math.floor(y))
 			if not (0 <= row < grid and 0 <= col < grid):
 				break
-			if not mask[row][col]:
-				break
+			# Continue walking even outside mask - we want to reach hex edge
 			next_cell = (col, row)
 			if trail and next_cell == trail[-1]:
 				continue
-			trail.append(next_cell)
+			if mask[row][col]:  # Only add cells that are within the hex
+				trail.append(next_cell)
 		return trail
 
 	leading = walk_to_edge(deduped[0], (-entry_dir[0], -entry_dir[1]))
 	return list(reversed(leading)) + deduped
+
+
+def fill_water_between_banks(
+	pixels: Any,
+	left_bank_cells: Sequence[Tuple[int, int]],
+	right_bank_cells: Sequence[Tuple[int, int]],
+	water_color: Tuple[int, int, int, int],
+	grid_size: int,
+	mask: Sequence[Sequence[bool]],
+	centerline_cells: Sequence[Tuple[int, int]] | None = None,
+) -> None:
+	"""Fill water between left and right bank cells.
+	
+	Uses a scanline algorithm that fills horizontally between banks,
+	and extends to cover narrow sections using centerline as guide.
+	"""
+	if not left_bank_cells or not right_bank_cells:
+		return
+
+	# Build set of all bank positions
+	bank_set = set(left_bank_cells) | set(right_bank_cells)
+	centerline_set = set(centerline_cells) if centerline_cells else set()
+	
+	# Build maps of bank positions per row to find boundaries
+	all_banks_by_row: Dict[int, List[int]] = {}
+	
+	for col, row in bank_set:
+		if row not in all_banks_by_row:
+			all_banks_by_row[row] = []
+		all_banks_by_row[row].append(col)
+
+	# Also track centerline positions
+	centerline_by_row: Dict[int, List[int]] = {}
+	if centerline_cells:
+		for col, row in centerline_cells:
+			if row not in centerline_by_row:
+				centerline_by_row[row] = []
+			centerline_by_row[row].append(col)
+
+	# Fill water row by row
+	for row in range(grid_size):
+		cols = all_banks_by_row.get(row, [])
+		
+		if len(cols) >= 2:
+			# Normal case: fill between outermost banks
+			min_col = min(cols)
+			max_col = max(cols)
+			for col in range(min_col, max_col + 1):
+				if 0 <= col < grid_size and mask[row][col]:
+					if (col, row) not in bank_set:
+						pixels[col, row] = water_color
+		elif len(cols) == 1 and row in centerline_by_row:
+			# Narrow section: fill around single bank using centerline
+			bank_col = cols[0]
+			center_cols = centerline_by_row[row]
+			if center_cols:
+				center_col = int(statistics.mean(center_cols))
+				min_col = min(bank_col, center_col)
+				max_col = max(bank_col, center_col)
+				for col in range(min_col, max_col + 1):
+					if 0 <= col < grid_size and mask[row][col]:
+						if (col, row) not in bank_set:
+							pixels[col, row] = water_color
+		elif row in centerline_by_row:
+			# No banks in this row, just paint centerline
+			for col in centerline_by_row[row]:
+				if 0 <= col < grid_size and mask[row][col]:
+					pixels[col, row] = water_color
 
 
 def compose_image(
@@ -1133,6 +1202,8 @@ def compose_image(
 				pixels[col, row] = color
 	bank_color_main = centerline_bank_color or DEFAULT_BANK_COLOR
 	bank_color_tributary = tributary_bank_color or bank_color_main
+	
+	# Draw banks
 	if centerline_banks:
 		for bank_cells in centerline_banks:
 			for col, row in bank_cells:
@@ -1143,6 +1214,29 @@ def compose_image(
 			for col, row in bank_cells:
 				if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
 					pixels[col, row] = bank_color_tributary
+	
+	# Fill water between banks
+	if centerline_banks:
+		fill_water_between_banks(
+			pixels,
+			centerline_banks[0],
+			centerline_banks[1],
+			DEFAULT_WATER_COLOR,
+			grid,
+			mask,
+			centerline_cells,
+		)
+	if tributary_banks:
+		fill_water_between_banks(
+			pixels,
+			tributary_banks[0],
+			tributary_banks[1],
+			DEFAULT_WATER_COLOR,
+			grid,
+			mask,
+			tributary_cells,
+		)
+	
 	if PAINT_CENTERLINE_PIXELS:
 		for col, row in centerline_cells:
 			if 0 <= row < grid and 0 <= col < grid and mask[row][col]:
@@ -1310,12 +1404,12 @@ def extend_line_to_edges(
 			row = int(math.floor(y))
 			if not (0 <= row < grid and 0 <= col < grid):
 				break
-			if not mask[row][col]:
-				break
+			# Continue walking even outside mask - we want to reach hex edge
 			next_cell = (col, row)
 			if trail and next_cell == trail[-1]:
 				continue
-			trail.append(next_cell)
+			if mask[row][col]:  # Only add cells that are within the hex
+				trail.append(next_cell)
 		return trail
 
 	leading = walk_to_edge(deduped[0], (-entry_dir[0], -entry_dir[1]))
