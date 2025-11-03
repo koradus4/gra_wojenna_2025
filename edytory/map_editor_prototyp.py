@@ -989,7 +989,7 @@ class MapEditor:
 
         token_msg = " Żetony na mapie zostały zachowane." if token_count else " Brak żetonów do zachowania."
         texture_msg = (
-            f" Usunięto {textures_removed} plików tekstur heksów." if textures_removed else " Brak tekstur do usunięcia."
+            f" Usunięto {textures_removed} plików tekstur i metadanych rzek." if textures_removed else " Brak tekstur do usunięcia."
         )
         self._update_map_info_label()
 
@@ -1004,15 +1004,22 @@ class MapEditor:
         removed = 0
         issues: list[str] = []
 
-        if not HEX_TEXTURE_DIR.exists():
-            return removed, issues
+        if HEX_TEXTURE_DIR.exists():
+            for texture_path in HEX_TEXTURE_DIR.glob("hex_*.png"):
+                try:
+                    texture_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"{texture_path.name}: {exc}")
 
-        for texture_path in HEX_TEXTURE_DIR.glob("hex_*.png"):
-            try:
-                texture_path.unlink()
-                removed += 1
-            except Exception as exc:  # noqa: BLE001
-                issues.append(f"{texture_path.name}: {exc}")
+        if RIVER_OUTPUT_DIR.exists():
+            for pattern in ("hex_*.png", "hex_*.json"):
+                for river_path in RIVER_OUTPUT_DIR.glob(pattern):
+                    try:
+                        river_path.unlink()
+                        removed += 1
+                    except Exception as exc:  # noqa: BLE001
+                        issues.append(f"river_tool/{river_path.name}: {exc}")
 
         return removed, issues
 
