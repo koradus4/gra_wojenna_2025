@@ -1,0 +1,437 @@
+{
+  "name": "kamienica_miejska1",
+  "category": "settlement",
+  "grid_size": 64,
+  "bounds": {
+    "row_min": 14,
+    "row_max": 41,
+    "col_min": 20,
+    "col_max": 57
+  },
+  "origin": {
+    "row": 14,
+    "col": 20
+  },
+  "size": {
+    "rows": 28,
+    "cols": 38
+  },
+  "hotspot": {
+    "row": 28.0,
+    "col": 39.0
+  },
+  "created_at": "2025-11-03T22:00:13",
+  "source_hex": "16,1",
+  "image": "terrain\\presets\\user_assets\\settlement\\kamienica_miejska1.png",
+  "thumbnail": "terrain\\presets\\user_assets\\settlement\\kamienica_miejska1_thumb.png",
+  "selection": {
+    "type": "polygon",
+    "loop": [
+      {
+        "row": 20,
+        "col": 24
+      },
+      {
+        "row": 19,
+        "col": 25
+      },
+      {
+        "row": 18,
+        "col": 25
+      },
+      {
+        "row": 17,
+        "col": 26
+      },
+      {
+        "row": 17,
+        "col": 27
+      },
+      {
+        "row": 16,
+        "col": 28
+      },
+      {
+        "row": 15,
+        "col": 28
+      },
+      {
+        "row": 14,
+        "col": 29
+      },
+      {
+        "row": 14,
+        "col": 30
+      },
+      {
+        "row": 15,
+        "col": 31
+      },
+      {
+        "row": 15,
+        "col": 32
+      },
+      {
+        "row": 16,
+        "col": 33
+      },
+      {
+        "row": 16,
+        "col": 34
+      },
+      {
+        "row": 17,
+        "col": 35
+      },
+      {
+        "row": 17,
+        "col": 36
+      },
+      {
+        "row": 17,
+        "col": 37
+      },
+      {
+        "row": 18,
+        "col": 38
+      },
+      {
+        "row": 18,
+        "col": 39
+      },
+      {
+        "row": 19,
+        "col": 40
+      },
+      {
+        "row": 20,
+        "col": 41
+      },
+      {
+        "row": 20,
+        "col": 42
+      },
+      {
+        "row": 21,
+        "col": 43
+      },
+      {
+        "row": 21,
+        "col": 44
+      },
+      {
+        "row": 21,
+        "col": 45
+      },
+      {
+        "row": 20,
+        "col": 46
+      },
+      {
+        "row": 19,
+        "col": 46
+      },
+      {
+        "row": 19,
+        "col": 47
+      },
+      {
+        "row": 19,
+        "col": 48
+      },
+      {
+        "row": 20,
+        "col": 48
+      },
+      {
+        "row": 21,
+        "col": 48
+      },
+      {
+        "row": 22,
+        "col": 48
+      },
+      {
+        "row": 23,
+        "col": 49
+      },
+      {
+        "row": 23,
+        "col": 50
+      },
+      {
+        "row": 24,
+        "col": 51
+      },
+      {
+        "row": 24,
+        "col": 52
+      },
+      {
+        "row": 24,
+        "col": 53
+      },
+      {
+        "row": 24,
+        "col": 54
+      },
+      {
+        "row": 25,
+        "col": 54
+      },
+      {
+        "row": 26,
+        "col": 53
+      },
+      {
+        "row": 27,
+        "col": 53
+      },
+      {
+        "row": 28,
+        "col": 53
+      },
+      {
+        "row": 29,
+        "col": 53
+      },
+      {
+        "row": 30,
+        "col": 53
+      },
+      {
+        "row": 30,
+        "col": 54
+      },
+      {
+        "row": 31,
+        "col": 55
+      },
+      {
+        "row": 32,
+        "col": 56
+      },
+      {
+        "row": 33,
+        "col": 57
+      },
+      {
+        "row": 34,
+        "col": 57
+      },
+      {
+        "row": 35,
+        "col": 57
+      },
+      {
+        "row": 36,
+        "col": 56
+      },
+      {
+        "row": 36,
+        "col": 55
+      },
+      {
+        "row": 37,
+        "col": 54
+      },
+      {
+        "row": 37,
+        "col": 53
+      },
+      {
+        "row": 37,
+        "col": 52
+      },
+      {
+        "row": 38,
+        "col": 51
+      },
+      {
+        "row": 39,
+        "col": 50
+      },
+      {
+        "row": 39,
+        "col": 49
+      },
+      {
+        "row": 40,
+        "col": 48
+      },
+      {
+        "row": 40,
+        "col": 47
+      },
+      {
+        "row": 40,
+        "col": 46
+      },
+      {
+        "row": 41,
+        "col": 45
+      },
+      {
+        "row": 41,
+        "col": 44
+      },
+      {
+        "row": 41,
+        "col": 43
+      },
+      {
+        "row": 41,
+        "col": 42
+      },
+      {
+        "row": 41,
+        "col": 41
+      },
+      {
+        "row": 41,
+        "col": 40
+      },
+      {
+        "row": 41,
+        "col": 39
+      },
+      {
+        "row": 41,
+        "col": 38
+      },
+      {
+        "row": 41,
+        "col": 37
+      },
+      {
+        "row": 41,
+        "col": 36
+      },
+      {
+        "row": 41,
+        "col": 35
+      },
+      {
+        "row": 40,
+        "col": 34
+      },
+      {
+        "row": 40,
+        "col": 33
+      },
+      {
+        "row": 40,
+        "col": 32
+      },
+      {
+        "row": 39,
+        "col": 31
+      },
+      {
+        "row": 38,
+        "col": 30
+      },
+      {
+        "row": 38,
+        "col": 29
+      },
+      {
+        "row": 37,
+        "col": 28
+      },
+      {
+        "row": 37,
+        "col": 27
+      },
+      {
+        "row": 37,
+        "col": 26
+      },
+      {
+        "row": 36,
+        "col": 25
+      },
+      {
+        "row": 35,
+        "col": 24
+      },
+      {
+        "row": 35,
+        "col": 23
+      },
+      {
+        "row": 34,
+        "col": 22
+      },
+      {
+        "row": 34,
+        "col": 21
+      },
+      {
+        "row": 34,
+        "col": 20
+      },
+      {
+        "row": 33,
+        "col": 20
+      },
+      {
+        "row": 32,
+        "col": 20
+      },
+      {
+        "row": 31,
+        "col": 21
+      },
+      {
+        "row": 30,
+        "col": 22
+      },
+      {
+        "row": 29,
+        "col": 22
+      },
+      {
+        "row": 28,
+        "col": 23
+      },
+      {
+        "row": 28,
+        "col": 24
+      },
+      {
+        "row": 28,
+        "col": 25
+      },
+      {
+        "row": 27,
+        "col": 25
+      },
+      {
+        "row": 26,
+        "col": 25
+      },
+      {
+        "row": 25,
+        "col": 25
+      },
+      {
+        "row": 24,
+        "col": 25
+      },
+      {
+        "row": 23,
+        "col": 25
+      },
+      {
+        "row": 22,
+        "col": 25
+      },
+      {
+        "row": 21,
+        "col": 25
+      }
+    ],
+    "cell_count": 685
+  }
+}
