@@ -197,6 +197,8 @@ class RiverCenterlineOptions:
 	bank_color: Tuple[int, int, int, int] = DEFAULT_BANK_COLOR
 	bank_variation: float = DEFAULT_BANK_VARIATION
 	tributary: "TributaryOptions" | None = None
+	# Ile komórek (w pikselach siatki) usunąć wokół punktu łączenia (0 = domyślnie 1)
+	bank_prune_radius: int = 0
 
 
 @dataclass
@@ -1482,7 +1484,19 @@ def save_metadata(image_path: Path, metadata: Dict[str, Any]) -> Path:
 def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 	rng = random.Random(opts.seed)
 	mask = build_hex_mask(opts.grid_size)
-	background = load_background_pixels(opts.grid_size, mask, opts.background)
+	
+	# Załaduj tło jako obraz (tak jak w generatorze dróg)
+	if opts.background and opts.background.exists():
+		background_img = Image.open(opts.background).convert("RGBA")
+		if background_img.size != (opts.grid_size, opts.grid_size):
+			background_img = background_img.resize((opts.grid_size, opts.grid_size), Image.NEAREST)
+		# Konwertuj na tablicę pikseli
+		background_pixels = background_img.load()
+		background = [[background_pixels[col, row] if mask[row][col] else None 
+		               for col in range(opts.grid_size)] 
+		              for row in range(opts.grid_size)]
+	else:
+		background = [[None for _ in range(opts.grid_size)] for _ in range(opts.grid_size)]
 
 	start, end = pick_flow_endpoints_by_side(opts.grid_size, opts.entry_side, opts.exit_side)
 	center = _hex_center(opts.grid_size)
@@ -1515,6 +1529,9 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 	centerline_cells = extend_line_to_edges(centerline_cells, mask, entry_inward, exit_inward)
 	effective_bank_offset = opts.bank_offset * GLOBAL_BANK_WIDTH_MULTIPLIER
 	effective_bank_variation = opts.bank_variation * GLOBAL_BANK_WIDTH_MULTIPLIER
+	# parametry do kontroli zachowania łączeń dopływów
+	bank_prune_radius_cfg = getattr(opts, 'bank_prune_radius', 0)
+
 	centerline_bank_cells = build_centerline_bank_cells(
 		centerline_points,
 		mask,
@@ -1535,6 +1552,25 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 		)
 		if tributary_metadata is not None:
 			tributary_metadata["cell_count"] = len(tributary_cells)
+		# Przytnij banki w miejscu łączenia, aby uniknąć przegięć i zasłaniania połączenia
+		join = tributary_metadata.get("join_point") if tributary_metadata else None
+		if join:
+			jcol = int(round(join["x"]))
+			jrow = int(round(join["y"]))
+			# radius sterowany przez konfigurację - 0 oznacza domyślny 1
+			radius = int(bank_prune_radius_cfg) if bank_prune_radius_cfg and int(bank_prune_radius_cfg) > 0 else 1
+			# Przefiltruj banki głównej rzeki
+			new_center_left = [c for c in centerline_bank_cells[0] if abs(c[0] - jcol) > radius or abs(c[1] - jrow) > radius]
+			new_center_right = [c for c in centerline_bank_cells[1] if abs(c[0] - jcol) > radius or abs(c[1] - jrow) > radius]
+			centerline_bank_cells = (new_center_left, new_center_right)
+			# Przefiltruj banki dopływu wokół join (usuń miejsca gdzie mogłyby wejść w konflikt)
+			if tributary_bank_cells:
+				new_trib_left = [c for c in tributary_bank_cells[0] if abs(c[0] - jcol) > radius or abs(c[1] - jrow) > radius]
+				new_trib_right = [c for c in tributary_bank_cells[1] if abs(c[0] - jcol) > radius or abs(c[1] - jrow) > radius]
+				tributary_bank_cells = (new_trib_left, new_trib_right)
+			# Zapisz info diagnostyczne
+			tributary_metadata["join_cell"] = {"col": jcol, "row": jrow}
+			tributary_metadata["pruned_bank_radius"] = radius
 
 	image = compose_image(
 		opts.grid_size,

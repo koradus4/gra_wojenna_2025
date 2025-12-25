@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import tkinter as tk
 from tkinter import messagebox, filedialog, simpledialog, ttk, colorchooser
 import json
@@ -9,12 +11,15 @@ import shutil
 from collections import deque
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from PIL import Image, ImageTk, ImageFont, ImageDraw
 
 try:
     from generate_river_hex_tile import (
         DEFAULT_BANK_OFFSET,
         DEFAULT_BANK_VARIATION,
+        DEFAULT_BANK_COLOR,
         MAX_TRIBUTARY_JOIN,
         MIN_TRIBUTARY_JOIN,
         RiverCenterlineOptions,
@@ -31,6 +36,25 @@ except ImportError:  # pragma: no cover - w trybie edytora brak generatora
     MAX_TRIBUTARY_JOIN = 0.8
     DEFAULT_BANK_OFFSET = 1.5
     DEFAULT_BANK_VARIATION = 0.35
+    DEFAULT_BANK_COLOR = (214, 192, 138, 255)
+
+# Import generatora dróg
+try:
+    from generate_road_hex_tile import (
+        RoadOptions,
+        RoadResult,
+        generate_road,
+        ROAD_COLOR_PRESETS,
+        ROAD_WIDTH_PRESETS,
+        HEX_SIDES as ROAD_HEX_SIDES,
+    )
+except ImportError:
+    RoadOptions = None
+    RoadResult = None
+    generate_road = None
+    ROAD_COLOR_PRESETS = {}
+    ROAD_WIDTH_PRESETS = {}
+    ROAD_HEX_SIDES = ()
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -89,6 +113,28 @@ HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 RIVER_OUTPUT_DIR = HEX_TEXTURE_DIR / "river_tool"
 RIVER_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+ROAD_OUTPUT_DIR = HEX_TEXTURE_DIR / "road_tool"
+ROAD_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Konfiguracja dróg
+ROAD_TYPE_LABELS = {
+    "gruntowa": "Droga gruntowa",
+    "brukowana": "Droga brukowana",
+    "glowna": "Droga główna (trakt)",
+    "piaszczysta": "Droga piaszczysta",
+    "asfaltowa": "Droga asfaltowa (z poboczem)",
+    "dojazdowa": "Droga dojazdowa",
+}
+ROAD_TYPE_LABEL_TO_KEY = {label: key for key, label in ROAD_TYPE_LABELS.items()}
+
+ROAD_WIDTH_LABELS = {
+    "wąska": "Wąska (ścieżka)",
+    "średnia": "Średnia (typowa)",
+    "szeroka": "Szeroka (trakt)",
+    "bardzo_szeroka": "Bardzo szeroka (ekspresowa)",
+}
+ROAD_WIDTH_LABEL_TO_KEY = {label: key for key, label in ROAD_WIDTH_LABELS.items()}
+
 RIVER_SHAPE_LABELS = {
     "auto": "Automatycznie",
     "straight": "Odcinek prosty",
@@ -113,6 +159,48 @@ TRIBUTARY_DIRECTION_LABEL_TO_KEY = {label: key for key, label in TRIBUTARY_DIREC
 
 
 CUSTOM_PROFILE_LABEL = "Niestandardowo (zachowaj)"
+
+# ============================================================================
+# UPROSZCZONE PRESETY RZEK - jeden wybór ustawia wszystko
+# ============================================================================
+RIVER_QUICK_PRESETS = {
+    "Strumień (prosty)": {
+        "description": "Wąski, prosty strumień z stabilnymi brzegami",
+        "size": "Strumień",
+        "curvature": "Prosta", 
+        "bank": "Stabilny brzeg",
+    },
+    "Strumień (kręty)": {
+        "description": "Wąski strumień z łagodnymi zakrętami",
+        "size": "Strumień",
+        "curvature": "Łagodna",
+        "bank": "Stabilny brzeg",
+    },
+    "Mała rzeka (łagodna)": {
+        "description": "Typowa mała rzeka z delikatnymi meandrami",
+        "size": "Mała rzeka",
+        "curvature": "Łagodna",
+        "bank": "Stabilny brzeg",
+    },
+    "Mała rzeka (meandrująca)": {
+        "description": "Mała rzeka z wyraźnymi zakrętami",
+        "size": "Mała rzeka",
+        "curvature": "Meandrująca",
+        "bank": "Erozyjny brzeg",
+    },
+    "Duża rzeka (spokojna)": {
+        "description": "Szeroka rzeka z łagodnymi łukami",
+        "size": "Duża rzeka",
+        "curvature": "Łagodna",
+        "bank": "Piaszczysty brzeg",
+    },
+    "Duża rzeka (dynamiczna)": {
+        "description": "Szeroka rzeka z silnymi meandrami",
+        "size": "Duża rzeka",
+        "curvature": "Dynamiczna",
+        "bank": "Błotnisty brzeg",
+    },
+}
 
 RIVER_SIZE_OPTIONS = {
     CUSTOM_PROFILE_LABEL: None,
@@ -651,6 +739,10 @@ class MapEditor:
         self._river_resume_expected_exit: str | None = None
         self._river_resume_branch: str = "main"
         self._skip_river_mode_popup = False
+        # Uproszczony tryb dopływu
+        self._tributary_mode = False
+        self._tributary_source_hex: str | None = None
+        self._tributary_entry_side: str | None = None
         self.river_tributary_enabled_var = tk.BooleanVar(value=False)
         default_entry_label = next(iter(TRIBUTARY_ENTRY_OPTIONS))
         self.river_tributary_entry_var = tk.StringVar(value=default_entry_label)
@@ -683,6 +775,10 @@ class MapEditor:
         self.river_preview_label: tk.Label | None = None
         self._river_preview_photo: ImageTk.PhotoImage | None = None
         self._river_preview_cache_key: tuple | None = None
+
+        # --- Narzędzie dróg ---
+        self.road_mode_active = False
+        self.road_path: list[str] = []
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -1004,6 +1100,7 @@ class MapEditor:
         removed = 0
         issues: list[str] = []
 
+        # Usuń główne pliki tekstur
         if HEX_TEXTURE_DIR.exists():
             for texture_path in HEX_TEXTURE_DIR.glob("hex_*.png"):
                 try:
@@ -1011,6 +1108,24 @@ class MapEditor:
                     removed += 1
                 except Exception as exc:  # noqa: BLE001
                     issues.append(f"{texture_path.name}: {exc}")
+
+        # Usuń pliki dróg z road_tool
+        if ROAD_OUTPUT_DIR.exists():
+            for file_path in ROAD_OUTPUT_DIR.glob("*"):
+                try:
+                    file_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"{file_path.name}: {exc}")
+
+        # Usuń pliki rzek z river_tool
+        if RIVER_OUTPUT_DIR.exists():
+            for file_path in RIVER_OUTPUT_DIR.glob("*"):
+                try:
+                    file_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"{file_path.name}: {exc}")
 
         if RIVER_OUTPUT_DIR.exists():
             for pattern in ("hex_*.png", "hex_*.json"):
@@ -1216,7 +1331,60 @@ class MapEditor:
         )
         self.river_status_label.pack(fill=tk.X, pady=(0, 4))
 
-        river_controls = tk.Frame(self.river_frame, bg="darkolivegreen")
+        # === SZYBKI WYBÓR TYPU RZEKI (uproszczony interfejs) ===
+        quick_preset_frame = tk.LabelFrame(
+            self.river_frame,
+            text="⚡ Szybki wybór typu",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        quick_preset_frame.pack(fill=tk.X, pady=(0, 6))
+        
+        self.river_quick_preset_var = tk.StringVar(value="Mała rzeka (łagodna)")
+        quick_preset_values = list(RIVER_QUICK_PRESETS.keys())
+        self.river_quick_preset_combo = ttk.Combobox(
+            quick_preset_frame,
+            textvariable=self.river_quick_preset_var,
+            values=quick_preset_values,
+            state="readonly",
+            width=22,
+        )
+        self.river_quick_preset_combo.pack(fill=tk.X, padx=4, pady=4)
+        self.river_quick_preset_combo.bind("<<ComboboxSelected>>", lambda *_: self._apply_quick_river_preset())
+        self.create_tooltip(
+            self.river_quick_preset_combo,
+            "Wybierz gotowy typ rzeki - automatycznie ustawi rozmiar, krętość i brzegi.",
+        )
+        
+        self.river_quick_preset_desc = tk.Label(
+            quick_preset_frame,
+            text="Typowa mała rzeka z delikatnymi meandrami",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        )
+        self.river_quick_preset_desc.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        # === SZCZEGÓŁOWE USTAWIENIA (opcjonalnie rozwijane) ===
+        self._river_advanced_expanded = False
+        self.river_advanced_toggle = tk.Button(
+            self.river_frame,
+            text="[+] Szczegółowe ustawienia",
+            command=self._toggle_river_advanced_settings,
+            bg="#3d5a40",
+            fg="white",
+            relief=tk.FLAT,
+            font=("Arial", 8),
+        )
+        self.river_advanced_toggle.pack(fill=tk.X, pady=(0, 2))
+        
+        self.river_advanced_frame = tk.Frame(self.river_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        river_controls = tk.Frame(self.river_advanced_frame, bg="darkolivegreen")
         river_controls.pack(fill=tk.X)
         river_controls.columnconfigure(1, weight=1)
 
@@ -1303,7 +1471,7 @@ class MapEditor:
         )
 
         template_frame = tk.LabelFrame(
-            self.river_frame,
+            self.river_advanced_frame,
             text="Szablony nurtu",
             bg="darkolivegreen",
             fg="white",
@@ -1328,7 +1496,7 @@ class MapEditor:
             )
 
         tributary_frame = tk.LabelFrame(
-            self.river_frame,
+            self.river_advanced_frame,
             text="Dopływ (opcjonalnie)",
             bg="darkolivegreen",
             fg="white",
@@ -1450,17 +1618,90 @@ class MapEditor:
 
         self.river_generate_button = tk.Button(
             buttons_inner,
-            text="Generuj rzekę",
+            text="🌊 Generuj rzekę",
             command=self.generate_river_path,
             bg="#2f6b2f",
             fg="white",
             state=tk.DISABLED,
+            font=("Arial", 9, "bold"),
         )
         self.river_generate_button.pack(fill=tk.X, pady=1)
 
+        # === UPROSZCZONA SEKCJA DOPŁYWÓW ===
+        tributary_simple_frame = tk.LabelFrame(
+            self.river_frame,
+            text="🔀 Dopływy i rozgałęzienia",
+            bg="darkolivegreen",
+            fg="#7dd3fc",
+            font=("Arial", 9, "bold"),
+        )
+        tributary_simple_frame.pack(fill=tk.X, pady=(6, 4))
+        
+        tk.Label(
+            tributary_simple_frame,
+            text="Aby dodać dopływ:\n1. Kliknij heks z rzeką\n2. Kliknij 'Dodaj dopływ'\n3. Kliknij sąsiedni heks (źródło dopływu)",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8),
+            anchor="w",
+            justify="left",
+            wraplength=190,
+        ).pack(fill=tk.X, padx=4, pady=(2, 4))
+        
+        # Kontrolki wielkości dopływu
+        tributary_size_frame = tk.Frame(tributary_simple_frame, bg="darkolivegreen")
+        tributary_size_frame.pack(fill=tk.X, padx=4, pady=(0, 4))
+        
+        tk.Label(tributary_size_frame, text="Wielkość dopływu:", bg="darkolivegreen", fg="white").pack(side=tk.LEFT)
+        
+        self.tributary_size_var = tk.StringVar(value="mały")
+        tributary_sizes = ["mały", "średni", "duży"]
+        self.tributary_size_combo = ttk.Combobox(
+            tributary_size_frame,
+            textvariable=self.tributary_size_var,
+            values=tributary_sizes,
+            state="readonly",
+            width=10,
+        )
+        self.tributary_size_combo.pack(side=tk.RIGHT, padx=(4, 0))
+        self.create_tooltip(
+            self.tributary_size_combo,
+            "Szerokość dopływu wpływającego do głównej rzeki.",
+        )
+        
+        self.add_tributary_button = tk.Button(
+            tributary_simple_frame,
+            text="➕ Dodaj dopływ",
+            command=self._start_simple_tributary,
+            bg="#1f5d7a",
+            fg="white",
+        )
+        self.add_tributary_button.pack(fill=tk.X, padx=4, pady=(0, 4))
+        self.create_tooltip(
+            self.add_tributary_button,
+            "Po kliknięciu wskaż sąsiedni heks skąd płynie dopływ.",
+        )
+        
+        # Status dopływu
+        self.tributary_status_var = tk.StringVar(value="")
+        self.tributary_status_label = tk.Label(
+            tributary_simple_frame,
+            textvariable=self.tributary_status_var,
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        )
+        self.tributary_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+
+        # === POZOSTAŁE PRZYCISKI ===
+        other_buttons = tk.Frame(self.river_frame, bg="darkolivegreen")
+        other_buttons.pack(fill=tk.X, pady=(4, 0))
+
         self.river_continue_button = tk.Button(
-            buttons_inner,
-            text="Kontynuuj z heksu",
+            other_buttons,
+            text="↪ Kontynuuj rzekę z heksu",
             command=self.continue_river_from_selected_hex,
             bg="#1f4a6b",
             fg="white",
@@ -1468,8 +1709,8 @@ class MapEditor:
         self.river_continue_button.pack(fill=tk.X, pady=1)
 
         self.river_undo_button = tk.Button(
-            buttons_inner,
-            text="Cofnij ostatni",
+            other_buttons,
+            text="⬅ Cofnij ostatni",
             command=self.river_pop_last_hex,
             bg="#6b3d1f",
             fg="white",
@@ -1478,7 +1719,7 @@ class MapEditor:
         self.river_undo_button.pack(fill=tk.X, pady=1)
 
         self.river_clear_button = tk.Button(
-            buttons_inner,
+            other_buttons,
             text="Wyczyść ścieżkę",
             command=self.clear_river_path,
             bg="#444444",
@@ -1611,6 +1852,235 @@ class MapEditor:
         )
         self.export_tokens_button.pack(padx=5, pady=2, fill=tk.X)
 
+        # === SEKCJA DRÓG ===
+        self._road_section_expanded = False
+        
+        # Inicjalizacja zmiennych dróg (MUSI BYĆ PRZED GUI)
+        self.road_status_var = tk.StringVar(value="Ścieżka drogi: 0 heksów")
+        self.road_type_var = tk.StringVar(value="Droga gruntowa")
+        self.road_width_var = tk.StringVar(value="Średnia (typowa)")
+        self.road_noise_var = tk.StringVar(value="0.3")
+        self.road_seed_var = tk.StringVar(value="42")
+        self.road_crossroads_mode = False  # Tryb dodawania skrzyżowań
+        self.road_crossroads_sides: list[str] = []  # Dodatkowe boki dla skrzyżowań
+        self.road_crossroads_hex: str | None = None  # Heks na którym jest skrzyżowanie
+        self.road_crossroads_status_var = tk.StringVar(value="")  # Status skrzyżowania
+        self.road_modify_status_var = tk.StringVar(value="")  # Status modyfikacji drogi
+        
+        self.road_section_toggle_button = tk.Button(
+            self.upper_frame,
+            text="[+] Drogi (beta)",
+            command=self.toggle_road_section_visibility,
+            bg="#5a4a3a",
+            fg="white",
+            activebackground="#6a5a4a",
+            activeforeground="white",
+            anchor="w",
+            font=("Arial", 9, "bold"),
+        )
+        self.road_section_toggle_button.pack(fill=tk.X, padx=5, pady=(4, 0))
+
+        self.road_frame = tk.LabelFrame(
+            self.upper_frame, text="Generator dróg", bg="darkolivegreen", fg="white",
+            font=("Arial", 9, "bold"),
+        )
+
+        # Przycisk trybu
+        self.toggle_road_mode_button = tk.Button(
+            self.road_frame, text="Włącz tryb drogi",
+            command=self.toggle_road_mode,
+            bg="#5a4a3a", fg="white",
+            activebackground="#6a5a4a", activeforeground="white",
+        )
+        self.toggle_road_mode_button.pack(fill=tk.X, padx=4, pady=2)
+
+        # Status
+        road_status_label = tk.Label(
+            self.road_frame, textvariable=self.road_status_var,
+            bg="darkolivegreen", fg="#ffe4b5", font=("Arial", 8),
+        )
+        road_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        # Typ drogi
+        road_type_frame = tk.Frame(self.road_frame, bg="darkolivegreen")
+        road_type_frame.pack(fill=tk.X, padx=4, pady=2)
+        tk.Label(road_type_frame, text="Typ:", bg="darkolivegreen", fg="white", width=8, anchor="w").pack(side=tk.LEFT)
+        road_type_combo = ttk.Combobox(
+            road_type_frame, textvariable=self.road_type_var,
+            values=list(ROAD_TYPE_LABELS.values()), state="readonly", width=18,
+        )
+        road_type_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Szerokość drogi
+        road_width_frame = tk.Frame(self.road_frame, bg="darkolivegreen")
+        road_width_frame.pack(fill=tk.X, padx=4, pady=2)
+        tk.Label(road_width_frame, text="Szerokość:", bg="darkolivegreen", fg="white", width=8, anchor="w").pack(side=tk.LEFT)
+        road_width_combo = ttk.Combobox(
+            road_width_frame, textvariable=self.road_width_var,
+            values=list(ROAD_WIDTH_LABELS.values()), state="readonly", width=18,
+        )
+        road_width_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Szum (krętość)
+        road_noise_frame = tk.Frame(self.road_frame, bg="darkolivegreen")
+        road_noise_frame.pack(fill=tk.X, padx=4, pady=2)
+        tk.Label(road_noise_frame, text="Krętość:", bg="darkolivegreen", fg="white", width=8, anchor="w").pack(side=tk.LEFT)
+        road_noise_scale = tk.Scale(
+            road_noise_frame, from_=0.0, to=1.0, resolution=0.1,
+            orient=tk.HORIZONTAL, variable=self.road_noise_var,
+            bg="darkolivegreen", fg="white", highlightthickness=0,
+        )
+        road_noise_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # === SEKCJA SKRZYŻOWAŃ (podobna do dopływów w rzece) ===
+        road_crossroads_section = tk.LabelFrame(
+            self.road_frame,
+            text="🔀 Skrzyżowania i odnogi",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        road_crossroads_section.pack(fill=tk.X, padx=4, pady=(6, 4))
+        
+        tk.Label(
+            road_crossroads_section,
+            text="Aby dodać skrzyżowanie:\n1. Zaznacz heks na drodze (LPM)\n2. Kliknij 'Dodaj skrzyżowanie'\n3. Kliknij sąsiedni heks (kierunek odnogi)",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8),
+            anchor="w",
+            justify="left",
+            wraplength=190,
+        ).pack(fill=tk.X, padx=4, pady=(2, 4))
+        
+        self.add_crossroads_button = tk.Button(
+            road_crossroads_section,
+            text="➕ Dodaj skrzyżowanie",
+            command=self._start_crossroads_mode,
+            bg="#5a4a3a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.add_crossroads_button.pack(fill=tk.X, padx=4, pady=(0, 4))
+        
+        # Status skrzyżowania
+        self.road_crossroads_status_var = tk.StringVar(value="")
+        self.road_crossroads_status_label = tk.Label(
+            road_crossroads_section,
+            textvariable=self.road_crossroads_status_var,
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        )
+        self.road_crossroads_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+
+        # === PRZYCISKI AKCJI (jak w rzece) ===
+        road_buttons_frame = tk.Frame(self.road_frame, bg="darkolivegreen")
+        road_buttons_frame.pack(fill=tk.X, padx=4, pady=(4, 0))
+
+        self.road_generate_button = tk.Button(
+            road_buttons_frame, text="🛤️ Generuj drogę",
+            command=self.generate_road_path,
+            bg="#4a6a4a", fg="white", state=tk.DISABLED,
+            font=("Arial", 9, "bold"),
+        )
+        self.road_generate_button.pack(fill=tk.X, pady=1)
+
+        self.road_undo_button = tk.Button(
+            road_buttons_frame, text="⬅ Cofnij ostatni",
+            command=self.road_pop_last_hex,
+            bg="#6a5a4a", fg="white", state=tk.DISABLED,
+        )
+        self.road_undo_button.pack(fill=tk.X, pady=1)
+
+        self.road_clear_button = tk.Button(
+            road_buttons_frame, text="Wyczyść ścieżkę",
+            command=self.clear_road_path,
+            bg="#8a4a4a", fg="white", state=tk.DISABLED,
+        )
+        self.road_clear_button.pack(fill=tk.X, pady=(0, 1))
+
+        # === SEKCJA MODYFIKACJI ISTNIEJĄCEJ DROGI ===
+        road_modify_section = tk.LabelFrame(
+            self.road_frame,
+            text="🔧 Modyfikuj istniejącą drogę",
+            bg="darkolivegreen",
+            fg="#7dd3fc",
+            font=("Arial", 9, "bold"),
+        )
+        road_modify_section.pack(fill=tk.X, padx=4, pady=(6, 4))
+        
+        tk.Label(
+            road_modify_section,
+            text="Zaznacz heks z wygenerowaną drogą:",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8),
+            anchor="w",
+            wraplength=190,
+        ).pack(fill=tk.X, padx=4, pady=(2, 4))
+        
+        # Przyciski skrzyżowań
+        road_junction_frame = tk.Frame(road_modify_section, bg="darkolivegreen")
+        road_junction_frame.pack(fill=tk.X, padx=4, pady=(0, 4))
+        
+        self.road_junction_t_button = tk.Button(
+            road_junction_frame,
+            text="⊥ Skrzyżowanie T",
+            command=self._add_junction_t,
+            bg="#5a5a3a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.road_junction_t_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+        
+        self.road_junction_x_button = tk.Button(
+            road_junction_frame,
+            text="✚ Skrzyżowanie X",
+            command=self._add_junction_x,
+            bg="#5a5a3a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.road_junction_x_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 0))
+        
+        self.road_continue_button = tk.Button(
+            road_modify_section,
+            text="↪ Kontynuuj drogę z heksu",
+            command=self._continue_road_from_hex,
+            bg="#1f4a6b",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.road_continue_button.pack(fill=tk.X, padx=4, pady=(0, 4))
+        
+        # Status modyfikacji
+        self.road_modify_status_var = tk.StringVar(value="")
+        self.road_modify_status_label = tk.Label(
+            road_modify_section,
+            textvariable=self.road_modify_status_var,
+            bg="darkolivegreen",
+            fg="#7dd3fc",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        )
+        self.road_modify_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+
+        tk.Label(
+            self.road_frame,
+            text="LPM dodaje heks, PPM dodaje odnogę.",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        ).pack(fill=tk.X, pady=(2, 0))
+
+        self._set_road_section_visibility(False)
+
         # === DOLNA CZĘŚĆ: Panel informacyjny ===
         self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
         # Dolny panel pokazuje tylko informacje o aktywnym heksie, więc trzymamy go kompaktowo
@@ -1627,6 +2097,42 @@ class MapEditor:
         # === CANVAS MAPY ===
         self.build_map_canvas()
         self._update_map_info_label()
+
+    def _toggle_river_advanced_settings(self) -> None:
+        """Przełącza widoczność zaawansowanych ustawień rzeki."""
+        self._river_advanced_expanded = not self._river_advanced_expanded
+        if self._river_advanced_expanded:
+            self.river_advanced_frame.pack(fill=tk.X, pady=(0, 4))
+            self.river_advanced_toggle.config(text="[-] Szczegółowe ustawienia")
+        else:
+            self.river_advanced_frame.pack_forget()
+            self.river_advanced_toggle.config(text="[+] Szczegółowe ustawienia")
+
+    def _apply_quick_river_preset(self) -> None:
+        """Stosuje szybki preset rzeki, ustawiając wszystkie parametry naraz."""
+        preset_name = self.river_quick_preset_var.get()
+        preset = RIVER_QUICK_PRESETS.get(preset_name)
+        if not preset:
+            return
+        
+        # Aktualizuj opis
+        description = preset.get("description", "")
+        self.river_quick_preset_desc.config(text=description)
+        
+        # Ustaw poszczególne profile
+        size_name = preset.get("size", "Mała rzeka")
+        curvature_name = preset.get("curvature", "Łagodna")
+        bank_name = preset.get("bank", "Stabilny brzeg")
+        
+        # Aktualizuj combobox'y
+        self.river_size_profile_var.set(size_name)
+        self.river_curvature_profile_var.set(curvature_name)
+        self.river_bank_profile_var.set(bank_name)
+        
+        # Zastosuj profile
+        self._apply_river_profiles()
+        
+        self.set_status(f"Zastosowano preset: {preset_name}")
 
     def _update_river_seed_label(self) -> None:
         try:
@@ -2825,6 +3331,18 @@ class MapEditor:
         if self.river_path:
             self._draw_river_path_overlay()
 
+        # Overlay ścieżki drogi
+        if self.road_path:
+            self._draw_road_path_overlay()
+        
+        # Wizualizacja trybu skrzyżowania
+        if self.road_crossroads_mode and self.selected_hex:
+            self._draw_crossroads_overlay()
+
+        # Wizualizacja trybu prostego dopływu
+        if getattr(self, "_simple_tributary_mode", False):
+            self._draw_simple_tributary_overlay()
+
         # Podświetlenie wybranego heksu
         if self.selected_hex is not None:
             self.highlight_hex(self.selected_hex)
@@ -2927,9 +3445,20 @@ class MapEditor:
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
         
+        # Obsługa prostego trybu dopływu (przed innymi trybami)
+        if hex_id and getattr(self, "_simple_tributary_mode", False):
+            if self._handle_simple_tributary_click(hex_id):
+                return
+        
         if self.river_mode_active:
             if hex_id:
                 self._river_handle_left_click(hex_id)
+            return
+
+        # Obsługa trybu drogi
+        if self.road_mode_active:
+            if hex_id:
+                self._road_handle_left_click(hex_id)
             return
 
         if hex_id:
@@ -2968,10 +3497,22 @@ class MapEditor:
             self.texture_info_label.config(text="Tekstura: domyślna")
 
     def on_canvas_right_click(self, event):
-        """Obsługuje PPM na canvasie - usuwa żeton z heksu"""
+        """Obsługuje PPM na canvasie - usuwa żeton z heksu lub wybiera boki dla skrzyżowania"""
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         hex_id = self.get_clicked_hex(x, y)
+
+        # Tryb skrzyżowania - PPM na sąsiednim heksie przełącza bok
+        if self.road_mode_active and self.road_crossroads_mode and hex_id:
+            # Jeśli kliknięto na aktualnie wybrany heks - pokaż dialog
+            if hex_id == self.selected_hex:
+                self._show_crossroads_side_selector(hex_id)
+                return
+            
+            # Jeśli kliknięto na sąsiedni heks - przełącz bok
+            if self.selected_hex and self.selected_hex in self.road_path:
+                if self._toggle_crossroads_neighbor(hex_id):
+                    return
 
         if self.river_mode_active:
             self._river_handle_right_click(hex_id)
@@ -3134,11 +3675,19 @@ class MapEditor:
 
     def _river_update_status(self) -> None:
         count = len(self.river_path)
-        if count:
-            self.river_status_var.set(f"Ścieżka rzeki: {count} heksów")
+        branch_mode = getattr(self, "_river_resume_branch", "main")
+        is_tributary = branch_mode == "tributary"
+        
+        if is_tributary:
+            # W trybie dopływu pierwszy heks to źródło - pokazujemy ile dodano heksów dopływu
+            tributary_count = count - 1 if count > 0 else 0
+            self.river_status_var.set(f"Ścieżka dopływu: {tributary_count} heksów")
+            min_for_generate = 2  # źródło + 1 heks dopływu
         else:
-            self.river_status_var.set("Ścieżka rzeki: 0 heksów")
-        generate_state = tk.NORMAL if self.river_mode_active and count >= 2 else tk.DISABLED
+            self.river_status_var.set(f"Ścieżka rzeki: {count} heksów")
+            min_for_generate = 2
+        
+        generate_state = tk.NORMAL if self.river_mode_active and count >= min_for_generate else tk.DISABLED
         undo_state = tk.NORMAL if self.river_mode_active and count >= 1 else tk.DISABLED
         if hasattr(self, "river_generate_button"):
             self.river_generate_button.config(state=generate_state)
@@ -3362,8 +3911,15 @@ class MapEditor:
             reset_preview("Podgląd rzeki: moduł generatora jest niedostępny.")
             return
 
-        if len(self.river_path) < 2:
-            reset_preview("Podgląd rzeki: dodaj co najmniej dwa heksy.")
+        branch_mode = getattr(self, "_river_resume_branch", "main")
+        is_tributary = branch_mode == "tributary"
+        min_hexes = 2  # Zarówno dla głównej rzeki jak i dopływu
+        
+        if len(self.river_path) < min_hexes:
+            if is_tributary:
+                reset_preview(f"Podgląd dopływu: dodaj jeszcze {min_hexes - len(self.river_path)} heks(ów).")
+            else:
+                reset_preview("Podgląd rzeki: dodaj co najmniej dwa heksy.")
             return
 
         try:
@@ -3383,12 +3939,23 @@ class MapEditor:
             segments.append(delta)
 
         branch_mode = getattr(self, "_river_resume_branch", "main")
+        is_tributary = branch_mode == "tributary"
         preview_index = len(self.river_path) - 1
-        if branch_mode == "tributary" and len(self.river_path) > 1:
+        if is_tributary and len(self.river_path) > 1:
             preview_index = 1
         preview_index = max(0, min(preview_index, len(self.river_path) - 1))
 
-        entry_side, exit_side = self._river_entry_exit_for_index(preview_index, segments)
+        # Oblicz entry/exit - dla dopływu użyj specjalnej logiki
+        tributary_entry_to_main = getattr(self, "_tributary_entry_side", None)
+        if is_tributary and preview_index == 1 and tributary_entry_to_main:
+            # Dla pierwszego heksu dopływu: wyjście w kierunku głównego nurtu
+            exit_side = tributary_entry_to_main
+            if len(segments) > 1:
+                entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[1]]]
+            else:
+                entry_side = SIDE_OPPOSITE[exit_side]
+        else:
+            entry_side, exit_side = self._river_entry_exit_for_index(preview_index, segments)
 
         try:
             grid_size = int(self.river_grid_var.get())
@@ -3449,7 +4016,28 @@ class MapEditor:
         terrain = self.hex_data.get(hex_id) or {}
         texture_rel = terrain.get("texture") if isinstance(terrain, dict) else None
         background_path = None
-        if texture_rel:
+        
+        # Jeśli tekstura to już rzeka, użyj original_background z metadanych
+        if texture_rel and "river" in texture_rel:
+            river_meta = terrain.get("river_generation_meta", {})
+            original_bg = river_meta.get("original_background")
+            if original_bg:
+                candidate = fix_image_path(original_bg)
+                if candidate.exists():
+                    background_path = candidate
+                    texture_rel = original_bg  # Użyj oryginalnej tekstury jako klucz cache
+            else:
+                # Stara rzeka bez original_background - użyj domyślnej tekstury
+                default_textures = [
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dense_64.png",
+                ]
+                for default_tex in default_textures:
+                    if default_tex.exists():
+                        background_path = default_tex
+                        texture_rel = to_rel(str(background_path))
+                        break
+        elif texture_rel:
             candidate = fix_image_path(texture_rel)
             if candidate.exists():
                 background_path = candidate
@@ -3652,10 +4240,481 @@ class MapEditor:
         self.river_path.clear()
         self._river_resume_expected_exit = None
         self._river_resume_branch = "main"
+        self._tributary_mode = False
+        self._tributary_source_hex = None
+        self._simple_tributary_mode = False
+        self._update_tributary_status()
         self._river_update_status()
         self.draw_grid()
 
+    def _start_simple_tributary(self) -> None:
+        """Prosty tryb dopływu: wybierz heks z rzeką, potem kliknij skąd płynie dopływ."""
+        if self.selected_hex is None:
+            messagebox.showinfo(
+                "Dopływ",
+                "Najpierw kliknij heks z istniejącą rzeką.",
+                parent=self.root,
+            )
+            return
+        
+        # Sprawdź czy heks ma rzekę
+        record = self.hex_data.get(self.selected_hex)
+        if not record:
+            messagebox.showwarning(
+                "Dopływ",
+                "Wybrany heks nie ma danych terenu.",
+                parent=self.root,
+            )
+            return
+        
+        river_meta = record.get("river_generation_meta")
+        if not river_meta:
+            # Sprawdź po teksturze
+            texture_rel = record.get("texture")
+            has_river = False
+            if texture_rel:
+                try:
+                    texture_path = fix_image_path(texture_rel)
+                    texture_path.relative_to(RIVER_OUTPUT_DIR)
+                    has_river = True
+                except (ValueError, AttributeError):
+                    pass
+            if not has_river:
+                messagebox.showwarning(
+                    "Dopływ",
+                    "Wybrany heks nie zawiera rzeki.\nNajpierw wygeneruj główną rzekę.",
+                    parent=self.root,
+                )
+                return
+        
+        # Włącz tryb oczekiwania na kliknięcie źródła dopływu
+        self._simple_tributary_mode = True
+        self._simple_tributary_target = self.selected_hex
+        self._simple_tributary_meta = river_meta
+        
+        self.tributary_status_var.set("Kliknij sąsiedni heks\n(źródło dopływu)")
+        self.set_status("Kliknij sąsiedni heks skąd płynie dopływ...")
+        self.draw_grid()
+
+    def _handle_simple_tributary_click(self, hex_id: str) -> bool:
+        """Obsługuje kliknięcie w trybie prostego dopływu. Zwraca True jeśli obsłużono."""
+        if not getattr(self, "_simple_tributary_mode", False):
+            return False
+        
+        target_hex = getattr(self, "_simple_tributary_target", None)
+        if not target_hex:
+            self._simple_tributary_mode = False
+            return False
+        
+        # Sprawdź czy kliknięty heks sąsiaduje z celem
+        try:
+            tq, tr = map(int, target_hex.split(","))
+            sq, sr = map(int, hex_id.split(","))
+        except ValueError:
+            return False
+        
+        dq, dr = sq - tq, sr - tr
+        delta = (dq, dr)
+        
+        if delta not in AXIAL_DIRECTION_TO_SIDE:
+            messagebox.showwarning(
+                "Dopływ",
+                "Musisz kliknąć heks sąsiadujący z rzeką!",
+                parent=self.root,
+            )
+            return True
+        
+        # Oblicz stronę wejścia dopływu
+        entry_side = AXIAL_DIRECTION_TO_SIDE[delta]
+        
+        # Sprawdź czy strona nie jest zajęta przez główny nurt
+        river_meta = getattr(self, "_simple_tributary_meta", None)
+        if river_meta:
+            existing_entry = river_meta.get("entry_side")
+            existing_exit = river_meta.get("exit_side")
+            if entry_side in (existing_entry, existing_exit):
+                occupied_label = HEX_SIDE_LABELS_PL.get(entry_side, entry_side)
+                messagebox.showwarning(
+                    "Dopływ",
+                    f"Ta strona ({occupied_label}) jest już zajęta przez główny nurt!\n"
+                    f"Wybierz inny sąsiedni heks.",
+                    parent=self.root,
+                )
+                return True
+        
+        # Generuj dopływ!
+        self._generate_simple_tributary(target_hex, hex_id, entry_side)
+        
+        # Wyczyść tryb
+        self._simple_tributary_mode = False
+        self._simple_tributary_target = None
+        self._simple_tributary_meta = None
+        self.tributary_status_var.set("Dopływ dodany ✓")
+        self.draw_grid()
+        
+        return True
+
+    def _generate_simple_tributary(self, river_hex: str, source_hex: str, entry_side: str) -> None:
+        """Generuje dopływ z source_hex do river_hex."""
+        if generate_centerline is None or RiverCenterlineOptions is None:
+            messagebox.showerror(
+                "Generator niedostępny",
+                "Nie można załadować modułu generate_river_hex_tile.",
+                parent=self.root,
+            )
+            return
+        
+        # Pobierz parametry
+        try:
+            grid_size = int(self.river_grid_var.get())
+        except (TypeError, ValueError):
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        if grid_size not in HEX_TEXTURE_GRID_OPTIONS:
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+        
+        # Wielkość dopływu
+        size_label = getattr(self, "tributary_size_var", tk.StringVar(value="mały")).get()
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Pobierz istniejące dane heksu z rzeką
+        record = self.hex_data.get(river_hex, {})
+        river_meta = record.get("river_generation_meta", {})
+        
+        main_entry = river_meta.get("entry_side", "top")
+        main_exit = river_meta.get("exit_side", "bottom")
+        
+        # Pobierz tło (oryginalne, bez rzeki)
+        background_path = None
+        original_bg = river_meta.get("original_background")
+        if original_bg:
+            candidate = fix_image_path(original_bg)
+            if candidate.exists():
+                background_path = candidate
+        
+        # Jeśli nie ma original_background, użyj domyślnej tekstury
+        if not background_path:
+            default_textures = [
+                ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dense_64.png",
+            ]
+            for default_tex in default_textures:
+                if default_tex.exists():
+                    background_path = default_tex
+                    break
+        
+        # Utwórz opcje dopływu (używamy poprawnych argumentów z TributaryOptions)
+        # Wielkość dopływu kontrolujemy przez shape_strength i bank_offset
+        size_to_params = {
+            "mały": {"strength": 0.3, "bank_offset": 0.8, "noise_amp": 0.3},
+            "średni": {"strength": 0.5, "bank_offset": 1.5, "noise_amp": 0.5},
+            "duży": {"strength": 0.7, "bank_offset": 2.2, "noise_amp": 0.7},
+        }
+        trib_params = size_to_params.get(size_label, size_to_params["mały"])
+        
+        tributary_opts = TributaryOptions(
+            entry_side=entry_side,
+            join_ratio=0.5,  # Środek rzeki
+            shape="curve",
+            shape_strength=trib_params["strength"],
+            noise_amplitude=trib_params["noise_amp"],
+            noise_frequency=2.0,
+            bank_offset=trib_params["bank_offset"],  # Jawnie ustawiamy rozmiar banków dopływu
+            bank_color=DEFAULT_BANK_COLOR,  # Dopływ używa domyślnego koloru
+            bank_variation=DEFAULT_BANK_VARIATION,  # Dopływ używa domyślnej wariacji
+        )
+        
+        # Oblicz kształt na podstawie kątów
+        if SIDE_OPPOSITE.get(main_entry) == main_exit:
+            shape = "straight"
+        else:
+            shape = "curve"
+        
+        # Pobierz oryginalne parametry generowania z metadanych (zabezpieczenie przeciwko zmianie rozmiaru)
+        shape_strength = river_meta.get("shape_strength", river_meta.get("shape_strength", 0.5))
+        noise_amp = river_meta.get("noise_amplitude", 0.0)
+        noise_freq = river_meta.get("noise_frequency", 2.0)
+        seed = river_meta.get("seed", 42)
+        # bank params mogą być w top-level lub w centerline_banks
+        centerline_banks = river_meta.get("centerline_banks", {})
+        bank_offset = river_meta.get("bank_offset", centerline_banks.get("offset", DEFAULT_BANK_OFFSET))
+        bank_variation = river_meta.get("bank_variation", centerline_banks.get("variation", DEFAULT_BANK_VARIATION))
+        bank_color_rgba = None
+        bank_color_cfg = river_meta.get("bank_color") or centerline_banks.get("color")
+        if isinstance(bank_color_cfg, dict):
+            bank_color_rgba = tuple(bank_color_cfg.get("rgba", DEFAULT_BANK_COLOR))
+        elif isinstance(bank_color_cfg, (list, tuple)):
+            bank_color_rgba = tuple(bank_color_cfg)
+        else:
+            bank_color_rgba = DEFAULT_BANK_COLOR
+        
+        # Generuj teksturę z dopływem
+        output_filename = f"hex_{river_hex.replace(',', '_')}_river_{timestamp}.png"
+        output_path = RIVER_OUTPUT_DIR / output_filename
+        
+        options = RiverCenterlineOptions(
+            grid_size=grid_size,
+            background=background_path,
+            entry_side=main_entry,
+            exit_side=main_exit,
+            shape=shape,
+            shape_strength=shape_strength,
+            shape_direction=river_meta.get("shape_direction"),
+            noise_amplitude=noise_amp,
+            noise_frequency=noise_freq,
+            seed=seed,
+            bank_offset=bank_offset,
+            bank_color=bank_color_rgba,
+            bank_variation=bank_variation,
+            tributary=tributary_opts,
+        )
+        
+        try:
+            result = generate_centerline(options, output_path)
+            # result to RiverCenterlineResult z image_path, metadata_path, metadata
+        except Exception as e:
+            messagebox.showerror(
+                "Błąd generowania",
+                f"Nie udało się wygenerować dopływu:\n{e}",
+                parent=self.root,
+            )
+            return
+        
+        # Zapisz nową teksturę - użyj ścieżki względem katalogu projektu
+        project_root = Path(__file__).resolve().parent.parent
+        rel_path = str(output_path.relative_to(project_root)).replace("\\", "/")
+        
+        # Zaktualizuj metadane
+        if river_hex not in self.hex_data:
+            self.hex_data[river_hex] = {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0,
+            }
+        
+        self.hex_data[river_hex]["texture"] = rel_path
+        
+        # Dodaj info o dopływie do metadanych
+        tributaries = river_meta.get("tributaries", [])
+        tributaries.append({
+            "entry_side": entry_side,
+            "source_hex": source_hex,
+            "size": size_label,
+        })
+        river_meta["tributaries"] = tributaries
+        self.hex_data[river_hex]["river_generation_meta"] = river_meta
+        
+        # Odśwież widok - wyczyść cache dla nowej tekstury
+        self.hex_texture_cache = {
+            key: value for key, value in self.hex_texture_cache.items() if key[0] != rel_path
+        }
+        self.draw_grid()
+        self.auto_save("dodano dopływ")
+        
+        side_name = HEX_SIDE_LABELS_PL.get(entry_side, entry_side)
+        self.set_status(f"Dodano dopływ z: {side_name}")
+        messagebox.showinfo(
+            "Dopływ",
+            f"Dopływ dodany!\n\nWpływa od strony: {side_name}",
+            parent=self.root,
+        )
+
+    def _draw_simple_tributary_overlay(self) -> None:
+        """Rysuje wizualizację trybu prostego dopływu - podświetla heks docelowy i sąsiadów."""
+        target_hex = getattr(self, "_simple_tributary_target", None)
+        if not target_hex or target_hex not in self.hex_centers:
+            return
+        
+        cx, cy = self.hex_centers[target_hex]
+        s = self.hex_size
+        
+        # Podświetl heks docelowy (z rzeką) na niebiesko
+        self.canvas.create_oval(
+            cx - s * 0.7, cy - s * 0.7, cx + s * 0.7, cy + s * 0.7,
+            outline="#00bfff", width=4, fill="", dash=(5, 3),
+        )
+        self.canvas.create_text(
+            cx, cy - s * 0.85,
+            text="🏞️ Rzeka",
+            fill="#00bfff",
+            font=("Arial", 9, "bold"),
+        )
+        
+        # Pobierz zajęte strony
+        river_meta = getattr(self, "_simple_tributary_meta", {}) or {}
+        occupied = {river_meta.get("entry_side"), river_meta.get("exit_side")} - {None}
+        
+        # Podświetl sąsiednie heksy (możliwe źródła dopływu)
+        try:
+            tq, tr = map(int, target_hex.split(","))
+        except ValueError:
+            return
+        
+        for delta, side in AXIAL_DIRECTION_TO_SIDE.items():
+            nq, nr = tq + delta[0], tr + delta[1]
+            neighbor_id = f"{nq},{nr}"
+            
+            if neighbor_id not in self.hex_centers:
+                continue
+            
+            ncx, ncy = self.hex_centers[neighbor_id]
+            
+            # Czy ta strona jest zajęta przez główny nurt?
+            if side in occupied:
+                # Czerwony - niedostępny
+                color = "#ff4444"
+                label = "✖"
+            else:
+                # Zielony - dostępny
+                color = "#44ff44"
+                label = "✔"
+            
+            self.canvas.create_oval(
+                ncx - s * 0.5, ncy - s * 0.5, ncx + s * 0.5, ncy + s * 0.5,
+                outline=color, width=3, fill="", dash=(3, 2),
+            )
+            self.canvas.create_text(
+                ncx, ncy,
+                text=label,
+                fill=color,
+                font=("Arial", 14, "bold"),
+            )
+
+    def _start_tributary_from_selected(self) -> None:
+        """Rozpoczyna rysowanie dopływu od wybranego heksu z istniejącą rzeką."""
+        if self.selected_hex is None:
+            messagebox.showinfo(
+                "Dopływ",
+                "Najpierw wybierz heks z istniejącą rzeką na mapie.",
+                parent=self.root,
+            )
+            return
+        
+        # Sprawdź czy heks ma rzekę
+        record = self.hex_data.get(self.selected_hex)
+        if not record:
+            messagebox.showwarning(
+                "Dopływ",
+                "Wybrany heks nie ma zapisanych danych terenu.",
+                parent=self.root,
+            )
+            return
+        
+        texture_rel = record.get("texture")
+        river_meta = record.get("river_generation_meta")
+        
+        # Sprawdź czy to heks z rzeką
+        has_river = False
+        if texture_rel:
+            try:
+                texture_path = fix_image_path(texture_rel)
+                texture_path.relative_to(RIVER_OUTPUT_DIR)
+                has_river = True
+            except (ValueError, AttributeError):
+                pass
+        
+        if river_meta:
+            has_river = True
+        
+        if not has_river:
+            messagebox.showwarning(
+                "Dopływ",
+                "Wybrany heks nie zawiera rzeki.\nNajpierw narysuj główną rzekę, potem dodaj dopływy.",
+                parent=self.root,
+            )
+            return
+        
+        # Pobierz konfigurację z TRIBUTARY_ENTRY_OPTIONS
+        side_label = self.tributary_side_var.get()
+        entry_cfg = TRIBUTARY_ENTRY_OPTIONS.get(side_label)
+        if not entry_cfg:
+            messagebox.showerror(
+                "Dopływ",
+                "Wybierz poprawną stronę wejścia dopływu z listy.",
+                parent=self.root,
+            )
+            return
+        entry_side = entry_cfg["entry_side"]
+        
+        # Sprawdź czy wybrana strona nie koliduje z istniejącym nurtem
+        if river_meta:
+            existing_entry = river_meta.get("entry_side")
+            existing_exit = river_meta.get("exit_side")
+            occupied_sides = {existing_entry, existing_exit} - {None}
+            if entry_side in occupied_sides:
+                # Znajdź dostępne strony
+                all_sides = {"top", "top_right", "bottom_right", "bottom", "bottom_left", "top_left"}
+                free_sides = all_sides - occupied_sides
+                free_labels = [TRIBUTARY_ENTRY_SIDE_TO_LABEL.get(s, s) for s in free_sides]
+                occupied_labels = [TRIBUTARY_ENTRY_SIDE_TO_LABEL.get(s, s) for s in occupied_sides]
+                messagebox.showwarning(
+                    "Dopływ",
+                    f"Ta krawędź jest już zajęta przez główny nurt!\n\n"
+                    f"Zajęte strony: {', '.join(occupied_labels)}\n\n"
+                    f"Dostępne strony:\n• " + "\n• ".join(free_labels),
+                    parent=self.root,
+                )
+                return
+        
+        # Włącz tryb rzeki jeśli nie jest aktywny
+        if not self.river_mode_active:
+            self._skip_river_mode_popup = True
+            self._set_river_mode(True)
+        
+        # Ustaw tryb dopływu
+        self._tributary_mode = True
+        self._tributary_source_hex = self.selected_hex
+        self._tributary_entry_side = entry_side
+        
+        # Wyczyść ścieżkę i zacznij od heksu źródłowego
+        self.river_path = [self.selected_hex]
+        self._river_resume_branch = "tributary"
+        
+        # Ustaw oczekiwany kierunek - dopływ wchodzi z danej strony
+        self._river_resume_expected_exit = entry_side
+        
+        # Ustaw parametry dopływu
+        self.river_tributary_enabled_var.set(True)
+        self.river_tributary_entry_var.set(side_label)
+        self._on_tributary_entry_change()
+        
+        self._update_tributary_status()
+        self._river_update_status()
+        self.draw_grid()
+        self.update_hex_info_display(self.selected_hex)
+        
+        side_name = HEX_SIDE_LABELS_PL.get(entry_side, entry_side)
+        self.set_status(f"Tryb dopływu: dodaj heksy ścieżki dopływu (wejście z: {side_name})")
+        
+        messagebox.showinfo(
+            "Dopływ",
+            f"Tryb dopływu aktywny!\n\n"
+            f"• Klikaj heksy LPM aby narysować ścieżkę dopływu\n"
+            f"• Dopływ wejdzie do rzeki od strony: {side_name}\n"
+            f"• Kliknij 'Generuj rzekę' gdy skończysz\n"
+            f"• PPM cofa ostatni heks",
+            parent=self.root,
+        )
+
+    def _update_tributary_status(self) -> None:
+        """Aktualizuje status trybu dopływu."""
+        if not hasattr(self, "tributary_status_var"):
+            return
+        
+        if getattr(self, "_tributary_mode", False):
+            source = getattr(self, "_tributary_source_hex", "?")
+            side = getattr(self, "_tributary_entry_side", "?")
+            side_name = HEX_SIDE_LABELS_PL.get(side, side)
+            self.tributary_status_var.set(
+                f"🔀 Tryb dopływu aktywny\n"
+                f"Źródło: {source}\n"
+                f"Wejście: {side_name}"
+            )
+        else:
+            self.tributary_status_var.set("")
+
     def _draw_river_path_overlay(self) -> None:
+        """Rysuje wizualizację ścieżki rzeki ze strzałkami kierunku przepływu."""
         if not getattr(self, "canvas", None):
             return
         coords = []
@@ -3663,27 +4722,91 @@ class MapEditor:
             center = self.hex_centers.get(hex_id)
             if center:
                 coords.append(center)
+        
+        # Różne kolory dla trybu dopływu vs głównej rzeki
+        is_tributary = getattr(self, "_tributary_mode", False)
+        if is_tributary:
+            line_color = "#7dd3fc"  # jasnoniebieski
+            arrow_color = "#38bdf8"
+            source_fill = "#1e40af"  # niebieski (połączenie z rzeką)
+            source_outline = "#60a5fa"
+            end_fill = "#0e7490"  # cyjan (źródło dopływu)
+            end_outline = "#22d3d3"
+            mid_fill = "#1e3a5f"
+            mid_outline = "#7dd3fc"
+            legend_text = "🔵 Połączenie  ⬅️  🔹 Źródło dopływu"
+        else:
+            line_color = "#57a1d2"
+            arrow_color = "#ffd166"
+            source_fill = "#2d5a27"  # zielony (źródło)
+            source_outline = "#7ddf6a"
+            end_fill = "#5a2727"  # czerwony (ujście)
+            end_outline = "#df6a6a"
+            mid_fill = "#1f4a6b"
+            mid_outline = "#57a1d2"
+            legend_text = "🟢 Źródło  ➡️  🔴 Ujście"
+        
         for idx, center in enumerate(coords):
             if idx > 0:
                 prev_center = coords[idx - 1]
+                # Rysuj linię łączącą
                 self.canvas.create_line(
                     prev_center[0],
                     prev_center[1],
                     center[0],
                     center[1],
-                    fill="#57a1d2",
+                    fill=line_color,
                     width=3,
                     dash=(4, 2),
                 )
+                # Rysuj strzałkę w połowie odcinka wskazującą kierunek
+                mid_x = (prev_center[0] + center[0]) / 2
+                mid_y = (prev_center[1] + center[1]) / 2
+                dx = center[0] - prev_center[0]
+                dy = center[1] - prev_center[1]
+                length = math.hypot(dx, dy)
+                if length > 0:
+                    # Znormalizowany wektor kierunku
+                    ux, uy = dx / length, dy / length
+                    # Prostopadły wektor
+                    px, py = -uy, ux
+                    # Rozmiar strzałki
+                    arrow_size = max(6, int(self.hex_size * 0.2))
+                    # Punkty strzałki
+                    tip_x = mid_x + ux * arrow_size * 0.5
+                    tip_y = mid_y + uy * arrow_size * 0.5
+                    left_x = mid_x - ux * arrow_size * 0.5 + px * arrow_size * 0.4
+                    left_y = mid_y - uy * arrow_size * 0.5 + py * arrow_size * 0.4
+                    right_x = mid_x - ux * arrow_size * 0.5 - px * arrow_size * 0.4
+                    right_y = mid_y - uy * arrow_size * 0.5 - py * arrow_size * 0.4
+                    self.canvas.create_polygon(
+                        tip_x, tip_y,
+                        left_x, left_y,
+                        right_x, right_y,
+                        fill=arrow_color,
+                        outline=line_color,
+                    )
+            
+            # Rysuj kółko z numerem heksu
             radius = max(6, int(self.hex_size * 0.28))
-            outline = "#ffd166" if idx == 0 else "#57a1d2"
+            if idx == 0:
+                fill_color = source_fill
+                outline_color = source_outline
+            elif idx == len(coords) - 1:
+                fill_color = end_fill
+                outline_color = end_outline
+            else:
+                fill_color = mid_fill
+                outline_color = mid_outline
+            
             self.canvas.create_oval(
                 center[0] - radius,
                 center[1] - radius,
                 center[0] + radius,
                 center[1] + radius,
-                outline=outline,
-                width=3,
+                fill=fill_color,
+                outline=outline_color,
+                width=2,
             )
             self.canvas.create_text(
                 center[0],
@@ -3692,13 +4815,34 @@ class MapEditor:
                 fill="white",
                 font=("Arial", 9, "bold"),
             )
+        
+        # Dodaj legendę jeśli jest ścieżka
+        if len(coords) >= 1:
+            legend_y = 20
+            self.canvas.create_text(
+                60, legend_y,
+                text=legend_text,
+                fill="#ffd166",
+                font=("Arial", 9, "bold"),
+                anchor="w",
+            )
 
     def generate_river_path(self) -> None:
         if not self.river_mode_active:
             messagebox.showinfo("Tryb rzeki", "Aktywuj tryb rzeki, aby generować nowe tekstury.", parent=self.root)
             return
-        if len(self.river_path) < 2:
-            messagebox.showwarning("Ścieżka rzeki", "Dodaj co najmniej dwa heksy do ścieżki.", parent=self.root)
+        branch_mode = getattr(self, "_river_resume_branch", "main")
+        min_hexes = 2  # Zarówno dla głównej rzeki jak i dopływu
+        if len(self.river_path) < min_hexes:
+            if branch_mode == "tributary":
+                messagebox.showwarning(
+                    "Ścieżka dopływu",
+                    f"Dodaj co najmniej 1 heks do ścieżki dopływu (obecnie: {len(self.river_path) - 1}).\n"
+                    f"Pierwszy heks to źródło (istniejąca rzeka), kolejne to dopływ.",
+                    parent=self.root,
+                )
+            else:
+                messagebox.showwarning("Ścieżka rzeki", "Dodaj co najmniej dwa heksy do ścieżki.", parent=self.root)
             return
         if RiverCenterlineOptions is None or generate_centerline is None:
             messagebox.showerror(
@@ -3708,7 +4852,7 @@ class MapEditor:
             )
             return
 
-        branch_mode = getattr(self, "_river_resume_branch", "main")
+        # branch_mode już ustawiony powyżej
 
         try:
             coords = [tuple(map(int, hid.split(","))) for hid in self.river_path]
@@ -3790,13 +4934,30 @@ class MapEditor:
         generation_results = []
         affected_paths: set[str] = set()
         old_texture_paths: set[str] = set()
+        background_paths_used: dict[str, str | None] = {}  # hex_id -> original texture path (relative)
 
         skip_origin = branch_mode == "tributary"
+        # Dla dopływu: pobierz stronę wejścia do głównego nurtu
+        tributary_entry_to_main = getattr(self, "_tributary_entry_side", None)
+        
         for idx, hex_id in enumerate(self.river_path):
             if skip_origin and idx == 0:
                 generation_results.append(None)
                 continue
-            entry_side, exit_side = self._river_entry_exit_for_index(idx, segments)
+            
+            # Dla dopływu pierwszy generowany heks (idx=1) ma specjalne wyjście
+            if skip_origin and idx == 1 and tributary_entry_to_main:
+                # Dopływ WYCHODZI w kierunku głównego nurtu (opposite entry_to_main)
+                # i WCHODZI z kierunku następnego heksu dopływu
+                exit_side = tributary_entry_to_main
+                if len(segments) > 1:
+                    # Wejście z następnego segmentu (odwrotność kierunku do następnego heksu)
+                    entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[1]]]
+                else:
+                    # Tylko 2 heksy w dopływie - wejście naprzeciw wyjścia
+                    entry_side = SIDE_OPPOSITE[exit_side]
+            else:
+                entry_side, exit_side = self._river_entry_exit_for_index(idx, segments)
             if (
                 tributary_options
                 and target_tributary_index is not None
@@ -3816,12 +4977,42 @@ class MapEditor:
                 "defense_mod": 0,
             })
             texture_rel = terrain.get("texture")
+            original_texture_rel = None  # Oryginalna tekstura (nie rzeka)
             background_path = None
-            if texture_rel:
-                old_texture_paths.add(texture_rel)
+            
+            # Jeśli tekstura to już rzeka, pobierz original_background z metadanych
+            if texture_rel and "river" in texture_rel:
+                old_texture_paths.add(texture_rel)  # Stara tekstura rzeki do usunięcia
+                river_meta = terrain.get("river_generation_meta", {})
+                original_texture_rel = river_meta.get("original_background")
+                if original_texture_rel:
+                    candidate = fix_image_path(original_texture_rel)
+                    if candidate.exists():
+                        background_path = candidate
+            elif texture_rel:
+                original_texture_rel = texture_rel
                 candidate = fix_image_path(texture_rel)
                 if candidate.exists():
                     background_path = candidate
+            
+            # Jeśli nie ma tekstury, użyj domyślnej tekstury trawy
+            if not background_path:
+                default_textures = [
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dense_64.png",
+                    Path(__file__).parent.parent / "assets" / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                ]
+                for default_tex in default_textures:
+                    if default_tex.exists():
+                        background_path = default_tex
+                        original_texture_rel = to_rel(str(background_path))
+                        break
+            
+            # Zapisz oryginalne tło dla tego heksu (używaj original_texture_rel, nie texture_rel)
+            if original_texture_rel:
+                background_paths_used[hex_id] = original_texture_rel
+            elif hex_id not in background_paths_used:
+                background_paths_used[hex_id] = None
 
             output_filename = f"hex_{hex_id.replace(',', '_')}_river_{timestamp}_{idx:02d}.png"
             output_path = RIVER_OUTPUT_DIR / output_filename
@@ -3879,6 +5070,10 @@ class MapEditor:
             record["texture_grid"] = grid_size
             record["river_metadata_path"] = to_rel(str(result.metadata_path))
             record["river_has_tributary"] = bool(result.metadata.get("tributary_present"))
+            # Zapisz original_background dla przyszłych regeneracji (dopływy, modyfikacje)
+            orig_bg = background_paths_used.get(hex_id)
+            if orig_bg:
+                result.metadata["original_background"] = orig_bg
             record["river_generation_meta"] = result.metadata
             affected_paths.add(rel_path)
 
@@ -3907,16 +5102,35 @@ class MapEditor:
         index: int,
         segments: list[tuple[int, int]],
     ) -> tuple[str, str]:
+        """Oblicza krawędzie wejścia i wyjścia rzeki dla heksu o danym indeksie.
+        
+        Logika:
+        - Dla pierwszego heksu (index=0): wejście to przeciwległa krawędź do kierunku 
+          pierwszego segmentu, wyjście to krawędź w kierunku pierwszego segmentu.
+        - Dla ostatniego heksu (index=len(segments)): wejście to krawędź z której 
+          przyszliśmy (przeciwległa do ostatniego segmentu), wyjście to przeciwległa 
+          krawędź wejścia (rzeka "wychodzi" prosto przed siebie).
+        - Dla heksów środkowych: wejście z poprzedniego segmentu, wyjście do następnego.
+        """
         if not segments:
             return "top", "bottom"
+        
         if index == 0:
+            # Pierwszy heks: wyjście w kierunku pierwszego segmentu
             exit_side = AXIAL_DIRECTION_TO_SIDE[segments[0]]
             entry_side = SIDE_OPPOSITE[exit_side]
             return entry_side, exit_side
-        if index == len(segments):
-            entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[-1]]]
-            exit_side = AXIAL_DIRECTION_TO_SIDE[segments[-1]]
+        
+        if index >= len(segments):
+            # Ostatni heks: wejście z kierunku ostatniego segmentu
+            # Ostatni segment wskazuje SKĄD przyszliśmy do tego heksu
+            incoming_direction = segments[-1]
+            entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[incoming_direction]]
+            # Wyjście: kontynuujemy w tym samym kierunku (przeciwległa krawędź wejścia)
+            exit_side = SIDE_OPPOSITE[entry_side]
             return entry_side, exit_side
+        
+        # Heksy środkowe: wejście z poprzedniego segmentu, wyjście do następnego
         entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[index - 1]]]
         exit_side = AXIAL_DIRECTION_TO_SIDE[segments[index]]
         return entry_side, exit_side
@@ -3950,6 +5164,928 @@ class MapEditor:
                 elif cross > 1e-6:
                     shape_direction = -1
         return shape, shape_direction
+
+    # === NARZĘDZIE DRÓG ===
+
+    def toggle_road_section_visibility(self) -> None:
+        self._set_road_section_visibility(not self._road_section_expanded)
+
+    def _set_road_section_visibility(self, visible: bool) -> None:
+        self._road_section_expanded = visible
+        if visible:
+            self.road_frame.pack(fill=tk.X, pady=(4, 0))
+            self.road_section_toggle_button.config(text="[-] Drogi (beta)")
+        else:
+            self.road_frame.pack_forget()
+            self.road_section_toggle_button.config(text="[+] Drogi (beta)")
+
+    def toggle_road_mode(self) -> None:
+        self._set_road_mode(not self.road_mode_active)
+
+    def _start_crossroads_mode(self) -> None:
+        """Rozpoczyna tryb dodawania skrzyżowania z wybranego heksu (jak dopływ w rzece)."""
+        if not self.road_mode_active:
+            messagebox.showinfo(
+                "Skrzyżowanie",
+                "Najpierw włącz tryb drogi.",
+                parent=self.root,
+            )
+            return
+        
+        if not self.selected_hex or self.selected_hex not in self.road_path:
+            messagebox.showinfo(
+                "Skrzyżowanie",
+                "Najpierw zaznacz heks ze ścieżki drogi na mapie.",
+                parent=self.root,
+            )
+            return
+        
+        # Ustaw tryb skrzyżowania
+        self.road_crossroads_mode = True
+        self.road_crossroads_hex = self.selected_hex
+        self.road_crossroads_sides.clear()
+        
+        self.road_crossroads_status_var.set(f"Wskaż sąsiedni heks (PPM) dla odnogi od {self.selected_hex}")
+        self.add_crossroads_button.config(text="❌ Anuluj skrzyżowanie", bg="#8a4a4a", command=self._cancel_crossroads_mode)
+        
+        self.draw_grid()
+        self.set_status("Tryb skrzyżowania: kliknij PPM na zielonym sąsiednim heksie aby dodać odnogę")
+
+    def _cancel_crossroads_mode(self) -> None:
+        """Anuluje tryb dodawania skrzyżowania."""
+        self.road_crossroads_mode = False
+        self.road_crossroads_sides.clear()
+        self.road_crossroads_hex = None
+        self.road_crossroads_status_var.set("")
+        self.add_crossroads_button.config(text="➕ Dodaj skrzyżowanie", bg="#5a4a3a", command=self._start_crossroads_mode)
+        self.draw_grid()
+        self.set_status("Anulowano tryb skrzyżowania.")
+
+    def _get_hex_road_sides(self, hex_id: str) -> list[str]:
+        """Zwraca listę boków drogi na danym heksie z metadanych."""
+        record = self.hex_data.get(hex_id, {})
+        meta = record.get("road_generation_meta", {})
+        sides = list(meta.get("road_sides", []))
+        # Dodaj entry/exit jeśli nie ma road_sides
+        if not sides:
+            entry = meta.get("entry_side")
+            exit_side = meta.get("exit_side")
+            if entry:
+                sides.append(entry)
+            if exit_side:
+                sides.append(exit_side)
+            # Dodaj crossroads jeśli są
+            crossroads = meta.get("crossroads", [])
+            sides.extend(crossroads)
+        return list(set(sides))  # Usuń duplikaty
+
+    def _hex_has_road(self, hex_id: str) -> bool:
+        """Sprawdza czy heks ma wygenerowaną drogę."""
+        record = self.hex_data.get(hex_id, {})
+        return "road_generation_meta" in record
+
+    def _update_road_modify_buttons(self) -> None:
+        """Aktualizuje przyciski modyfikacji drogi w zależności od wybranego heksu."""
+        has_road = self.selected_hex and self._hex_has_road(self.selected_hex)
+        state = tk.NORMAL if has_road else tk.DISABLED
+        
+        if hasattr(self, "road_junction_t_button"):
+            self.road_junction_t_button.config(state=state)
+        if hasattr(self, "road_junction_x_button"):
+            self.road_junction_x_button.config(state=state)
+        if hasattr(self, "road_continue_button"):
+            self.road_continue_button.config(state=state)
+        
+        if has_road:
+            sides = self._get_hex_road_sides(self.selected_hex)
+            sides_str = ", ".join(HEX_SIDE_LABELS_PL.get(s, s) for s in sides)
+            self.road_modify_status_var.set(f"Boki drogi: {sides_str}")
+        else:
+            self.road_modify_status_var.set("")
+
+    def _add_junction_t(self) -> None:
+        """Dodaje skrzyżowanie T do wybranego heksu (dodaje 1 bok)."""
+        if not self.selected_hex or not self._hex_has_road(self.selected_hex):
+            messagebox.showinfo("Skrzyżowanie T", "Najpierw zaznacz heks z istniejącą drogą.", parent=self.root)
+            return
+        
+        current_sides = self._get_hex_road_sides(self.selected_hex)
+        
+        # Znajdź dostępne boki (nie zajęte przez drogę)
+        all_sides = list(HEX_SIDE_LABELS_PL.keys())
+        available = [s for s in all_sides if s not in current_sides]
+        
+        if not available:
+            messagebox.showwarning("Skrzyżowanie T", "Wszystkie boki są już zajęte!", parent=self.root)
+            return
+        
+        # Pokaż dialog wyboru boku
+        self._show_junction_side_dialog(available, junction_type="T")
+
+    def _add_junction_x(self) -> None:
+        """Dodaje skrzyżowanie X do wybranego heksu (dodaje 2 boki)."""
+        if not self.selected_hex or not self._hex_has_road(self.selected_hex):
+            messagebox.showinfo("Skrzyżowanie X", "Najpierw zaznacz heks z istniejącą drogą.", parent=self.root)
+            return
+        
+        current_sides = self._get_hex_road_sides(self.selected_hex)
+        
+        # Znajdź dostępne boki
+        all_sides = list(HEX_SIDE_LABELS_PL.keys())
+        available = [s for s in all_sides if s not in current_sides]
+        
+        if len(available) < 2:
+            messagebox.showwarning("Skrzyżowanie X", "Za mało wolnych boków dla skrzyżowania X!", parent=self.root)
+            return
+        
+        # Pokaż dialog wyboru boków
+        self._show_junction_side_dialog(available, junction_type="X")
+
+    def _show_junction_side_dialog(self, available_sides: list[str], junction_type: str) -> None:
+        """Pokazuje dialog wyboru boków dla skrzyżowania."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Skrzyżowanie {junction_type}")
+        dialog.geometry("300x280")
+        dialog.configure(bg="darkolivegreen")
+        
+        max_select = 1 if junction_type == "T" else 2
+        
+        tk.Label(
+            dialog, 
+            text=f"Wybierz {'bok' if max_select == 1 else '2 boki'} dla odnogi:",
+            bg="darkolivegreen", fg="white", font=("Arial", 10, "bold"),
+        ).pack(pady=10)
+        
+        # Checkboxy
+        side_vars = {}
+        for side in available_sides:
+            var = tk.BooleanVar(value=False)
+            side_vars[side] = var
+            
+            cb = tk.Checkbutton(
+                dialog,
+                text=HEX_SIDE_LABELS_PL[side].title(),
+                variable=var,
+                bg="darkolivegreen", fg="white",
+                selectcolor="#4a6a4a",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            cb.pack(anchor="w", padx=20, pady=2)
+        
+        def apply_junction():
+            selected = [s for s, var in side_vars.items() if var.get()]
+            if len(selected) < max_select:
+                messagebox.showwarning(
+                    "Wybór boków",
+                    f"Wybierz {'co najmniej 1 bok' if max_select == 1 else 'dokładnie 2 boki'}.",
+                    parent=dialog,
+                )
+                return
+            if len(selected) > max_select:
+                selected = selected[:max_select]
+            
+            dialog.destroy()
+            self._regenerate_road_with_junction(self.selected_hex, selected)
+        
+        tk.Button(
+            dialog,
+            text="Zastosuj",
+            command=apply_junction,
+            bg="#4a6a4a", fg="white",
+        ).pack(pady=10)
+
+    def _regenerate_road_with_junction(self, hex_id: str, new_sides: list[str]) -> None:
+        """Regeneruje teksturę drogi z dodatkowymi bokami."""
+        if RoadOptions is None or generate_road is None:
+            messagebox.showerror("Generator", "Generator dróg niedostępny.", parent=self.root)
+            return
+        
+        record = self.hex_data.get(hex_id, {})
+        meta = record.get("road_generation_meta", {})
+        
+        # Zachowaj starą teksturę do usunięcia
+        old_texture_rel = record.get("texture")
+        
+        # Pobierz istniejące boki
+        current_sides = self._get_hex_road_sides(hex_id)
+        all_sides = list(set(current_sides + new_sides))
+        
+        # Zachowaj oryginalny entry/exit z metadanych - to główna droga!
+        entry_side = meta.get("entry_side")
+        exit_side = meta.get("exit_side")
+        
+        # Jeśli nie ma w metadanych, spróbuj odtworzyć z boków
+        if not entry_side or not exit_side:
+            if len(current_sides) >= 2:
+                entry_side = current_sides[0]
+                exit_side = current_sides[1]
+            elif len(all_sides) >= 2:
+                entry_side = all_sides[0]
+                exit_side = all_sides[1]
+            else:
+                entry_side = all_sides[0] if all_sides else "top"
+                exit_side = SIDE_OPPOSITE.get(entry_side, "bottom")
+        
+        # Crossroads = wszystkie boki POZA entry i exit
+        crossroads = [s for s in all_sides if s not in (entry_side, exit_side)]
+        
+        # Pobierz parametry z metadanych lub domyślne
+        road_type = meta.get("road_type", "gruntowa")
+        road_width = meta.get("width", "średnia")
+        noise = meta.get("noise_amplitude", 0.3)
+        seed = meta.get("seed", 42)
+        
+        # Pobierz tło terenu - szukamy oryginalnej tekstury terenu
+        background_path = None
+        terrain_key = record.get("terrain_key", "teren_płaski")
+        
+        # Sprawdź czy jest oryginalne tło w metadanych (zapisane przy pierwszym generowaniu)
+        original_background = meta.get("original_background")
+        if original_background:
+            bg_abs = fix_image_path(original_background)
+            if bg_abs.exists():
+                background_path = bg_abs
+                print(f"[Junction] Znaleziono original_background: {bg_abs}")
+        
+        # Jeśli nie ma w metadanych, szukaj tekstury terenu
+        if not background_path and terrain_key:
+            terrain_data = TERRAIN_TYPES.get(terrain_key, {})
+            tex_pattern = terrain_data.get("texture_pattern")
+            if tex_pattern:
+                # Szukaj w katalogach z teksturami
+                search_dirs = [
+                    TERRAIN_DIR,
+                    ASSET_ROOT / "terrain",
+                    Path(__file__).parent / "assets" / "terrain",
+                    Path(__file__).parent.parent / "assets" / "terrain",
+                ]
+                for search_dir in search_dirs:
+                    if search_dir.exists():
+                        matches = list(search_dir.glob(tex_pattern))
+                        if matches:
+                            background_path = matches[0]
+                            print(f"[Junction] Znaleziono teksturę terenu: {background_path}")
+                            break
+        
+        # Jeśli nadal nie ma tła, użyj aktualnej tekstury heksu (która może już zawierać drogę)
+        # ale lepiej niż przezroczyste tło!
+        if not background_path:
+            current_texture = record.get("texture")
+            if current_texture:
+                candidate = fix_image_path(current_texture)
+                if candidate.exists():
+                    # UWAGA: to już zawiera drogę, więc regeneracja może być nieczysta
+                    # ale przynajmniej zachowa tło terenu
+                    background_path = candidate
+                    print(f"[Junction] Używam aktualnej tekstury jako fallback: {candidate}")
+        
+        if not background_path:
+            print(f"[Junction] UWAGA: Brak tła dla heksu {hex_id}, generuję na przezroczystym!")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"hex_{hex_id.replace(',', '_')}_road_{timestamp}_junction.png"
+        output_path = ROAD_OUTPUT_DIR / output_filename
+        
+        options = RoadOptions(
+            grid_size=64,
+            background=background_path,
+            entry_side=entry_side,
+            exit_side=exit_side,
+            road_type=road_type,
+            width=road_width,
+            noise_amplitude=noise,
+            seed=seed,
+            crossroads=crossroads if crossroads else None,
+        )
+        
+        try:
+            result = generate_road(options, output_path)
+        except Exception as exc:
+            messagebox.showerror("Generator", f"Błąd generowania: {exc}", parent=self.root)
+            return
+        
+        # Zaktualizuj dane heksu
+        rel_path = to_rel(str(result.image_path))
+        record["texture"] = rel_path
+        record["texture_grid"] = 64
+        record["road_metadata_path"] = to_rel(str(result.metadata_path))
+        
+        # Zapisz wszystkie boki w metadanych
+        result.metadata["road_sides"] = all_sides
+        record["road_generation_meta"] = result.metadata
+        
+        # Odśwież cache
+        if rel_path in [key[0] for key in self.hex_texture_cache]:
+            self.hex_texture_cache = {
+                key: value for key, value in self.hex_texture_cache.items() if key[0] != rel_path
+            }
+        
+        # Usuń starą teksturę jeśli nie jest już używana
+        if old_texture_rel:
+            self._delete_hex_texture_if_unused(old_texture_rel)
+        
+        self.draw_grid()
+        self.auto_save_and_export("dodano skrzyżowanie")
+        self._update_road_modify_buttons()
+        
+        sides_str = ", ".join(HEX_SIDE_LABELS_PL.get(s, s) for s in all_sides)
+        messagebox.showinfo("Skrzyżowanie", f"Dodano skrzyżowanie.\nBoki: {sides_str}", parent=self.root)
+
+    def _continue_road_from_hex(self) -> None:
+        """Kontynuuje drogę z wybranego heksu."""
+        if not self.selected_hex or not self._hex_has_road(self.selected_hex):
+            messagebox.showinfo("Kontynuuj", "Najpierw zaznacz heks z istniejącą drogą.", parent=self.root)
+            return
+        
+        # Włącz tryb drogi jeśli nie jest aktywny
+        if not self.road_mode_active:
+            self._set_road_mode(True)
+        
+        # Wyczyść ścieżkę i zacznij od wybranego heksu
+        self.road_path.clear()
+        self.road_path.append(self.selected_hex)
+        
+        self._road_update_status()
+        self.draw_grid()
+        
+        sides = self._get_hex_road_sides(self.selected_hex)
+        sides_str = ", ".join(HEX_SIDE_LABELS_PL.get(s, s) for s in sides)
+        self.set_status(f"Kontynuuj drogę z {self.selected_hex}. Istniejące boki: {sides_str}")
+        
+        messagebox.showinfo(
+            "Kontynuuj drogę",
+            f"Ścieżka rozpoczęta od heksu {self.selected_hex}.\n"
+            f"Istniejące boki drogi: {sides_str}\n\n"
+            "Klikaj LPM aby dodać kolejne heksy, następnie 'Generuj drogę'.\n"
+            "Nowa droga połączy się z istniejącą na skrzyżowaniu.",
+            parent=self.root,
+        )
+
+    def toggle_road_crossroads_mode(self) -> None:
+        """Przełącza tryb dodawania skrzyżowań (kompatybilność wsteczna)."""
+        if self.road_crossroads_mode:
+            self._cancel_crossroads_mode()
+        else:
+            self._start_crossroads_mode()
+
+    def _set_road_mode(self, active: bool) -> None:
+        if self.road_mode_active == active:
+            return
+        self.road_mode_active = active
+        if not active:
+            self.road_path.clear()
+        if hasattr(self, "toggle_road_mode_button"):
+            if active:
+                self.toggle_road_mode_button.config(text="Wyłącz tryb drogi", bg="#6a5a4a")
+            else:
+                self.toggle_road_mode_button.config(text="Włącz tryb drogi", bg="#5a4a3a")
+        self._road_update_status()
+        self.draw_grid()
+        if active:
+            messagebox.showinfo(
+                "Tryb drogi",
+                "Tryb drogi aktywny. Kliknij LPM, aby zbudować ścieżkę, a następnie użyj 'Generuj drogę'.",
+                parent=self.root,
+            )
+
+    def _road_update_status(self) -> None:
+        count = len(self.road_path)
+        self.road_status_var.set(f"Ścieżka drogi: {count} heksów")
+        generate_state = tk.NORMAL if self.road_mode_active and count >= 2 else tk.DISABLED
+        undo_state = tk.NORMAL if self.road_mode_active and count >= 1 else tk.DISABLED
+        
+        # Przycisk skrzyżowania aktywny gdy jest zaznaczony heks na ścieżce
+        crossroads_state = tk.NORMAL if (
+            self.road_mode_active and 
+            count >= 1 and 
+            self.selected_hex and 
+            self.selected_hex in self.road_path and
+            not self.road_crossroads_mode
+        ) else tk.DISABLED
+        
+        if hasattr(self, "road_generate_button"):
+            self.road_generate_button.config(state=generate_state)
+        if hasattr(self, "road_undo_button"):
+            self.road_undo_button.config(state=undo_state)
+        if hasattr(self, "road_clear_button"):
+            self.road_clear_button.config(state=undo_state)
+        if hasattr(self, "add_crossroads_button") and not self.road_crossroads_mode:
+            self.add_crossroads_button.config(state=crossroads_state)
+
+    def _road_handle_left_click(self, hex_id: str) -> None:
+        """Obsługuje kliknięcie w trybie drogi."""
+        if hex_id in self.road_path:
+            self.set_status(f"Heks {hex_id} już jest w ścieżce drogi.")
+            return
+        
+        if self.road_path:
+            last_hex = self.road_path[-1]
+            try:
+                last_q, last_r = map(int, last_hex.split(","))
+                cur_q, cur_r = map(int, hex_id.split(","))
+            except ValueError:
+                return
+            delta = (cur_q - last_q, cur_r - last_r)
+            if delta not in AXIAL_DIRECTION_TO_SIDE:
+                self.set_status(f"Heks {hex_id} nie sąsiaduje z ostatnim heksem ścieżki.")
+                return
+        
+        self.road_path.append(hex_id)
+        self.selected_hex = hex_id
+        self._road_update_status()
+        self.draw_grid()
+        self.update_hex_info_display(hex_id)
+        self.set_status(f"Dodano heks {hex_id} do ścieżki drogi.")
+
+    def road_pop_last_hex(self) -> None:
+        """Usuwa ostatni heks ze ścieżki drogi."""
+        if self.road_path:
+            removed = self.road_path.pop()
+            self.set_status(f"Usunięto heks {removed} ze ścieżki drogi.")
+            if self.road_path:
+                self.selected_hex = self.road_path[-1]
+            self._road_update_status()
+            self.draw_grid()
+
+    def clear_road_path(self) -> None:
+        """Czyści całą ścieżkę drogi."""
+        self.road_path.clear()
+        self.road_crossroads_sides.clear()
+        self.road_crossroads_hex = None
+        self._road_update_status()
+        self.draw_grid()
+        self.set_status("Wyczyszczono ścieżkę drogi.")
+
+    def _toggle_crossroads_neighbor(self, neighbor_hex: str) -> bool:
+        """Przełącza bok skrzyżowania na podstawie klikniętego sąsiedniego heksu. Zwraca True jeśli obsłużono."""
+        if not self.selected_hex or self.selected_hex not in self.road_path:
+            return False
+        
+        # Oblicz deltę między wybranym heksem a sąsiadem
+        try:
+            tq, tr = map(int, self.selected_hex.split(","))
+            nq, nr = map(int, neighbor_hex.split(","))
+        except ValueError:
+            return False
+        
+        dq, dr = nq - tq, nr - tr
+        delta = (dq, dr)
+        
+        if delta not in AXIAL_DIRECTION_TO_SIDE:
+            return False  # Nie jest sąsiadem
+        
+        side = AXIAL_DIRECTION_TO_SIDE[delta]
+        
+        # Sprawdź czy strona nie jest zajęta przez główną drogę
+        idx = self.road_path.index(self.selected_hex)
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
+            segments = []
+            for i in range(len(coords) - 1):
+                dq_seg = coords[i + 1][0] - coords[i][0]
+                dr_seg = coords[i + 1][1] - coords[i][1]
+                segments.append((dq_seg, dr_seg))
+            
+            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            if side in (entry_side, exit_side):
+                # Strona zajęta - pokaż komunikat
+                side_label = HEX_SIDE_LABELS_PL.get(side, side)
+                self.set_status(f"Strona {side_label} jest zajęta przez główną drogę!")
+                return True
+        except:
+            pass
+        
+        # Przełącz bok
+        if side in self.road_crossroads_sides:
+            self.road_crossroads_sides.remove(side)
+            side_label = HEX_SIDE_LABELS_PL.get(side, side)
+            self.set_status(f"Usunięto odnogę: {side_label}")
+        else:
+            self.road_crossroads_sides.append(side)
+            side_label = HEX_SIDE_LABELS_PL.get(side, side)
+            self.set_status(f"Dodano odnogę: {side_label}")
+        
+        self.road_crossroads_hex = self.selected_hex
+        
+        # Zaktualizuj status skrzyżowania
+        if self.road_crossroads_sides:
+            sides_str = ", ".join(HEX_SIDE_LABELS_PL.get(s, s) for s in self.road_crossroads_sides)
+            self.road_crossroads_status_var.set(f"Odnogi: {sides_str}")
+        else:
+            self.road_crossroads_status_var.set("Brak odnóg - kliknij PPM na zielony heks")
+        
+        self.draw_grid()
+        return True
+
+    def _draw_crossroads_overlay(self) -> None:
+        """Rysuje wizualizację trybu skrzyżowania - podświetla dozwolone sąsiednie heksy."""
+        if not self.selected_hex or self.selected_hex not in self.hex_centers:
+            return
+        
+        if self.selected_hex not in self.road_path:
+            return
+        
+        cx, cy = self.hex_centers[self.selected_hex]
+        s = self.hex_size
+        
+        # Podświetl wybrany heks (miejsce skrzyżowania) na żółto
+        self.canvas.create_oval(
+            cx - s * 0.7, cy - s * 0.7, cx + s * 0.7, cy + s * 0.7,
+            outline="#ffaa00", width=4, fill="", dash=(5, 3),
+        )
+        self.canvas.create_text(
+            cx, cy - s * 0.85,
+            text="🔀 Skrzyżowanie",
+            fill="#ffaa00",
+            font=("Arial", 9, "bold"),
+        )
+        
+        # Oblicz zajęte strony (entry/exit głównej drogi)
+        idx = self.road_path.index(self.selected_hex)
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
+            segments = []
+            for i in range(len(coords) - 1):
+                dq = coords[i + 1][0] - coords[i][0]
+                dr = coords[i + 1][1] - coords[i][1]
+                segments.append((dq, dr))
+            
+            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            occupied = {entry_side, exit_side}
+        except:
+            occupied = set()
+        
+        # Podświetl sąsiednie heksy
+        try:
+            tq, tr = map(int, self.selected_hex.split(","))
+        except ValueError:
+            return
+        
+        for delta, side in AXIAL_DIRECTION_TO_SIDE.items():
+            nq, nr = tq + delta[0], tr + delta[1]
+            neighbor_id = f"{nq},{nr}"
+            
+            if neighbor_id not in self.hex_centers:
+                continue
+            
+            ncx, ncy = self.hex_centers[neighbor_id]
+            
+            # Czy ta strona jest zajęta przez główną drogę?
+            if side in occupied:
+                # Czerwony - niedostępny
+                color = "#ff4444"
+                label = "✖"
+            else:
+                # Zielony - dostępny
+                if side in self.road_crossroads_sides:
+                    color = "#00ff00"  # Jasny zielony - już wybrane
+                    label = "✔"
+                else:
+                    color = "#44ff44"  # Zielony - dostępny
+                    label = "➕"
+            
+            self.canvas.create_oval(
+                ncx - s * 0.5, ncy - s * 0.5, ncx + s * 0.5, ncy + s * 0.5,
+                outline=color, width=3, fill="", dash=(3, 2),
+            )
+            self.canvas.create_text(
+                ncx, ncy,
+                text=label,
+                fill=color,
+                font=("Arial", 14, "bold"),
+            )
+
+    def _show_crossroads_side_selector(self, hex_id: str) -> None:
+        """Pokazuje dialog wyboru dodatkowych boków dla skrzyżowania."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Wybierz boki dla skrzyżowania")
+        dialog.geometry("300x250")
+        dialog.configure(bg="darkolivegreen")
+        
+        tk.Label(
+            dialog, 
+            text=f"Skrzyżowanie na heksie {hex_id}\nZaznacz dodatkowe boki:",
+            bg="darkolivegreen", fg="white", font=("Arial", 10, "bold"),
+        ).pack(pady=10)
+        
+        # Pobierz entry/exit głównej drogi dla tego heksu
+        idx = self.road_path.index(hex_id) if hex_id in self.road_path else -1
+        if idx < 0:
+            dialog.destroy()
+            return
+        
+        # Oblicz które boki są zajęte przez główną drogę
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
+            segments = []
+            for i in range(len(coords) - 1):
+                dq = coords[i + 1][0] - coords[i][0]
+                dr = coords[i + 1][1] - coords[i][1]
+                segments.append((dq, dr))
+            
+            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            blocked_sides = {entry_side, exit_side}
+        except:
+            blocked_sides = set()
+        
+        # Checkboxy dla każdego boku
+        side_vars = {}
+        for side in HEX_SIDE_LABELS_PL.keys():
+            if side in blocked_sides:
+                continue  # Nie pokazuj boków zajętych przez główną drogę
+            
+            var = tk.BooleanVar(value=side in self.road_crossroads_sides)
+            side_vars[side] = var
+            
+            cb = tk.Checkbutton(
+                dialog,
+                text=HEX_SIDE_LABELS_PL[side].title(),
+                variable=var,
+                bg="darkolivegreen", fg="white",
+                selectcolor="#4a6a4a",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            cb.pack(anchor="w", padx=20, pady=2)
+        
+        def apply_selection():
+            self.road_crossroads_sides = [
+                side for side, var in side_vars.items() if var.get()
+            ]
+            self.road_crossroads_hex = hex_id  # Zapisz który heks ma skrzyżowanie
+            self.draw_grid()
+            dialog.destroy()
+            self.set_status(f"Wybrano {len(self.road_crossroads_sides)} dodatkowych boków dla skrzyżowania")
+        
+        tk.Button(
+            dialog,
+            text="Zastosuj",
+            command=apply_selection,
+            bg="#4a6a4a", fg="white",
+        ).pack(pady=10)
+
+    def generate_road_path(self) -> None:
+        """Generuje tekstury drogi dla zaznaczonej ścieżki."""
+        if not self.road_mode_active:
+            messagebox.showinfo("Tryb drogi", "Aktywuj tryb drogi, aby generować tekstury.", parent=self.root)
+            return
+        if len(self.road_path) < 2:
+            messagebox.showwarning("Ścieżka drogi", "Dodaj co najmniej dwa heksy do ścieżki.", parent=self.root)
+            return
+        if RoadOptions is None or generate_road is None:
+            messagebox.showerror(
+                "Generator niedostępny",
+                "Nie można załadować modułu generate_road_hex_tile.py.",
+                parent=self.root,
+            )
+            return
+
+        try:
+            coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
+        except ValueError:
+            messagebox.showerror("Ścieżka drogi", "Nieprawidłowe współrzędne heksów.", parent=self.root)
+            return
+
+        # Oblicz segmenty
+        segments: list[tuple[int, int]] = []
+        for idx in range(len(coords) - 1):
+            dq = coords[idx + 1][0] - coords[idx][0]
+            dr = coords[idx + 1][1] - coords[idx][1]
+            delta = (dq, dr)
+            if delta not in AXIAL_DIRECTION_TO_SIDE:
+                messagebox.showerror(
+                    "Ścieżka drogi",
+                    "Ścieżka zawiera heksy, które nie sąsiadują ze sobą.",
+                    parent=self.root,
+                )
+                return
+            segments.append(delta)
+
+        # Pobierz parametry
+        road_type_label = self.road_type_var.get()
+        road_type = ROAD_TYPE_LABEL_TO_KEY.get(road_type_label, "gruntowa")
+        
+        road_width_label = self.road_width_var.get()
+        road_width = ROAD_WIDTH_LABEL_TO_KEY.get(road_width_label, "średnia")
+        
+        try:
+            noise = float(self.road_noise_var.get())
+        except (TypeError, ValueError):
+            noise = 0.3
+        noise = max(0.0, min(noise, 1.0))
+
+        try:
+            seed_base = int(self.road_seed_var.get())
+        except (TypeError, ValueError):
+            seed_base = 42
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        generation_results: list[RoadResult | None] = []
+        old_texture_paths: set[str] = set()
+        affected_paths: set[str] = set()
+        background_paths_used: dict[str, Path | None] = {}  # hex_id -> background_path
+
+        for idx, hex_id in enumerate(self.road_path):
+            # Oblicz wejście i wyjście
+            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+
+            # Sprawdź czy to heks ze skrzyżowaniem
+            crossroads_sides = []
+            if hex_id in self.road_path and idx < len(self.road_path):
+                # Jeśli aktualnie przeglądany heks ma dodatkowe boki
+                if hasattr(self, 'road_crossroads_hex') and self.road_crossroads_hex == hex_id:
+                    crossroads_sides = list(self.road_crossroads_sides)
+
+            # Pobierz tło
+            terrain = self.hex_data.setdefault(hex_id, {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0,
+            })
+            texture_rel = terrain.get("texture")
+            background_path = None
+            if texture_rel:
+                old_texture_paths.add(texture_rel)
+                candidate = fix_image_path(texture_rel)
+                if candidate.exists():
+                    background_path = candidate
+            
+            # Jeśli nie ma tekstury, użyj domyślnej tekstury trawy
+            if not background_path:
+                default_textures = [
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dense_64.png",
+                    Path(__file__).parent.parent / "assets" / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
+                ]
+                for default_tex in default_textures:
+                    if default_tex.exists():
+                        background_path = default_tex
+                        print(f"[Road] Użyto domyślnej tekstury dla {hex_id}: {background_path}")
+                        break
+            
+            # Zapisz użyte tło dla tego heksu
+            background_paths_used[hex_id] = background_path
+
+            output_filename = f"hex_{hex_id.replace(',', '_')}_road_{timestamp}_{idx:02d}.png"
+            output_path = ROAD_OUTPUT_DIR / output_filename
+
+            options = RoadOptions(
+                grid_size=64,
+                background=background_path,
+                entry_side=entry_side,
+                exit_side=exit_side,
+                road_type=road_type,
+                width=road_width,
+                noise_amplitude=noise,
+                seed=seed_base + idx,
+                crossroads=crossroads_sides if crossroads_sides else None,
+            )
+
+            try:
+                result = generate_road(options, output_path)
+            except Exception as exc:
+                messagebox.showerror(
+                    "Generator drogi",
+                    f"Nie udało się wygenerować tekstury dla {hex_id}: {exc}",
+                    parent=self.root,
+                )
+                # Usuń już wygenerowane
+                for produced in generation_results:
+                    if produced is None:
+                        continue
+                    try:
+                        produced.image_path.unlink(missing_ok=True)
+                        produced.metadata_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                return
+            
+            generation_results.append(result)
+            if texture_rel:
+                affected_paths.add(texture_rel)
+
+        # Zapisz wyniki
+        for idx, hex_id in enumerate(self.road_path):
+            record = self.hex_data.setdefault(hex_id, {
+                "terrain_key": "teren_płaski",
+                "move_mod": 0,
+                "defense_mod": 0,
+            })
+            result = generation_results[idx]
+            if result is None:
+                continue
+            rel_path = to_rel(str(result.image_path))
+            record["texture"] = rel_path
+            record["texture_grid"] = 64
+            record["road_metadata_path"] = to_rel(str(result.metadata_path))
+            
+            # Oblicz wszystkie boki drogi dla tego heksu
+            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            road_sides = [entry_side, exit_side]
+            # Dodaj crossroads jeśli to heks ze skrzyżowaniem
+            if hex_id == self.road_crossroads_hex and self.road_crossroads_sides:
+                road_sides.extend(self.road_crossroads_sides)
+            result.metadata["road_sides"] = list(set(road_sides))
+            
+            # Zapisz original_background dla przyszłych regeneracji (skrzyżowania, modyfikacje)
+            bg_used = background_paths_used.get(hex_id)
+            if bg_used:
+                result.metadata["original_background"] = to_rel(str(bg_used))
+            record["road_generation_meta"] = result.metadata
+            affected_paths.add(rel_path)
+
+        # Odśwież cache
+        if affected_paths:
+            self.hex_texture_cache = {
+                key: value for key, value in self.hex_texture_cache.items() if key[0] not in affected_paths
+            }
+
+        # Usuń stare, nieużywane tekstury dróg
+        for old_path in old_texture_paths:
+            self._delete_hex_texture_if_unused(old_path)
+
+        self.draw_grid()
+        self.auto_save_and_export("wygenerowano drogę")
+        self.road_seed_var.set(str(seed_base + len(self.road_path)))
+        
+        produced_count = sum(1 for item in generation_results if item is not None)
+        messagebox.showinfo(
+            "Generator drogi",
+            f"Zapisano {produced_count} nowych tekstur drogi.",
+            parent=self.root,
+        )
+        self.clear_road_path()
+
+    def _road_entry_exit_for_index(
+        self,
+        index: int,
+        segments: list[tuple[int, int]],
+    ) -> tuple[str, str]:
+        """Oblicza krawędzie wejścia i wyjścia drogi dla heksu o danym indeksie."""
+        if index == 0:
+            # Pierwszy heks - wejście z przeciwnej strony niż kierunek do następnego
+            exit_side = AXIAL_DIRECTION_TO_SIDE[segments[0]]
+            entry_side = SIDE_OPPOSITE[exit_side]
+        elif index == len(segments):
+            # Ostatni heks - wyjście z przeciwnej strony niż kierunek z poprzedniego
+            entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[-1]]]
+            exit_side = SIDE_OPPOSITE[entry_side]
+        else:
+            # Środkowy heks
+            entry_side = SIDE_OPPOSITE[AXIAL_DIRECTION_TO_SIDE[segments[index - 1]]]
+            exit_side = AXIAL_DIRECTION_TO_SIDE[segments[index]]
+        return entry_side, exit_side
+
+    def _draw_road_path_overlay(self) -> None:
+        """Rysuje podświetlenie ścieżki drogi na mapie."""
+        if not self.road_mode_active or not self.road_path:
+            return
+        
+        for idx, hex_id in enumerate(self.road_path):
+            if hex_id not in self.hex_centers:
+                continue
+            cx, cy = self.hex_centers[hex_id]
+            s = self.hex_size
+            
+            # Kolor zależny od pozycji
+            if idx == 0:
+                color = "#8B4513"  # Brązowy - początek
+            elif idx == len(self.road_path) - 1:
+                color = "#D2691E"  # Jasnobrązowy - koniec
+            else:
+                color = "#A0522D"  # Sienna - środek
+            
+            # Rysuj okrąg
+            r = s * 0.3
+            self.canvas.create_oval(
+                cx - r, cy - r, cx + r, cy + r,
+                outline=color, width=3, fill="",
+                tags=("road_overlay",),
+            )
+            
+            # Numer kolejny
+            self.canvas.create_text(
+                cx, cy,
+                text=str(idx + 1),
+                fill=color,
+                font=("Arial", 10, "bold"),
+                tags=("road_overlay",),
+            )
+            
+            # Ikona skrzyżowania (jeśli jest)
+            if hex_id == self.road_crossroads_hex and self.road_crossroads_sides:
+                # Rysuj krzyżyk
+                cross_size = s * 0.15
+                self.canvas.create_line(
+                    cx - cross_size, cy, cx + cross_size, cy,
+                    fill="yellow", width=2, tags=("road_overlay",)
+                )
+                self.canvas.create_line(
+                    cx, cy - cross_size, cx, cy + cross_size,
+                    fill="yellow", width=2, tags=("road_overlay",)
+                )
+
 
     def open_selected_hex_texture_editor(self):
         if not getattr(self, "selected_hex", None):
@@ -8423,6 +10559,10 @@ class MapEditor:
         # Zaktualizuj informacje o key point i spawn point
         self.key_point_info_label.config(text=key_point_info)
         self.spawn_point_info_label.config(text=spawn_point_info)
+        
+        # Zaktualizuj przyciski modyfikacji drogi
+        if hasattr(self, "_update_road_modify_buttons"):
+            self._update_road_modify_buttons()
 
     def auto_save_and_export(self, reason):
         """Automatyczny zapis danych mapy i eksport żetonów z debounce"""
