@@ -1298,6 +1298,8 @@ class MapEditor:
             fg="white",
             activebackground="#2f4d34",
             activeforeground="white",
+            anchor="w",
+            font=("Arial", 9, "bold"),
         )
         self.river_section_toggle_button.pack(fill=tk.X)
 
@@ -1774,84 +1776,6 @@ class MapEditor:
         self._set_river_section_visibility(False)
         self._update_river_preview_image()
 
-        # === SEKCJA TERENU ===
-        terrain_frame = tk.LabelFrame(self.upper_frame, text="Rodzaje terenu", bg="darkolivegreen", fg="white",
-                                      font=("Arial", 9, "bold"))
-        terrain_frame.pack(fill=tk.X, padx=5, pady=2)
-
-        self.current_brush = None
-        self.terrain_buttons = {}
-
-        for terrain_key in TERRAIN_TYPES.keys():
-            btn = tk.Button(
-                terrain_frame,
-                text=terrain_key.replace("_", " ").title(),
-                width=16,
-                bg="saddlebrown",
-                fg="white",
-                activebackground="saddlebrown",
-                activeforeground="white",
-                command=lambda k=terrain_key: self.toggle_brush(k)
-            )
-            btn.pack(padx=2, pady=1, fill=tk.X)
-            self.terrain_buttons[terrain_key] = btn
-
-        self.flat_texture_status_var = tk.StringVar(value="Aktywny wzór: brak")
-        flat_texture_button = tk.Button(
-            terrain_frame,
-            text="Tekstury terenu płaskiego (Ctrl+Shift+F)",
-            command=self.open_flat_texture_window,
-            bg="forestgreen",
-            fg="white",
-            activebackground="forestgreen",
-            activeforeground="white"
-        )
-        flat_texture_button.pack(padx=2, pady=(6, 2), fill=tk.X)
-
-        self.flat_texture_status_label = tk.Label(
-            terrain_frame,
-            textvariable=self.flat_texture_status_var,
-            bg="darkolivegreen",
-            fg="white",
-            font=("Arial", 8, "italic"),
-            anchor="w"
-        )
-        self.flat_texture_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
-        self.update_flat_texture_status()
-
-        # === SEKCJA PUNKTÓW KLUCZOWYCH ===
-        key_points_frame = tk.LabelFrame(self.upper_frame, text="Punkty kluczowe", bg="darkolivegreen", fg="white",
-                                         font=("Arial", 9, "bold"))
-        key_points_frame.pack(fill=tk.X, padx=5, pady=2)
-        self.add_key_point_button = tk.Button(key_points_frame, text="Dodaj kluczowy punkt", command=self.add_key_point_dialog,
-                                              bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.add_key_point_button.pack(padx=5, pady=2, fill=tk.X)
-
-        # === SEKCJA PUNKTÓW ZRZUTU ===
-        spawn_points_frame = tk.LabelFrame(self.upper_frame, text="Punkty zrzutu", bg="darkolivegreen", fg="white",
-                                           font=("Arial", 9, "bold"))
-        spawn_points_frame.pack(fill=tk.X, padx=5, pady=2)
-        self.add_spawn_point_button = tk.Button(spawn_points_frame, text="Dodaj punkt wystawienia", command=self.add_spawn_point_dialog,
-                                                bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.add_spawn_point_button.pack(padx=5, pady=2, fill=tk.X)
-
-        # === RESET HEKSU ===
-        reset_hex_frame = tk.LabelFrame(self.upper_frame, text="Reset wybranego heksu", bg="darkolivegreen", fg="white",
-                                        font=("Arial", 9, "bold"))
-        reset_hex_frame.pack(fill=tk.X, padx=5, pady=2)
-        self.reset_hex_button = tk.Button(reset_hex_frame, text="Resetuj wybrany heks", command=self.reset_selected_hex,
-                                          bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white")
-        self.reset_hex_button.pack(padx=5, pady=2, fill=tk.X)
-
-        # === EKSPORT ŻETONÓW ===
-        self.export_tokens_button = tk.Button(
-            self.upper_frame,
-            text="Eksportuj rozmieszczenie żetonów",
-            command=self.export_start_tokens,
-            bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
-        )
-        self.export_tokens_button.pack(padx=5, pady=2, fill=tk.X)
-
         # === SEKCJA DRÓG ===
         self._road_section_expanded = False
         
@@ -1878,12 +1802,16 @@ class MapEditor:
             anchor="w",
             font=("Arial", 9, "bold"),
         )
-        self.road_section_toggle_button.pack(fill=tk.X, padx=5, pady=(4, 0))
+        self.road_section_toggle_button.pack(fill=tk.X, padx=5, pady=2)
 
-        self.road_frame = tk.LabelFrame(
-            self.upper_frame, text="Generator dróg", bg="darkolivegreen", fg="white",
-            font=("Arial", 9, "bold"),
+        # Kontener na rozwijaną sekcję dróg
+        self.road_section_container = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        self.road_frame = tk.Frame(
+            self.road_section_container, bg="darkolivegreen"
         )
+        self.road_frame.pack(fill=tk.X, pady=(2, 0))
 
         # Przycisk trybu
         self.toggle_road_mode_button = tk.Button(
@@ -2081,6 +2009,93 @@ class MapEditor:
 
         self._set_road_section_visibility(False)
 
+        # === SEKCJA TERENU (ROZWIJANA) ===
+        self._terrain_expanded = False
+        self.terrain_toggle_button = tk.Button(
+            self.upper_frame,
+            text="[+] Rodzaje terenu",
+            command=self._toggle_terrain_section,
+            bg="#4f2a12", fg="white",
+            activebackground="#5f3a22", activeforeground="white",
+            font=("Arial", 9, "bold"), anchor="w",
+        )
+        self.terrain_toggle_button.pack(fill=tk.X, padx=5, pady=2)
+
+        # Kontener na rozwijaną zawartość
+        self.terrain_frame = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        self.current_brush = None
+        self.terrain_buttons = {}
+
+        for terrain_key in TERRAIN_TYPES.keys():
+            btn = tk.Button(
+                self.terrain_frame,
+                text=terrain_key.replace("_", " ").title(),
+                width=16,
+                bg="saddlebrown",
+                fg="white",
+                activebackground="saddlebrown",
+                activeforeground="white",
+                command=lambda k=terrain_key: self.toggle_brush(k)
+            )
+            btn.pack(padx=4, pady=1, fill=tk.X)
+            self.terrain_buttons[terrain_key] = btn
+
+        # === TEKSTURY TERENU PŁASKIEGO ===
+        self.flat_texture_status_var = tk.StringVar(value="Aktywny wzór: brak")
+        flat_texture_button = tk.Button(
+            self.upper_frame,
+            text="Tekstury terenu płaskiego (Ctrl+Shift+F)",
+            command=self.open_flat_texture_window,
+            bg="forestgreen",
+            fg="white",
+            activebackground="forestgreen",
+            activeforeground="white",
+            anchor="w",
+            font=("Arial", 9, "bold")
+        )
+        flat_texture_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === PUNKTY KLUCZOWE ===
+        self.add_key_point_button = tk.Button(
+            self.upper_frame,
+            text="Dodaj punkt kluczowy",
+            command=self.add_key_point_dialog,
+            bg="saddlebrown", fg="white",
+            activebackground="saddlebrown", activeforeground="white"
+        )
+        self.add_key_point_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === PUNKTY ZRZUTU ===
+        self.add_spawn_point_button = tk.Button(
+            self.upper_frame,
+            text="Dodaj punkt wystawienia",
+            command=self.add_spawn_point_dialog,
+            bg="saddlebrown", fg="white",
+            activebackground="saddlebrown", activeforeground="white"
+        )
+        self.add_spawn_point_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === RESET HEKSU ===
+        self.reset_hex_button = tk.Button(
+            self.upper_frame,
+            text="Resetuj wybrany heks",
+            command=self.reset_selected_hex,
+            bg="saddlebrown", fg="white",
+            activebackground="saddlebrown", activeforeground="white"
+        )
+        self.reset_hex_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # === EKSPORT ŻETONÓW ===
+        self.export_tokens_button = tk.Button(
+            self.upper_frame,
+            text="Eksportuj rozmieszczenie żetonów",
+            command=self.export_start_tokens,
+            bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
+        )
+        self.export_tokens_button.pack(padx=5, pady=2, fill=tk.X)
+
         # === DOLNA CZĘŚĆ: Panel informacyjny ===
         self.lower_frame = tk.Frame(self.main_paned, bg="darkolivegreen")
         # Dolny panel pokazuje tylko informacje o aktywnym heksie, więc trzymamy go kompaktowo
@@ -2107,6 +2122,16 @@ class MapEditor:
         else:
             self.river_advanced_frame.pack_forget()
             self.river_advanced_toggle.config(text="[+] Szczegółowe ustawienia")
+
+    def _toggle_terrain_section(self) -> None:
+        """Przełącza widoczność sekcji rodzajów terenu."""
+        self._terrain_expanded = not self._terrain_expanded
+        if self._terrain_expanded:
+            self.terrain_frame.pack(fill=tk.X, padx=5, pady=(2, 4), after=self.terrain_toggle_button)
+            self.terrain_toggle_button.config(text="[-] Rodzaje terenu")
+        else:
+            self.terrain_frame.pack_forget()
+            self.terrain_toggle_button.config(text="[+] Rodzaje terenu")
 
     def _apply_quick_river_preset(self) -> None:
         """Stosuje szybki preset rzeki, ustawiając wszystkie parametry naraz."""
@@ -5173,10 +5198,10 @@ class MapEditor:
     def _set_road_section_visibility(self, visible: bool) -> None:
         self._road_section_expanded = visible
         if visible:
-            self.road_frame.pack(fill=tk.X, pady=(4, 0))
+            self.road_section_container.pack(fill=tk.X, padx=5, pady=(0, 4), after=self.road_section_toggle_button)
             self.road_section_toggle_button.config(text="[-] Drogi (beta)")
         else:
-            self.road_frame.pack_forget()
+            self.road_section_container.pack_forget()
             self.road_section_toggle_button.config(text="[+] Drogi (beta)")
 
     def toggle_road_mode(self) -> None:
@@ -11815,6 +11840,10 @@ class MapEditor:
             b.config(relief="raised")
         self.terrain_buttons[key].config(relief="sunken")
         self.current_brush = key
+        
+        # Automatycznie zwiń sekcję po wyborze terenu
+        if self._terrain_expanded:
+            self._toggle_terrain_section()
 
     def paint_hex(self, clicked_hex, terrain_key):
         'Maluje heks wybranym typem terenu.'
