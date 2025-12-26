@@ -1,0 +1,377 @@
+{
+  "name": "shop_1",
+  "category": "settlement",
+  "grid_size": 64,
+  "bounds": {
+    "row_min": 8,
+    "row_max": 37,
+    "col_min": 24,
+    "col_max": 50
+  },
+  "origin": {
+    "row": 8,
+    "col": 24
+  },
+  "size": {
+    "rows": 30,
+    "cols": 27
+  },
+  "hotspot": {
+    "row": 23.0,
+    "col": 37.5
+  },
+  "created_at": "2025-11-03T22:22:10",
+  "source_hex": "17,-5",
+  "image": "terrain\\presets\\user_assets\\settlement\\shop_1.png",
+  "thumbnail": "terrain\\presets\\user_assets\\settlement\\shop_1_thumb.png",
+  "selection": {
+    "type": "polygon",
+    "loop": [
+      {
+        "row": 8,
+        "col": 34
+      },
+      {
+        "row": 8,
+        "col": 35
+      },
+      {
+        "row": 8,
+        "col": 36
+      },
+      {
+        "row": 8,
+        "col": 37
+      },
+      {
+        "row": 8,
+        "col": 38
+      },
+      {
+        "row": 9,
+        "col": 39
+      },
+      {
+        "row": 9,
+        "col": 40
+      },
+      {
+        "row": 9,
+        "col": 41
+      },
+      {
+        "row": 10,
+        "col": 42
+      },
+      {
+        "row": 10,
+        "col": 43
+      },
+      {
+        "row": 10,
+        "col": 44
+      },
+      {
+        "row": 11,
+        "col": 44
+      },
+      {
+        "row": 12,
+        "col": 45
+      },
+      {
+        "row": 13,
+        "col": 46
+      },
+      {
+        "row": 14,
+        "col": 47
+      },
+      {
+        "row": 15,
+        "col": 48
+      },
+      {
+        "row": 16,
+        "col": 48
+      },
+      {
+        "row": 17,
+        "col": 47
+      },
+      {
+        "row": 18,
+        "col": 47
+      },
+      {
+        "row": 19,
+        "col": 47
+      },
+      {
+        "row": 20,
+        "col": 47
+      },
+      {
+        "row": 21,
+        "col": 47
+      },
+      {
+        "row": 22,
+        "col": 47
+      },
+      {
+        "row": 23,
+        "col": 47
+      },
+      {
+        "row": 24,
+        "col": 47
+      },
+      {
+        "row": 25,
+        "col": 48
+      },
+      {
+        "row": 25,
+        "col": 49
+      },
+      {
+        "row": 26,
+        "col": 50
+      },
+      {
+        "row": 27,
+        "col": 50
+      },
+      {
+        "row": 28,
+        "col": 50
+      },
+      {
+        "row": 29,
+        "col": 50
+      },
+      {
+        "row": 30,
+        "col": 50
+      },
+      {
+        "row": 31,
+        "col": 49
+      },
+      {
+        "row": 32,
+        "col": 49
+      },
+      {
+        "row": 32,
+        "col": 48
+      },
+      {
+        "row": 33,
+        "col": 47
+      },
+      {
+        "row": 34,
+        "col": 47
+      },
+      {
+        "row": 34,
+        "col": 46
+      },
+      {
+        "row": 35,
+        "col": 45
+      },
+      {
+        "row": 35,
+        "col": 44
+      },
+      {
+        "row": 36,
+        "col": 43
+      },
+      {
+        "row": 36,
+        "col": 42
+      },
+      {
+        "row": 36,
+        "col": 41
+      },
+      {
+        "row": 37,
+        "col": 40
+      },
+      {
+        "row": 37,
+        "col": 39
+      },
+      {
+        "row": 37,
+        "col": 38
+      },
+      {
+        "row": 37,
+        "col": 37
+      },
+      {
+        "row": 37,
+        "col": 36
+      },
+      {
+        "row": 37,
+        "col": 35
+      },
+      {
+        "row": 37,
+        "col": 34
+      },
+      {
+        "row": 37,
+        "col": 33
+      },
+      {
+        "row": 36,
+        "col": 32
+      },
+      {
+        "row": 36,
+        "col": 31
+      },
+      {
+        "row": 35,
+        "col": 30
+      },
+      {
+        "row": 35,
+        "col": 29
+      },
+      {
+        "row": 34,
+        "col": 28
+      },
+      {
+        "row": 34,
+        "col": 27
+      },
+      {
+        "row": 33,
+        "col": 27
+      },
+      {
+        "row": 32,
+        "col": 26
+      },
+      {
+        "row": 32,
+        "col": 25
+      },
+      {
+        "row": 31,
+        "col": 25
+      },
+      {
+        "row": 30,
+        "col": 24
+      },
+      {
+        "row": 29,
+        "col": 24
+      },
+      {
+        "row": 28,
+        "col": 24
+      },
+      {
+        "row": 27,
+        "col": 25
+      },
+      {
+        "row": 26,
+        "col": 25
+      },
+      {
+        "row": 25,
+        "col": 25
+      },
+      {
+        "row": 24,
+        "col": 26
+      },
+      {
+        "row": 24,
+        "col": 27
+      },
+      {
+        "row": 24,
+        "col": 28
+      },
+      {
+        "row": 24,
+        "col": 29
+      },
+      {
+        "row": 23,
+        "col": 29
+      },
+      {
+        "row": 22,
+        "col": 29
+      },
+      {
+        "row": 21,
+        "col": 29
+      },
+      {
+        "row": 20,
+        "col": 29
+      },
+      {
+        "row": 19,
+        "col": 29
+      },
+      {
+        "row": 18,
+        "col": 29
+      },
+      {
+        "row": 17,
+        "col": 29
+      },
+      {
+        "row": 16,
+        "col": 29
+      },
+      {
+        "row": 15,
+        "col": 28
+      },
+      {
+        "row": 14,
+        "col": 29
+      },
+      {
+        "row": 13,
+        "col": 30
+      },
+      {
+        "row": 12,
+        "col": 31
+      },
+      {
+        "row": 11,
+        "col": 32
+      },
+      {
+        "row": 10,
+        "col": 33
+      },
+      {
+        "row": 9,
+        "col": 33
+      }
+    ],
+    "cell_count": 574
+  }
+}

@@ -10,10 +10,22 @@ def _ensure_init():
     global _initialized, _log_file_path
     if _initialized:
         return
-    logs_dir = os.path.join(os.getcwd(), 'logs')
+    
+    # AKTUALIZACJA v4.0: Używa SessionManager dla jednej sesji na proces
+    try:
+        from utils.session_manager import SessionManager
+        session_dir = SessionManager.get_current_session_dir()
+        logs_dir = str(session_dir)  # SessionManager zwraca Path
+        print(f"📝 [ACTION_LOGGER] Używa SessionManager: {logs_dir}")
+    except ImportError:
+        # FALLBACK: Stary system z current_session (kompatybilność)
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
+        logs_dir = os.path.join(os.getcwd(), 'logs', 'current_session', timestamp)
+        print(f"⚠️ [ACTION_LOGGER] Fallback na stary system: {logs_dir}")
+    
     os.makedirs(logs_dir, exist_ok=True)
-    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-    _log_file_path = os.path.join(logs_dir, f'actions_{ts}.csv')
+    
+    _log_file_path = os.path.join(logs_dir, f'actions_main.csv')
     with open(_log_file_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f, delimiter=';')
         writer.writerow([

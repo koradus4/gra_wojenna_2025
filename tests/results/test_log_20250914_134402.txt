@@ -1,0 +1,50 @@
+🧪 ZAAWANSOWANY TEST GRY - START: 2025-09-14 13:44:02.312193
+================================================================================
+
+[13:44:02] INFO: 
+============================================================
+[13:44:02] INFO: 🧪 TEST #1: defensive_vs_aggressive
+[13:44:02] INFO: 📋 Opis: Polska defensywna vs Niemcy agresywne
+[13:44:02] INFO: 🎯 Max tur: 12
+[13:44:02] INFO: 🤖 Profile AI: {'polish': 'defensive', 'german': 'aggressive'}
+[13:44:02] INFO: ============================================================
+[13:44:02] INFO: 🎮 Tworzenie gry testowej: defensive_vs_aggressive
+[13:44:02] INFO: 🎛️ Ustawiono profil defensive dla gracza 1 (polish)
+[13:44:02] INFO: 🎛️ Ustawiono profil defensive dla gracza 2 (polish)
+[13:44:02] INFO: 🎛️ Ustawiono profil aggressive dla gracza 4 (german)
+[13:44:02] INFO: 🎛️ Ustawiono profil aggressive dla gracza 5 (german)
+[13:44:02] INFO: 🤖 AI Generał: Polska (id=1)
+[13:44:02] INFO: 🎯 AI Dowódca: Polska (id=2)
+[13:44:02] INFO: 🤖 AI Generał: Niemcy (id=4)
+[13:44:02] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[13:44:02] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[13:44:02] INFO: 🎮 Start symulacji rozgrywki...
+[13:44:02] INFO: 🔄 Tura 1/12
+[13:44:03] INFO: ✅ Tura 1 zakończona w 1.12s
+[13:44:03] INFO: 🔄 Tura 2/12
+[13:44:04] INFO: ✅ Tura 2 zakończona w 1.08s
+[13:44:04] INFO: 🔄 Tura 3/12
+[13:44:05] INFO: ✅ Tura 3 zakończona w 0.94s
+[13:44:05] INFO: 🔄 Tura 4/12
+[13:44:06] INFO: ✅ Tura 4 zakończona w 0.62s
+[13:44:06] INFO: 🔄 Tura 5/12
+[13:44:06] INFO: ✅ Tura 5 zakończona w 0.73s
+[13:44:06] INFO: 🔄 Tura 6/12
+[13:44:07] INFO: ✅ Tura 6 zakończona w 0.55s
+[13:44:07] INFO: 🔄 Tura 7/12
+[13:44:08] INFO: ✅ Tura 7 zakończona w 0.98s
+[13:44:08] INFO: 🔄 Tura 8/12
+[13:44:08] INFO: ✅ Tura 8 zakończona w 0.56s
+[13:44:08] INFO: 🔄 Tura 9/12
+[13:44:09] INFO: ✅ Tura 9 zakończona w 0.58s
+[13:44:09] INFO: 🔄 Tura 10/12
+[13:44:10] INFO: ✅ Tura 10 zakończona w 0.62s
+[13:44:10] INFO: 🔄 Tura 11/12
+[13:44:10] INFO: ✅ Tura 11 zakończona w 0.58s
+[13:44:10] INFO: 🔄 Tura 12/12
+[13:44:11] INFO: ✅ Tura 12 zakończona w 0.56s
+[13:44:11] INFO: 🎮 Symulacja zakończona po 12 turach
+[13:44:11] INFO: ✅ Test defensive_vs_aggressive zakończony
+[13:44:11] INFO: ⏱️ Czas: 9.1s
+[13:44:11] INFO: 🏆 Wynik: PASS
+[13:44:11] INFO: 📊 Performance: 105.0/100

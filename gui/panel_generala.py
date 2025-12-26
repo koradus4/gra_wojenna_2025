@@ -7,7 +7,8 @@ from gui.panel_gracza import PanelGracza
 from gui.zarzadzanie_punktami_ekonomicznymi import ZarzadzaniePunktamiEkonomicznymi
 from engine.board import Board
 from gui.panel_mapa import PanelMapa
-from gui.token_info_panel import TokenInfoPanel
+from ai.logs import log_general
+# from gui.token_info_panel import TokenInfoPanel  # USUNIĘTE - zastąpione tooltip
 
 class PanelGenerala:
     def __init__(self, turn_number, ekonomia, gracz, gracze, game_engine):
@@ -16,6 +17,19 @@ class PanelGenerala:
         self.gracz = gracz
         self.gracze = gracze
         self.game_engine = game_engine
+
+        try:
+            available_points = self.ekonomia.get_points().get('economic_points', 0)
+        except Exception:
+            available_points = None
+        log_general(
+            "Generał (human) rozpoczyna turę",
+            level="INFO",
+            general_id=getattr(self.gracz, 'id', None),
+            nation=getattr(self.gracz, 'nation', None),
+            available_pe=available_points,
+            turn=self.turn_number,
+        )
 
         # --- Okno główne ---
         self.root = tk.Tk()
@@ -45,9 +59,7 @@ class PanelGenerala:
         self.timer_frame.pack(pady=(1, 8), fill=tk.BOTH, expand=False)
         self.timer_frame.bind("<Button-1>", self.confirm_end_turn)
 
-        # Panel informacji o żetonie
-        self.token_info_panel = TokenInfoPanel(self.left_frame, height=120)
-        self.token_info_panel.pack(pady=(1, 15), fill=tk.BOTH, expand=False)
+        # Panel informacji o żetonie - USUNIĘTY (zastąpiony tooltip hover)
 
         # Raport ekonomiczny
         self.economy_panel = PanelEkonomiczny(self.left_frame)
@@ -86,7 +98,7 @@ class PanelGenerala:
             bg_path="assets/mapa_globalna.jpg",
             player_nation=self.gracz.nation,
             width=800, height=600,
-            token_info_panel=self.token_info_panel
+            token_info_panel=None  # USUNIĘTE - zastąpione tooltip hover
         )
         self.panel_mapa.pack(fill="both", expand=True)
         self.panel_mapa.set_active_commander(None)
@@ -117,6 +129,19 @@ class PanelGenerala:
 
     def update_weather(self, weather_report):
         self.weather_panel.update_weather(weather_report)
+        # Przyciemnianie mapy zależnie od pory dnia
+        try:
+            phase = None
+            if isinstance(weather_report, str):
+                for part in weather_report.split('|'):
+                    part = part.strip()
+                    if part.lower().startswith('pora dnia:'):
+                        phase = part.split(':', 1)[1].strip().lower()
+                        break
+            if hasattr(self, 'panel_mapa') and self.panel_mapa is not None:
+                self.panel_mapa.update_daylight_overlay(phase)
+        except Exception:
+            pass
 
     def update_economy(self, points=None):
         """Aktualizuje sekcję raportu ekonomicznego w panelu."""
@@ -264,6 +289,7 @@ class PanelGenerala:
                 messagebox.showerror("Błąd", "Przekroczono dostępne punkty ekonomiczne!")
                 return
             
+            allocations = {}
             for d in dowodcy:
                 przydzielone = suwak_vars[d.id].get()
                 # Synchronizuj z systemem ekonomii dowódcy
@@ -275,8 +301,17 @@ class PanelGenerala:
                 if not hasattr(d, 'punkty_ekonomiczne') or d.punkty_ekonomiczne is None:
                     d.punkty_ekonomiczne = 0
                 d.punkty_ekonomiczne = d.economy.economic_points
+                allocations[d.id] = przydzielone
             self.ekonomia.subtract_points(suma)
             self.update_economy(self.ekonomia.get_points()['economic_points'])
+            log_general(
+                "Generał (human) przydziela środki dowódcom",
+                level="INFO",
+                general_id=getattr(self.gracz, 'id', None),
+                allocations=allocations,
+                spent_total=suma,
+                remaining_general=self.ekonomia.get_points().get('economic_points', None),
+            )
             win.destroy()
 
         btn_ok = tk.Button(win, text="Akceptuj", command=zatwierdz, font=("Arial", 12, "bold"),
@@ -331,6 +366,27 @@ class PanelGenerala:
     def end_turn(self):
         """Kończy podturę i zamyka panel."""
         self.reset_support_sliders()  # Resetowanie suwaków wsparcia
+        commander_states = {}
+        try:
+            for commander in (g for g in self.gracze if g.role == "Dowódca" and g.nation == self.gracz.nation):
+                points = None
+                if hasattr(commander, 'economy') and commander.economy is not None:
+                    points = commander.economy.get_points().get('economic_points', None)
+                commander_states[commander.id] = points
+        except Exception:
+            commander_states = {}
+        try:
+            general_points = self.ekonomia.get_points().get('economic_points', None)
+        except Exception:
+            general_points = None
+        log_general(
+            "Generał (human) kończy turę",
+            level="INFO",
+            general_id=getattr(self.gracz, 'id', None),
+            remaining_general=general_points,
+            commander_points=commander_states,
+            turn=self.turn_number,
+        )
         # LOG: end_turn
         try:
             from utils.action_logger import log_action
@@ -382,8 +438,7 @@ class PanelGenerala:
                 tx, ty = self.panel_mapa.map_model.hex_to_pixel(token.q, token.r)
                 hex_size = self.panel_mapa.map_model.hex_size
                 if abs(x - tx) < hex_size // 2 and abs(y - ty) < hex_size // 2:
-                    if self.token_info_panel is not None:
-                        self.token_info_panel.show_token(token)
+                    # Token info panel usunięty - tooltip hover w PanelMapa
                     break
 
     def show_vp_window(self):

@@ -3,6 +3,10 @@ from tkinter import ttk, simpledialog
 from engine.hex_utils import get_hex_vertices
 from PIL import Image, ImageTk
 import os
+import math
+from pathlib import Path
+
+ASSETS_ROOT = Path(__file__).resolve().parent.parent / "assets"
 
 class PanelMapa(tk.Frame):
     def __init__(self, parent, game_engine, bg_path: str, player_nation: str, width=800, height=600, token_info_panel=None, panel_dowodcy=None):
@@ -30,16 +34,23 @@ class PanelMapa(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # tło mapy - jeśli nie podano lub plik nie istnieje, nie ustawiaj tła
-        if bg_path and os.path.exists(bg_path):
-            bg = Image.open(bg_path)
-            self._bg = ImageTk.PhotoImage(bg)
+        # Nakładka przyciemnienia zależna od pory dnia (inicjalizacja w __init__)
+        self._daylight_overlay_id = None
+        self._current_phase_for_overlay = None
+
+        # Cache na tekstury terenu (musi istnieć zanim narysujemy siatkę)
+        self._terrain_texture_cache: dict[tuple[str, int], ImageTk.PhotoImage] = {}
+
+    # tło mapy - preferuj meta z pliku mapy, w przeciwnym razie zachowuj się jak wcześniej
+        self._bg = None
+        resolved_background = self._resolve_background(bg_path, width, height)
+        if resolved_background is not None:
+            self._bg = ImageTk.PhotoImage(resolved_background["image"])
             self.canvas.create_image(0, 0, anchor="nw", image=self._bg)
-            self.canvas.config(scrollregion=(0, 0, bg.width, bg.height))
-            self._bg_width = bg.width
-            self._bg_height = bg.height
+            self.canvas.config(scrollregion=(0, 0, resolved_background["width"], resolved_background["height"]))
+            self._bg_width = resolved_background["width"]
+            self._bg_height = resolved_background["height"]
         else:
-            self._bg = None
             self._bg_width = width
             self._bg_height = height
             self.canvas.config(scrollregion=(0, 0, width, height))
@@ -57,6 +68,8 @@ class PanelMapa(tk.Frame):
         self._token_canvas_items = {}
         # markery statusu ruchu (token_id -> marker canvas id)
         self._move_status_markers = {}
+        # tooltip token info
+        self.active_tooltip = None
         self._draw_tokens_on_map()
         # Aktywuj podgląd hover dla generała i dowódców jeśli dostępny player w silniku
         try:
@@ -67,6 +80,68 @@ class PanelMapa(tk.Frame):
                     self.token_info_panel.set_player(self.player)
                 self._setup_hover_binding()
         except Exception:
+            pass
+
+    def _ensure_daylight_overlay_top(self):
+        """Utrzymuje nakładkę przyciemnienia nad innymi elementami Canvas."""
+        if self._daylight_overlay_id is not None:
+            try:
+                self.canvas.tag_raise(self._daylight_overlay_id)
+            except Exception:
+                pass
+
+    def update_daylight_overlay(self, phase: str | None):
+        """Aktualizuje nakładkę przyciemniającą mapę zależnie od pory dnia.
+
+        phase: 'rano' | 'dzień' | 'wieczór' | 'noc' (inne wartości wyłączają przyciemnienie)
+        """
+        try:
+            # Jeśli nic się nie zmieniło – tylko upewnij się, że nakładka jest na wierzchu
+            if phase == self._current_phase_for_overlay and self._daylight_overlay_id is not None:
+                self._ensure_daylight_overlay_top()
+                return
+
+            # Usuń poprzednią nakładkę
+            if self._daylight_overlay_id is not None:
+                try:
+                    self.canvas.delete(self._daylight_overlay_id)
+                except Exception:
+                    pass
+                self._daylight_overlay_id = None
+
+            self._current_phase_for_overlay = phase
+
+            # Mapowanie pory dnia na stopień przyciemnienia (stipple)
+            # Uwaga: Canvas nie wspiera alfa dla figur – używamy wzorków (stipple)
+            stipple = None
+            fill_color = "#000000"
+            if phase in ("rano", "dzień"):
+                stipple = None  # brak nakładki
+            elif phase == "wieczór":
+                stipple = "gray25"   # delikatne przyciemnienie
+            elif phase == "noc":
+                stipple = "gray50"   # wyraźniejsze przyciemnienie
+            else:
+                stipple = None
+
+            if stipple is None:
+                # Bez nakładki
+                return
+
+            # Wymiary płótna odpowiadające całej mapie (scrollregion)
+            w = getattr(self, "_bg_width", self.canvas.winfo_width() or 800)
+            h = getattr(self, "_bg_height", self.canvas.winfo_height() or 600)
+
+            self._daylight_overlay_id = self.canvas.create_rectangle(
+                0, 0, w, h,
+                fill=fill_color,
+                outline="",
+                stipple=stipple,
+                tags=("daylight_overlay",)
+            )
+            self._ensure_daylight_overlay_top()
+        except Exception:
+            # Bezpieczny fallback – brak przyciemnienia
             pass
 
     def set_active_commander(self, commander_id):
@@ -207,6 +282,7 @@ class PanelMapa(tk.Frame):
         self.canvas.delete("hex")
         self.canvas.delete("fog")
         self.canvas.delete("spawn_overlay")  # Usuwamy stare nakładki spawnów
+        self.canvas.delete("terrain_texture")
         s = self.map_model.hex_size
         visible_hexes = set()
         if hasattr(self, 'player') and hasattr(self.player, 'visible_hexes'):
@@ -258,6 +334,15 @@ class PanelMapa(tk.Frame):
                 q, r = map(int, str(key).split(','))
             cx, cy = self.map_model.hex_to_pixel(q, r)
             if 0 <= cx <= self._bg_width and 0 <= cy <= self._bg_height:
+                texture_photo = self._get_terrain_texture_photo(getattr(tile, "texture", None))
+                if texture_photo:
+                    self.canvas.create_image(
+                        cx,
+                        cy,
+                        image=texture_photo,
+                        anchor="center",
+                        tags=("terrain_texture",)
+                    )
                 verts = get_hex_vertices(cx, cy, s)
                 flat = [coord for p in verts for coord in p]
                 self.canvas.create_polygon(
@@ -299,6 +384,74 @@ class PanelMapa(tk.Frame):
                         stipple='gray25',  # bardzo delikatna mgiełka
                         tags='special_point_overlay'
                     )
+        # Po narysowaniu siatki upewnij się, że nakładka dnia/nocy jest na wierzchu
+        self._ensure_daylight_overlay_top()
+
+    def _resolve_background(self, fallback_path: str, fallback_width: int, fallback_height: int):
+        """Zwraca słownik z kluczami image/width/height na podstawie metadanych mapy."""
+        meta = getattr(self.map_model, "background_meta", {})
+        assets_root = Path(__file__).resolve().parent.parent / "assets"
+
+        def build_solid(color_rgb, w, h):
+            image = Image.new("RGB", (w, h), tuple(color_rgb))
+            return {"image": image, "width": w, "height": h}
+
+        def estimate_size(cols, rows, hex_size):
+            horizontal_spacing = 1.5 * hex_size
+            width = int(hex_size * 2 + max(0, cols - 1) * horizontal_spacing + hex_size)
+            hex_height = math.sqrt(3) * hex_size
+            height = int((math.sqrt(3) / 2) * hex_size + rows * hex_height + hex_size)
+            return max(200, width), max(200, height)
+
+        if isinstance(meta, dict) and meta:
+            bg_type = meta.get("type")
+            if bg_type == "image":
+                raw_path = meta.get("path")
+                if raw_path:
+                    candidate = Path(raw_path)
+                    if not candidate.is_absolute():
+                        candidate = assets_root / raw_path
+                    if candidate.exists():
+                        img = Image.open(candidate)
+                        return {"image": img, "width": img.width, "height": img.height}
+            elif bg_type == "solid":
+                color = meta.get("color", [48, 64, 40])
+                width = meta.get("width")
+                height = meta.get("height")
+                if not width or not height:
+                    width, height = estimate_size(self.map_model.cols, self.map_model.rows, self.map_model.hex_size)
+                return build_solid(color, int(width), int(height))
+
+        # fallback: użyj przekazanego bg_path jeśli istnieje
+        if fallback_path and os.path.exists(fallback_path):
+            img = Image.open(fallback_path)
+            return {"image": img, "width": img.width, "height": img.height}
+
+        # ostatecznie: solid default w oparciu o rozmiar mapy
+        width, height = estimate_size(self.map_model.cols, self.map_model.rows, self.map_model.hex_size)
+        return build_solid([48, 64, 40], width, height)
+
+    def _get_terrain_texture_photo(self, texture_rel: str | None):
+        if not texture_rel:
+            return None
+        normalized = texture_rel.replace("\\", "/")
+        cache_key = (normalized, self.map_model.hex_size)
+        if cache_key in self._terrain_texture_cache:
+            return self._terrain_texture_cache[cache_key]
+        texture_path = ASSETS_ROOT / normalized
+        if not texture_path.exists():
+            return None
+        try:
+            img = Image.open(texture_path).convert("RGBA")
+            target_size = int(self.map_model.hex_size * 2)
+            if target_size <= 0:
+                return None
+            img = img.resize((target_size, target_size), Image.NEAREST)
+            photo = ImageTk.PhotoImage(img)
+            self._terrain_texture_cache[cache_key] = photo
+            return photo
+        except Exception:
+            return None
 
     def _draw_tokens_on_map(self):
         self._sync_player_from_engine()
@@ -396,6 +549,8 @@ class PanelMapa(tk.Frame):
         # Kod spełnia wymagania: synchronizacja żetonów, tagowanie, poprawna mgiełka i widoczność.
         # Po narysowaniu żetonów zaktualizuj markery statusu ruchu
         self._refresh_move_status_markers()
+        # Upewnij się, że nakładka dnia/nocy pozostaje na wierzchu
+        self._ensure_daylight_overlay_top()
 
     def _get_token_image_path(self, token):
         """Zwraca ścieżkę do obrazu tokena z uwzględnieniem detection_level dla wrogów"""
@@ -495,10 +650,10 @@ class PanelMapa(tk.Frame):
         # Podgląd tylko dla ról kontrolujących (Generał lub Dowódca)
         if not (hasattr(self, 'player') and getattr(self.player, 'role', None) in ('Generał', 'Dowódca')):
             return
-        if self.token_info_panel is None:
-            return
+            
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
+        
         # znajdź żeton pod kursorem (widoczny dla gracza zgodnie z widocznością)
         hovered = None
         for token in self.tokens:
@@ -516,19 +671,43 @@ class PanelMapa(tk.Frame):
             if abs(x - tx) < self.map_model.hex_size // 2 and abs(y - ty) < self.map_model.hex_size // 2:
                 hovered = token
                 break
+        
+        # Nowy system tooltip - pokazuj tooltip tylko gdy mysz jest na żetonie
         if hovered and hovered.id != getattr(self, 'last_hover_token_id', None):
             self.last_hover_token_id = hovered.id
+            
+            # Zniszcz poprzedni tooltip jeśli istnieje
+            if hasattr(self, 'active_tooltip') and self.active_tooltip:
+                try:
+                    self.active_tooltip.destroy()
+                except:
+                    pass
+            
+            # Utwórz nowy tooltip - pozycja względem ekranu
+            screen_x = event.x_root
+            screen_y = event.y_root
+            
             try:
-                self.token_info_panel.show_token(hovered)
-            except Exception:
-                pass
+                from gui.tooltip_token_info import TooltipTokenInfo
+                self.active_tooltip = TooltipTokenInfo(
+                    parent=self.winfo_toplevel(),
+                    token=hovered,
+                    player=self.player,
+                    x=screen_x,
+                    y=screen_y
+                )
+            except Exception as e:
+                print(f"Błąd tworzenia tooltip: {e}")
+                
         elif hovered is None and getattr(self, 'last_hover_token_id', None) is not None:
-            # Opuściliśmy żeton – czyścimy panel aby nie wprowadzać w błąd
+            # Opuściliśmy żeton - natychmiast zniszcz tooltip
             self.last_hover_token_id = None
-            try:
-                self.token_info_panel.clear()
-            except Exception:
-                pass
+            if hasattr(self, 'active_tooltip') and self.active_tooltip:
+                try:
+                    self.active_tooltip.destroy()
+                    self.active_tooltip = None
+                except:
+                    pass
 
     def clear_token_info_panel(self):
         parent = self.master
@@ -539,6 +718,15 @@ class PanelMapa(tk.Frame):
             parent = getattr(parent, 'master', None)
 
     def _on_click(self, event):
+        # NAJPIERW: Ukryj tooltip żeby nie konfliktował z klikiem
+        if hasattr(self, 'active_tooltip') and self.active_tooltip:
+            try:
+                self.active_tooltip.destroy()
+                self.active_tooltip = None
+            except:
+                pass
+        self.last_hover_token_id = None
+        
         # Blokada akcji dla generała (podgląd, brak ruchu)
         if hasattr(self, 'player') and hasattr(self.player, 'role') and self.player.role == 'Generał':
             # Zachowujemy blokadę czynności, ale usuwamy komunikat popup proszony przez użytkownika
@@ -694,7 +882,8 @@ class PanelMapa(tk.Frame):
                         self.result = self.combo.get()
                 dialog = ModeDialog(self)
                 mode = getattr(dialog, 'result', None)
-                if mode is not None:
+                # Sprawdź czy dialog został potwierdzony (nie anulowany)
+                if mode is not None and mode in ["Bojowy", "Marsz", "Zwiad"]:
                     if mode == "Bojowy":
                         clicked_token.movement_mode = "combat"
                     elif mode == "Marsz":
@@ -708,6 +897,7 @@ class PanelMapa(tk.Frame):
                         self.panel_dowodcy.wybrany_token = clicked_token
                     if self.token_info_panel is not None:
                         self.token_info_panel.show_token(clicked_token)  # Odśwież info panel po zmianie trybu
+                # Jeśli dialog anulowano - nie blokujemy trybu, można ponownie wybrać
             self.current_path = None
             self.refresh()
             return
@@ -961,6 +1151,15 @@ class PanelMapa(tk.Frame):
         self.refresh()
 
     def _on_right_click_token(self, event):
+        # NAJPIERW: Ukryj tooltip żeby nie konfliktował z prawym klikiem
+        if hasattr(self, 'active_tooltip') and self.active_tooltip:
+            try:
+                self.active_tooltip.destroy()
+                self.active_tooltip = None
+            except:
+                pass
+        self.last_hover_token_id = None
+        
         # Obsługa ataku na żeton przeciwnika
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)

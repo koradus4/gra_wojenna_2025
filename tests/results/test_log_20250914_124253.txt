@@ -1,0 +1,48 @@
+🧪 ZAAWANSOWANY TEST GRY - START: 2025-09-14 12:42:53.802593
+================================================================================
+
+[12:42:53] INFO: 
+============================================================
+[12:42:53] INFO: 🧪 TEST #1: aggressive_vs_defensive
+[12:42:53] INFO: 📋 Opis: Polska agresywna vs Niemcy defensywne
+[12:42:53] INFO: 🎯 Max tur: 12
+[12:42:53] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'defensive'}
+[12:42:53] INFO: ============================================================
+[12:42:53] INFO: 🎮 Tworzenie gry testowej: aggressive_vs_defensive
+[12:42:53] INFO: 🎛️ Ustawiono profil aggressive dla polish
+[12:42:53] INFO: 🎛️ Ustawiono profil defensive dla german
+[12:42:53] INFO: 🤖 AI Generał: Polska (id=1)
+[12:42:53] INFO: 🎯 AI Dowódca: Polska (id=2)
+[12:42:53] INFO: 🤖 AI Generał: Niemcy (id=4)
+[12:42:53] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[12:42:53] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[12:42:53] INFO: 🎮 Start symulacji rozgrywki...
+[12:42:53] INFO: 🔄 Tura 1/12
+[12:42:55] INFO: ✅ Tura 1 zakończona w 1.14s
+[12:42:55] INFO: 🔄 Tura 2/12
+[12:42:56] INFO: ✅ Tura 2 zakończona w 1.20s
+[12:42:56] INFO: 🔄 Tura 3/12
+[12:42:56] INFO: ✅ Tura 3 zakończona w 0.72s
+[12:42:56] INFO: 🔄 Tura 4/12
+[12:42:57] INFO: ✅ Tura 4 zakończona w 0.85s
+[12:42:57] INFO: 🔄 Tura 5/12
+[12:42:58] INFO: ✅ Tura 5 zakończona w 0.76s
+[12:42:58] INFO: 🔄 Tura 6/12
+[12:42:59] INFO: ✅ Tura 6 zakończona w 0.57s
+[12:42:59] INFO: 🔄 Tura 7/12
+[12:43:00] INFO: ✅ Tura 7 zakończona w 1.01s
+[12:43:00] INFO: 🔄 Tura 8/12
+[12:43:00] INFO: ✅ Tura 8 zakończona w 0.64s
+[12:43:00] INFO: 🔄 Tura 9/12
+[12:43:01] INFO: ✅ Tura 9 zakończona w 0.93s
+[12:43:01] INFO: 🔄 Tura 10/12
+[12:43:02] INFO: ✅ Tura 10 zakończona w 0.71s
+[12:43:02] INFO: 🔄 Tura 11/12
+[12:43:02] INFO: ✅ Tura 11 zakończona w 0.54s
+[12:43:02] INFO: 🔄 Tura 12/12
+[12:43:03] INFO: ✅ Tura 12 zakończona w 0.84s
+[12:43:03] INFO: 🎮 Symulacja zakończona po 12 turach
+[12:43:03] INFO: ✅ Test aggressive_vs_defensive zakończony
+[12:43:03] INFO: ⏱️ Czas: 10.0s
+[12:43:03] INFO: 🏆 Wynik: PASS
+[12:43:03] INFO: 📊 Performance: 105.0/100

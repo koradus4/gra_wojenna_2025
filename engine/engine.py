@@ -1,8 +1,12 @@
 import random
 import os
 import json
+from typing import Dict, Any, Optional, Tuple
+
+from ai.logs import log_token
 from engine.board import Board
 from engine.token import load_tokens, Token
+from engine.action_refactored_clean import ActionResult
 
 class GameEngine:
     def __init__(self, map_path: str, tokens_index_path: str, tokens_start_path: str, seed: int = 42, read_only: bool = False):
@@ -18,6 +22,8 @@ class GameEngine:
             self.turn = 1
             self.current_player = 0
         self._init_key_points_state()
+        self.ai_reserved_hexes = {}
+        self.ai_enemy_memory: Dict[str, Dict[str, Any]] = {}
 
     def _init_key_points_state(self):
         """Tworzy słownik: hex_id -> {'initial_value': X, 'current_value': Y, 'type': ...} na podstawie mapy."""
@@ -81,6 +87,9 @@ class GameEngine:
             except Exception:
                 pass
 
+        self.ai_reserved_hexes = {}
+        self._decay_enemy_memory()
+
     def end_turn(self):
         self.next_turn()
         self.save_state(os.path.join("saves", "latest.json"))
@@ -107,7 +116,299 @@ class GameEngine:
             expected_owner = f"{player.id} ({player.nation})"
             if token.owner != expected_owner:
                 return False, "Ten żeton nie należy do twojego dowódcy."
-        return action.execute(self)
+        pre_state = self._prepare_action_log_state(action, token)
+        result = action.execute(self)
+        self._log_human_action(action, player, pre_state, result)
+        return result
+
+    # ------------------------------------------------------------------
+    # Human action logging helpers
+    # ------------------------------------------------------------------
+
+    def _prepare_action_log_state(self, action, attacker_token: Optional[Token]):
+        state: Dict[str, Optional[Dict[str, Any]]] = {
+            "attacker": self._capture_token_snapshot(attacker_token),
+            "defender": None,
+        }
+        defender_id = getattr(action, "defender_id", None)
+        if defender_id:
+            defender = next((t for t in self.tokens if t.id == defender_id), None)
+            state["defender"] = self._capture_token_snapshot(defender)
+        return state
+
+    def _capture_token_snapshot(self, token: Optional[Token]) -> Optional[Dict[str, Any]]:
+        if token is None:
+            return None
+        stats = getattr(token, "stats", {}) or {}
+        return {
+            "id": getattr(token, "id", None),
+            "name": getattr(token, "name", None),
+            "owner": getattr(token, "owner", None),
+            "position": (getattr(token, "q", None), getattr(token, "r", None)),
+            "combat_value": getattr(token, "combat_value", None),
+            "currentMovePoints": getattr(token, "currentMovePoints", None),
+            "currentFuel": getattr(token, "currentFuel", None),
+            "movement_mode": getattr(token, "movement_mode", None),
+            "type": stats.get("type"),
+        }
+
+    def _capture_post_action_state(self, action, pre_state: Dict[str, Optional[Dict[str, Any]]]) -> Dict[str, Optional[Dict[str, Any]]]:
+        attacker_id = None
+        if pre_state.get("attacker"):
+            attacker_id = pre_state["attacker"].get("id")
+        attacker_id = attacker_id or getattr(action, "token_id", None)
+        defender_id = None
+        if pre_state.get("defender"):
+            defender_id = pre_state["defender"].get("id")
+        defender_id = defender_id or getattr(action, "defender_id", None)
+
+        attacker_token = None
+        defender_token = None
+        if attacker_id:
+            attacker_token = next((t for t in self.tokens if t.id == attacker_id), None)
+        if defender_id:
+            defender_token = next((t for t in self.tokens if t.id == defender_id), None)
+
+        return {
+            "attacker": self._capture_token_snapshot(attacker_token),
+            "defender": self._capture_token_snapshot(defender_token),
+        }
+
+    def _extract_action_result(self, result) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+        if isinstance(result, ActionResult):
+            return bool(result.success), getattr(result, "message", None), getattr(result, "data", {}) or {}
+        if isinstance(result, tuple):
+            success = bool(result[0]) if result else False
+            message = result[1] if len(result) > 1 else None
+            data = result[2] if len(result) > 2 else {}
+            if not isinstance(data, dict):
+                data = {}
+            return success, message, data
+        success = bool(getattr(result, "success", False))
+        message = getattr(result, "message", None)
+        data = getattr(result, "data", {})
+        if not isinstance(data, dict):
+            data = {}
+        return success, message, data
+
+    def _resolve_turn_number(self) -> Optional[int]:
+        turn_manager = getattr(self, "turn_manager", None)
+        if turn_manager is not None:
+            try:
+                turn_value = getattr(turn_manager, "current_turn", None)
+            except Exception:
+                turn_value = None
+            if turn_value is not None:
+                return turn_value
+        return getattr(self, "turn", None)
+
+    def _log_human_action(self, action, player, pre_state: Dict[str, Optional[Dict[str, Any]]], result) -> None:
+        if player is None or getattr(player, "is_ai", False):
+            return
+        try:
+            from ai.logs.human_logger import log_human_action
+        except Exception:
+            return
+
+        success, message, data = self._extract_action_result(result)
+        post_state = self._capture_post_action_state(action, pre_state)
+        action_type, summary, context = self._summarize_action_for_human_logs(
+            action,
+            pre_state,
+            post_state,
+            success,
+            message,
+            data,
+        )
+
+        turn_number = self._resolve_turn_number()
+        result_text = message if message else ("OK" if success else None)
+        try:
+            log_human_action(
+                player=player,
+                turn=turn_number,
+                action_type=action_type,
+                summary=summary,
+                result=result_text,
+                context=context,
+            )
+        except Exception:
+            pass
+
+    def _summarize_action_for_human_logs(
+        self,
+        action,
+        pre_state: Dict[str, Optional[Dict[str, Any]]],
+        post_state: Dict[str, Optional[Dict[str, Any]]],
+        success: bool,
+        message: Optional[str],
+        data: Dict[str, Any],
+    ) -> Tuple[str, str, Dict[str, Any]]:
+        action_name = action.__class__.__name__
+        action_type = {
+            "MoveAction": "move",
+            "CombatAction": "attack",
+        }.get(action_name, action_name.lower())
+
+        summary = message or action_type
+        context: Dict[str, Any] = {
+            "success": success,
+        }
+        if message:
+            context["message"] = message
+
+        attacker_before = pre_state.get("attacker") or {}
+        attacker_after = post_state.get("attacker") or {}
+        defender_before = pre_state.get("defender") or {}
+        defender_after = post_state.get("defender") or {}
+
+        token_id = attacker_before.get("id") or getattr(action, "token_id", None)
+
+        if action_name == "MoveAction":
+            start_pos = attacker_before.get("position")
+            end_pos = data.get("final_position") or attacker_after.get("position")
+            path_cost = data.get("path_cost")
+            fuel_cost = data.get("fuel_cost")
+            remaining_mp = data.get("remaining_mp", attacker_after.get("currentMovePoints"))
+            remaining_fuel = data.get("remaining_fuel", attacker_after.get("currentFuel"))
+            status = "sukces" if success else "nieudany"
+            summary = f"{token_id} ruch {start_pos} -> {end_pos} ({status})"
+            if not success and message:
+                summary += f" - {message}"
+            context.update(
+                {
+                    "token_id": token_id,
+                    "start_position": start_pos,
+                    "end_position": end_pos,
+                    "path_cost": path_cost,
+                    "fuel_cost": fuel_cost,
+                    "remaining_mp": remaining_mp,
+                    "remaining_fuel": remaining_fuel,
+                    "movement_mode_before": attacker_before.get("movement_mode"),
+                    "movement_mode_after": attacker_after.get("movement_mode"),
+                }
+            )
+        elif action_name == "CombatAction":
+            defender_id = defender_before.get("id") or getattr(action, "defender_id", None)
+            combat_result = data.get("combat_result", {}) if isinstance(data, dict) else {}
+            damage_dealt = combat_result.get("attack_result")
+            damage_taken = combat_result.get("defense_result")
+            counterattack = combat_result.get("can_counterattack")
+            outcome = "sukces" if success else "porażka"
+            summary = f"{token_id} atakuje {defender_id}: {outcome}"
+            if defender_after is None and defender_before:
+                summary += " (cel zniszczony)"
+            if attacker_after is None and attacker_before:
+                summary += " (atakujący zniszczony)"
+            context.update(
+                {
+                    "token_id": token_id,
+                    "target_token_id": defender_id,
+                    "attacker_position_before": attacker_before.get("position"),
+                    "attacker_position_after": attacker_after.get("position"),
+                    "defender_position_before": defender_before.get("position"),
+                    "defender_position_after": defender_after.get("position"),
+                    "damage_dealt": damage_dealt,
+                    "damage_taken": damage_taken,
+                    "counterattack": counterattack,
+                    "attacker_cv_before": attacker_before.get("combat_value"),
+                    "attacker_cv_after": attacker_after.get("combat_value"),
+                    "defender_cv_before": defender_before.get("combat_value"),
+                    "defender_cv_after": defender_after.get("combat_value"),
+                    "attacker_remaining_cv": data.get("attacker_remaining"),
+                    "defender_remaining_cv": data.get("defender_remaining"),
+                    "combat_detail": combat_result,
+                }
+            )
+        else:
+            status = "sukces" if success else "porażka"
+            summary = f"{token_id or action_type}: {action_type} ({status})"
+            context.update(
+                {
+                    "token_id": token_id,
+                    "details": data,
+                }
+            )
+
+        return action_type, summary, context
+
+    # --- Współdzielona pamięć przeciwnika ---
+
+    def _enemy_memory_key(self, commander_key: str) -> str:
+        return commander_key or "global"
+
+    def register_enemy_sighting(
+        self,
+        commander_key: str,
+        enemy_id: str,
+        position,
+        turn: int,
+        unit_type: str = None,
+        source_token_id: int = None,
+    ) -> None:
+        if position is None or len(position) != 2:
+            return
+
+        key = self._enemy_memory_key(str(commander_key) if commander_key is not None else "global")
+        sightings = self.ai_enemy_memory.setdefault(key, {})
+        existing = sightings.get(enemy_id)
+        if existing and existing.get("turn", -1) > turn:
+            return
+
+        sightings[enemy_id] = {
+            "position": (position[0], position[1]),
+            "turn": turn,
+            "unit_type": unit_type,
+            "source": source_token_id,
+        }
+
+    def get_enemy_sightings(self, commander_key: str, max_age: int = None):
+        key = self._enemy_memory_key(str(commander_key) if commander_key is not None else "global")
+        sightings = self.ai_enemy_memory.get(key, {})
+        if not sightings:
+            return {}
+
+        if max_age is None:
+            return dict(sightings)
+
+        current_turn = getattr(self, "turn", 0)
+        filtered = {}
+        for enemy_id, info in sightings.items():
+            if not isinstance(info, dict):
+                continue
+            last_turn = info.get("turn")
+            if max_age is not None and current_turn and last_turn is not None:
+                if (current_turn - last_turn) > max_age:
+                    continue
+            filtered[enemy_id] = info
+        return filtered
+
+    def _decay_enemy_memory(self, max_age: int = 6) -> None:
+        if not getattr(self, "ai_enemy_memory", None):
+            return
+
+        current_turn = getattr(self, "turn", 0)
+        to_remove = []
+        for commander_key, sightings in list(self.ai_enemy_memory.items()):
+            if not isinstance(sightings, dict):
+                to_remove.append(commander_key)
+                continue
+
+            for enemy_id in list(sightings.keys()):
+                info = sightings.get(enemy_id, {})
+                if not isinstance(info, dict):
+                    del sightings[enemy_id]
+                    continue
+                last_turn = info.get("turn")
+                if max_age is not None and current_turn and last_turn is not None:
+                    if (current_turn - last_turn) > max_age:
+                        del sightings[enemy_id]
+
+            if not sightings:
+                to_remove.append(commander_key)
+
+        for commander_key in to_remove:
+            self.ai_enemy_memory.pop(commander_key, None)
 
     def get_visible_tokens(self, player):
         """Zwraca listę żetonów widocznych dla danego gracza (elastyczne filtrowanie)."""
@@ -230,6 +531,27 @@ class GameEngine:
         
         print("=" * 80)
 
+    def _is_supply_unit(self, token):
+        """Sprawdza czy jednostka jest typu zaopatrzenie (Z) i może zbierać PE."""
+        if not token or not hasattr(token, 'stats'):
+            return False
+            
+        unit_type = token.stats.get('unitType', '')
+        return unit_type == 'Z'
+
+    def _get_unit_type_display(self, token):
+        """Zwraca czytelny typ jednostki do logowania."""
+        if not token or not hasattr(token, 'stats'):
+            return 'UNKNOWN'
+            
+        unit_type = token.stats.get('unitType', 'UNKNOWN')
+        type_names = {
+            'P': 'Piechota', 'TL': 'Czołg lekki', 'TS': 'Sam. pancerny',
+            'K': 'Kawaleria', 'AL': 'Art. lekka', 'AC': 'Art. ciężka', 
+            'AP': 'Art. plot', 'Z': 'Zaopatrzenie', 'D': 'Dowództwo', 'G': 'Generał'
+        }
+        return f"{type_names.get(unit_type, unit_type)} ({unit_type})"
+
     def process_key_points(self, players):
         """Przetwarza punkty kluczowe: rozdziela punkty ekonomiczne, aktualizuje stan punktów, usuwa wyzerowane."""
         print(f"\n💰 PROCESSING KEY POINTS - koniec pełnej tury")
@@ -245,6 +567,12 @@ class GameEngine:
             q, r = map(int, hex_id.split(","))
             token = tokens_by_pos.get((q, r))
             if token and hasattr(token, 'owner') and token.owner:
+                # NOWE: Sprawdź czy to jednostka zaopatrzenia
+                if not self._is_supply_unit(token):
+                    unit_type_display = self._get_unit_type_display(token)
+                    print(f"  ⚠️ {hex_id}: {unit_type_display} nie może zbierać PE - tylko Zaopatrzenie (Z)")
+                    continue
+                    
                 nation = token.owner.split("(")[-1].replace(")", "").strip()
                 owner_id = token.owner.split("(")[0].strip()
                 general = generals.get(nation)
@@ -258,14 +586,33 @@ class GameEngine:
                     if give > kp['current_value']:
                         give = kp['current_value']
                     
+                    kp_value_before = kp['current_value']
                     old_economy = general.economy.economic_points
                     general.economy.economic_points += give
                     kp['current_value'] -= give
                     
-                    print(f"  💰 {hex_id}: +{give} punktów dla generała {nation}")
-                    print(f"      👤 Okupant: {owner_id} ({nation})")
+                    print(f"  💰 {hex_id}: +{give} punktów dla generała {nation} (okupant: {owner_id} - Zaopatrzenie)")
+                    print(f"      👤 Okupant: {owner_id} ({nation}) - jednostka Zaopatrzenia (Z)")
                     print(f"      💵 Ekonomia generała: {old_economy} → {general.economy.economic_points}")
                     print(f"      📍 Key Point: {kp['current_value']}/{kp['initial_value']} pozostało")
+
+                    try:
+                        log_token(
+                            f"{getattr(token, 'id', 'unknown')}: przydział PE z KP {hex_id}",
+                            "INFO",
+                            token_owner=token.owner,
+                            token_type=self._get_unit_type_display(token),
+                            key_point=hex_id,
+                            pe_gain=give,
+                            kp_value_before=kp_value_before,
+                            kp_value_after=kp['current_value'],
+                            general_id=getattr(general, 'id', None),
+                            general_nation=nation,
+                            general_economy_before=old_economy,
+                            general_economy_after=general.economy.economic_points,
+                        )
+                    except Exception:
+                        pass
                     
                     # Debug: zapisz szczegóły
                     debug_points_per_general.setdefault(general, 0)

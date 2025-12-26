@@ -7,24 +7,25 @@ from typing import List, Dict, Optional
 
 # --- Dane bazowe (skopiowane z token_shop.update_stats) ---
 RANGE_DEFAULTS = {
-    "P": 1, "K": 1, "TC": 2, "TŚ": 2, "TL": 1, "TS": 2,
+    "P": 1, "K": 1, "R": 1, "TC": 2, "TŚ": 2, "TL": 1, "TS": 2,
     "AC": 6, "AL": 4, "AP": 3, "Z": 1, "D": 0, "G": 0
 }
 
 MOVE_DEFAULTS = {
-    "P": 2, "K": 4, "TC": 2, "TŚ": 3, "TL": 4, "TS": 5,
+    "P": 2, "K": 4, "R": 6, "TC": 2, "TŚ": 3, "TL": 4, "TS": 5,
     "AC": 1, "AL": 2, "AP": 2, "Z": 3, "D": 2, "G": 2
 }
 
 ATTACK_DEFAULTS = {
-    "Pluton": {"P": 2, "K": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 12, "AL": 8, "AP": 6, "Z": 1, "D": 0, "G": 0},
-    "Kompania": {"P": 4, "K": 4, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 24, "AL": 16, "AP": 12, "Z": 2, "D": 0, "G": 0},
-    "Batalion": {"P": 6, "K": 6, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 36, "AL": 24, "AP": 18, "Z": 3, "D": 0, "G": 0}
+    "Pluton": {"P": 2, "K": 2, "R": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 12, "AL": 8, "AP": 6, "Z": 1, "D": 0, "G": 0},
+    "Kompania": {"P": 4, "K": 4, "R": 3, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 24, "AL": 16, "AP": 12, "Z": 2, "D": 0, "G": 0},
+    "Batalion": {"P": 6, "K": 6, "R": 5, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 36, "AL": 24, "AP": 18, "Z": 3, "D": 0, "G": 0}
 }
 
 COMBAT_DEFAULTS = {
     "P__Pluton": 8, "P__Kompania": 15, "P__Batalion": 30,
     "K__Pluton": 6, "K__Kompania": 12, "K__Batalion": 24,
+    "R__Pluton": 5, "R__Kompania": 10, "R__Batalion": 18,
     "TC__Pluton": 12, "TC__Kompania": 24, "TC__Batalion": 48,
     "TŚ__Pluton": 10, "TŚ__Kompania": 20, "TŚ__Batalion": 42,
     "TL__Pluton": 8, "TL__Kompania": 16, "TL__Batalion": 36,
@@ -38,24 +39,24 @@ COMBAT_DEFAULTS = {
 }
 
 DEFENSE_DEFAULTS = {
-    "Pluton": {"P": 4, "K": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 2, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
-    "Kompania": {"P": 8, "K": 4, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 4, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
-    "Batalion": {"P": 15, "K": 6, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 6, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3},
+    "Pluton": {"P": 4, "K": 2, "R": 2, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 2, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
+    "Kompania": {"P": 8, "K": 4, "R": 3, "TC": 15, "TŚ": 12, "TL": 8, "TS": 6, "AC": 4, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
+    "Batalion": {"P": 15, "K": 6, "R": 5, "TC": 22, "TŚ": 18, "TL": 12, "TS": 9, "AC": 6, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3},
 }
 
 MAINTENANCE_DEFAULTS = {
-    "Pluton": {"P": 2, "K": 3, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 4, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
-    "Kompania": {"P": 4, "K": 6, "TC": 16, "TŚ": 12, "TL": 8, "TS": 6, "AC": 8, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
-    "Batalion": {"P": 8, "K": 9, "TC": 24, "TŚ": 18, "TL": 12, "TS": 9, "AC": 12, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3},
+    "Pluton": {"P": 2, "K": 3, "R": 3, "TC": 8, "TŚ": 6, "TL": 4, "TS": 3, "AC": 4, "AL": 3, "AP": 3, "Z": 2, "D": 1, "G": 1},
+    "Kompania": {"P": 4, "K": 6, "R": 3, "TC": 16, "TŚ": 12, "TL": 8, "TS": 6, "AC": 8, "AL": 6, "AP": 6, "Z": 4, "D": 2, "G": 2},
+    "Batalion": {"P": 8, "K": 9, "R": 4, "TC": 24, "TŚ": 18, "TL": 12, "TS": 9, "AC": 12, "AL": 9, "AP": 9, "Z": 6, "D": 3, "G": 3},
 }
 
 PRICE_DEFAULTS = {
-    "Pluton": {"P": 15, "K": 18, "TC": 40, "TŚ": 32, "TL": 25, "TS": 20, "AC": 35, "AL": 25, "AP": 20, "Z": 16, "D": 80, "G": 120},
-    "Kompania": {"P": 30, "K": 36, "TC": 80, "TŚ": 64, "TL": 50, "TS": 40, "AC": 70, "AL": 50, "AP": 40, "Z": 32, "D": 80, "G": 120},
-    "Batalion": {"P": 45, "K": 54, "TC": 120, "TŚ": 96, "TL": 75, "TS": 60, "AC": 105, "AL": 75, "AP": 60, "Z": 48, "D": 80, "G": 120},
+    "Pluton": {"P": 15, "K": 18, "R": 18, "TC": 40, "TŚ": 32, "TL": 25, "TS": 20, "AC": 35, "AL": 25, "AP": 20, "Z": 16, "D": 80, "G": 120},
+    "Kompania": {"P": 30, "K": 36, "R": 34, "TC": 80, "TŚ": 64, "TL": 50, "TS": 40, "AC": 70, "AL": 50, "AP": 40, "Z": 32, "D": 80, "G": 120},
+    "Batalion": {"P": 45, "K": 54, "R": 50, "TC": 120, "TŚ": 96, "TL": 75, "TS": 60, "AC": 105, "AL": 75, "AP": 60, "Z": 48, "D": 80, "G": 120},
 }
 
-SIGHT_DEFAULTS = {"P": 1, "K": 3, "TC": 2, "TŚ": 2, "TL": 2, "TS": 3, "AC": 2, "AL": 2, "AP": 2, "D": 4, "G": 6, "Z": 2}
+SIGHT_DEFAULTS = {"P": 1, "K": 3, "R": 6, "TC": 2, "TŚ": 2, "TL": 2, "TS": 3, "AC": 2, "AL": 2, "AP": 2, "D": 4, "G": 6, "Z": 2}
 
 SUPPORT_UPGRADES = {
     "drużyna granatników": {"movement": -1, "range": 1, "attack": 2, "combat": 0, "unit_maintenance": 1, "purchase": 10, "defense": 1},
@@ -79,6 +80,7 @@ TRANSPORT_TYPES = [
 ALLOWED_SUPPORT = {
     "P": ["drużyna granatników", "sekcja km.ppanc", "sekcja ckm", "przodek dwukonny", "sam. ciezarowy Fiat 621", "sam.ciezarowy Praga Rv"],
     "K": ["sekcja ckm"],
+    "R": ["obserwator"],
     "TC": ["obserwator"],
     "TŚ": ["obserwator"],
     "TL": ["obserwator"],
@@ -200,8 +202,9 @@ def build_label_and_full_name(nation: str, unit_type: str, unit_size: str, comma
     nation_short = "PL" if nation == "Polska" else ("N" if nation == "Niemcy" else nation[:2].upper())
     label = f"nowy_{commander_id}_{nation_short}_{unit_type}_{unit_size}"
     unit_type_full = {
-        "P": "Piechota",
-        "K": "Kawaleria",
+    "P": "Piechota",
+    "K": "Kawaleria",
+    "R": "Zwiad",
         "TC": "Czołg ciężki",
         "TŚ": "Czołg średni",
         "TL": "Czołg lekki",

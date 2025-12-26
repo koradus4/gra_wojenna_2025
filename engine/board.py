@@ -12,6 +12,10 @@ class Tile:
         self.type = data.get("type", None)
         self.value = data.get("value", None)
         self.spawn_nation = data.get("spawn_nation", None)
+        texture = data.get("texture")
+        if isinstance(texture, str):
+            texture = texture.replace("\\", "/")
+        self.texture = texture
 
 class Board:
     def __init__(self, json_path: str):
@@ -22,6 +26,7 @@ class Board:
         self.hex_size = m["hex_size"]
         self.cols = m["cols"]
         self.rows = m["rows"]
+        self.background_meta = m.get("background", {}) if isinstance(m.get("background"), dict) else {}
         # terrain
         self.terrain = {
             k: Tile(*map(int, k.split(",")), v)

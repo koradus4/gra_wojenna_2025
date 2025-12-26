@@ -7,8 +7,8 @@ Zaimplementować ten sam system graduowanej widoczności dla human player, jaki 
 
 ### 1. **Rozszerzenie klasy Player**
 - **Plik**: `engine/player.py`
-- **Dodano**: `self.temp_visible_token_data = {}`
-- **Cel**: Przechowywanie metadanych detection_level dla każdego wykrytego tokena wroga
+- **Dodano**: `self.temp_visible_token_data = {}` + istniejące `temp_visible_tokens`
+- **Cel**: Bufor metadanych `detection_level`, `distance`, `detected_by` dla świeżo wykrytych jednostek. Dane są później scalane do `player.visible_token_data` podczas `engine.update_player_visibility()`.
 
 ### 2. **Upgrade TokenInfoPanel**
 - **Plik**: `gui/token_info_panel.py`
@@ -57,15 +57,22 @@ MINIMALNA INFORMACJA (<0.5):
 ```
 
 ### Przepływ danych:
-1. **Silnik gry** → `VisionService.update_player_vision()` → dodaje do `player.temp_visible_token_data`
-2. **PanelMapa** → `_get_token_image_path()` → wybiera odpowiednią ikonę
-3. **TokenInfoPanel** → `show_token()` → aplikuje detection_filter
+1. **Silnik gry** → `VisionService.update_player_vision()` (np. w `MoveAction`) → aktualizuje `temp_visible_hexes`, `temp_visible_tokens` oraz `temp_visible_token_data`.
+2. **GameEngine** → `update_all_players_visibility()` → scala dane tymczasowe do trwałego `player.visible_token_data` i czyści bufory na początku kolejnej tury (`clear_temp_visibility`).
+3. **GUI** → `PanelMapa._get_token_image_path()` + przezroczystość → wybiera ikonę i kanał alfa na podstawie aktualnego `detection_level`.
+4. **GUI** → `TokenInfoPanel.show_token()` → jeśli wróg, wywołuje `apply_detection_filter()` z odczytem przez `player.temp_visible_token_data` (lub trwałe `visible_token_data`).
+5. **API pomocnicze** → `engine.detection_filter.get_detection_info_for_player()` / `is_token_detected()` → zwracają najświeższe metadane niezależnie od tego, czy zapisano je w buforze tymczasowym, czy w persystentnym magazynie.
+
+### Utrzymanie danych
+- `temp_visible_*` trzymają odkrycia z bieżącej akcji i są czyszczone przez `engine.clear_temp_visibility()` na starcie nowej tury.
+- `visible_token_data` gromadzi „ostatnio potwierdzony” poziom detekcji i pozwala porównać postęp widoczności między turami.
+- Pomocnicze funkcje `get_detection_info_for_player(player, token_id, include_temp=True)` oraz `is_token_detected(...)` korzystają z obu struktur, dzięki czemu logika AI, tooltipy i inne moduły dostają spójne dane.
 
 ## 🧪 Testy
 - **Plik**: `tests/test_human_detection_system.py`
 - **Status**: ✅ WSZYSTKIE TESTY PRZESZŁY
 - **Sprawdza**: 
-  - Poprawność `temp_visible_token_data`
+  - Poprawność `temp_visible_token_data` i scalania do `visible_token_data`
   - Działanie `detection_filter`
   - Integrację z GUI
 

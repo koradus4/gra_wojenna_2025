@@ -1,0 +1,4 @@
+test_id,scenario_name,start_time,end_time,duration_seconds,total_turns,winner,victory_condition,polish_vp_final,german_vp_final,polish_units_final,german_units_final,polish_pe_spent,german_pe_spent,ai_decisions_made,ai_errors_count,ai_avg_turn_time,ai_strategic_changes,engine_errors,memory_usage_mb,cpu_usage_percent,test_result,performance_score,issues_count
+1,quick_balanced,2025-09-13T21:14:12.477291,2025-09-13T21:14:12.524109,0.046818,0,,unknown,0,0,0,0,0,0,0,0,0.0,0,0,0.0,0.0,ERROR,0.0,1
+2,quick_aggressive,2025-09-13T21:14:12.538891,2025-09-13T21:14:12.587280,0.048389,0,,unknown,0,0,0,0,0,0,0,0,0.0,0,0,0.0,0.0,ERROR,0.0,1
+3,quick_mixed,2025-09-13T21:14:12.598375,2025-09-13T21:14:12.637962,0.039587,0,,unknown,0,0,0,0,0,0,0,0,0.0,0,0,0.0,0.0,ERROR,0.0,1

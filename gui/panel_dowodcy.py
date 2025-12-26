@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 from gui.panel_pogodowy import PanelPogodowy
 from gui.panel_gracza import PanelGracza
 from gui.panel_mapa import PanelMapa
-from gui.token_info_panel import TokenInfoPanel
+# from gui.token_info_panel import TokenInfoPanel  # USUNIĘTE - zastąpione tooltip
 
 class PanelDowodcy:
     def __init__(self, turn_number, remaining_time, gracz, game_engine):
@@ -47,9 +47,7 @@ class PanelDowodcy:
         self.points_frame = tk.Label(self.left_frame, text="Punkty do odbioru: 0", font=("Arial", 14, "bold"), bg="#6B8E23", fg="white", relief=tk.RAISED, borderwidth=4)
         self.points_frame.pack(pady=(1, 8), fill=tk.BOTH, expand=False)
 
-        # Panel informacyjny o żetonie
-        self.token_info_panel = TokenInfoPanel(self.left_frame, height=120)
-        self.token_info_panel.pack(pady=(1, 15), fill=tk.BOTH, expand=False)
+        # Panel informacyjny o żetonie - USUNIĘTY (zastąpiony tooltip hover)
 
         # Sekcja odliczania czasu
         # self.timer_frame = tk.Label(self.left_frame, text=f"Pozostały czas: {self.remaining_time // 60}:{self.remaining_time % 60:02d}", font=("Arial", 14, "bold"), bg="#6B8E23", fg="white", relief=tk.RAISED, borderwidth=4)
@@ -86,7 +84,7 @@ class PanelDowodcy:
             bg_path="assets/mapa_globalna.jpg",
             player_nation=self.gracz.nation,
             width=800, height=600,
-            token_info_panel=self.token_info_panel,
+            token_info_panel=None,  # USUNIĘTE - zastąpione tooltip hover
             panel_dowodcy=self  # <--- przekazanie referencji
         )
         self.panel_mapa.pack(fill="both", expand=True)
@@ -145,6 +143,19 @@ class PanelDowodcy:
 
     def update_weather(self, weather_report):
         self.weather_panel.update_weather(weather_report)
+        # Przyciemnianie mapy zależnie od pory dnia
+        try:
+            phase = None
+            if isinstance(weather_report, str):
+                for part in weather_report.split('|'):
+                    part = part.strip()
+                    if part.lower().startswith('pora dnia:'):
+                        phase = part.split(':', 1)[1].strip().lower()
+                        break
+            if hasattr(self, 'panel_mapa') and self.panel_mapa is not None:
+                self.panel_mapa.update_daylight_overlay(phase)
+        except Exception:
+            pass
 
     def update_economy(self, points):
         self.points_frame.config(text=f"Punkty do odbioru: {points}")
@@ -290,8 +301,7 @@ class PanelDowodcy:
                     self.panel_mapa.refresh()
                     if hasattr(self.panel_mapa, '_refresh_move_status_markers'):
                         self.panel_mapa._refresh_move_status_markers()
-                if hasattr(self, 'token_info_panel') and self.token_info_panel is not None:
-                    self.token_info_panel.show_token(token)
+                # Token info panel usunięty - tooltip hover w PanelMapa
             except Exception:
                 pass
             # LOG: resupply
@@ -376,8 +386,7 @@ class PanelDowodcy:
                     self.gracz.economy.economic_points = self.gracz.punkty_ekonomiczne
                 if hasattr(self, 'points_frame'):
                     self.points_frame.config(text=f"Punkty do odbioru: {self.gracz.punkty_ekonomiczne}")
-                if hasattr(self, 'token_info_panel'):
-                    self.token_info_panel.show_token(token)
+                # Token info panel usunięty - tooltip hover w PanelMapa
             self.uzupelnij_zeton(token, max_fuel_do_uzupelnienia, max_combat_do_uzupelnienia, max_lacznie, callback)
         btn.config(command=on_uzupelnij)
         self.btn_tankuj = btn

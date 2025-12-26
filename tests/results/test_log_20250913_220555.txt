@@ -1,0 +1,378 @@
+🧪 ZAAWANSOWANY TEST GRY - START: 2025-09-13 22:05:55.296048
+================================================================================
+
+[22:05:55] INFO: 
+🚀 URUCHAMIANIE PEŁNEGO ZESTAWU TESTÓW
+[22:05:55] INFO: 📝 Liczba scenariuszy: 8
+[22:05:55] INFO: ⏱️ Szacowany czas: 36.0 minut
+[22:05:55] INFO: --------------------------------------------------------------------------------
+[22:05:55] INFO: 
+▶️ Scenariusz 1/8: balanced_standard
+[22:05:55] INFO: 
+============================================================
+[22:05:55] INFO: 🧪 TEST #1: balanced_standard
+[22:05:55] INFO: 📋 Opis: Standardowa gra - oba AI zbalansowane
+[22:05:55] INFO: 🎯 Max tur: 10
+[22:05:55] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[22:05:55] INFO: ============================================================
+[22:05:55] INFO: 🎮 Tworzenie gry testowej: balanced_standard
+[22:05:55] INFO: 🎛️ Ustawiono profil balanced dla polish
+[22:05:55] INFO: 🎛️ Ustawiono profil balanced dla german
+[22:05:55] INFO: 🤖 AI Generał: Polska (id=1)
+[22:05:55] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:05:55] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:05:55] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:05:55] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:05:55] INFO: 🎮 Start symulacji rozgrywki...
+[22:05:55] INFO: 🔄 Tura 1/10
+[22:05:56] INFO: ✅ Tura 1 zakończona w 1.41s
+[22:05:56] INFO: 🔄 Tura 2/10
+[22:05:57] INFO: ✅ Tura 2 zakończona w 1.14s
+[22:05:57] INFO: 🔄 Tura 3/10
+[22:05:58] INFO: ✅ Tura 3 zakończona w 0.62s
+[22:05:58] INFO: 🔄 Tura 4/10
+[22:05:59] INFO: ✅ Tura 4 zakończona w 0.55s
+[22:05:59] INFO: 🔄 Tura 5/10
+[22:05:59] INFO: ✅ Tura 5 zakończona w 0.67s
+[22:05:59] INFO: 🔄 Tura 6/10
+[22:06:00] INFO: ✅ Tura 6 zakończona w 0.57s
+[22:06:00] INFO: 🔄 Tura 7/10
+[22:06:01] INFO: ✅ Tura 7 zakończona w 0.65s
+[22:06:01] INFO: 🔄 Tura 8/10
+[22:06:01] INFO: ✅ Tura 8 zakończona w 0.44s
+[22:06:01] INFO: 🔄 Tura 9/10
+[22:06:01] INFO: ✅ Tura 9 zakończona w 0.44s
+[22:06:01] INFO: 🔄 Tura 10/10
+[22:06:02] INFO: ✅ Tura 10 zakończona w 0.43s
+[22:06:02] INFO: 🎮 Symulacja zakończona po 10 turach
+[22:06:02] INFO: ✅ Test balanced_standard zakończony
+[22:06:02] INFO: ⏱️ Czas: 7.2s
+[22:06:02] INFO: 🏆 Wynik: PASS
+[22:06:02] INFO: 📊 Performance: 105.0/100
+[22:06:02] INFO: 
+▶️ Scenariusz 2/8: aggressive_vs_defensive
+[22:06:02] INFO: 
+============================================================
+[22:06:02] INFO: 🧪 TEST #2: aggressive_vs_defensive
+[22:06:02] INFO: 📋 Opis: Polska agresywna vs Niemcy defensywne
+[22:06:02] INFO: 🎯 Max tur: 12
+[22:06:02] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'defensive'}
+[22:06:02] INFO: ============================================================
+[22:06:02] INFO: 🎮 Tworzenie gry testowej: aggressive_vs_defensive
+[22:06:02] INFO: 🎛️ Ustawiono profil aggressive dla polish
+[22:06:02] INFO: 🎛️ Ustawiono profil defensive dla german
+[22:06:02] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:02] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:02] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:02] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:02] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:02] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:02] INFO: 🔄 Tura 1/12
+[22:06:03] INFO: ✅ Tura 1 zakończona w 1.24s
+[22:06:03] INFO: 🔄 Tura 2/12
+[22:06:04] INFO: ✅ Tura 2 zakończona w 0.97s
+[22:06:04] INFO: 🔄 Tura 3/12
+[22:06:05] INFO: ✅ Tura 3 zakończona w 0.63s
+[22:06:05] INFO: 🔄 Tura 4/12
+[22:06:06] INFO: ✅ Tura 4 zakończona w 0.59s
+[22:06:06] INFO: 🔄 Tura 5/12
+[22:06:06] INFO: ✅ Tura 5 zakończona w 0.46s
+[22:06:06] INFO: 🔄 Tura 6/12
+[22:06:07] INFO: ✅ Tura 6 zakończona w 0.55s
+[22:06:07] INFO: 🔄 Tura 7/12
+[22:06:07] INFO: ✅ Tura 7 zakończona w 0.45s
+[22:06:07] INFO: 🔄 Tura 8/12
+[22:06:07] INFO: ✅ Tura 8 zakończona w 0.45s
+[22:06:07] INFO: 🔄 Tura 9/12
+[22:06:08] INFO: ✅ Tura 9 zakończona w 0.46s
+[22:06:08] INFO: 🔄 Tura 10/12
+[22:06:08] INFO: ✅ Tura 10 zakończona w 0.42s
+[22:06:08] INFO: 🔄 Tura 11/12
+[22:06:09] INFO: ✅ Tura 11 zakończona w 0.67s
+[22:06:09] INFO: 🔄 Tura 12/12
+[22:06:09] INFO: ✅ Tura 12 zakończona w 0.45s
+[22:06:09] INFO: 🎮 Symulacja zakończona po 12 turach
+[22:06:09] INFO: ✅ Test aggressive_vs_defensive zakończony
+[22:06:09] INFO: ⏱️ Czas: 7.5s
+[22:06:09] INFO: 🏆 Wynik: PASS
+[22:06:09] INFO: 📊 Performance: 105.0/100
+[22:06:09] INFO: 
+▶️ Scenariusz 3/8: defensive_vs_aggressive
+[22:06:09] INFO: 
+============================================================
+[22:06:09] INFO: 🧪 TEST #3: defensive_vs_aggressive
+[22:06:09] INFO: 📋 Opis: Polska defensywna vs Niemcy agresywne
+[22:06:09] INFO: 🎯 Max tur: 12
+[22:06:09] INFO: 🤖 Profile AI: {'polish': 'defensive', 'german': 'aggressive'}
+[22:06:09] INFO: ============================================================
+[22:06:09] INFO: 🎮 Tworzenie gry testowej: defensive_vs_aggressive
+[22:06:09] INFO: 🎛️ Ustawiono profil defensive dla polish
+[22:06:09] INFO: 🎛️ Ustawiono profil aggressive dla german
+[22:06:09] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:10] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:10] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:10] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:10] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:10] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:10] INFO: 🔄 Tura 1/12
+[22:06:11] INFO: ✅ Tura 1 zakończona w 1.06s
+[22:06:11] INFO: 🔄 Tura 2/12
+[22:06:12] INFO: ✅ Tura 2 zakończona w 0.94s
+[22:06:12] INFO: 🔄 Tura 3/12
+[22:06:12] INFO: ✅ Tura 3 zakończona w 0.62s
+[22:06:12] INFO: 🔄 Tura 4/12
+[22:06:13] INFO: ✅ Tura 4 zakończona w 0.55s
+[22:06:13] INFO: 🔄 Tura 5/12
+[22:06:13] INFO: ✅ Tura 5 zakończona w 0.46s
+[22:06:13] INFO: 🔄 Tura 6/12
+[22:06:14] INFO: ✅ Tura 6 zakończona w 0.54s
+[22:06:14] INFO: 🔄 Tura 7/12
+[22:06:14] INFO: ✅ Tura 7 zakończona w 0.46s
+[22:06:14] INFO: 🔄 Tura 8/12
+[22:06:15] INFO: ✅ Tura 8 zakończona w 0.44s
+[22:06:15] INFO: 🔄 Tura 9/12
+[22:06:15] INFO: ✅ Tura 9 zakończona w 0.43s
+[22:06:15] INFO: 🔄 Tura 10/12
+[22:06:15] INFO: ✅ Tura 10 zakończona w 0.43s
+[22:06:15] INFO: 🔄 Tura 11/12
+[22:06:16] INFO: ✅ Tura 11 zakończona w 0.43s
+[22:06:16] INFO: 🔄 Tura 12/12
+[22:06:16] INFO: ✅ Tura 12 zakończona w 0.44s
+[22:06:16] INFO: 🎮 Symulacja zakończona po 12 turach
+[22:06:16] INFO: ✅ Test defensive_vs_aggressive zakończony
+[22:06:16] INFO: ⏱️ Czas: 6.9s
+[22:06:16] INFO: 🏆 Wynik: PASS
+[22:06:16] INFO: 📊 Performance: 105.0/100
+[22:06:16] INFO: 
+▶️ Scenariusz 4/8: economic_warfare
+[22:06:16] INFO: 
+============================================================
+[22:06:16] INFO: 🧪 TEST #4: economic_warfare
+[22:06:16] INFO: 📋 Opis: Test ekonomiczny - długa gra z focus na PE
+[22:06:16] INFO: 🎯 Max tur: 15
+[22:06:16] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[22:06:16] INFO: ============================================================
+[22:06:16] INFO: 🎮 Tworzenie gry testowej: economic_warfare
+[22:06:16] INFO: 🎛️ Ustawiono profil balanced dla polish
+[22:06:16] INFO: 🎛️ Ustawiono profil balanced dla german
+[22:06:16] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:16] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:16] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:16] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:16] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:16] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:16] INFO: 🔄 Tura 1/15
+[22:06:18] INFO: ✅ Tura 1 zakończona w 1.28s
+[22:06:18] INFO: 🔄 Tura 2/15
+[22:06:19] INFO: ✅ Tura 2 zakończona w 1.28s
+[22:06:19] INFO: 🔄 Tura 3/15
+[22:06:20] INFO: ✅ Tura 3 zakończona w 0.66s
+[22:06:20] INFO: 🔄 Tura 4/15
+[22:06:20] INFO: ✅ Tura 4 zakończona w 0.53s
+[22:06:20] INFO: 🔄 Tura 5/15
+[22:06:21] INFO: ✅ Tura 5 zakończona w 0.45s
+[22:06:21] INFO: 🔄 Tura 6/15
+[22:06:21] INFO: ✅ Tura 6 zakończona w 0.52s
+[22:06:21] INFO: 🔄 Tura 7/15
+[22:06:22] INFO: ✅ Tura 7 zakończona w 0.74s
+[22:06:22] INFO: 🔄 Tura 8/15
+[22:06:22] INFO: ✅ Tura 8 zakończona w 0.43s
+[22:06:22] INFO: 🔄 Tura 9/15
+[22:06:23] INFO: ✅ Tura 9 zakończona w 0.41s
+[22:06:23] INFO: 🔄 Tura 10/15
+[22:06:23] INFO: ✅ Tura 10 zakończona w 0.42s
+[22:06:23] INFO: 🔄 Tura 11/15
+[22:06:24] INFO: ✅ Tura 11 zakończona w 0.40s
+[22:06:24] INFO: 🔄 Tura 12/15
+[22:06:24] INFO: ✅ Tura 12 zakończona w 0.42s
+[22:06:24] INFO: 🔄 Tura 13/15
+[22:06:24] INFO: ✅ Tura 13 zakończona w 0.42s
+[22:06:24] INFO: 🔄 Tura 14/15
+[22:06:25] INFO: ✅ Tura 14 zakończona w 0.52s
+[22:06:25] INFO: 🔄 Tura 15/15
+[22:06:25] INFO: ✅ Tura 15 zakończona w 0.42s
+[22:06:25] INFO: 🎮 Symulacja zakończona po 15 turach
+[22:06:25] INFO: ✅ Test economic_warfare zakończony
+[22:06:25] INFO: ⏱️ Czas: 9.0s
+[22:06:25] INFO: 🏆 Wynik: PASS
+[22:06:25] INFO: 📊 Performance: 105.0/100
+[22:06:25] INFO: 
+▶️ Scenariusz 5/8: quick_decisive
+[22:06:25] INFO: 
+============================================================
+[22:06:25] INFO: 🧪 TEST #5: quick_decisive
+[22:06:25] INFO: 📋 Opis: Szybka rozgrywka - test wczesnego zwycięstwa
+[22:06:25] INFO: 🎯 Max tur: 6
+[22:06:25] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'aggressive'}
+[22:06:25] INFO: ============================================================
+[22:06:25] INFO: 🎮 Tworzenie gry testowej: quick_decisive
+[22:06:25] INFO: 🎛️ Ustawiono profil aggressive dla polish
+[22:06:25] INFO: 🎛️ Ustawiono profil aggressive dla german
+[22:06:25] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:25] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:25] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:25] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:25] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:25] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:25] INFO: 🔄 Tura 1/6
+[22:06:27] INFO: ✅ Tura 1 zakończona w 1.25s
+[22:06:27] INFO: 🔄 Tura 2/6
+[22:06:28] INFO: ✅ Tura 2 zakończona w 0.92s
+[22:06:28] INFO: 🔄 Tura 3/6
+[22:06:28] INFO: ✅ Tura 3 zakończona w 0.59s
+[22:06:28] INFO: 🔄 Tura 4/6
+[22:06:29] INFO: ✅ Tura 4 zakończona w 0.55s
+[22:06:29] INFO: 🔄 Tura 5/6
+[22:06:29] INFO: ✅ Tura 5 zakończona w 0.44s
+[22:06:29] INFO: 🔄 Tura 6/6
+[22:06:30] INFO: ✅ Tura 6 zakończona w 0.52s
+[22:06:30] INFO: 🎮 Symulacja zakończona po 6 turach
+[22:06:30] INFO: ✅ Test quick_decisive zakończony
+[22:06:30] INFO: ⏱️ Czas: 4.3s
+[22:06:30] INFO: 🏆 Wynik: PASS
+[22:06:30] INFO: 📊 Performance: 105.0/100
+[22:06:30] INFO: 
+▶️ Scenariusz 6/8: endurance_test
+[22:06:30] INFO: 
+============================================================
+[22:06:30] INFO: 🧪 TEST #6: endurance_test
+[22:06:30] INFO: 📋 Opis: Test wytrzymałościowy - długa kampania
+[22:06:30] INFO: 🎯 Max tur: 20
+[22:06:30] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[22:06:30] INFO: ============================================================
+[22:06:30] INFO: 🎮 Tworzenie gry testowej: endurance_test
+[22:06:30] INFO: 🎛️ Ustawiono profil balanced dla polish
+[22:06:30] INFO: 🎛️ Ustawiono profil balanced dla german
+[22:06:30] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:30] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:30] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:30] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:30] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:30] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:30] INFO: 🔄 Tura 1/20
+[22:06:31] INFO: ✅ Tura 1 zakończona w 1.04s
+[22:06:31] INFO: 🔄 Tura 2/20
+[22:06:32] INFO: ✅ Tura 2 zakończona w 1.06s
+[22:06:32] INFO: 🔄 Tura 3/20
+[22:06:32] INFO: ✅ Tura 3 zakończona w 0.65s
+[22:06:32] INFO: 🔄 Tura 4/20
+[22:06:33] INFO: ✅ Tura 4 zakończona w 0.53s
+[22:06:33] INFO: 🔄 Tura 5/20
+[22:06:33] INFO: ✅ Tura 5 zakończona w 0.44s
+[22:06:33] INFO: 🔄 Tura 6/20
+[22:06:34] INFO: ✅ Tura 6 zakończona w 0.53s
+[22:06:34] INFO: 🔄 Tura 7/20
+[22:06:34] INFO: ✅ Tura 7 zakończona w 0.43s
+[22:06:34] INFO: 🔄 Tura 8/20
+[22:06:35] INFO: ✅ Tura 8 zakończona w 0.44s
+[22:06:35] INFO: 🔄 Tura 9/20
+[22:06:35] INFO: ✅ Tura 9 zakończona w 0.41s
+[22:06:35] INFO: 🔄 Tura 10/20
+[22:06:36] INFO: ✅ Tura 10 zakończona w 0.41s
+[22:06:36] INFO: 🔄 Tura 11/20
+[22:06:36] INFO: ✅ Tura 11 zakończona w 0.41s
+[22:06:36] INFO: 🔄 Tura 12/20
+[22:06:37] INFO: ✅ Tura 12 zakończona w 0.41s
+[22:06:37] INFO: 🔄 Tura 13/20
+[22:06:37] INFO: ✅ Tura 13 zakończona w 0.41s
+[22:06:37] INFO: 🔄 Tura 14/20
+[22:06:38] INFO: ✅ Tura 14 zakończona w 0.60s
+[22:06:38] INFO: 🔄 Tura 15/20
+[22:06:38] INFO: ✅ Tura 15 zakończona w 0.44s
+[22:06:38] INFO: 🔄 Tura 16/20
+[22:06:38] INFO: ✅ Tura 16 zakończona w 0.42s
+[22:06:38] INFO: 🔄 Tura 17/20
+[22:06:39] INFO: ✅ Tura 17 zakończona w 0.41s
+[22:06:39] INFO: 🔄 Tura 18/20
+[22:06:39] INFO: ✅ Tura 18 zakończona w 0.41s
+[22:06:39] INFO: 🔄 Tura 19/20
+[22:06:40] INFO: ✅ Tura 19 zakończona w 0.41s
+[22:06:40] INFO: 🔄 Tura 20/20
+[22:06:40] INFO: ✅ Tura 20 zakończona w 0.45s
+[22:06:40] INFO: 🎮 Symulacja zakończona po 20 turach
+[22:06:40] INFO: ✅ Test endurance_test zakończony
+[22:06:40] INFO: ⏱️ Czas: 10.4s
+[22:06:40] INFO: 🏆 Wynik: PASS
+[22:06:40] INFO: 📊 Performance: 105.0/100
+[22:06:40] INFO: 
+▶️ Scenariusz 7/8: ai_adaptation_test
+[22:06:40] INFO: 
+============================================================
+[22:06:40] INFO: 🧪 TEST #7: ai_adaptation_test
+[22:06:40] INFO: 📋 Opis: Test adaptacji AI - zmiana profili w trakcie
+[22:06:40] INFO: 🎯 Max tur: 10
+[22:06:40] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[22:06:40] INFO: ============================================================
+[22:06:40] INFO: 🎮 Tworzenie gry testowej: ai_adaptation_test
+[22:06:40] INFO: 🎛️ Ustawiono profil balanced dla polish
+[22:06:40] INFO: 🎛️ Ustawiono profil balanced dla german
+[22:06:40] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:40] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:40] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:40] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:40] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:40] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:40] INFO: 🔄 Tura 1/10
+[22:06:42] INFO: ✅ Tura 1 zakończona w 1.60s
+[22:06:42] INFO: 🔄 Tura 2/10
+[22:06:43] INFO: ✅ Tura 2 zakończona w 1.09s
+[22:06:43] INFO: 🔄 Tura 3/10
+[22:06:44] INFO: ✅ Tura 3 zakończona w 0.86s
+[22:06:44] INFO: 🔄 Tura 4/10
+[22:06:44] INFO: ✅ Tura 4 zakończona w 0.55s
+[22:06:44] INFO: 🔄 Tura 5/10
+[22:06:45] INFO: ✅ Tura 5 zakończona w 0.47s
+[22:06:45] INFO: 🔄 Tura 6/10
+[22:06:45] INFO: ✅ Tura 6 zakończona w 0.57s
+[22:06:45] INFO: 🔄 Tura 7/10
+[22:06:46] INFO: ✅ Tura 7 zakończona w 0.46s
+[22:06:46] INFO: 🔄 Tura 8/10
+[22:06:46] INFO: ✅ Tura 8 zakończona w 0.56s
+[22:06:46] INFO: 🔄 Tura 9/10
+[22:06:47] INFO: ✅ Tura 9 zakończona w 0.49s
+[22:06:47] INFO: 🔄 Tura 10/10
+[22:06:47] INFO: ✅ Tura 10 zakończona w 0.45s
+[22:06:47] INFO: 🎮 Symulacja zakończona po 10 turach
+[22:06:47] INFO: ✅ Test ai_adaptation_test zakończony
+[22:06:47] INFO: ⏱️ Czas: 7.2s
+[22:06:47] INFO: 🏆 Wynik: PASS
+[22:06:47] INFO: 📊 Performance: 105.0/100
+[22:06:47] INFO: 
+▶️ Scenariusz 8/8: stress_test
+[22:06:47] INFO: 
+============================================================
+[22:06:47] INFO: 🧪 TEST #8: stress_test
+[22:06:47] INFO: 📋 Opis: Test obciążeniowy - maksymalne jednostki i działania
+[22:06:47] INFO: 🎯 Max tur: 8
+[22:06:47] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'aggressive'}
+[22:06:47] INFO: ============================================================
+[22:06:47] INFO: 🎮 Tworzenie gry testowej: stress_test
+[22:06:47] INFO: 🎛️ Ustawiono profil aggressive dla polish
+[22:06:47] INFO: 🎛️ Ustawiono profil aggressive dla german
+[22:06:47] INFO: 🤖 AI Generał: Polska (id=1)
+[22:06:47] INFO: 🎯 AI Dowódca: Polska (id=2)
+[22:06:47] INFO: 🤖 AI Generał: Niemcy (id=4)
+[22:06:47] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[22:06:47] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[22:06:47] INFO: 🎮 Start symulacji rozgrywki...
+[22:06:47] INFO: 🔄 Tura 1/8
+[22:06:48] INFO: ✅ Tura 1 zakończona w 1.08s
+[22:06:48] INFO: 🔄 Tura 2/8
+[22:06:49] INFO: ✅ Tura 2 zakończona w 0.93s
+[22:06:49] INFO: 🔄 Tura 3/8
+[22:06:50] INFO: ✅ Tura 3 zakończona w 0.80s
+[22:06:50] INFO: 🔄 Tura 4/8
+[22:06:51] INFO: ✅ Tura 4 zakończona w 0.56s
+[22:06:51] INFO: 🔄 Tura 5/8
+[22:06:51] INFO: ✅ Tura 5 zakończona w 0.50s
+[22:06:51] INFO: 🔄 Tura 6/8
+[22:06:52] INFO: ✅ Tura 6 zakończona w 0.77s
+[22:06:52] INFO: 🔄 Tura 7/8
+[22:06:52] INFO: ✅ Tura 7 zakończona w 0.46s
+[22:06:52] INFO: 🔄 Tura 8/8
+[22:06:53] INFO: ✅ Tura 8 zakończona w 0.45s
+[22:06:53] INFO: 🎮 Symulacja zakończona po 8 turach
+[22:06:53] INFO: ✅ Test stress_test zakończony
+[22:06:53] INFO: ⏱️ Czas: 5.6s
+[22:06:53] INFO: 🏆 Wynik: PASS
+[22:06:53] INFO: 📊 Performance: 105.0/100

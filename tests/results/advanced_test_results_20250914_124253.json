@@ -1,0 +1,27 @@
+[
+  {
+    "scenario_name": "aggressive_vs_defensive",
+    "start_time": "2025-09-14 12:42:53.818204",
+    "end_time": "2025-09-14 12:43:03.844493",
+    "duration_seconds": 10.026289,
+    "total_turns": 12,
+    "winner": null,
+    "victory_condition": "unknown",
+    "polish_vp_final": 0,
+    "german_vp_final": 0,
+    "polish_units_final": 0,
+    "german_units_final": 0,
+    "polish_pe_spent": 0,
+    "german_pe_spent": 0,
+    "ai_decisions_made": 240,
+    "ai_errors_count": 0,
+    "ai_avg_turn_time": 0.8266415397326151,
+    "ai_strategic_changes": 0,
+    "engine_errors": 0,
+    "memory_usage_mb": 33.37109375,
+    "cpu_usage_percent": 0.0,
+    "test_result": "TestResult.PASS",
+    "issues_found": [],
+    "performance_score": 105.0
+  }
+]

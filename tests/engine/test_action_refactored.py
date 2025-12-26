@@ -5,6 +5,7 @@ Testy dla refaktoryzowanych akcji
 import pytest
 import sys
 import os
+import random
 
 # Dodaj główny katalog do path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -110,6 +111,35 @@ class TestCombatCalculator:
         assert result['can_counterattack'] is True
         assert result['distance'] == 1
 
+    def test_calculate_combat_result_no_counterattack(self):
+        class MockToken:
+            def __init__(self, stats, q=0, r=0):
+                self.stats = stats
+                self.q = q
+                self.r = r
+
+        class MockEngine:
+            class MockBoard:
+                def get_tile(self, q, r):
+                    class MockTile:
+                        defense_mod = 0
+                    return MockTile()
+
+                def hex_distance(self, pos1, pos2):
+                    return 3
+            board = MockBoard()
+
+        attacker = MockToken({'attack': {'value': 10, 'range': 3}}, q=0, r=0)
+        defender = MockToken({'defense_value': 5, 'attack': {'range': 1}}, q=3, r=0)
+        engine = MockEngine()
+
+        result = CombatCalculator.calculate_combat_result(attacker, defender, engine)
+
+        assert result['distance'] == 3
+        assert result['defense_range'] == 1
+        assert result['can_counterattack'] is False
+        assert result['defense_result'] == 0
+
 
 class TestBaseAction:
     """Testy bazowej klasy akcji"""
@@ -212,6 +242,82 @@ def test_integration_move_action():
     assert result.message == "OK"
     assert 'final_position' in result.data
     assert result.data['final_position'] == (1, 1)
+
+
+def test_combat_resolver_defender_retreats(monkeypatch):
+    class MockTile:
+        def __init__(self, defense_mod=0):
+            self.defense_mod = defense_mod
+
+    class MockBoard:
+        def __init__(self, engine):
+            self._engine = engine
+
+        def get_tile(self, q, r):
+            return MockTile()
+
+        def is_occupied(self, q, r):
+            for token in self._engine.tokens:
+                if (token.q, token.r) == (q, r):
+                    return True
+            return False
+
+        def hex_distance(self, pos1, pos2):
+            aq, ar = pos1
+            bq, br = pos2
+            return int((abs(aq - bq) + abs(aq + ar - bq - br) + abs(ar - br)) / 2)
+
+    class MockToken:
+        def __init__(self, token_id, owner, q=0, r=0, cv=5):
+            self.id = token_id
+            self.owner = owner
+            self.q = q
+            self.r = r
+            self.combat_value = cv
+            self.stats = {
+                'combat_value': cv,
+                'attack': {'value': 5, 'range': 1},
+                'defense_value': 2,
+            }
+
+        def set_position(self, q, r):
+            self.q = q
+            self.r = r
+
+    class MockEngine:
+        def __init__(self):
+            self.board = MockBoard(self)
+            self.tokens = []
+            self.players = []
+            self.ai_commanders = {}
+
+    engine = MockEngine()
+    attacker = MockToken('ATT', '1 (Polska)', q=0, r=0, cv=6)
+    defender = MockToken('DEF', '2 (Niemcy)', q=1, r=0, cv=4)
+    engine.tokens.extend([attacker, defender])
+
+    start_distance = engine.board.hex_distance((attacker.q, attacker.r), (defender.q, defender.r))
+
+    monkeypatch.setattr(random, 'random', lambda: 0.0)
+
+    combat_result = {
+        'attack_result': 5,
+        'defense_result': 0,
+        'attack_mult': 1.0,
+        'defense_mult': 1.0,
+        'defense_mod': 0,
+        'can_counterattack': False,
+        'distance': 1,
+        'attack_range': 1,
+        'defense_range': 1,
+    }
+
+    message = CombatResolver.resolve_combat(engine, attacker, defender, combat_result)
+
+    assert 'cofnął się' in message
+    assert defender.combat_value == 1
+    assert engine.board.hex_distance((attacker.q, attacker.r), (defender.q, defender.r)) > start_distance
+    assert defender in engine.tokens
 
 
 if __name__ == "__main__":

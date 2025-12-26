@@ -39,9 +39,6 @@ class EkranStartowy:
         self.miejsca = [None] * 6  # Gracze 1-6
         self.stanowiska = ["Generał", "Dowódca 1", "Dowódca 2", "Generał", "Dowódca 1", "Dowódca 2"]
         
-        # AI GENERAL CONFIGURATION
-        self.use_ai_general = tk.BooleanVar(value=False)  # Domyślnie wyłączone
-        
         # NOWE OPCJE GRY
         self.max_turns = tk.StringVar(value="10")
         self.victory_mode = tk.StringVar(value="turns")
@@ -73,29 +70,7 @@ class EkranStartowy:
             czas_combobox.pack(side=tk.LEFT, padx=10)
             self.czas_comboboxes.append(czas_combobox)
 
-        # AI GENERAL OPTION
-        ai_frame = tk.Frame(self.root, bg="#d3d3d3")
-        ai_frame.pack(pady=10)
-        
-        ai_checkbox = tk.Checkbutton(
-            ai_frame, 
-            text="🤖 Włącz AI Generałów (Polska i Niemcy)", 
-            variable=self.use_ai_general,
-            bg="#d3d3d3",
-            font=("Arial", 12),
-            fg="#1976D2"
-        )
-        ai_checkbox.pack()
-        
-        # Info label
-        ai_info = tk.Label(
-            ai_frame,
-            text="AI przejmie kontrolę nad generałami obu stron",
-            bg="#d3d3d3",
-            font=("Arial", 9),
-            fg="gray"
-        )
-        ai_info.pack()
+        # (Opcja AI wycofana)
 
         # --- SEKCJA CZYSZCZENIA ---
         clean_frame = tk.LabelFrame(
@@ -300,8 +275,9 @@ class EkranStartowy:
                 "Potwierdzenie",
                 "Czy na pewno chcesz wyczyścić rozkazy strategiczne i zakupione żetony?\n\n"
                 "To usunie:\n"
-                "• Rozkazy strategiczne AI\n"
-                "• Zakupione żetony (nowe_dla_*)"
+                "• Rozkazy strategiczne\n"
+                "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                "• Wpisy w index.json i start_tokens.json"
             )
             if result:
                 quick_clean()
@@ -316,9 +292,10 @@ class EkranStartowy:
                 "Potwierdzenie",
                 "Czy na pewno chcesz wyczyścić WSZYSTKIE dane gry?\n\n"
                 "To usunie:\n"
-                "• Rozkazy strategiczne AI\n"
-                "• Zakupione żetony (nowe_dla_*)\n"
-                "• Logi AI\n"
+                "• Rozkazy strategiczne\n"
+                "• Zakupione żetony (nowe_dla_* + aktualne/)\n"
+                "• Wpisy w index.json i start_tokens.json\n"
+                "• Logi\n"
                 "• Logi akcji gry\n\n"
                 "UWAGA: Ta operacja jest nieodwracalna!"
             )
@@ -361,7 +338,7 @@ class EkranStartowy:
         self.game_data = {
             "miejsca": self.miejsca,
             "czasy": [self.get_czas_na_ture(i) for i in range(6)],
-            "use_ai_general": self.use_ai_general.get(),  # Dodanie opcji AI
+            # (AI usunięte – brak flagi)
             "max_turns": int(self.max_turns.get()),  # Nowe opcje gry
             "victory_mode": self.victory_mode.get()
         }

@@ -109,7 +109,8 @@ class PathfindingService:
             start, goal,
             max_mp=token.currentMovePoints,
             max_fuel=token.currentFuel,
-            visible_tokens=visible_tokens
+            visible_tokens=visible_tokens,
+            fallback_to_closest=True
         )
     
     @staticmethod
@@ -186,8 +187,19 @@ class VisionService:
         # Krzywa nieliniowa - bliskość daje duży boost
         base_ratio = 1.0 - (distance / max_sight)
         detection_level = min(1.0, base_ratio ** 0.6)
-        
-        return detection_level
+        # Delikatny mnożnik pory dnia (globalnie)
+        try:
+            from utils.turn_context import get_current_turn
+            from core.tura import get_day_phase
+            turn_no = get_current_turn(None)
+            phase = get_day_phase(turn_no) if turn_no else None
+            if phase == 'wieczór':
+                detection_level *= 0.9
+            elif phase == 'noc':
+                detection_level *= 0.7
+        except Exception:
+            pass
+        return min(1.0, max(0.0, detection_level))
     
     @staticmethod
     def calculate_visible_hexes(board, position: Tuple[int, int], sight: int) -> Set[Tuple[int, int]]:

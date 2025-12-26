@@ -24,6 +24,11 @@ MANIFEST
 
 # Logs
 *.log
+ai/logs/commander/
+ai/logs/general/
+ai/logs/tokens/
+ai/logs/debug/
+ai/logs/sessions/
 
 # Virtual environments
 venv/
@@ -47,3 +52,17 @@ ekran_startowy.log
 
 # Test cache
 .pytest_cache/
+
+# Generated assets and tool outputs (ignored)
+assets/terrain/hex_painted/road_tool/
+assets/terrain/hex_painted/river_tool/
+assets/terrain/hex_painted/river_contours/
+
+# User-generated AI presets (ignore generated outputs)
+assets/terrain/presets/user_assets/bridge/
+assets/terrain/presets/user_assets/settlement/ai_generated/
+assets/terrain/presets/custom/*.png
+
+# Editor test outputs
+edytory/road_test_*.png
+edytory/road_test_*.json

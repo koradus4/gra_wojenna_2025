@@ -1,0 +1,87 @@
+🧪 ZAAWANSOWANY TEST GRY - START: 2025-09-13 21:15:10.343774
+================================================================================
+
+[21:15:10] INFO: 
+============================================================
+[21:15:10] INFO: 🧪 TEST #1: quick_balanced
+[21:15:10] INFO: 📋 Opis: Szybki test zbalansowany
+[21:15:10] INFO: 🎯 Max tur: 6
+[21:15:10] INFO: 🤖 Profile AI: {'polish': 'balanced', 'german': 'balanced'}
+[21:15:10] INFO: ============================================================
+[21:15:10] INFO: 🎮 Tworzenie gry testowej: quick_balanced
+[21:15:10] INFO: 🎛️ Ustawiono profil balanced dla polish
+[21:15:10] INFO: 🎛️ Ustawiono profil balanced dla german
+[21:15:10] INFO: 🤖 AI Generał: Polska (id=1)
+[21:15:10] INFO: 🎯 AI Dowódca: Polska (id=2)
+[21:15:10] INFO: 🤖 AI Generał: Niemcy (id=4)
+[21:15:10] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[21:15:10] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[21:15:10] INFO: 🎮 Start symulacji rozgrywki...
+[21:15:10] INFO: 🔄 Tura 1/6
+[21:15:10] ERROR: ❌ Błąd na turze 1: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 2/6
+[21:15:10] ERROR: ❌ Błąd na turze 2: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 3/6
+[21:15:10] ERROR: ❌ Błąd na turze 3: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] ERROR: ❌ Zbyt wiele błędów - przerywam test
+[21:15:10] INFO: 🎮 Symulacja zakończona po 0 turach
+[21:15:10] INFO: ✅ Test quick_balanced zakończony
+[21:15:10] INFO: ⏱️ Czas: 0.2s
+[21:15:10] INFO: 🏆 Wynik: FAIL
+[21:15:10] INFO: 📊 Performance: 55.0/100
+[21:15:10] INFO: 
+============================================================
+[21:15:10] INFO: 🧪 TEST #2: quick_aggressive
+[21:15:10] INFO: 📋 Opis: Szybki test agresywny
+[21:15:10] INFO: 🎯 Max tur: 5
+[21:15:10] INFO: 🤖 Profile AI: {'polish': 'aggressive', 'german': 'aggressive'}
+[21:15:10] INFO: ============================================================
+[21:15:10] INFO: 🎮 Tworzenie gry testowej: quick_aggressive
+[21:15:10] INFO: 🎛️ Ustawiono profil aggressive dla polish
+[21:15:10] INFO: 🎛️ Ustawiono profil aggressive dla german
+[21:15:10] INFO: 🤖 AI Generał: Polska (id=1)
+[21:15:10] INFO: 🎯 AI Dowódca: Polska (id=2)
+[21:15:10] INFO: 🤖 AI Generał: Niemcy (id=4)
+[21:15:10] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[21:15:10] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[21:15:10] INFO: 🎮 Start symulacji rozgrywki...
+[21:15:10] INFO: 🔄 Tura 1/5
+[21:15:10] ERROR: ❌ Błąd na turze 1: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 2/5
+[21:15:10] ERROR: ❌ Błąd na turze 2: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 3/5
+[21:15:10] ERROR: ❌ Błąd na turze 3: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] ERROR: ❌ Zbyt wiele błędów - przerywam test
+[21:15:10] INFO: 🎮 Symulacja zakończona po 0 turach
+[21:15:10] INFO: ✅ Test quick_aggressive zakończony
+[21:15:10] INFO: ⏱️ Czas: 0.1s
+[21:15:10] INFO: 🏆 Wynik: FAIL
+[21:15:10] INFO: 📊 Performance: 55.0/100
+[21:15:10] INFO: 
+============================================================
+[21:15:10] INFO: 🧪 TEST #3: quick_mixed
+[21:15:10] INFO: 📋 Opis: Szybki test mieszany
+[21:15:10] INFO: 🎯 Max tur: 6
+[21:15:10] INFO: 🤖 Profile AI: {'polish': 'defensive', 'german': 'aggressive'}
+[21:15:10] INFO: ============================================================
+[21:15:10] INFO: 🎮 Tworzenie gry testowej: quick_mixed
+[21:15:10] INFO: 🎛️ Ustawiono profil defensive dla polish
+[21:15:10] INFO: 🎛️ Ustawiono profil aggressive dla german
+[21:15:10] INFO: 🤖 AI Generał: Polska (id=1)
+[21:15:10] INFO: 🎯 AI Dowódca: Polska (id=2)
+[21:15:10] INFO: 🤖 AI Generał: Niemcy (id=4)
+[21:15:10] INFO: 🎯 AI Dowódca: Niemcy (id=5)
+[21:15:10] INFO: ✅ Gra testowa utworzona: 4 graczy, mapa załadowana
+[21:15:10] INFO: 🎮 Start symulacji rozgrywki...
+[21:15:10] INFO: 🔄 Tura 1/6
+[21:15:10] ERROR: ❌ Błąd na turze 1: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 2/6
+[21:15:10] ERROR: ❌ Błąd na turze 2: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] INFO: 🔄 Tura 3/6
+[21:15:10] ERROR: ❌ Błąd na turze 3: 'Player' object has no attribute 'is_ai_general'
+[21:15:10] ERROR: ❌ Zbyt wiele błędów - przerywam test
+[21:15:10] INFO: 🎮 Symulacja zakończona po 0 turach
+[21:15:10] INFO: ✅ Test quick_mixed zakończony
+[21:15:10] INFO: ⏱️ Czas: 0.1s
+[21:15:10] INFO: 🏆 Wynik: FAIL
+[21:15:10] INFO: 📊 Performance: 55.0/100

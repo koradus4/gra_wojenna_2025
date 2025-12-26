@@ -6,7 +6,21 @@ from pathlib import Path
 from PIL import ImageFont
 from edytory.token_editor_prototyp import create_flag_background
 
-"""TokenShop – zmodernizowany do korzystania z centralnego balansu (balance.model).
+"""TokenShop – zmodernizowany do korzystania z centralnego         unit_type_name = {
+            "P": "Piechota",
+            "K": "Kawaleria",
+            "TC": "Czołg ciężki",
+            "TŚ": "Czołg średni",
+            "TL": "Czołg lekki",
+            "TS": "Sam. pancerny",
+            "AC": "Artyleria ciężka",
+            "AL": "Artyleria lekka",
+            "AP": "Artyleria plot",
+            "R": "Zwiad",
+            "Z": "Zaopatrzenie ⭐ PE",
+            "D": "Dowództwo",
+            "G": "Generał"
+        }.get(unit_type, unit_type)ce.model).
 
 Usuwa zależność od legacy core.unit_factory (pozostawione tylko minimalne fallbacki w razie braku modułu balansu)."""
 from balance.model import (
@@ -45,6 +59,7 @@ class TokenShop(tk.Toplevel):
         self.unit_type_order = [
             ("Piechota (P)", "P", True),
             ("Kawaleria (K)", "K", True),
+            ("Zwiad (R)", "R", True),
             ("Czołg ciężki (TC)", "TC", True),
             ("Czołg średni (TŚ)", "TŚ", True),
             ("Czołg lekki (TL)", "TL", True),
@@ -52,7 +67,7 @@ class TokenShop(tk.Toplevel):
             ("Artyleria ciężka (AC)", "AC", True),
             ("Artyleria lekka (AL)", "AL", True),
             ("Artyleria plot (AP)", "AP", True),
-            ("Zaopatrzenie (Z)", "Z", True),
+            ("Zaopatrzenie (Z) ⭐ JEDYNY ZBIERACZ PE", "Z", True),
             ("Dowództwo (D)", "D", True),
             ("Generał (G)", "G", True)
         ]
@@ -289,6 +304,7 @@ class TokenShop(tk.Toplevel):
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",
@@ -370,8 +386,11 @@ class TokenShop(tk.Toplevel):
             return
         # --- Generuj unikalny id ---
         import datetime
+        import re
         now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        unit_id = f"nowy_{self.unit_type.get()}_{self.unit_size.get()}__{dowodca_id}_{label}_{now}"
+        # Oczyść label z niedozwolonych znaków Windows
+        safe_label = re.sub(r'[<>:"/\\|?*]', '_', label)
+        unit_id = f"nowy_{self.unit_type.get()}_{self.unit_size.get()}__{dowodca_id}_{safe_label}_{now}"
         folder = Path("assets/tokens") / f"nowe_dla_{dowodca_id}" / unit_id
         folder.mkdir(parents=True, exist_ok=True)
         # Zamiast: "image": "token.png",
@@ -414,6 +433,7 @@ class TokenShop(tk.Toplevel):
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",
@@ -421,7 +441,7 @@ class TokenShop(tk.Toplevel):
             "AC": "Artyleria ciężka",
             "AL": "Artyleria lekka",
             "AP": "Artyleria plot",
-            "Z": "Zaopatrzenie",
+            "Z": "Zaopatrzenie ⭐ PE",
             "D": "Dowództwo",
             "G": "Generał"
         }.get(unit_type, unit_type)

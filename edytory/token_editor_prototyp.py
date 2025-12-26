@@ -141,6 +141,8 @@ class TokenEditor:
             "P__Pluton": 8, "P__Kompania": 15, "P__Batalion": 30,
             # Kawaleria  
             "K__Pluton": 6, "K__Kompania": 12, "K__Batalion": 24,
+            # Zwiad
+            "R__Pluton": 5, "R__Kompania": 10, "R__Batalion": 18,
             # Czołgi ciężkie
             "TC__Pluton": 12, "TC__Kompania": 24, "TC__Batalion": 48,
             # Czołgi średnie
@@ -392,6 +394,7 @@ class TokenEditor:
         unit_types = [
             ("Piechota (P)", "P", tk.NORMAL),
             ("Kawaleria (K)", "K", tk.NORMAL),
+            ("Zwiad (R)", "R", tk.NORMAL),
             ("Czołg ciężki (TC)", "TC", tk.NORMAL),
             ("Czołg średni (TŚ)", "TŚ", tk.NORMAL),
             ("Czołg lekki (TL)", "TL", tk.NORMAL),
@@ -604,30 +607,30 @@ class TokenEditor:
         """Zapasowa metoda używająca starych wartości domyślnych"""
         defaults = {
             "ruch": {
-                "P": "3", "K": "4", 
+                "P": "3", "K": "4", "R": "6",
                 "TC": "3", "TŚ": "4", "TL": "5", "TS": "6",
                 "AC": "2", "AL": "3", "AP": "3",
                 "Z": "4", "D": "3", "G": "3"
             },            "range": {
-                "P": "1", "K": "1",
+                "P": "1", "K": "1", "R": "1",
                 "TC": "2", "TŚ": "2", "TL": "1", "TS": "2",
                 "AC": "6", "AL": "4", "AP": "3",
                 "Z": "1", "D": "0", "G": "0"
             },            "attack": {
                 "Pluton": {
-                    "P": "2", "K": "2",
+                    "P": "2", "K": "2", "R": "2",
                     "TC": "8", "TŚ": "6", "TL": "4", "TS": "3",
                     "AC": "12", "AL": "8", "AP": "6",
                     "Z": "1", "D": "0", "G": "0"
                 },
                 "Kompania": {
-                    "P": "4", "K": "4",
+                    "P": "4", "K": "4", "R": "3",
                     "TC": "15", "TŚ": "12", "TL": "8", "TS": "6",
                     "AC": "24", "AL": "16", "AP": "12",
                     "Z": "2", "D": "0", "G": "0"
                 },
                 "Batalion": {
-                    "P": "6", "K": "6",
+                    "P": "6", "K": "6", "R": "5",
                     "TC": "22", "TŚ": "18", "TL": "12", "TS": "9",
                     "AC": "36", "AL": "24", "AP": "18",
                     "Z": "3", "D": "0", "G": "0"
@@ -637,19 +640,19 @@ class TokenEditor:
             "combat": {},  # Pusta definicja, aby nie nadpisywać wartości
             "unit_maintenance": {
                 "Pluton": {
-                    "P": "4", "K": "5",
+                    "P": "4", "K": "5", "R": "3",
                     "TC": "15", "TŚ": "12", "TL": "9", "TS": "8",
                     "AC": "6", "AL": "5", "AP": "5",
                     "Z": "4", "D": "3", "G": "3"
                 },
                 "Kompania": {
-                    "P": "4", "K": "5",
+                    "P": "4", "K": "5", "R": "3",
                     "TC": "15", "TŚ": "12", "TL": "9", "TS": "8",
                     "AC": "6", "AL": "5", "AP": "5",
                     "Z": "4", "D": "3", "G": "3"
                 },
                 "Batalion": {
-                    "P": "4", "K": "5",
+                    "P": "4", "K": "5", "R": "4",
                     "TC": "15", "TŚ": "12", "TL": "9", "TS": "8",
                     "AC": "6", "AL": "5", "AP": "5",
                     "Z": "4", "D": "3", "G": "3"
@@ -657,25 +660,25 @@ class TokenEditor:
             },
             "purchase": {
                 "Pluton": {
-                    "P": "15", "K": "18",
+                    "P": "15", "K": "18", "R": "18",
                     "TC": "40", "TŚ": "32", "TL": "25", "TS": "20",
                     "AC": "35", "AL": "25", "AP": "20",
                     "Z": "16", "D": "80", "G": "120"
                 },
                 "Kompania": {
-                    "P": "30", "K": "36",
+                    "P": "30", "K": "36", "R": "34",
                     "TC": "80", "TŚ": "64", "TL": "50", "TS": "40",
                     "AC": "70", "AL": "50", "AP": "40",
                     "Z": "32", "D": "80", "G": "120"
                 },
                 "Batalion": {
-                    "P": "45", "K": "54",
+                    "P": "45", "K": "54", "R": "50",
                     "TC": "120", "TŚ": "96", "TL": "75", "TS": "60",
                     "AC": "105", "AL": "75", "AP": "60",
                     "Z": "48", "D": "80", "G": "120"
                 }
             },            "sight": {
-                "P": "3", "K": "3",
+                "P": "3", "K": "3", "R": "6",
                 "TC": "2", "TŚ": "2", "TL": "2", "TS": "2",
                 "AC": "2", "AL": "2", "AP": "2",
                 "D": "4", "G": "6", "Z": "2"
@@ -699,19 +702,19 @@ class TokenEditor:
         self.sight_range.set(defaults["sight"].get(ut, ""))        # Domyślne wartości obrony dla typów i wielkości jednostek
         defense_defaults = {
             "Pluton": {
-                "P": "4", "K": "2", 
+                "P": "4", "K": "2", "R": "2", 
                 "TC": "8", "TŚ": "6", "TL": "4", "TS": "3",
                 "AC": "2", "AL": "3", "AP": "3",
                 "Z": "2", "D": "1", "G": "1"
             },
             "Kompania": {
-                "P": "8", "K": "4",
+                "P": "8", "K": "4", "R": "3",
                 "TC": "15", "TŚ": "12", "TL": "8", "TS": "6",
                 "AC": "4", "AL": "6", "AP": "6",
                 "Z": "4", "D": "2", "G": "2"
             },
             "Batalion": {
-                "P": "15", "K": "6",
+                "P": "15", "K": "6", "R": "5",
                 "TC": "22", "TŚ": "18", "TL": "12", "TS": "9",
                 "AC": "6", "AL": "9", "AP": "9",
                 "Z": "6", "D": "3", "G": "3"
@@ -948,6 +951,7 @@ class TokenEditor:
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",
@@ -1120,6 +1124,7 @@ class TokenEditor:
         unit_type_full = {
             "P": "Piechota",
             "K": "Kawaleria",
+            "R": "Zwiad",
             "TC": "Czołg ciężki",
             "TŚ": "Czołg średni",
             "TL": "Czołg lekki",

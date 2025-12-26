@@ -73,20 +73,31 @@ def estimate_unit_type(token):
     else:
         return "heavy_unit"
 
-def get_detection_info_for_player(player, token_id):
+def get_detection_info_for_player(player, token_id, include_temp=True):
     """Pobierz informacje o detekcji konkretnego tokena dla gracza
-    
+
     Args:
         player: Obiekt gracza
         token_id: ID tokena
-        
+        include_temp: Czy uwzględnić dane tymczasowe z bieżącej tury
+
     Returns:
-        dict lub None: Informacje o detekcji
+        dict lub None: Informacje o detekcji (np. {'detection_level': 0.7, ...})
     """
-    if not hasattr(player, 'visible_token_data'):
+    if not player or not token_id:
         return None
-        
-    return player.visible_token_data.get(token_id, None)
+
+    # Najpierw spróbuj danych tymczasowych (aktualna tura / wizja ruchu)
+    if include_temp and hasattr(player, 'temp_visible_token_data'):
+        token_data = player.temp_visible_token_data.get(token_id)
+        if token_data:
+            return token_data
+
+    # Zgodność wsteczna - stare implementacje używały persistent `visible_token_data`
+    if hasattr(player, 'visible_token_data'):
+        return player.visible_token_data.get(token_id)
+
+    return None
 
 def is_token_detected(player, token_id, min_detection_level=0.3):
     """Sprawdź czy token jest wykryty na wystarczającym poziomie
