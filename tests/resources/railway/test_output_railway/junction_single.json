@@ -1,0 +1,12 @@
+{
+  "grid_size": 64,
+  "export_size": 512,
+  "entry_side": "top",
+  "exit_side": "bottom",
+  "railway_type": "jednotorowy",
+  "seed": 42,
+  "junctions": [
+    "top_left"
+  ],
+  "is_straight": true
+}

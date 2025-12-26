@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import tkinter as tk
 from tkinter import messagebox, filedialog, simpledialog, ttk, colorchooser
@@ -55,6 +55,22 @@ except ImportError:
     ROAD_COLOR_PRESETS = {}
     ROAD_WIDTH_PRESETS = {}
     ROAD_HEX_SIDES = ()
+
+# Import generatora torów kolejowych
+try:
+    from generate_railway_hex_tile import (
+        RailwayOptions,
+        RailwayResult,
+        generate_railway,
+        HEX_SIDES as RAILWAY_HEX_SIDES,
+        SIDE_OPPOSITE,
+    )
+except ImportError:
+    RailwayOptions = None
+    RailwayResult = None
+    generate_railway = None
+    RAILWAY_HEX_SIDES = ()
+    SIDE_OPPOSITE = {}
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -779,6 +795,15 @@ class MapEditor:
         # --- Narzędzie dróg ---
         self.road_mode_active = False
         self.road_path: list[str] = []
+
+        # --- Narzędzie torów kolejowych ---
+        self.railway_mode_active = False
+        self.railway_path: list[str] = []
+        self.railway_type_var = tk.StringVar(value="jednotorowy")
+        self.railway_status_var = tk.StringVar(value="Trasa torów: 0 heksów")
+        self.railway_junction_mode = False
+        self.railway_junction_target_hex: str | None = None
+        self.railway_junctions: dict[str, list[str]] = {}  # {hex_id: ["top", "top_right"]}
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -1776,6 +1801,188 @@ class MapEditor:
         self._set_river_section_visibility(False)
         self._update_river_preview_image()
 
+        # === SEKCJA TORÓW KOLEJOWYCH ===
+        self._railway_section_expanded = False
+        
+        self.railway_section_toggle_button = tk.Button(
+            self.upper_frame,
+            text="[+] Tory kolejowe (beta)",
+            command=self.toggle_railway_section_visibility,
+            bg="#4a4a4a",
+            fg="white",
+            activebackground="#5a5a5a",
+            activeforeground="white",
+            anchor="w",
+            font=("Arial", 9, "bold"),
+        )
+        self.railway_section_toggle_button.pack(fill=tk.X, padx=5, pady=2)
+
+        # Kontener na rozwijaną sekcję torów
+        self.railway_section_container = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        self.railway_frame = tk.Frame(
+            self.railway_section_container, bg="darkolivegreen"
+        )
+        self.railway_frame.pack(fill=tk.X, pady=(2, 0))
+
+        # === TOGGLE TRYBU TORÓW ===
+        self.railway_mode_button = tk.Button(
+            self.railway_frame,
+            text="Włącz tryb torów",
+            command=self.toggle_railway_mode,
+            bg="#4a4a4a",
+            fg="white",
+            activebackground="#5a5a5a",
+            activeforeground="white",
+            font=("Arial", 9, "bold"),
+        )
+        self.railway_mode_button.pack(fill=tk.X, pady=(0, 6))
+
+        # Status
+        self.railway_status_label = tk.Label(
+            self.railway_frame,
+            textvariable=self.railway_status_var,
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            anchor="w",
+            justify="left",
+            wraplength=190,
+        )
+        self.railway_status_label.pack(fill=tk.X, pady=(0, 4))
+
+        # === TYP TORU ===
+        type_frame = tk.LabelFrame(
+            self.railway_frame,
+            text="Typ toru",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        type_frame.pack(fill=tk.X, pady=(0, 6))
+
+        railway_types = ["jednotorowy", "dwutorowy"]
+        for rtype in railway_types:
+            rb = tk.Radiobutton(
+                type_frame,
+                text=rtype.capitalize(),
+                variable=self.railway_type_var,
+                value=rtype,
+                bg="darkolivegreen",
+                fg="white",
+                selectcolor="#2f4d34",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            rb.pack(anchor="w")
+
+        # === PRZYCISKI AKCJI ===
+        actions_frame = tk.Frame(self.railway_frame, bg="darkolivegreen")
+        actions_frame.pack(fill=tk.X, pady=(6, 0))
+
+        self.railway_generate_btn = tk.Button(
+            actions_frame,
+            text="🚂 Generuj tory",
+            command=self.generate_railway_path,
+            bg="#4a4a4a",
+            fg="white",
+            activebackground="#5a5a5a",
+            activeforeground="white",
+            state=tk.DISABLED,
+        )
+        self.railway_generate_btn.pack(fill=tk.X, pady=(0, 4))
+
+        self.railway_undo_btn = tk.Button(
+            actions_frame,
+            text="↩️ Cofnij ostatni",
+            command=self.railway_pop_last_hex,
+            bg="#4a4a4a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.railway_undo_btn.pack(fill=tk.X, pady=(0, 4))
+
+        self.railway_clear_btn = tk.Button(
+            actions_frame,
+            text="🗑️ Wyczyść trasę",
+            command=self.clear_railway_path,
+            bg="#4a4a4a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.railway_clear_btn.pack(fill=tk.X, pady=(0, 6))
+
+        # === SEKCJA ROZJAZDÓW ===
+        junctions_section = tk.LabelFrame(
+            self.railway_frame,
+            text="🔀 Rozjazdy",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        junctions_section.pack(fill=tk.X, pady=(0, 4))
+
+        tk.Label(
+            junctions_section,
+            text="Aby dodać rozjazd:\n1. Zaznacz heks z torami (LPM)\n2. Wybierz typ rozjazdu\n3. Kliknij 'Dodaj rozjazd'\n4. Kliknij sąsiedni heks",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8),
+            anchor="w",
+            justify="left",
+            wraplength=190,
+        ).pack(fill=tk.X, padx=4, pady=(2, 4))
+
+        # Typ rozjazdu
+        junction_type_frame = tk.LabelFrame(
+            junctions_section,
+            text="Typ rozjazdu",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 8, "bold"),
+        )
+        junction_type_frame.pack(fill=tk.X, padx=4, pady=(0, 6))
+
+        self.railway_junction_type_var = tk.StringVar(value="jednotorowy")
+        
+        for jtype in ["jednotorowy", "dwutorowy"]:
+            rb = tk.Radiobutton(
+                junction_type_frame,
+                text=jtype.capitalize(),
+                variable=self.railway_junction_type_var,
+                value=jtype,
+                bg="darkolivegreen",
+                fg="white",
+                selectcolor="#2f4d34",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            rb.pack(anchor="w")
+
+        self.railway_add_junction_btn = tk.Button(
+            junctions_section,
+            text="➕ Dodaj rozjazd",
+            command=self.start_railway_junction_mode,
+            bg="#4a4a4a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.railway_add_junction_btn.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        self.railway_junction_status_var = tk.StringVar(value="")
+        self.railway_junction_status_label = tk.Label(
+            junctions_section,
+            textvariable=self.railway_junction_status_var,
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 8, "italic"),
+            anchor="w",
+            wraplength=190,
+        )
+        self.railway_junction_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
+
+        self._set_railway_section_visibility(False)
+
         # === SEKCJA DRÓG ===
         self._road_section_expanded = False
         
@@ -1783,7 +1990,7 @@ class MapEditor:
         self.road_status_var = tk.StringVar(value="Ścieżka drogi: 0 heksów")
         self.road_type_var = tk.StringVar(value="Droga gruntowa")
         self.road_width_var = tk.StringVar(value="Średnia (typowa)")
-        self.road_noise_var = tk.StringVar(value="0.3")
+        self.road_noise_var = tk.DoubleVar(value=0.3)
         self.road_seed_var = tk.StringVar(value="42")
         self.road_crossroads_mode = False  # Tryb dodawania skrzyżowań
         self.road_crossroads_sides: list[str] = []  # Dodatkowe boki dla skrzyżowań
@@ -3360,6 +3567,10 @@ class MapEditor:
         if self.road_path:
             self._draw_road_path_overlay()
         
+        # Overlay ścieżki torów
+        if self.railway_path or self.railway_junction_mode:
+            self._draw_railway_overlay()
+        
         # Wizualizacja trybu skrzyżowania
         if self.road_crossroads_mode and self.selected_hex:
             self._draw_crossroads_overlay()
@@ -3486,6 +3697,12 @@ class MapEditor:
                 self._road_handle_left_click(hex_id)
             return
 
+        # Obsługa trybu torów kolejowych
+        if self.railway_mode_active:
+            if hex_id:
+                self._railway_handle_left_click(hex_id)
+            return
+
         if hex_id:
             # Jeśli mamy wybrany żeton do wstawienia
             if self.selected_token:
@@ -3541,6 +3758,10 @@ class MapEditor:
 
         if self.river_mode_active:
             self._river_handle_right_click(hex_id)
+            return
+
+        if self.railway_mode_active:
+            self._railway_handle_right_click(hex_id)
             return
         
         if hex_id and hex_id in self.hex_data:
@@ -5204,6 +5425,168 @@ class MapEditor:
             self.road_section_container.pack_forget()
             self.road_section_toggle_button.config(text="[+] Drogi (beta)")
 
+    # === FUNKCJE TORÓW KOLEJOWYCH ===
+    
+    def toggle_railway_section_visibility(self) -> None:
+        self._set_railway_section_visibility(not self._railway_section_expanded)
+
+    def _set_railway_section_visibility(self, visible: bool) -> None:
+        self._railway_section_expanded = visible
+        if visible:
+            self.railway_section_container.pack(fill=tk.X, padx=5, pady=(0, 4), after=self.railway_section_toggle_button)
+            self.railway_section_toggle_button.config(text="[-] Tory kolejowe (beta)")
+        else:
+            self.railway_section_container.pack_forget()
+            self.railway_section_toggle_button.config(text="[+] Tory kolejowe (beta)")
+
+    def _update_railway_status(self) -> None:
+        """Aktualizuje status i waliduje wybrane boki."""
+        entry = self.railway_entry_side_var.get()
+        exit_side = self.railway_exit_side_var.get()
+        
+        if not entry or not exit_side:
+            self.railway_status_var.set("Wybierz 2 boki heksa")
+            return
+        
+        if entry == exit_side:
+            self.railway_status_var.set("❌ Entry i exit muszą być różne!")
+            return
+        
+        # Sprawdź czy to tor prosty czy zakrzywiony
+        is_straight = SIDE_OPPOSITE.get(entry) == exit_side
+        track_type = "prosty" if is_straight else "zakrzywiony"
+        
+        self.railway_status_var.set(f"✓ Tor {track_type}: {entry} → {exit_side}")
+
+    def generate_railway_for_hex(self) -> None:
+        """Generuje teksturę torów dla aktualnie wybranego heksa."""
+        if not generate_railway:
+            messagebox.showerror(
+                "Błąd",
+                "Generator torów nie jest dostępny (brak modułu generate_railway_hex_tile.py)",
+                parent=self.root,
+            )
+            return
+        
+        # Sprawdź czy wybrano heks
+        if not self.selected_hex:
+            messagebox.showwarning(
+                "Brak heksa",
+                "Najpierw wybierz heks na mapie (kliknij na heks).",
+                parent=self.root,
+            )
+            return
+        
+        # Walidacja boków
+        entry_side = self.railway_entry_side_var.get()
+        exit_side = self.railway_exit_side_var.get()
+        
+        if not entry_side or not exit_side:
+            messagebox.showwarning(
+                "Brak konfiguracji",
+                "Wybierz boki wejścia i wyjścia toru.",
+                parent=self.root,
+            )
+            return
+        
+        if entry_side == exit_side:
+            messagebox.showwarning(
+                "Niepoprawna konfiguracja",
+                "Boki wejścia i wyjścia muszą być różne!",
+                parent=self.root,
+            )
+            return
+        
+        # Zbierz dojazdy
+        junctions = []
+        for side, var in self.railway_junctions_vars.items():
+            if var.get():
+                junctions.append(side)
+        
+        # Pobierz pozostałe parametry
+        railway_type = self.railway_type_var.get()
+        junction_double = self.railway_junction_double_var.get()
+        
+        try:
+            seed = int(self.railway_seed_var.get())
+        except ValueError:
+            seed = 42
+        
+        # Sprawdź czy istnieje tło dla heksa
+        q, r = self.selected_hex
+        hex_key = f"{q}_{r}"
+        
+        # Pobierz istniejącą teksturę lub None
+        existing_texture = self.hex_data.get(hex_key, {}).get("hex_texture_path")
+        background_path = None
+        
+        if existing_texture:
+            # Użyj istniejącej tekstury jako tła
+            bg_file = fix_image_path(existing_texture)
+            if bg_file.exists():
+                background_path = bg_file
+        
+        # Nazwa pliku wyjściowego
+        output_filename = f"railway_{hex_key}_{entry_side}_{exit_side}_{railway_type}.png"
+        output_path = (HEX_TEXTURE_DIR / "railway_tool") / output_filename
+        
+        # Utwórz opcje
+        options = RailwayOptions(
+            grid_size=DEFAULT_HEX_TEXTURE_GRID_SIZE,
+            background=background_path,
+            entry_side=entry_side,
+            exit_side=exit_side,
+            railway_type=railway_type,
+            junctions=junctions,
+            junction_double_track=junction_double,
+            seed=seed,
+        )
+        
+        try:
+            # Generuj tory
+            result = generate_railway(options, output_path)
+            
+            # Zapisz w metadanych heksa
+            if hex_key not in self.hex_data:
+                self.hex_data[hex_key] = {}
+            
+            # Zapisz ścieżkę do wygenerowanej tekstury
+            rel_path = to_rel(str(result.image_path))
+            self.hex_data[hex_key]["hex_texture_path"] = rel_path
+            
+            # Opcjonalnie dodaj metadane torów
+            self.hex_data[hex_key]["railway_config"] = {
+                "entry_side": entry_side,
+                "exit_side": exit_side,
+                "railway_type": railway_type,
+                "junctions": junctions,
+                "junction_double_track": junction_double,
+                "seed": seed,
+            }
+            
+            # Odśwież teksturę
+            self.clear_texture_caches()
+            self.redraw_canvas()
+            
+            messagebox.showinfo(
+                "Sukces",
+                f"Wygenerowano tory kolejowe!\n\nPlik: {output_path.name}\n"
+                f"Typ: {railway_type}\n"
+                f"Rozjazdy: {len(junctions)}",
+                parent=self.root,
+            )
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Błąd generowania",
+                f"Nie udało się wygenerować torów:\n\n{e}",
+                parent=self.root,
+            )
+            import traceback
+            traceback.print_exc()
+
+    # === FUNKCJE DRÓG ===
+    
     def toggle_road_mode(self) -> None:
         self._set_road_mode(not self.road_mode_active)
 
@@ -6110,6 +6493,529 @@ class MapEditor:
                     cx, cy - cross_size, cx, cy + cross_size,
                     fill="yellow", width=2, tags=("road_overlay",)
                 )
+
+    # ========================
+    # FUNKCJE TORÓW KOLEJOWYCH
+    # ========================
+
+    def toggle_railway_mode(self) -> None:
+        """Przełącza tryb interaktywny torów kolejowych."""
+        self._set_railway_mode(not self.railway_mode_active)
+
+    def _set_railway_mode(self, active: bool) -> None:
+        """Ustawia tryb torów kolejowych."""
+        if self.railway_mode_active == active:
+            return
+        
+        self.railway_mode_active = active
+        
+        if not active:
+            self.railway_path.clear()
+            self.railway_junction_mode = False
+            self.railway_junction_target_hex = None
+        
+        # Aktualizuj przycisk trybu
+        if hasattr(self, "railway_mode_button"):
+            if active:
+                self.railway_mode_button.config(
+                    text="Wyłącz tryb torów",
+                    bg="#6a6a6a"
+                )
+            else:
+                self.railway_mode_button.config(
+                    text="Włącz tryb torów",
+                    bg="#4a4a4a"
+                )
+        
+        self._railway_update_status()
+        self.draw_grid()
+        
+        if active:
+            messagebox.showinfo(
+                "Tryb torów",
+                "Tryb torów aktywny. Kliknij LPM, aby zbudować trasę torów (min 2 heksy), "
+                "a następnie użyj 'Generuj tory'.",
+                parent=self.root
+            )
+
+    def _railway_update_status(self) -> None:
+        """Aktualizuje status trasy torów."""
+        count = len(self.railway_path)
+        self.railway_status_var.set(f"Trasa torów: {count} heksów")
+        
+        # Aktualizuj przyciski
+        generate_state = tk.NORMAL if self.railway_mode_active and count >= 2 else tk.DISABLED
+        undo_state = tk.NORMAL if self.railway_mode_active and count >= 1 else tk.DISABLED
+        clear_state = tk.NORMAL if self.railway_mode_active and count >= 1 else tk.DISABLED
+        
+        if hasattr(self, "railway_generate_btn"):
+            self.railway_generate_btn.config(state=generate_state)
+        if hasattr(self, "railway_undo_btn"):
+            self.railway_undo_btn.config(state=undo_state)
+        if hasattr(self, "railway_clear_btn"):
+            self.railway_clear_btn.config(state=clear_state)
+        
+        # Przycisk rozjazdu - aktywny gdy zaznaczony heks ma tory
+        junction_state = tk.DISABLED
+        if self.selected_hex and self.selected_hex in self.hex_data:
+            terrain = self.hex_data[self.selected_hex]
+            # Sprawdź czy heks ma wygenerowane tory
+            if (terrain.get("railway_entry_side") or terrain.get("railway_exit_side")) or terrain.get("railway_sides"):
+                junction_state = tk.NORMAL
+        
+        if hasattr(self, "railway_add_junction_btn"):
+            self.railway_add_junction_btn.config(state=junction_state)
+
+    def _railway_handle_left_click(self, hex_id: str) -> None:
+        """Obsługuje kliknięcie LPM w trybie torów."""
+        # Tryb dodawania rozjazdu
+        if self.railway_junction_mode:
+            self._railway_add_junction(hex_id)
+            return
+        
+        # Dodawanie do ścieżki torów
+        if not self.railway_path:
+            # Pierwszy heks
+            self.railway_path.append(hex_id)
+            self.set_status(f"Dodano pierwszy heks torów: {hex_id}")
+        else:
+            # Sprawdź czy to sąsiad
+            last_hex = self.railway_path[-1]
+            if self._are_hexes_neighbors(last_hex, hex_id):
+                if hex_id not in self.railway_path:
+                    self.railway_path.append(hex_id)
+                    self.set_status(f"Dodano heks do torów: {hex_id}")
+                else:
+                    messagebox.showwarning(
+                        "Duplikat",
+                        f"Heks {hex_id} już jest w trasie torów!",
+                        parent=self.root
+                    )
+            else:
+                messagebox.showwarning(
+                    "Nie sąsiaduje",
+                    f"Heks {hex_id} nie sąsiaduje z poprzednim ({last_hex})!",
+                    parent=self.root
+                )
+        
+        self._railway_update_status()
+        self.draw_grid()
+
+    def _railway_handle_right_click(self, hex_id: str | None) -> None:
+        """Obsługuje kliknięcie PPM w trybie torów."""
+        if hex_id and hex_id in self.railway_path:
+            # Cofnij ostatni heks
+            self.railway_pop_last_hex()
+        else:
+            # Anuluj tryb torów
+            self._set_railway_mode(False)
+
+    def railway_pop_last_hex(self) -> None:
+        """Usuwa ostatni heks z trasy torów."""
+        if self.railway_path:
+            removed = self.railway_path.pop()
+            self.set_status(f"Cofnięto heks: {removed}")
+            self._railway_update_status()
+            self.draw_grid()
+
+    def clear_railway_path(self) -> None:
+        """Czyści całą trasę torów."""
+        if self.railway_path:
+            self.railway_path.clear()
+            self.set_status("Wyczyszczono trasę torów")
+            self._railway_update_status()
+            self.draw_grid()
+
+    def start_railway_junction_mode(self) -> None:
+        """Rozpoczyna tryb dodawania rozjazdu."""
+        if not self.railway_mode_active:
+            messagebox.showinfo(
+                "Rozjazd",
+                "Najpierw włącz tryb torów.",
+                parent=self.root
+            )
+            return
+        
+        if not self.selected_hex:
+            messagebox.showinfo(
+                "Rozjazd",
+                "Najpierw zaznacz heks z torami na mapie.",
+                parent=self.root
+            )
+            return
+        
+        # Sprawdź czy heks ma tory
+        terrain = self.hex_data.get(self.selected_hex, {})
+        if not (terrain.get("railway_entry_side") or terrain.get("railway_exit_side")):
+            messagebox.showinfo(
+                "Rozjazd",
+                "Wybrany heks nie ma torów!",
+                parent=self.root
+            )
+            return
+        
+        self.railway_junction_mode = True
+        self.railway_junction_target_hex = self.selected_hex
+        self.railway_junction_status_var.set(
+            f"Wskaż sąsiedni heks dla rozjazdu od {self.selected_hex}"
+        )
+        
+        if hasattr(self, "railway_add_junction_btn"):
+            self.railway_add_junction_btn.config(
+                text="❌ Anuluj rozjazd",
+                bg="#8a4a4a",
+                command=self._cancel_railway_junction_mode
+            )
+        
+        self.draw_grid()
+        self.set_status("Tryb rozjazdu: kliknij LPM na sąsiednim heksie")
+
+    def _cancel_railway_junction_mode(self) -> None:
+        """Anuluje tryb dodawania rozjazdu."""
+        self.railway_junction_mode = False
+        self.railway_junction_target_hex = None
+        self.railway_junction_status_var.set("")
+        
+        if hasattr(self, "railway_add_junction_btn"):
+            self.railway_add_junction_btn.config(
+                text="➕ Dodaj rozjazd",
+                bg="#4a4a4a",
+                command=self.start_railway_junction_mode
+            )
+        
+        self.draw_grid()
+        self.set_status("Anulowano tryb rozjazdu.")
+
+    def _railway_add_junction(self, junction_hex: str) -> None:
+        """Dodaje rozjazd do heksa z torami."""
+        if not self.railway_junction_target_hex:
+            print("[DEBUG] Brak target hex")
+            return
+        
+        print(f"[DEBUG] Dodawanie rozjazdu: target={self.railway_junction_target_hex}, junction={junction_hex}")
+        
+        # Sprawdź czy to sąsiad
+        if not self._are_hexes_neighbors(self.railway_junction_target_hex, junction_hex):
+            messagebox.showwarning(
+                "Nie sąsiaduje",
+                f"Heks {junction_hex} nie sąsiaduje z {self.railway_junction_target_hex}!",
+                parent=self.root
+            )
+            return
+        
+        # Oblicz kierunek rozjazdu
+        delta = self._get_hex_delta(self.railway_junction_target_hex, junction_hex)
+        print(f"[DEBUG] Delta: {delta}")
+        if delta not in AXIAL_DIRECTION_TO_SIDE:
+            messagebox.showerror(
+                "Błąd",
+                "Nie można określić kierunku rozjazdu!",
+                parent=self.root
+            )
+            return
+        
+        junction_side = AXIAL_DIRECTION_TO_SIDE[delta]
+        print(f"[DEBUG] Junction side: {junction_side}")
+        
+        # Dodaj do słownika rozjazdów
+        if self.railway_junction_target_hex not in self.railway_junctions:
+            self.railway_junctions[self.railway_junction_target_hex] = []
+        
+        if junction_side not in self.railway_junctions[self.railway_junction_target_hex]:
+            self.railway_junctions[self.railway_junction_target_hex].append(junction_side)
+            self.railway_junction_status_var.set(
+                f"Dodano rozjazd: {HEX_SIDE_LABELS_PL.get(junction_side, junction_side)}"
+            )
+            self.set_status(f"Dodano rozjazd z boku {junction_side}")
+            
+            print(f"[DEBUG] Rozjazdy dla {self.railway_junction_target_hex}: {self.railway_junctions[self.railway_junction_target_hex]}")
+            
+            # Regeneruj heks z rozjazdem
+            self._regenerate_railway_hex_with_junctions(self.railway_junction_target_hex)
+        else:
+            messagebox.showinfo(
+                "Duplikat",
+                f"Rozjazd z tego boku już istnieje!",
+                parent=self.root
+            )
+        
+        # Zakończ tryb rozjazdu
+        self._cancel_railway_junction_mode()
+
+    def _regenerate_railway_hex_with_junctions(self, hex_id: str) -> None:
+        """Regeneruje heks torów z dodanymi rozjazdami."""
+        terrain = self.hex_data.get(hex_id, {})
+        print(f"[DEBUG] Regeneracja rozjazdów dla {hex_id}")
+        print(f"[DEBUG] Terrain data: {terrain}")
+        
+        # Sprawdź czy heks ma tory
+        has_railway = (terrain.get("railway_entry_side") or 
+                      terrain.get("railway_exit_side") or 
+                      terrain.get("railway_sides"))
+        
+        if not has_railway:
+            print(f"[DEBUG] Brak torów w heksie {hex_id}")
+            return
+        
+        entry_side = terrain.get("railway_entry_side")
+        exit_side = terrain.get("railway_exit_side")
+        railway_type = terrain.get("railway_type", "jednotorowy")
+        
+        print(f"[DEBUG] Entry: {entry_side}, Exit: {exit_side}, Type: {railway_type}")
+        
+        # Pobierz rozjazdy
+        junctions = self.railway_junctions.get(hex_id, [])
+        print(f"[DEBUG] Junctions: {junctions}")
+        
+        # Typ rozjazdu - z wybranej opcji w GUI
+        junction_type = getattr(self, 'railway_junction_type_var', None)
+        junction_double = (junction_type.get() == "dwutorowy") if junction_type else False
+        print(f"[DEBUG] Junction double track: {junction_double}")
+        
+        # Generuj tory z rozjazdami - użyj losowego seeda opartego o pozycję
+        q, r = map(int, hex_id.split(","))
+        seed = abs(hash((q, r, len(junctions)))) % 999999
+        
+        # Generuj tory z rozjazdami
+        self._generate_railway_for_hex(
+            hex_id=hex_id,
+            entry_side=entry_side,
+            exit_side=exit_side,
+            railway_type=railway_type,
+            junctions=junctions,
+            junction_double=junction_double,
+            seed=seed
+        )
+        
+        self.draw_grid()
+
+    def generate_railway_path(self) -> None:
+        """Generuje tory dla całej ścieżki."""
+        if len(self.railway_path) < 2:
+            messagebox.showwarning(
+                "Za mało heksów",
+                "Trasa torów musi mieć co najmniej 2 heksy!",
+                parent=self.root
+            )
+            return
+        
+        railway_type = self.railway_type_var.get()
+        
+        for i, hex_id in enumerate(self.railway_path):
+            # Określ entry/exit na podstawie sąsiadów
+            if i == 0:
+                # Pierwszy heks - exit=kierunek do następnego, entry=opposite
+                exit_direction = self._get_side_between_hexes(hex_id, self.railway_path[i + 1])
+                exit_side = exit_direction
+                entry_side = SIDE_OPPOSITE.get(exit_side) if exit_side else "top"
+            elif i == len(self.railway_path) - 1:
+                # Ostatni heks - entry=bok z poprzedniego, exit=opposite
+                entry_direction = self._get_side_between_hexes(self.railway_path[i - 1], hex_id)
+                entry_side = SIDE_OPPOSITE.get(entry_direction) if entry_direction else "bottom"
+                exit_side = SIDE_OPPOSITE.get(entry_side) if entry_side else "top"
+            else:
+                # Środkowy heks - entry z poprzedniego, exit do następnego
+                entry_direction = self._get_side_between_hexes(self.railway_path[i - 1], hex_id)
+                entry_side = SIDE_OPPOSITE.get(entry_direction) if entry_direction else "top"
+                exit_direction = self._get_side_between_hexes(hex_id, self.railway_path[i + 1])
+                exit_side = exit_direction if exit_direction else "bottom"
+            
+            # Pobierz rozjazdy (jeśli są)
+            junctions = self.railway_junctions.get(hex_id, [])
+            
+            # Generuj tory (seed automatyczny)
+            self._generate_railway_for_hex(
+                hex_id=hex_id,
+                entry_side=entry_side,
+                exit_side=exit_side,
+                railway_type=railway_type,
+                junctions=junctions,
+                junction_double=False  # Główna trasa - bez dwutorowych rozjazdów
+            )
+        
+        messagebox.showinfo(
+            "Sukces",
+            f"Wygenerowano tory dla {len(self.railway_path)} heksów!",
+            parent=self.root
+        )
+        
+        # Wyczyść trasę ale zostaw tryb aktywny
+        self.railway_path.clear()
+        self._railway_update_status()
+        self.draw_grid()
+        self.auto_save_and_export("wygenerowano tory kolejowe")
+
+    def _generate_railway_for_hex(
+        self,
+        hex_id: str,
+        entry_side: str | None,
+        exit_side: str | None,
+        railway_type: str,
+        junctions: list[str],
+        junction_double: bool = False,
+        seed: int = None
+    ) -> None:
+        """Generuje teksturę torów dla pojedynczego heksa."""
+        if generate_railway is None:
+            messagebox.showerror(
+                "Brak generatora",
+                "Generator torów nie jest dostępny!",
+                parent=self.root
+            )
+            return
+        
+        # Pobierz istniejące tło heksa
+        terrain = self.hex_data.setdefault(hex_id, {
+            "terrain_key": "teren_płaski",
+            "move_mod": 0,
+            "defense_mod": 0,
+        })
+        
+        # Przygotuj ścieżkę tła (jeśli istnieje)
+        background_path = None
+        texture_path = terrain.get("texture")
+        if texture_path:
+            try:
+                full_path = fix_image_path(texture_path)
+                if full_path.exists():
+                    background_path = full_path
+            except Exception as e:
+                print(f"Błąd wczytywania tła: {e}")
+        
+        # Przygotuj output
+        output_dir = HEX_TEXTURE_DIR / "railway_tool"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Automatyczny seed jeśli nie podano
+        if seed is None:
+            q, r = map(int, hex_id.split(","))
+            seed = abs(hash((q, r))) % 999999
+        
+        filename = f"railway_{hex_id.replace(',', '_')}_{seed}.png"
+        filepath = output_dir / filename
+        
+        # Opcje generatora
+        options = RailwayOptions(
+            entry_side=entry_side,
+            exit_side=exit_side,
+            railway_type=railway_type,
+            junctions=junctions,
+            junction_double_track=junction_double,
+            seed=seed,
+            grid_size=64,
+            background=background_path
+        )
+        
+        # Generuj
+        try:
+            result = generate_railway(options, filepath)
+            
+            # Aktualizuj metadane
+            terrain["texture"] = to_rel(str(result.image_path))
+            terrain["railway_sides"] = result.metadata.get("sides", [])
+            terrain["railway_entry_side"] = entry_side
+            terrain["railway_exit_side"] = exit_side
+            terrain["railway_type"] = railway_type
+            terrain["railway_seed"] = seed
+            terrain["railway_junctions"] = junctions.copy()
+            
+            print(f"✓ Wygenerowano tory dla {hex_id}: {filename}")
+        except Exception as e:
+            messagebox.showerror(
+                "Błąd generacji",
+                f"Nie udało się wygenerować torów dla {hex_id}!\n{str(e)}",
+                parent=self.root
+            )
+
+    def _get_side_between_hexes(self, from_hex: str, to_hex: str) -> str | None:
+        """Zwraca bok po stronie to_hex względem from_hex."""
+        delta = self._get_hex_delta(from_hex, to_hex)
+        return AXIAL_DIRECTION_TO_SIDE.get(delta)
+
+    def _get_hex_delta(self, from_hex: str, to_hex: str) -> tuple[int, int]:
+        """Zwraca różnicę współrzędnych axial między heksami."""
+        q1, r1 = map(int, from_hex.split(","))
+        q2, r2 = map(int, to_hex.split(","))
+        return (q2 - q1, r2 - r1)
+
+    def _are_hexes_neighbors(self, hex1: str, hex2: str) -> bool:
+        """Sprawdza czy dwa heksy sąsiadują."""
+        delta = self._get_hex_delta(hex1, hex2)
+        return delta in AXIAL_DIRECTION_TO_SIDE
+
+    def _draw_railway_overlay(self) -> None:
+        """Rysuje overlay trasy torów."""
+        self.canvas.delete("railway_overlay")
+        
+        if not self.railway_mode_active:
+            return
+        
+        # Rysuj linię łączącą heksy
+        if len(self.railway_path) >= 2:
+            points = []
+            for hex_id in self.railway_path:
+                if hex_id in self.hex_centers:
+                    cx, cy = self.hex_centers[hex_id]
+                    points.extend([cx, cy])
+            
+            if len(points) >= 4:
+                self.canvas.create_line(
+                    *points,
+                    fill="#4a4a4a",
+                    width=4,
+                    dash=(10, 5),
+                    tags=("railway_overlay",)
+                )
+        
+        # Rysuj okręgi na heksach
+        for idx, hex_id in enumerate(self.railway_path):
+            if hex_id not in self.hex_centers:
+                continue
+            cx, cy = self.hex_centers[hex_id]
+            s = self.hex_size
+            
+            # Kolor zależny od pozycji
+            if idx == 0:
+                color = "#2a2a2a"  # Ciemnoszary - początek
+            elif idx == len(self.railway_path) - 1:
+                color = "#7a7a7a"  # Jasnoszary - koniec
+            else:
+                color = "#4a4a4a"  # Szary - środek
+            
+            # Rysuj okrąg
+            r = s * 0.3
+            self.canvas.create_oval(
+                cx - r, cy - r, cx + r, cy + r,
+                outline=color, width=3, fill="",
+                tags=("railway_overlay",),
+            )
+            
+            # Numer kolejny
+            self.canvas.create_text(
+                cx, cy,
+                text=str(idx + 1),
+                fill=color,
+                font=("Arial", 10, "bold"),
+                tags=("railway_overlay",),
+            )
+        
+        # Podświetl dozwolone heksy w trybie rozjazdu
+        if self.railway_junction_mode and self.railway_junction_target_hex:
+            if self.railway_junction_target_hex in self.hex_centers:
+                tq, tr = map(int, self.railway_junction_target_hex.split(","))
+                
+                for delta, side in AXIAL_DIRECTION_TO_SIDE.items():
+                    neighbor_id = f"{tq + delta[0]},{tr + delta[1]}"
+                    if neighbor_id in self.hex_centers:
+                        cx, cy = self.hex_centers[neighbor_id]
+                        s = self.hex_size
+                        r = s * 0.4
+                        
+                        self.canvas.create_oval(
+                            cx - r, cy - r, cx + r, cy + r,
+                            outline="#00ff00", width=2, fill="#00ff0030",
+                            tags=("railway_overlay",)
+                        )
 
 
     def open_selected_hex_texture_editor(self):

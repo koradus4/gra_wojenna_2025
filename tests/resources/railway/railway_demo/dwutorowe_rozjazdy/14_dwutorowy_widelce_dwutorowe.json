@@ -1,0 +1,13 @@
+{
+  "grid_size": 64,
+  "export_size": 512,
+  "entry_side": "top_left",
+  "exit_side": "bottom_right",
+  "railway_type": "dwutorowy",
+  "seed": 502,
+  "junctions": [
+    "top",
+    "bottom"
+  ],
+  "is_straight": true
+}
