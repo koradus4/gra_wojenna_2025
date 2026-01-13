@@ -71,6 +71,18 @@ except ImportError:
     generate_railway = None
     RAILWAY_HEX_SIDES = ()
     SIDE_OPPOSITE = {}
+
+# Import generatora jezior
+try:
+    from generate_lake_hex_tile import (
+        LakeOptions,
+        render_lake,
+        HEX_SIDES as LAKE_HEX_SIDES,
+    )
+except ImportError:
+    LakeOptions = None
+    render_lake = None
+    LAKE_HEX_SIDES = ()
     
 try:
     from hex_feature_semantics import normalize_railway_options, normalize_road_options
@@ -137,6 +149,9 @@ RIVER_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ROAD_OUTPUT_DIR = HEX_TEXTURE_DIR / "road_tool"
 ROAD_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+LAKE_OUTPUT_DIR = HEX_TEXTURE_DIR / "lake_tool"
+LAKE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Konfiguracja dróg
 ROAD_TYPE_LABELS = {
@@ -810,6 +825,18 @@ class MapEditor:
         self.railway_junction_mode = False
         self.railway_junction_target_hex: str | None = None
         self.railway_junctions: dict[str, list[str]] = {}  # {hex_id: ["top", "top_right"]}
+
+        # --- Narzędzie jezior ---
+        self.lake_mode_active = False
+        self.lake_cluster: list[str] = []  # Lista heksów w klastrze jeziora
+        self.lake_mode_var = tk.StringVar(value="single")  # "single" lub "multi"
+        self.lake_size_var = tk.StringVar(value="średnie")  # rozmiar jeziora
+        self.lake_outflow_width_var = tk.DoubleVar(value=8.0)  # szerokość odpływu
+        self.lake_auto_connect_var = tk.BooleanVar(value=True)  # auto-łączenie z rzekami
+        self.lake_status_var = tk.StringVar(value="Tryb jezior nieaktywny")
+        self.lake_grid_var = tk.StringVar(value=str(DEFAULT_HEX_TEXTURE_GRID_SIZE))
+        self.lake_seed_var = tk.IntVar(value=random.randint(0, 9999))
+        self._lake_overlay_ids: list[int] = []  # ID elementów canvas overlay
 
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
@@ -2222,6 +2249,143 @@ class MapEditor:
 
         self._set_road_section_visibility(False)
 
+        # === SEKCJA JEZIOR ===
+        self._lake_section_expanded = False
+        
+        self.lake_section_toggle_button = tk.Button(
+            self.upper_frame,
+            text="[+] Jeziora (beta)",
+            command=self.toggle_lake_section_visibility,
+            bg="#1a4d5c",
+            fg="white",
+            activebackground="#2a5d6c",
+            activeforeground="white",
+            anchor="w",
+            font=("Arial", 9, "bold"),
+        )
+        self.lake_section_toggle_button.pack(fill=tk.X, padx=5, pady=2)
+
+        # Kontener na rozwijaną sekcję jezior
+        self.lake_section_container = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        self.lake_frame = tk.Frame(
+            self.lake_section_container, bg="darkolivegreen"
+        )
+        self.lake_frame.pack(fill=tk.X, pady=(2, 0))
+
+        # Przycisk trybu
+        self.toggle_lake_mode_button = tk.Button(
+            self.lake_frame, text="Włącz tryb jezior",
+            command=self.toggle_lake_mode,
+            bg="#1a4d5c", fg="white",
+            activebackground="#2a5d6c", activeforeground="white",
+        )
+        self.toggle_lake_mode_button.pack(fill=tk.X, padx=4, pady=2)
+
+        # Status
+        lake_status_label = tk.Label(
+            self.lake_frame, textvariable=self.lake_status_var,
+            bg="darkolivegreen", fg="#b3e5fc", font=("Arial", 8),
+        )
+        lake_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        # Tryb: single vs multi-hex
+        lake_mode_frame = tk.LabelFrame(
+            self.lake_frame,
+            text="Tryb budowania",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        lake_mode_frame.pack(fill=tk.X, padx=4, pady=(0, 6))
+
+        tk.Radiobutton(
+            lake_mode_frame,
+            text="Jednoheksowe (kliknij → gotowe)",
+            variable=self.lake_mode_var,
+            value="single",
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="#2f4d34",
+            activebackground="darkolivegreen",
+            activeforeground="white",
+        ).pack(anchor="w", padx=4, pady=2)
+
+        tk.Radiobutton(
+            lake_mode_frame,
+            text="Wieloheksowe (klaster, aż 3 heksy)",
+            variable=self.lake_mode_var,
+            value="multi",
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="#2f4d34",
+            activebackground="darkolivegreen",
+            activeforeground="white",
+        ).pack(anchor="w", padx=4, pady=2)
+
+        # Rozmiar jeziora
+        lake_size_frame = tk.Frame(self.lake_frame, bg="darkolivegreen")
+        lake_size_frame.pack(fill=tk.X, padx=4, pady=2)
+        tk.Label(lake_size_frame, text="Rozmiar:", bg="darkolivegreen", fg="white", width=12, anchor="w").pack(side=tk.LEFT)
+        lake_size_combo = ttk.Combobox(
+            lake_size_frame, textvariable=self.lake_size_var,
+            values=["mały staw", "średnie", "duże zbiornik"], state="readonly", width=18,
+        )
+        lake_size_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Szerokość odpływu
+        lake_outflow_frame = tk.Frame(self.lake_frame, bg="darkolivegreen")
+        lake_outflow_frame.pack(fill=tk.X, padx=4, pady=2)
+        tk.Label(lake_outflow_frame, text="Odpływ (px):", bg="darkolivegreen", fg="white", width=12, anchor="w").pack(side=tk.LEFT)
+        lake_outflow_scale = tk.Scale(
+            lake_outflow_frame, from_=4.0, to=16.0, resolution=1.0,
+            orient=tk.HORIZONTAL, variable=self.lake_outflow_width_var,
+            bg="darkolivegreen", fg="white", highlightthickness=0,
+        )
+        lake_outflow_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Auto-łączenie z rzekami
+        lake_autoconnect_cb = tk.Checkbutton(
+            self.lake_frame,
+            text="🔗 Auto-łącz z rzekami/dopływami",
+            variable=self.lake_auto_connect_var,
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="#2f4d34",
+            activebackground="darkolivegreen",
+            activeforeground="white",
+        )
+        lake_autoconnect_cb.pack(fill=tk.X, padx=4, pady=(2, 6))
+
+        # Przyciski akcji
+        lake_actions = tk.Frame(self.lake_frame, bg="darkolivegreen")
+        lake_actions.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        self.lake_generate_btn = tk.Button(
+            lake_actions,
+            text="🌊 Generuj jezioro",
+            command=self.generate_lake_cluster,
+            bg="#0d7377",
+            fg="white",
+            activebackground="#14a085",
+            activeforeground="white",
+            state=tk.DISABLED,
+        )
+        self.lake_generate_btn.pack(fill=tk.X, pady=(0, 2))
+
+        self.lake_clear_btn = tk.Button(
+            lake_actions,
+            text="🗑️ Wyczyść klaster",
+            command=self.clear_lake_cluster,
+            bg="#4a4a4a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.lake_clear_btn.pack(fill=tk.X, pady=(0, 2))
+
+        self._set_lake_section_visibility(False)
+
         # === SEKCJA TERENU (ROZWIJANA) ===
         self._terrain_expanded = False
         self.terrain_toggle_button = tk.Button(
@@ -3577,6 +3741,10 @@ class MapEditor:
         if self.railway_path or self.railway_junction_mode:
             self._draw_railway_overlay()
         
+        # Overlay klastra jezior
+        if self.lake_mode_active and self.lake_cluster:
+            self._draw_lake_overlay()
+        
         # Wizualizacja trybu skrzyżowania
         if self.road_crossroads_mode and self.selected_hex:
             self._draw_crossroads_overlay()
@@ -3707,6 +3875,12 @@ class MapEditor:
         if self.railway_mode_active:
             if hex_id:
                 self._railway_handle_left_click(hex_id)
+            return
+
+        # Obsługa trybu jezior
+        if self.lake_mode_active:
+            if hex_id:
+                self._lake_handle_left_click(hex_id)
             return
 
         if hex_id:
@@ -7042,6 +7216,631 @@ class MapEditor:
                             outline="#00ff00", width=2, fill="#00ff0030",
                             tags=("railway_overlay",)
                         )
+
+    # === FUNKCJE JEZIOR ===
+
+    def toggle_lake_section_visibility(self) -> None:
+        """Przełącza widoczność sekcji jezior."""
+        self._lake_section_expanded = not self._lake_section_expanded
+        if self._lake_section_expanded:
+            self.lake_section_container.pack(fill=tk.X, padx=5, pady=(0, 4), after=self.lake_section_toggle_button)
+            self.lake_section_toggle_button.config(text="[-] Jeziora (beta)")
+        else:
+            self.lake_section_container.pack_forget()
+            self.lake_section_toggle_button.config(text="[+] Jeziora (beta)")
+
+    def _set_lake_section_visibility(self, visible: bool) -> None:
+        """Ustawia widoczność sekcji jezior."""
+        self._lake_section_expanded = visible
+        if visible:
+            self.lake_section_container.pack(fill=tk.X, padx=5, pady=(0, 4), after=self.lake_section_toggle_button)
+            self.lake_section_toggle_button.config(text="[-] Jeziora (beta)")
+        else:
+            self.lake_section_container.pack_forget()
+            self.lake_section_toggle_button.config(text="[+] Jeziora (beta)")
+
+    def toggle_lake_mode(self) -> None:
+        """Włącza/wyłącza tryb jezior."""
+        if not render_lake:
+            messagebox.showerror(
+                "Błąd",
+                "Generator jezior nie jest dostępny (brak modułu generate_lake_hex_tile.py)",
+                parent=self.root,
+            )
+            return
+
+        self.lake_mode_active = not self.lake_mode_active
+
+        if self.lake_mode_active:
+            # Wyłącz inne tryby
+            if self.river_mode_active:
+                self.toggle_river_mode()
+            if self.road_mode_active:
+                self.toggle_road_mode()
+            if self.railway_mode_active:
+                self.toggle_railway_mode()
+
+            self.toggle_lake_mode_button.config(text="Wyłącz tryb jezior", bg="#0d7377")
+            self.lake_status_var.set("Kliknij heks aby rozpocząć jezioro")
+            self.set_status("Tryb jezior włączony")
+        else:
+            self.toggle_lake_mode_button.config(text="Włącz tryb jezior", bg="#1a4d5c")
+            self.lake_status_var.set("Tryb jezior nieaktywny")
+            self.clear_lake_cluster()
+            self.set_status("Tryb jezior wyłączony")
+
+        self._update_lake_ui_state()
+        self.draw_grid()
+
+    def _update_lake_ui_state(self) -> None:
+        """Aktualizuje stan przycisków UI jezior."""
+        if self.lake_mode_active:
+            mode = self.lake_mode_var.get()
+            cluster_size = len(self.lake_cluster)
+
+            if mode == "single":
+                # Tryb single: generuj od razu po kliknięciu, nie ma przycisku
+                self.lake_generate_btn.config(state=tk.DISABLED)
+                self.lake_clear_btn.config(state=tk.DISABLED)
+            else:
+                # Tryb multi: przycisk generuj włączony gdy mamy 1-3 heksy
+                if 1 <= cluster_size <= 7:
+                    self.lake_generate_btn.config(state=tk.NORMAL)
+                else:
+                    self.lake_generate_btn.config(state=tk.DISABLED)
+
+                if cluster_size > 0:
+                    self.lake_clear_btn.config(state=tk.NORMAL)
+                else:
+                    self.lake_clear_btn.config(state=tk.DISABLED)
+        else:
+            self.lake_generate_btn.config(state=tk.DISABLED)
+            self.lake_clear_btn.config(state=tk.DISABLED)
+
+    def _lake_handle_left_click(self, hex_id: str) -> None:
+        """Obsługuje LPM w trybie jezior."""
+        mode = self.lake_mode_var.get()
+        print(f"[LAKE] Kliknięto {hex_id}, mode={mode}, cluster_size={len(self.lake_cluster)}")
+
+        if mode == "single":
+            # Tryb jednoheksowy: od razu generuj
+            if self._is_hex_valid_for_lake(hex_id):
+                self.lake_cluster = [hex_id]
+                self.generate_lake_cluster()
+            else:
+                print(f"[LAKE] Heks {hex_id} nieważny dla single lake")
+                messagebox.showwarning(
+                    "Niedozwolony heks",
+                    "Ten heks ma już zawartość lub nie nadaje się na jezioro.",
+                    parent=self.root,
+                )
+        else:
+            # Tryb multi: dodaj do klastra
+            if len(self.lake_cluster) >= 7:
+                print(f"[LAKE] Klaster pełny (7/7)")
+                messagebox.showinfo(
+                    "Klaster pełny",
+                    "Klaster może mieć maksymalnie 7 heksów (center + sąsiedzi). Użyj 'Generuj jezioro' lub 'Wyczyść klaster'.",
+                    parent=self.root,
+                )
+                return
+
+            if hex_id in self.lake_cluster:
+                # Usuń z klastra
+                print(f"[LAKE] Usuwam {hex_id} z klastra")
+                self.lake_cluster.remove(hex_id)
+                self.lake_status_var.set(f"Klaster: {len(self.lake_cluster)} heks(ów)")
+            elif self._can_add_to_lake_cluster(hex_id):
+                # Dodaj do klastra
+                print(f"[LAKE] Dodaję {hex_id} do klastra")
+                self.lake_cluster.append(hex_id)
+                self.lake_status_var.set(f"Klaster: {len(self.lake_cluster)} heks(ów). Kliknij więcej lub 'Generuj'")
+            else:
+                print(f"[LAKE] {hex_id} nie może być dodany - valid={self._is_hex_valid_for_lake(hex_id)}, cluster={self.lake_cluster}")
+                messagebox.showwarning(
+                    "Niedozwolony heks",
+                    "Heks musi sąsiadować z klastrem i nie może mieć zawartości.",
+                    parent=self.root,
+                )
+
+            print(f"[LAKE] Stan klastra: {self.lake_cluster}")
+            self._update_lake_ui_state()
+            self._draw_lake_overlay()
+
+    def _is_hex_valid_for_lake(self, hex_id: str) -> bool:
+        """Sprawdza czy heks może być jeziorem (nie ma tekstury/rzeki/drogi/toru)."""
+        if hex_id not in self.hex_data:
+            return True  # Pusty heks OK
+
+        terrain = self.hex_data[hex_id]
+        
+        # Sprawdź czy ma już teksturę
+        if terrain.get("texture"):
+            return False
+        
+        # Sprawdź czy ma rzekę/drogę/tory
+        if any(key.startswith(("river_", "road_", "railway_")) for key in terrain):
+            return False
+
+        return True
+
+    def _can_add_to_lake_cluster(self, hex_id: str) -> bool:
+        """Sprawdza czy heks może być dodany do klastra."""
+        if not self._is_hex_valid_for_lake(hex_id):
+            return False
+
+        if not self.lake_cluster:
+            return True  # Pierwszy heks zawsze OK
+
+        # Sprawdź czy sąsiaduje z którymkolwiek heksem w klastrze
+        for cluster_hex in self.lake_cluster:
+            if self._are_hexes_neighbors(hex_id, cluster_hex):
+                return True
+
+        return False
+
+    def generate_lake_cluster(self) -> None:
+        """Generuje jezioro dla wszystkich heksów w klastrze."""
+        if not self.lake_cluster:
+            messagebox.showinfo("Brak klastra", "Najpierw dodaj heksy do klastra.", parent=self.root)
+            return
+
+        cluster_size = len(self.lake_cluster)
+
+        try:
+            grid_size = int(self.lake_grid_var.get())
+        except (TypeError, ValueError):
+            grid_size = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+        if cluster_size == 1:
+            # Jednoheksowe jezioro
+            self._generate_single_lake(self.lake_cluster[0], grid_size)
+        else:
+            # Spójny klaster cluster7: center + 1..6 bezpośrednich sąsiadów (do 7 heksów)
+            self._generate_lake_cluster_cluster7(grid_size)
+
+        self.clear_lake_cluster()
+        self.draw_grid()
+        self.auto_save_and_export("wygenerowano jezioro")
+        self.set_status(f"Wygenerowano jezioro ({cluster_size} heks(ów))")
+
+    def _generate_single_lake(self, hex_id: str, grid_size: int, override_seed: int | None = None) -> None:
+        """Generuje jednoheksowe jezioro."""
+        # Sprawdź auto-connect
+        outflow_side, outflow_width = self._detect_lake_auto_connect(hex_id)
+
+        # Nazwa pliku
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        seed = override_seed if override_seed is not None else self.lake_seed_var.get()
+        filename = f"lake_{hex_id.replace(',', '_')}_{timestamp}_s{seed}.png"
+        filepath = LAKE_OUTPUT_DIR / filename
+
+        # Przygotuj parametry
+        # Rozmiar single
+        size_label = (self.lake_size_var.get() or "średnie").strip().lower()
+        single_radius = {
+            "małe": 0.26,
+            "male": 0.26,
+            "średnie": 0.34,
+            "srednie": 0.34,
+            "duże": 0.42,
+            "duze": 0.42,
+        }.get(size_label, 0.34)
+
+        lake_opts_params = {
+            "grid_size": grid_size,
+            "background": None,
+            "cluster_tile": None,  # single lake
+            "seed": seed,
+            "lake_radius": single_radius,
+        }
+        
+        if outflow_side:
+            lake_opts_params["outflow_side"] = outflow_side
+            lake_opts_params["outflow_width"] = outflow_width
+        
+        options = LakeOptions(**lake_opts_params)
+
+        try:
+            image, metadata = render_lake(options)
+            
+            # Zapisz obraz
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            image.save(filepath)
+            
+            # Zapisz metadane
+            terrain = self.hex_data.setdefault(hex_id, {})
+            terrain["texture"] = to_rel(str(filepath))
+            terrain["lake_mode"] = "lake1"
+            terrain["lake_outflow_side"] = outflow_side
+            terrain["lake_outflow_width"] = outflow_width if outflow_side else None
+            terrain["lake_seed"] = seed
+
+            print(f"✓ Wygenerowano jezioro dla {hex_id}: {filename}")
+        except Exception as e:
+            messagebox.showerror(
+                "Błąd generacji",
+                f"Nie udało się wygenerować jeziora!\n{str(e)}",
+                parent=self.root,
+            )
+
+    def _generate_lake_cluster_3hex(self, grid_size: int) -> None:
+        """Generuje klaster 3-heksowy. Środkowy heks ma outflow, pozostałe są kontynuacją."""
+        if len(self.lake_cluster) != 3:
+            messagebox.showerror(
+                "Błąd klastra",
+                "Klaster 3-heksowy wymaga dokładnie 3 heksów!",
+                parent=self.root,
+            )
+            return
+
+        # Zachowaj kompatybilność: 3-heksowy klaster jest szczególnym przypadkiem cluster7.
+        self._generate_lake_cluster_cluster7(grid_size, require_size=3)
+        return
+
+    def _generate_lake_cluster_cluster7(self, grid_size: int, require_size: int | None = None) -> None:
+        """Generuje spójny klaster jeziora dla układu cluster7.
+
+        Obsługuje 2..7 heksów: jeden center + 1..6 bezpośrednich sąsiadów.
+        Jeśli require_size jest ustawione, wymusza dokładną liczbę heksów.
+        """
+        if require_size is not None and len(self.lake_cluster) != require_size:
+            messagebox.showerror(
+                "Błąd klastra",
+                f"Klaster wymaga dokładnie {require_size} heksów!",
+                parent=self.root,
+            )
+            return
+
+        if len(self.lake_cluster) < 2:
+            messagebox.showerror(
+                "Błąd klastra",
+                "Klaster wymaga co najmniej 2 heksów (center + sąsiad).",
+                parent=self.root,
+            )
+            return
+
+        if len(self.lake_cluster) > 7:
+            messagebox.showerror(
+                "Błąd klastra",
+                "Klaster może mieć maksymalnie 7 heksów (center + 6 sąsiadów).",
+                parent=self.root,
+            )
+            return
+
+        # Wybierz center automatycznie: heks, który sąsiaduje ze wszystkimi pozostałymi.
+        center_hex: str | None = None
+        neighbor_tile_for_hex: dict[str, str] = {}
+
+        def _side_order(side: str) -> int:
+            try:
+                return list(LAKE_HEX_SIDES).index(side)
+            except Exception:
+                return 999
+
+        for candidate in self.lake_cluster:
+            mapping: dict[str, str] = {}
+            ok = True
+            for other in self.lake_cluster:
+                if other == candidate:
+                    continue
+                tile_name = self._get_side_between_hexes(candidate, other)
+                if not tile_name:
+                    ok = False
+                    break
+                mapping[other] = tile_name
+            if ok:
+                center_hex = candidate
+                neighbor_tile_for_hex = mapping
+                break
+
+        if not center_hex:
+            messagebox.showerror(
+                "Błąd klastra",
+                "Klaster musi mieć formę: 1 center + sąsiedzi bezpośredni (układ cluster7).\n"
+                "Tip: kliknij najpierw heks, który ma być środkiem, a potem sąsiadów.",
+                parent=self.root,
+            )
+            return
+
+        neighbors = [h for h in self.lake_cluster if h != center_hex]
+
+        # cluster_neighbors: lista pozycji (np. bottom, top_left...) aktywnych względem center
+        neighbor_positions = [neighbor_tile_for_hex[h] for h in neighbors if h in neighbor_tile_for_hex]
+        # Stabilna kolejność (dla deterministycznych metadanych / łatwiejszego replay)
+        neighbor_positions_sorted = sorted(neighbor_positions, key=_side_order)
+        cluster_neighbors_tuple = tuple(neighbor_positions_sorted)
+
+        # Sprawdź auto-connect dla center
+        outflow_side, outflow_width = self._detect_lake_auto_connect(center_hex)
+
+        # Rozmiar klastrowy (mnożnik promienia pola)
+        size_label = (self.lake_size_var.get() or "średnie").strip().lower()
+        cluster_scale = {
+            "małe": 0.90,
+            "male": 0.90,
+            "średnie": 1.00,
+            "srednie": 1.00,
+            "duże": 1.12,
+            "duze": 1.12,
+        }.get(size_label, 1.00)
+
+        # Global seed
+        seed = self.lake_seed_var.get()
+        cluster_seed = seed
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        print(f"[LAKE CLUSTER] Center: {center_hex}, Neighbors: {neighbors}")
+        print(f"[LAKE CLUSTER] Cluster positions: center + {cluster_neighbors_tuple}")
+
+        # --- center ---
+        filename_center = f"lake_cluster_center_{center_hex.replace(',', '_')}_{timestamp}_s{cluster_seed}.png"
+        filepath_center = LAKE_OUTPUT_DIR / filename_center
+
+        center_opts_params = {
+            "grid_size": grid_size,
+            "background": None,
+            "cluster_tile": "center",
+            "cluster_seed": cluster_seed,
+            "cluster_neighbors": cluster_neighbors_tuple,
+            "lake_radius": float(cluster_scale),
+            "seed": cluster_seed,
+        }
+        if outflow_side:
+            center_opts_params["outflow_side"] = outflow_side
+            center_opts_params["outflow_width"] = outflow_width
+
+        options_center = LakeOptions(**center_opts_params)
+
+        try:
+            image_center, _metadata_center = render_lake(options_center)
+            filepath_center.parent.mkdir(parents=True, exist_ok=True)
+            image_center.save(filepath_center)
+
+            terrain_center = self.hex_data.setdefault(center_hex, {})
+            terrain_center["texture"] = to_rel(str(filepath_center))
+            terrain_center["lake_mode"] = "lake3" if len(self.lake_cluster) == 3 else "lake_cluster7"
+            terrain_center["lake_cluster_tile"] = "center"
+            terrain_center["lake_cluster_seed"] = cluster_seed
+            terrain_center["lake_cluster_neighbors"] = list(cluster_neighbors_tuple)
+            terrain_center["lake_outflow_side"] = outflow_side
+            terrain_center["lake_outflow_width"] = outflow_width if outflow_side else None
+            terrain_center["lake_seed"] = cluster_seed
+
+            print(f"✓ Wygenerowano center klastra: {filename_center}")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wygenerować center klastra!\n{str(e)}", parent=self.root)
+            return
+
+        # --- neighbors ---
+        for neighbor_hex in neighbors:
+            tile_name = neighbor_tile_for_hex.get(neighbor_hex)
+            if not tile_name:
+                continue
+
+            filename_neighbor = f"lake_cluster_{tile_name}_{neighbor_hex.replace(',', '_')}_{timestamp}_s{cluster_seed}.png"
+            filepath_neighbor = LAKE_OUTPUT_DIR / filename_neighbor
+
+            options_neighbor = LakeOptions(
+                grid_size=grid_size,
+                background=None,
+                cluster_tile=tile_name,
+                cluster_seed=cluster_seed,
+                cluster_neighbors=cluster_neighbors_tuple,
+                lake_radius=float(cluster_scale),
+                seed=cluster_seed,
+            )
+
+            try:
+                image_neighbor, _metadata_neighbor = render_lake(options_neighbor)
+                filepath_neighbor.parent.mkdir(parents=True, exist_ok=True)
+                image_neighbor.save(filepath_neighbor)
+
+                terrain_neighbor = self.hex_data.setdefault(neighbor_hex, {})
+                terrain_neighbor["texture"] = to_rel(str(filepath_neighbor))
+                terrain_neighbor["lake_mode"] = "lake3" if len(self.lake_cluster) == 3 else "lake_cluster7"
+                terrain_neighbor["lake_cluster_tile"] = tile_name
+                terrain_neighbor["lake_cluster_seed"] = cluster_seed
+                terrain_neighbor["lake_cluster_neighbors"] = list(cluster_neighbors_tuple)
+                terrain_neighbor["lake_seed"] = cluster_seed
+
+                print(f"✓ Wygenerowano neighbor klastra: {filename_neighbor}")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się wygenerować neighbor!\n{str(e)}", parent=self.root)
+
+        # Sprawdź auto-connect dla center
+        outflow_side, outflow_width = self._detect_lake_auto_connect(center_hex)
+
+        # Global seed
+        seed = self.lake_seed_var.get()
+        cluster_seed = seed
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # cluster_neighbors to DWIE nazwy pozycji z układu cluster7 (top/bottom/top_left/...)
+        neighbor_positions: list[str] = []
+        neighbor_tile_for_hex: dict[str, str] = {}
+        for neighbor_hex in neighbors:
+            tile_name = self._get_side_between_hexes(center_hex, neighbor_hex)
+            if tile_name:
+                neighbor_positions.append(tile_name)
+                neighbor_tile_for_hex[neighbor_hex] = tile_name
+
+        if len(neighbor_positions) != 2:
+            messagebox.showerror(
+                "Błąd klastra",
+                f"Klaster musi składać się z center + 2 bezpośrednich sąsiadów. Wyliczone pozycje: {neighbor_positions}",
+                parent=self.root,
+            )
+            return
+
+        cluster_neighbors_tuple = (neighbor_positions[0], neighbor_positions[1])
+        
+        print(f"[LAKE CLUSTER] Center: {center_hex}, Neighbors: {neighbors}")
+        print(f"[LAKE CLUSTER] Cluster positions: center + {cluster_neighbors_tuple}")
+        
+        filename_center = f"lake_cluster_center_{center_hex.replace(',', '_')}_{timestamp}_s{cluster_seed}.png"
+        filepath_center = LAKE_OUTPUT_DIR / filename_center
+
+        # Przygotuj parametry center - dla lake3 używamy większego lake_radius
+        center_opts_params = {
+            "grid_size": grid_size,
+            "background": None,
+            "cluster_tile": "center",
+            "cluster_seed": cluster_seed,
+            "cluster_neighbors": cluster_neighbors_tuple,
+            "lake_radius": 1.0,  # dla lake3 cluster
+            "seed": cluster_seed,
+        }
+        
+        if outflow_side:
+            center_opts_params["outflow_side"] = outflow_side
+            center_opts_params["outflow_width"] = outflow_width
+        
+        options_center = LakeOptions(**center_opts_params)
+
+        try:
+            image_center, metadata_center = render_lake(options_center)
+            filepath_center.parent.mkdir(parents=True, exist_ok=True)
+            image_center.save(filepath_center)
+            
+            terrain_center = self.hex_data.setdefault(center_hex, {})
+            terrain_center["texture"] = to_rel(str(filepath_center))
+            terrain_center["lake_mode"] = "lake3"
+            terrain_center["lake_cluster_tile"] = "center"
+            terrain_center["lake_cluster_seed"] = cluster_seed
+            terrain_center["lake_cluster_neighbors"] = list(cluster_neighbors_tuple)
+            terrain_center["lake_outflow_side"] = outflow_side
+            terrain_center["lake_outflow_width"] = outflow_width if outflow_side else None
+            terrain_center["lake_seed"] = cluster_seed
+
+            print(f"✓ Wygenerowano center klastra: {filename_center}")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wygenerować center klastra!\n{str(e)}", parent=self.root)
+            return
+
+        # Generuj 2 sąsiadów - każdy MUSI mieć własny cluster_tile (np. bottom_left/bottom)
+        for neighbor_hex in neighbors:
+            tile_name = neighbor_tile_for_hex.get(neighbor_hex)
+            if not tile_name:
+                continue
+
+            filename_neighbor = f"lake_cluster_{tile_name}_{neighbor_hex.replace(',', '_')}_{timestamp}_s{cluster_seed}.png"
+            filepath_neighbor = LAKE_OUTPUT_DIR / filename_neighbor
+
+            options_neighbor = LakeOptions(
+                grid_size=grid_size,
+                background=None,
+                cluster_tile=tile_name,
+                cluster_seed=cluster_seed,
+                cluster_neighbors=cluster_neighbors_tuple,
+                lake_radius=1.0,  # dla lake3 cluster
+                seed=cluster_seed,
+            )
+
+            try:
+                image_neighbor, metadata_neighbor = render_lake(options_neighbor)
+                filepath_neighbor.parent.mkdir(parents=True, exist_ok=True)
+                image_neighbor.save(filepath_neighbor)
+                
+                terrain_neighbor = self.hex_data.setdefault(neighbor_hex, {})
+                terrain_neighbor["texture"] = to_rel(str(filepath_neighbor))
+                terrain_neighbor["lake_mode"] = "lake3"
+                terrain_neighbor["lake_cluster_tile"] = tile_name
+                terrain_neighbor["lake_cluster_seed"] = cluster_seed
+                terrain_neighbor["lake_cluster_neighbors"] = list(cluster_neighbors_tuple)
+                terrain_neighbor["lake_seed"] = cluster_seed
+
+                print(f"✓ Wygenerowano neighbor klastra: {filename_neighbor}")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się wygenerować neighbor!\n{str(e)}", parent=self.root)
+
+    def _detect_lake_auto_connect(self, hex_id: str) -> tuple[str | None, float | None]:
+        """Wykrywa czy sąsiednie heksy mają rzeki/dopływy i zwraca outflow_side + width."""
+        if not self.lake_auto_connect_var.get():
+            return None, None
+
+        # Sprawdź 6 sąsiadów
+        q, r = map(int, hex_id.split(","))
+        
+        for delta, side_name in AXIAL_DIRECTION_TO_SIDE.items():
+            neighbor_id = f"{q + delta[0]},{r + delta[1]}"
+            
+            if neighbor_id not in self.hex_data:
+                continue
+            
+            neighbor_terrain = self.hex_data[neighbor_id]
+            
+            # Sprawdź entry_side rzeki
+            river_entry = neighbor_terrain.get("river_entry_side")
+            if river_entry:
+                # Rzeka wchodzi od strony jeziora → lake ma outflow w tym kierunku
+                opposite_side = SIDE_OPPOSITE.get(side_name)
+                if river_entry == opposite_side:
+                    # bank_offset * 6.0 = outflow_width
+                    bank_offset = neighbor_terrain.get("river_bank_offset", DEFAULT_BANK_OFFSET)
+                    outflow_width = bank_offset * 6.0
+                    print(f"[AUTO-CONNECT] Znaleziono rzekę w {neighbor_id}, entry={river_entry}, outflow={side_name}, width={outflow_width}")
+                    return side_name, outflow_width
+
+            # Sprawdź tributary w sąsiedzie
+            trib_entry = neighbor_terrain.get("tributary_entry_side")
+            if trib_entry:
+                opposite_side = SIDE_OPPOSITE.get(side_name)
+                if trib_entry == opposite_side:
+                    # tributary ma bank_offset_scale
+                    main_bank = neighbor_terrain.get("river_bank_offset", DEFAULT_BANK_OFFSET)
+                    trib_scale = neighbor_terrain.get("tributary_bank_offset_scale", 0.8)
+                    trib_bank = main_bank * trib_scale
+                    outflow_width = trib_bank * 6.0
+                    print(f"[AUTO-CONNECT] Znaleziono dopływ w {neighbor_id}, entry={trib_entry}, outflow={side_name}, width={outflow_width}")
+                    return side_name, outflow_width
+
+        # Nie znaleziono
+        return None, None
+
+    def clear_lake_cluster(self) -> None:
+        """Czyści klaster jezior."""
+        self.lake_cluster.clear()
+        self.lake_status_var.set("Kliknij heks aby rozpocząć jezioro" if self.lake_mode_active else "Tryb jezior nieaktywny")
+        self._clear_lake_overlay()
+        self._update_lake_ui_state()
+
+    def _draw_lake_overlay(self) -> None:
+        """Rysuje overlay klastra jezior (zielone checkmarki dla heksów w klastrze)."""
+        self._clear_lake_overlay()
+        
+        if not self.lake_mode_active or self.lake_mode_var.get() != "multi":
+            return
+
+        for hex_id in self.lake_cluster:
+            if hex_id not in self.hex_centers:
+                continue
+            cx, cy = self.hex_centers[hex_id]
+            s = self.hex_size
+            r = s * 0.4
+
+            # Zielony okrąg (bez alpha - Tkinter nie wspiera RGBA)
+            oval_id = self.canvas.create_oval(
+                cx - r, cy - r, cx + r, cy + r,
+                outline="#00ff00", width=3, fill="",
+            )
+            self._lake_overlay_ids.append(oval_id)
+
+            # Checkmark
+            text_id = self.canvas.create_text(
+                cx, cy,
+                text="✓",
+                fill="#00ff00",
+                font=("Arial", 16, "bold"),
+            )
+            self._lake_overlay_ids.append(text_id)
+
+    def _clear_lake_overlay(self) -> None:
+        """Usuwa overlay jezior z canvas."""
+        for item_id in self._lake_overlay_ids:
+            self.canvas.delete(item_id)
+        self._lake_overlay_ids.clear()
 
 
     def open_selected_hex_texture_editor(self):

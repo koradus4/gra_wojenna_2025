@@ -319,7 +319,9 @@ class LakeOptions:
 
     # Opcje klastrowe (spójny kształt na stykach)
     cluster_seed: Optional[int] = None
-    cluster_neighbors: Optional[Tuple[str, str]] = None
+    # Aktywne sąsiedztwo w trybie cluster7: dowolny podzbiór (1..6) z HEX_SIDES.
+    # Dla klasycznego lake3 będą to 2 elementy.
+    cluster_neighbors: Optional[Tuple[str, ...]] = None
     cluster_tile: Optional[str] = None  # nazwa kafla w cluster7: center/top/... 
 
 
@@ -364,20 +366,27 @@ def _cluster7_tile_centers(grid: int) -> Dict[str, Tuple[float, float]]:
     }
 
 
-def _global_lake_field_params(grid: int, seed: int, neighbors: Tuple[str, str]) -> Tuple[Tuple[float, float], float]:
+def _global_lake_field_params(grid: int, seed: int, neighbors: Tuple[str, ...]) -> Tuple[Tuple[float, float], float]:
     centers = _cluster7_tile_centers(grid)
-    chosen = ["center", neighbors[0], neighbors[1]]
-    pts = [centers[name] for name in chosen]
-    cx = sum(p[0] for p in pts) / 3.0
-    cy = sum(p[1] for p in pts) / 3.0
+    chosen = ["center", *list(neighbors)]
+    pts = [centers[name] for name in chosen if name in centers]
+    if not pts:
+        return (0.0, 0.0), (grid / 2.0)
 
-    # Dobierz promień tak, by jezioro było spójne na 3 kaflach,
-    # ale NIE wypełniało całych heksów (ma zostać naturalny brzeg).
-    # Pracujemy w układzie współrzędnych opartym o promień heksa (grid/2).
+    cx = sum(p[0] for p in pts) / float(len(pts))
+    cy = sum(p[1] for p in pts) / float(len(pts))
+
+    # Dobierz promień na podstawie geometrii aktywnych kafli:
+    # - licz max dystans od środka (centroid) do centrów aktywnych kafli
+    # - dodaj stały margines (0.25 * promień heksa), żeby zostały naturalne brzegi
+    # Ta heurystyka skaluje się do 2..7 heksów w cluster7 i daje sensowny lake3.
     hex_r = grid / 2.0
-    # 1.25 * (grid/2) daje spójne jezioro na 3 heksy, ale z naturalnymi brzegami
-    # (woda nie powinna "przykleić się" do całej krawędzi heksa na zewnątrz klastra).
-    base_radius = hex_r * 1.25
+    max_d = 0.0
+    for px, py in pts:
+        d = math.hypot(px - cx, py - cy)
+        if d > max_d:
+            max_d = d
+    base_radius = max_d + (hex_r * 0.25)
 
     # Lekka losowość, ale stabilna dla seed.
     rng = random.Random(seed + 1337)
@@ -420,6 +429,8 @@ def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts
     centers = _cluster7_tile_centers(grid)
     tile_offset = centers.get(opts.cluster_tile, (0.0, 0.0))
     lake_center, base_r = _global_lake_field_params(grid, int(opts.cluster_seed), opts.cluster_neighbors)
+    # W trybie klastrowym lake_radius jest mnożnikiem promienia pola (typowo 0.85..1.15).
+    base_r *= float(opts.lake_radius)
 
     # Pracujemy w układzie współrzędnych "środek heksa = (0,0)" dla każdego kafla,
     # a potem przesuwamy o offset środka kafla w klastrze. To zapewnia ciągłość

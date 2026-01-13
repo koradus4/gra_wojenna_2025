@@ -57,6 +57,8 @@ ekran_startowy.log
 assets/terrain/hex_painted/road_tool/
 assets/terrain/hex_painted/river_tool/
 assets/terrain/hex_painted/river_contours/
+assets/terrain/hex_painted/lake_tool/
+assets/terrain/hex_painted/railway_tool/
 
 # User-generated AI presets (ignore generated outputs)
 assets/terrain/presets/user_assets/bridge/
