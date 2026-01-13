@@ -81,6 +81,7 @@ projekt/
 - `engine/SILNIK_GRY_ANALIZA.md` – szczegółowy opis mechanik silnika.
 - `core/ANALIZA_FOLDERU_CORE.md` – analiza modułów `core/` i powiązań.
 - `docs/README.md` oraz `docs/TOKEN_BALANCING_GUIDE.md` – zasady balansowania jednostek.
+- `WSPOLPRACA_AI.md` – zasady współpracy i weryfikacji zmian (Copilot/workflow).
 
 ## 🔧 Kluczowe narzędzia developerskie
 - `scripts/` – automatyczne analizy logów, generator raportów PE.

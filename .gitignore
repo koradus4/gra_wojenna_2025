@@ -66,3 +66,5 @@ assets/terrain/presets/custom/*.png
 # Editor test outputs
 edytory/road_test_*.png
 edytory/road_test_*.json
+edytory/_hex_inspector_output/
+tools/_hex_inspector_output/
