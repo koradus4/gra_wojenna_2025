@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -97,13 +97,16 @@ class RoadOptions:
     grid_size: int
     background: Path | None
     entry_side: str
-    exit_side: str
+    # exit_side=None oznacza drogę zakończoną w heksie (dead-end / dojazd).
+    exit_side: str | None
     road_type: str = "gruntowa"  # gruntowa, brukowana, glowna, piaszczysta
     width: str = "średnia"       # wąska, średnia, szeroka
     noise_amplitude: float = 0.3  # Jak bardzo droga się wije (0-1)
     seed: int = 42
     # Opcjonalne skrzyżowanie - lista dodatkowych boków
     crossroads: List[str] | None = None
+    # Opcjonalny cap na zakończeniu (np. budynek) jako preset JSON z assets/terrain/presets/user_assets/...
+    endcap_preset: Path | None = None
 
 
 @dataclass 
@@ -112,6 +115,163 @@ class RoadResult:
     image_path: Path
     metadata_path: Path
     metadata: Dict[str, Any]
+
+
+def _normalize_road_options(options: RoadOptions) -> RoadOptions:
+    """Normalizuje opcje pod kątem realizmu i stabilności.
+
+    To jest "twarda" warstwa semantyki: działa niezależnie od tego,
+    czy caller to Hex Inspector, Map Editor czy skrypt.
+    """
+    if options.entry_side not in HEX_SIDES:
+        raise ValueError(f"Nieznany entry_side: {options.entry_side}")
+
+    exit_side = options.exit_side
+    if exit_side is not None:
+        if exit_side not in HEX_SIDES:
+            raise ValueError(f"Nieznany exit_side: {exit_side}")
+        if options.entry_side == exit_side:
+            raise ValueError("entry_side i exit_side muszą być różne")
+
+    road_type = options.road_type if options.road_type in ROAD_COLOR_PRESETS else "gruntowa"
+    width_key = options.width if options.width in ROAD_WIDTH_PRESETS else "średnia"
+
+    # Clamp (UI zwykle podaje 0-1, ale generator powinien być odporny).
+    noise_amplitude = float(options.noise_amplitude)
+    if noise_amplitude < 0.0:
+        noise_amplitude = 0.0
+    if noise_amplitude > 1.0:
+        noise_amplitude = 1.0
+
+    crossroads_in = list(options.crossroads) if options.crossroads else []
+    crossroads_out: List[str] = []
+    for side in crossroads_in:
+        if side not in HEX_SIDES:
+            continue
+        if side in (options.entry_side, exit_side):
+            continue
+        if side not in crossroads_out:
+            crossroads_out.append(side)
+    crossroads = crossroads_out or None
+
+    # Dead-end nie może mieć skrzyżowań.
+    if exit_side is None:
+        crossroads = None
+
+    # Semantyka: 'bardzo_szeroka' tylko dla prostej bez skrzyżowań.
+    is_straight = (exit_side is not None) and (SIDE_OPPOSITE.get(options.entry_side) == exit_side)
+    is_junction = bool(crossroads)
+
+    # Semantyka: 'piaszczysta' + 'bardzo_szeroka' wygląda jak plama.
+    if road_type == "piaszczysta" and width_key == "bardzo_szeroka":
+        width_key = "szeroka" if "szeroka" in ROAD_WIDTH_PRESETS else "średnia"
+
+    if width_key == "bardzo_szeroka" and (is_junction or not is_straight):
+        width_key = "szeroka" if "szeroka" in ROAD_WIDTH_PRESETS else "średnia"
+
+    if (
+        road_type == options.road_type
+        and width_key == options.width
+        and noise_amplitude == float(options.noise_amplitude)
+        and crossroads == options.crossroads
+        and exit_side is options.exit_side
+    ):
+        return options
+
+    return replace(
+        options,
+        road_type=road_type,
+        width=width_key,
+        noise_amplitude=noise_amplitude,
+        crossroads=crossroads,
+        exit_side=exit_side,
+    )
+
+
+def _dead_end_point(entry_pt: Tuple[float, float], center: Tuple[float, float], grid: int) -> Tuple[float, float]:
+    """Punkt zakończenia drogi wewnątrz heksa (dla exit_side=None)."""
+    # Punkt pomiędzy krawędzią a środkiem, dość blisko środka, żeby było miejsce na cap.
+    t = 0.45
+    x = center[0] + (entry_pt[0] - center[0]) * t
+    y = center[1] + (entry_pt[1] - center[1]) * t
+    # Minimalny clamp do wnętrza siatki
+    x = _clamp(x, 1.0, grid - 2.0)
+    y = _clamp(y, 1.0, grid - 2.0)
+    return (x, y)
+
+
+def _find_assets_root(path: Path) -> Optional[Path]:
+    for parent in path.resolve().parents:
+        if parent.name.lower() == "assets":
+            return parent
+    return None
+
+
+def _load_user_asset_canvas(meta_path: Path, target_grid: int) -> Tuple[Image.Image, Tuple[float, float]]:
+    """Ładuje preset user_asset (JSON+PNG) i zwraca canvas RGBA (target_grid x target_grid) + hotspot (x,y)."""
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    source_grid = int(meta.get("grid_size", target_grid) or target_grid)
+
+    assets_root = _find_assets_root(meta_path) or meta_path.parent
+    rel_image = str(meta.get("image") or "").replace("\\\\", "/")
+    if not rel_image:
+        raise ValueError(f"Preset bez pola 'image': {meta_path}")
+    image_path = (assets_root / rel_image).resolve() if not Path(rel_image).is_absolute() else Path(rel_image)
+    if not image_path.exists():
+        # fallback: obok json-a
+        image_path = meta_path.with_suffix(".png")
+
+    img = Image.open(image_path).convert("RGBA")
+
+    origin = meta.get("origin") or {}
+    size = meta.get("size") or {}
+    hotspot = meta.get("hotspot") or {}
+
+    try:
+        origin_row = int(round(origin.get("row", 0)))
+        origin_col = int(round(origin.get("col", 0)))
+        size_rows = int(round(size.get("rows", img.height)))
+        size_cols = int(round(size.get("cols", img.width)))
+        use_origin = True
+    except (TypeError, ValueError):
+        origin_row = 0
+        origin_col = 0
+        size_rows = img.height
+        size_cols = img.width
+        use_origin = False
+
+    size_rows = max(1, min(size_rows, source_grid))
+    size_cols = max(1, min(size_cols, source_grid))
+
+    if use_origin:
+        source_canvas = Image.new("RGBA", (source_grid, source_grid), (0, 0, 0, 0))
+        paste_x = max(0, min(source_grid - size_cols, origin_col))
+        paste_y = max(0, min(source_grid - size_rows, origin_row))
+        if (size_cols, size_rows) != img.size:
+            img = img.resize((size_cols, size_rows), Image.NEAREST)
+        source_canvas.paste(img, (paste_x, paste_y), img)
+    else:
+        source_canvas = img
+        if source_canvas.size != (source_grid, source_grid):
+            source_canvas = source_canvas.resize((source_grid, source_grid), Image.NEAREST)
+
+    if source_grid != target_grid:
+        source_canvas = source_canvas.resize((target_grid, target_grid), Image.NEAREST)
+
+    hx = float(hotspot.get("col", target_grid / 2.0))
+    hy = float(hotspot.get("row", target_grid / 2.0))
+    if source_grid != target_grid:
+        scale = target_grid / float(source_grid)
+        hx *= scale
+        hy *= scale
+    return source_canvas, (hx, hy)
+
+
+def _alpha_composite_with_offset(base: Image.Image, overlay: Image.Image, offset_x: int, offset_y: int) -> None:
+    """Alpha-composite overlay na base z przesunięciem (offset w px)."""
+    tmp = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    tmp.paste(overlay, (offset_x, offset_y), overlay)
+    base.alpha_composite(tmp)
 
 
 # ============================================================================
@@ -261,6 +421,8 @@ def _lerp_color(
 
 def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
     """Generuje teksturę drogi w heksie."""
+
+    options = _normalize_road_options(options)
     
     grid = options.grid_size
     rng = random.Random(options.seed)
@@ -271,8 +433,12 @@ def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
     
     # Oblicz punkty wejścia/wyjścia
     entry_pt = _side_to_edge_center(options.entry_side, grid)
-    exit_pt = _side_to_edge_center(options.exit_side, grid)
     center = _hex_center(grid)
+
+    if options.exit_side is None:
+        exit_pt = _dead_end_point(entry_pt, center, grid)
+    else:
+        exit_pt = _side_to_edge_center(options.exit_side, grid)
     
     # Generuj główną ścieżkę
     main_path = _generate_road_path(
@@ -362,6 +528,26 @@ def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
         for col in range(grid):
             if not mask[row][col]:
                 pixels[col, row] = (0, 0, 0, 0)
+
+    # Opcjonalny cap na dead-end (np. dom). Rysujemy po drogach i przed skalowaniem.
+    if options.exit_side is None and options.endcap_preset and Path(options.endcap_preset).exists():
+        try:
+            overlay, hotspot = _load_user_asset_canvas(Path(options.endcap_preset), grid)
+            # Dopasuj hotspot do końca drogi.
+            target_x, target_y = exit_pt
+            off_x = int(round(target_x - hotspot[0]))
+            off_y = int(round(target_y - hotspot[1]))
+            _alpha_composite_with_offset(img, overlay, off_x, off_y)
+
+            # Ponownie przytnij maską (żeby cap nie wystawał poza heks).
+            pixels = img.load()
+            for row in range(grid):
+                for col in range(grid):
+                    if not mask[row][col]:
+                        pixels[col, row] = (0, 0, 0, 0)
+        except Exception:
+            # Cap jest opcjonalny – w razie problemu nie blokuj generowania drogi.
+            pass
     
     # Skaluj do rozmiaru eksportu
     export_size = EXPORT_SIZE_BY_GRID.get(grid, 512)
@@ -378,6 +564,7 @@ def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
         "export_size": export_size,
         "entry_side": options.entry_side,
         "exit_side": options.exit_side,
+        "dead_end": bool(options.exit_side is None),
         "road_type": options.road_type,
         "width": options.width,
         "noise_amplitude": options.noise_amplitude,

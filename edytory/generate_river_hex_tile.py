@@ -14,7 +14,7 @@ import random
 import sys
 import statistics
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -185,8 +185,10 @@ def _shape_direction_mode_from_value(value: int | None) -> str:
 class RiverCenterlineOptions:
 	grid_size: int
 	background: Path | None
-	entry_side: str
-	exit_side: str
+	# entry_side=None => źródło w heksie (rzeka zaczyna się w środku i wychodzi bokiem)
+	# exit_side=None  => ujście w heksie (rzeka wchodzi bokiem i kończy się w środku / zbiorniku)
+	entry_side: str | None
+	exit_side: str | None
 	shape: str
 	shape_strength: float
 	shape_direction: int | None
@@ -218,9 +220,112 @@ class RiverCenterlineRender:
 	tributary_banks: Tuple[List[Tuple[int, int]], List[Tuple[int, int]]] | None
 
 
+def _normalize_river_options(opts: RiverCenterlineOptions) -> RiverCenterlineOptions:
+	entry_side = opts.entry_side
+	exit_side = opts.exit_side
+	if entry_side is None and exit_side is None:
+		raise ValueError("Przynajmniej jedno z entry_side/exit_side musi być ustawione")
+	if entry_side is not None and entry_side not in HEX_SIDES:
+		raise ValueError(f"Nieznany entry_side: {entry_side}")
+	if exit_side is not None and exit_side not in HEX_SIDES:
+		raise ValueError(f"Nieznany exit_side: {exit_side}")
+	if entry_side is not None and exit_side is not None and entry_side == exit_side:
+		raise ValueError("entry_side i exit_side muszą być różne")
+
+	shape = opts.shape if opts.shape in PATH_SHAPES else "straight"
+
+	def _clamp01(value: float) -> float:
+		if value < 0.0:
+			return 0.0
+		if value > 1.0:
+			return 1.0
+		return value
+
+	shape_strength = _clamp01(float(opts.shape_strength))
+	noise_amplitude = _clamp01(float(opts.noise_amplitude))
+	noise_frequency = _clamp01(float(opts.noise_frequency))
+
+	shape_direction = opts.shape_direction
+	if shape_direction not in (-1, 1, None):
+		shape_direction = None
+
+	bank_offset = float(opts.bank_offset)
+	if bank_offset < 0.0:
+		bank_offset = 0.0
+	bank_variation = float(opts.bank_variation)
+	if bank_variation < 0.0:
+		bank_variation = 0.0
+
+	tributary = opts.tributary
+	if tributary is not None:
+		# dopływ nie może wchodzić tym samym bokiem co główny nurt
+		if tributary.entry_side is not None and (
+			tributary.entry_side not in HEX_SIDES or tributary.entry_side in (entry_side, exit_side)
+		):
+			tributary = None
+		else:
+			join_ratio = float(tributary.join_ratio)
+			mode = str(getattr(tributary, "shape_direction_mode", "auto") or "auto").strip().lower()
+			# Semantyka: 'source' => dopływ jako źródło/strumień dopływający wcześnie (bliżej entry).
+			if mode == "source":
+				join_ratio = min(join_ratio, 0.45)
+			join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, join_ratio))
+			trib_shape = tributary.shape if tributary.shape in PATH_SHAPES else "straight"
+			trib_strength = _clamp01(float(tributary.shape_strength))
+			trib_noise_amp = _clamp01(float(tributary.noise_amplitude))
+			trib_noise_freq = _clamp01(float(tributary.noise_frequency))
+			trib_shape_dir = tributary.shape_direction
+			if trib_shape_dir not in (-1, 1, None):
+				trib_shape_dir = None
+			tributary = replace(
+				tributary,
+				join_ratio=join_ratio,
+				shape=trib_shape,
+				shape_strength=trib_strength,
+				noise_amplitude=trib_noise_amp,
+				noise_frequency=trib_noise_freq,
+				shape_direction=trib_shape_dir,
+			)
+
+	bank_prune_radius = int(opts.bank_prune_radius)
+	if bank_prune_radius < 0:
+		bank_prune_radius = 0
+
+	if (
+		shape == opts.shape
+		and shape_strength == float(opts.shape_strength)
+		and noise_amplitude == float(opts.noise_amplitude)
+		and noise_frequency == float(opts.noise_frequency)
+		and shape_direction == opts.shape_direction
+		and entry_side == opts.entry_side
+		and exit_side == opts.exit_side
+		and bank_offset == float(opts.bank_offset)
+		and bank_variation == float(opts.bank_variation)
+		and bank_prune_radius == int(opts.bank_prune_radius)
+		and tributary is opts.tributary
+	):
+		return opts
+
+	return replace(
+		opts,
+		entry_side=entry_side,
+		exit_side=exit_side,
+		shape=shape,
+		shape_strength=shape_strength,
+		shape_direction=shape_direction,
+		noise_amplitude=noise_amplitude,
+		noise_frequency=noise_frequency,
+		bank_offset=bank_offset,
+		bank_variation=bank_variation,
+		tributary=tributary,
+		bank_prune_radius=bank_prune_radius,
+	)
+
+
 @dataclass
 class TributaryOptions:
-	entry_side: str
+	# entry_side=None => dopływ jako źródło w heksie (startuje wewnątrz i łączy się z główną rzeką)
+	entry_side: str | None
 	join_ratio: float
 	shape: str
 	shape_strength: float
@@ -380,23 +485,43 @@ def _side_inward_vector(grid: int, side: str) -> Tuple[float, float]:
 
 def pick_flow_endpoints_by_side(
 	grid: int,
-	entry_side: str,
-	exit_side: str,
+	entry_side: str | None,
+	exit_side: str | None,
 ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
 	center = (grid / 2.0, grid / 2.0)
 	radius = grid / 2.0 - 0.5
 	vertices = get_hex_vertices(center[0], center[1], radius)
 	edges = list(zip(vertices, vertices[1:] + vertices[:1]))
 
-	entry_index = _side_to_edge_index(entry_side)
-	exit_index = _side_to_edge_index(exit_side)
-
-	entry_edge = edges[entry_index]
-	exit_edge = edges[exit_index]
-
 	def midpoint(pair: Tuple[Tuple[float, float], Tuple[float, float]]) -> Tuple[float, float]:
 		(a, b) = pair
 		return (a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5
+
+	def interior_anchor(side: str) -> Tuple[float, float]:
+		# punkt wewnątrz heksa "na kierunku" od środka do boku
+		m = _side_midpoint(grid, side)
+		cx, cy = center
+		# 0.28 to dość blisko środka, ale wciąż "w stronę" boku
+		return (cx + (m[0] - cx) * 0.28, cy + (m[1] - cy) * 0.28)
+
+	if entry_side is None and exit_side is not None:
+		# źródło w środku -> wyjście na krawędź exit
+		exit_edge = edges[_side_to_edge_index(exit_side)]
+		start = interior_anchor(exit_side)
+		end = midpoint(exit_edge)
+		return start, end
+
+	if exit_side is None and entry_side is not None:
+		# wejście z krawędzi entry -> ujście w środku
+		entry_edge = edges[_side_to_edge_index(entry_side)]
+		start = midpoint(entry_edge)
+		end = interior_anchor(entry_side)
+		return start, end
+
+	# standard: przelot przez heks
+	assert entry_side is not None and exit_side is not None
+	entry_edge = edges[_side_to_edge_index(entry_side)]
+	exit_edge = edges[_side_to_edge_index(exit_side)]
 
 	start = midpoint(entry_edge)
 	end = midpoint(exit_edge)
@@ -486,6 +611,8 @@ def build_centerline_bank_cells(
 	offset: float,
 	variation: float,
 	seed: int,
+	extend_entry: bool = True,
+	extend_exit: bool = True,
 ) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
 	normals = _compute_polyline_normals(points)
 	left_profile = _generate_offset_profile(len(points), offset, variation, seed)
@@ -494,8 +621,8 @@ def build_centerline_bank_cells(
 	right_points = _offset_polyline_with_profile(points, normals, right_profile, -1.0)
 	left_cells = rasterize_polyline(left_points)
 	right_cells = rasterize_polyline(right_points)
-	left_cells = extend_line_to_edges(left_cells, mask, entry_dir, exit_dir)
-	right_cells = extend_line_to_edges(right_cells, mask, entry_dir, exit_dir)
+	left_cells = extend_line_to_edges(left_cells, mask, entry_dir, exit_dir, extend_entry=extend_entry, extend_exit=extend_exit)
+	right_cells = extend_line_to_edges(right_cells, mask, entry_dir, exit_dir, extend_entry=extend_entry, extend_exit=extend_exit)
 	return left_cells, right_cells
 
 
@@ -506,16 +633,37 @@ def build_tributary_bank_cells(
 	offset: float,
 	variation: float,
 	seed: int,
+	extend_entry: bool = True,
 ) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
 	normals = _compute_polyline_normals(points)
 	left_profile = _generate_offset_profile(len(points), offset, variation, seed)
 	right_profile = _generate_offset_profile(len(points), offset, variation, seed + 977)
+
+	# Dopływ jako "source" (extend_entry=False) startuje w środku heksa.
+	# Bez dodatkowej geometrii flood-fill potrafi „wylać” wodę na dużą część kafla.
+	# Rozwiązanie: zwęż dopływ przy źródle (taper) oraz zamknij brzegi krótkim "cap".
+	if not extend_entry and len(points) >= 2:
+		count = len(points)
+		denom = max(1, count - 1)
+		scales = [0.22 + 0.78 * ((idx / denom) ** 0.65) for idx in range(count)]
+		left_profile = [p * s for p, s in zip(left_profile, scales)]
+		right_profile = [p * s for p, s in zip(right_profile, scales)]
 	left_points = _offset_polyline_with_profile(points, normals, left_profile, 1.0)
 	right_points = _offset_polyline_with_profile(points, normals, right_profile, -1.0)
 	left_cells = rasterize_polyline(left_points)
 	right_cells = rasterize_polyline(right_points)
-	left_cells = extend_line_to_entry_edge(left_cells, mask, entry_dir)
-	right_cells = extend_line_to_entry_edge(right_cells, mask, entry_dir)
+	if extend_entry:
+		left_cells = extend_line_to_entry_edge(left_cells, mask, entry_dir)
+		right_cells = extend_line_to_entry_edge(right_cells, mask, entry_dir)
+	else:
+		# Zamknij brzegi na początku dopływu (źródło), żeby woda nie "uciekała".
+		if left_cells and right_cells:
+			l0 = left_cells[0]
+			r0 = right_cells[0]
+			cap = supercover_line(l0[0], l0[1], r0[0], r0[1])
+			# dołóż cap do obu list (dedup robi później bank_mask)
+			left_cells = cap + left_cells
+			right_cells = cap + right_cells
 	return left_cells, right_cells
 
 
@@ -962,17 +1110,78 @@ def build_tributary_points(
 		return None
 	grid = len(mask)
 	polygon = _hex_polygon(grid)
-	start = _side_midpoint(grid, tributary_opts.entry_side)
-	entry_inward = _side_inward_vector(grid, tributary_opts.entry_side)
-	if entry_inward == (0.0, 0.0):
-		entry_inward = (0.0, 1.0)
 	join_ratio = max(MIN_TRIBUTARY_JOIN, min(MAX_TRIBUTARY_JOIN, float(tributary_opts.join_ratio)))
 	join_point, join_direction = _sample_polyline_at_ratio(main_points, join_ratio)
-	if join_direction == (0.0, 0.0):
-		join_direction = entry_inward
-	exit_inward = _normalize((start[0] - join_point[0], start[1] - join_point[1]))
-	if exit_inward == (0.0, 0.0):
-		exit_inward = entry_inward
+
+	entry_mode = "edge" if tributary_opts.entry_side is not None else "source"
+	# start + entry_inward
+	if tributary_opts.entry_side is not None:
+		start = _side_midpoint(grid, tributary_opts.entry_side)
+		entry_inward = _side_inward_vector(grid, tributary_opts.entry_side)
+		if entry_inward == (0.0, 0.0):
+			entry_inward = (0.0, 1.0)
+		if join_direction == (0.0, 0.0):
+			join_direction = entry_inward
+		extend_entry = True
+	else:
+		# Źródło w heksie: startujemy wewnątrz, z boku od głównej rzeki.
+		main_tangent_tmp = _normalize(join_direction)
+		if main_tangent_tmp == (0.0, 0.0):
+			main_tangent_tmp = (0.0, 1.0)
+		lateral = (-main_tangent_tmp[1], main_tangent_tmp[0])
+		noise_seed = options.seed + tributary_opts.seed_offset
+		src_rng = random.Random(noise_seed + 991)
+		sign = 1.0 if src_rng.random() < 0.5 else -1.0
+		s = float(grid)
+		raw_start = (
+			join_point[0] + lateral[0] * (0.22 * s) * sign + (-main_tangent_tmp[0]) * (0.12 * s),
+			join_point[1] + lateral[1] * (0.22 * s) * sign + (-main_tangent_tmp[1]) * (0.12 * s),
+		)
+		start = _project_inside_hex(raw_start, grid, polygon)
+		entry_inward = _normalize((join_point[0] - start[0], join_point[1] - start[1]))
+		if entry_inward == (0.0, 0.0):
+			entry_inward = lateral
+		extend_entry = False
+
+	def _dot(a: Tuple[float, float], b: Tuple[float, float]) -> float:
+		return a[0] * b[0] + a[1] * b[1]
+
+	def _blend_dir(a: Tuple[float, float], b: Tuple[float, float], w: float) -> Tuple[float, float]:
+		w = max(0.0, min(1.0, float(w)))
+		return _normalize((a[0] * (1.0 - w) + b[0] * w, a[1] * (1.0 - w) + b[1] * w))
+
+	# Dopływ nie powinien wpadać „pod prąd” ani pod zbyt ostrym kątem.
+	# Ustawiamy styczną przy join tak, by (przynajmniej częściowo) zgadzała się z kierunkiem
+	# głównej rzeki w punkcie łączenia.
+	main_tangent = _normalize(join_direction)
+	flow_dir = _normalize((join_point[0] - start[0], join_point[1] - start[1]))
+	default_exit_inward = _normalize((start[0] - join_point[0], start[1] - join_point[1]))
+	if default_exit_inward == (0.0, 0.0):
+		default_exit_inward = entry_inward
+
+	# exit_inward to wektor „do środka” używany do wyznaczenia p2.
+	# Aby dopływ dochodził do join zgodnie z przepływem głównej rzeki, chcemy by
+	# kierunek stycznej w join (p3 - p2) był ~ main_tangent, czyli exit_inward ~ -main_tangent.
+	target_exit_inward = (-main_tangent[0], -main_tangent[1]) if main_tangent != (0.0, 0.0) else default_exit_inward
+
+	# Jeżeli dopływ wchodzi pod prąd (dot < 0), wymuś dopasowanie mocniej.
+	# Dla słabego dopasowania (dot < 0.35) zastosuj blend.
+	if main_tangent != (0.0, 0.0) and flow_dir != (0.0, 0.0):
+		alignment = _dot(flow_dir, main_tangent)
+		if alignment < 0.0:
+			exit_inward = target_exit_inward
+			shape_direction_mode = "force_main_tangent"
+		elif alignment < 0.35:
+			# 0.35 -> 0.0 : 0.0 -> ~0.85
+			w = min(0.85, (0.35 - alignment) / 0.35)
+			exit_inward = _blend_dir(default_exit_inward, target_exit_inward, w)
+			shape_direction_mode = "blend_main_tangent"
+		else:
+			exit_inward = default_exit_inward
+			shape_direction_mode = "default"
+	else:
+		exit_inward = default_exit_inward
+		shape_direction_mode = "default"
 	noise_seed = options.seed + tributary_opts.seed_offset
 	tributary_rng = random.Random(noise_seed)
 	tributary_points, shape_metadata = _build_curve_points(
@@ -991,7 +1200,8 @@ def build_tributary_points(
 		tributary_rng,
 	)
 	tributary_cells = rasterize_polyline(tributary_points)
-	tributary_cells = extend_line_to_entry_edge(tributary_cells, mask, entry_inward)
+	if extend_entry:
+		tributary_cells = extend_line_to_entry_edge(tributary_cells, mask, entry_inward)
 	tributary_bank_offset = (
 		tributary_opts.bank_offset
 		if tributary_opts.bank_offset is not None
@@ -1012,6 +1222,7 @@ def build_tributary_points(
 		effective_tributary_bank_offset,
 		effective_tributary_bank_variation,
 		bank_seed,
+		extend_entry=extend_entry,
 	)
 	tributary_bank_color = (
 		tributary_opts.bank_color
@@ -1020,10 +1231,12 @@ def build_tributary_points(
 	)
 	metadata = {
 		"entry_side": tributary_opts.entry_side,
+		"entry_mode": entry_mode,
 		"join_ratio": join_ratio,
 		"join_ratio_percent": join_ratio * 100.0,
 		"join_point": {"x": join_point[0], "y": join_point[1]},
 		"join_direction": {"x": join_direction[0], "y": join_direction[1]},
+		"join_tangent_mode": shape_direction_mode,
 		"shape": tributary_opts.shape,
 		"shape_strength": max(0.0, min(1.0, tributary_opts.shape_strength)),
 		"shape_direction": tributary_opts.shape_direction,
@@ -1482,6 +1695,7 @@ def save_metadata(image_path: Path, metadata: Dict[str, Any]) -> Path:
 
 
 def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
+	opts = _normalize_river_options(opts)
 	rng = random.Random(opts.seed)
 	mask = build_hex_mask(opts.grid_size)
 	
@@ -1526,7 +1740,14 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 		rng,
 	)
 	centerline_cells = rasterize_polyline(centerline_points)
-	centerline_cells = extend_line_to_edges(centerline_cells, mask, entry_inward, exit_inward)
+	centerline_cells = extend_line_to_edges(
+		centerline_cells,
+		mask,
+		entry_inward,
+		exit_inward,
+		extend_entry=opts.entry_side is not None,
+		extend_exit=opts.exit_side is not None,
+	)
 	effective_bank_offset = opts.bank_offset * GLOBAL_BANK_WIDTH_MULTIPLIER
 	effective_bank_variation = opts.bank_variation * GLOBAL_BANK_WIDTH_MULTIPLIER
 	# parametry do kontroli zachowania łączeń dopływów
@@ -1540,6 +1761,8 @@ def render_centerline(opts: RiverCenterlineOptions) -> RiverCenterlineRender:
 		effective_bank_offset,
 		effective_bank_variation,
 		opts.seed + 311,
+		extend_entry=opts.entry_side is not None,
+		extend_exit=opts.exit_side is not None,
 	)
 	tributary_cells: List[Tuple[int, int]] | None = None
 	tributary_metadata: Dict[str, Any] | None = None
@@ -1649,6 +1872,8 @@ def extend_line_to_edges(
 	mask: Sequence[Sequence[bool]],
 	entry_dir: Tuple[float, float],
 	exit_dir: Tuple[float, float],
+	extend_entry: bool = True,
+	extend_exit: bool = True,
 ) -> List[Tuple[int, int]]:
 	if not centerline_cells:
 		return list(centerline_cells)
@@ -1689,8 +1914,8 @@ def extend_line_to_edges(
 				trail.append(next_cell)
 		return trail
 
-	leading = walk_to_edge(deduped[0], (-entry_dir[0], -entry_dir[1]))
-	trailing = walk_to_edge(deduped[-1], (-exit_dir[0], -exit_dir[1]))
+	leading = walk_to_edge(deduped[0], (-entry_dir[0], -entry_dir[1])) if extend_entry else []
+	trailing = walk_to_edge(deduped[-1], (-exit_dir[0], -exit_dir[1])) if extend_exit else []
 
 	return list(reversed(leading)) + deduped + trailing
 
@@ -1706,13 +1931,13 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 	)
 	parser.add_argument(
 		"--entry-side",
-		choices=list(HEX_SIDES),
+		choices=list(HEX_SIDES) + ["none"],
 		default="top",
 		help="Krawędź wejściowa nurtu",
 	)
 	parser.add_argument(
 		"--exit-side",
-		choices=list(HEX_SIDES),
+		choices=list(HEX_SIDES) + ["none"],
 		default="bottom",
 		help="Krawędź wyjściowa nurtu",
 	)
@@ -1880,7 +2105,12 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 	shape_direction = resolve_shape_direction(shape_direction_choice)
 	direction_suffix = "" if shape_direction_choice == "auto" else f"_{shape_direction_choice}"
 
-	if args.entry_side == args.exit_side:
+	entry_side: str | None = None if getattr(args, "entry_side", None) == "none" else getattr(args, "entry_side", None)
+	exit_side: str | None = None if getattr(args, "exit_side", None) == "none" else getattr(args, "exit_side", None)
+	if entry_side is None and exit_side is None:
+		print("Przynajmniej jedno z --entry-side/--exit-side musi być różne od 'none'.")
+		return
+	if entry_side is not None and exit_side is not None and entry_side == exit_side:
 		print("Wejście i wyjście muszą wskazywać różne krawędzie heksa.")
 		return
 
@@ -1914,7 +2144,8 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 	tributary_entry = getattr(args, "tributary_entry_side", None)
 	trib_suffix = ""
 	if tributary_entry:
-		if tributary_entry in {args.entry_side, args.exit_side}:
+		blocked_sides = {side for side in (entry_side, exit_side) if side is not None}
+		if tributary_entry in blocked_sides:
 			print(
 				"Dopływ nie może startować z tej samej krawędzi co główny nurt (wejście/wyjście)."
 			)
@@ -1951,8 +2182,10 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 		trib_suffix = f"_trib_{tributary_opts.entry_side}_{join_pct:03d}"
 
 	bg_label = "transparent" if background_path is None else background_path.stem
+	entry_label = entry_side or "source"
+	exit_label = exit_side or "mouth"
 	base_pattern = (
-		f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
+		f"{args.prefix}_{bg_label}_{entry_label}_to_{exit_label}_"
 		f"{args.shape}{direction_suffix}{noise_suffix}{trib_suffix}_g{args.grid}_*.png"
 	)
 	next_index = _next_file_index(args.output_dir, base_pattern)
@@ -1962,8 +2195,8 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 		opts = RiverCenterlineOptions(
 			grid_size=args.grid,
 			background=background_path,
-			entry_side=args.entry_side,
-			exit_side=args.exit_side,
+			entry_side=entry_side,
+			exit_side=exit_side,
 			shape=args.shape,
 			shape_strength=max(0.0, min(args.shape_strength, 1.0)),
 			shape_direction=shape_direction if args.shape in {"curve", "turn"} else None,
@@ -1978,7 +2211,7 @@ def run_cli(args: argparse.Namespace, backgrounds: Dict[str, Path]) -> None:
 		suffix = f"{next_index + index:02d}"
 		direction_part = direction_suffix if args.shape in {"curve", "turn"} else ""
 		file_name = (
-			f"{args.prefix}_{bg_label}_{args.entry_side}_to_{args.exit_side}_"
+			f"{args.prefix}_{bg_label}_{entry_label}_to_{exit_label}_"
 			f"{args.shape}{direction_part}{noise_suffix}{trib_suffix}_g{args.grid}_{suffix}.png"
 		)
 		output_path = args.output_dir / file_name

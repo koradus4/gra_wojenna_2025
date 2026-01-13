@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import math
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -104,7 +104,8 @@ class RailwayOptions:
     grid_size: int
     background: Path | None
     entry_side: str
-    exit_side: str
+    # exit_side=None oznacza tor zakończony w heksie (np. bocznica z buforem).
+    exit_side: str | None
     railway_type: str = "jednotorowy"  # jednotorowy, dwutorowy
     seed: int = 42
     # Opcjonalne dojazdy - lista dodatkowych boków (tylko łagodne kąty!)
@@ -119,6 +120,93 @@ class RailwayResult:
     image_path: Path
     metadata_path: Path
     metadata: Dict[str, Any]
+
+
+def _normalize_railway_options(options: RailwayOptions) -> RailwayOptions:
+    """Normalizuje opcje torów (twarda semantyka na wejściu generatora)."""
+    if options.entry_side not in HEX_SIDES:
+        raise ValueError(f"Nieznany entry_side: {options.entry_side}")
+
+    exit_side = options.exit_side
+    if exit_side is not None:
+        if exit_side not in HEX_SIDES:
+            raise ValueError(f"Nieznany exit_side: {exit_side}")
+        if options.entry_side == exit_side:
+            raise ValueError("entry_side i exit_side muszą być różne")
+
+    railway_type = options.railway_type
+    if railway_type not in RAILWAY_DIMENSIONS:
+        # fallback do pierwszego znanego typu
+        railway_type = sorted(RAILWAY_DIMENSIONS.keys())[0]
+
+    junctions_in = list(options.junctions) if options.junctions else []
+    junctions_out: List[str] = []
+    for side in junctions_in:
+        if side not in HEX_SIDES:
+            continue
+        if side in (options.entry_side, exit_side):
+            continue
+        if side not in junctions_out:
+            junctions_out.append(side)
+    # Dead-end: dojazdy/rozjazdy zwykle nie mają sensu – wyłącz.
+    if exit_side is None:
+        junctions_out = []
+        junction_double = False
+
+    junction_double = bool(options.junction_double_track)
+
+    # Jednotorowy: brak sensu dla double-track rozjazdów i max 1 junction.
+    if "jednot" in str(railway_type).lower():
+        junction_double = False
+        if len(junctions_out) > 1:
+            junctions_out = junctions_out[:1]
+
+    # Ogólna semantyka: wiele rozjazdów bez double-track zwykle wygląda źle.
+    if len(junctions_out) > 1 and not junction_double:
+        junctions_out = junctions_out[:1]
+
+    if (
+        railway_type == options.railway_type
+        and junctions_out == (list(options.junctions) if options.junctions else [])
+        and junction_double == bool(options.junction_double_track)
+    ):
+        return options
+
+    return replace(
+        options,
+        railway_type=railway_type,
+        junctions=junctions_out,
+        junction_double_track=junction_double,
+        exit_side=exit_side,
+    )
+
+
+def _dead_end_point(entry_edge: Tuple[float, float], center: Tuple[float, float], grid: int) -> Tuple[float, float]:
+    # Punkt zakończenia toru wewnątrz heksa – trochę bliżej krawędzi niż środek.
+    t = 0.48
+    x = center[0] + (entry_edge[0] - center[0]) * t
+    y = center[1] + (entry_edge[1] - center[1]) * t
+    x = _clamp(x, 1.0, grid - 2.0)
+    y = _clamp(y, 1.0, grid - 2.0)
+    return (x, y)
+
+
+def _draw_buffer_stop(draw: ImageDraw.ImageDraw, end_pt: Tuple[float, float], prev_pt: Tuple[float, float], thickness: int) -> None:
+    """Rysuje prosty bufor (belkę) na końcu toru."""
+    dx = end_pt[0] - prev_pt[0]
+    dy = end_pt[1] - prev_pt[1]
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1e-6:
+        return
+    # prostopadła
+    nx = -dy / length
+    ny = dx / length
+    half = max(4.0, thickness * 1.2)
+    x1 = end_pt[0] + nx * half
+    y1 = end_pt[1] + ny * half
+    x2 = end_pt[0] - nx * half
+    y2 = end_pt[1] - ny * half
+    draw.line([(x1, y1), (x2, y2)], fill=RAILWAY_COLORS["sleeper_dark"], width=max(2, thickness))
 
 
 # ============================================================================
@@ -149,7 +237,11 @@ def _hex_vertices(grid: int) -> List[Tuple[float, float]]:
 
 
 def _side_to_edge_center(side: str, grid: int) -> Tuple[float, float]:
-    """Zwraca środek krawędzi heksa dla danego boku."""
+    """Zwraca środek krawędzi heksa dla danego boku.
+
+    Ważne: używa tej samej geometrii co maska heksa (radius = grid/2 - 0.5),
+    żeby punkty wejścia/wyjścia nie „żyły własnym życiem” poza obrysem.
+    """
     vertices = _hex_vertices(grid)
     side_to_vertices = {
         "top": (1, 2),
@@ -163,6 +255,26 @@ def _side_to_edge_center(side: str, grid: int) -> Tuple[float, float]:
     x = (vertices[i1][0] + vertices[i2][0]) / 2.0
     y = (vertices[i1][1] + vertices[i2][1]) / 2.0
     return x, y
+
+
+def _extend_from_center(
+    pt: Tuple[float, float],
+    center: Tuple[float, float],
+    distance: float,
+) -> Tuple[float, float]:
+    """Przesuwa punkt promieniowo na zewnątrz od środka heksa.
+
+    Używane do „dociągnięcia” końcówek torów do ściany: rysujemy lekko
+    poza obrysem, a potem przycinamy maską heksa.
+    """
+    dx = pt[0] - center[0]
+    dy = pt[1] - center[1]
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1e-6:
+        return pt
+    nx = dx / length
+    ny = dy / length
+    return (pt[0] + nx * distance, pt[1] + ny * distance)
 
 
 def _build_hex_mask(grid: int) -> List[List[bool]]:
@@ -272,11 +384,11 @@ def _generate_curved_path(
     entry: Tuple[float, float],
     exit_pt: Tuple[float, float],
     center: Tuple[float, float],
-    curve_factor: float = 0.4,
+    curve_factor: float = 0.2,
     num_points: int = 24,
 ) -> List[Tuple[float, float]]:
     """Generuje zakrzywioną ścieżkę toru (dla zakrętów)."""
-    # Punkt kontrolny - przesunięty w stronę centrum
+    # Punkt kontrolny - ORYGINALNA formuła ale z mniejszym curve_factor
     ctrl_x = center[0] + (entry[0] + exit_pt[0] - 2 * center[0]) * curve_factor
     ctrl_y = center[1] + (entry[1] + exit_pt[1] - 2 * center[1]) * curve_factor
     ctrl = (ctrl_x, ctrl_y)
@@ -695,6 +807,8 @@ def _draw_double_track(
 
 def generate_railway(options: RailwayOptions, output_path: Path) -> RailwayResult:
     """Generuje teksturę torów kolejowych w heksie."""
+
+    options = _normalize_railway_options(options)
     
     grid = options.grid_size
     rng = random.Random(options.seed)
@@ -704,18 +818,32 @@ def generate_railway(options: RailwayOptions, output_path: Path) -> RailwayResul
                                    RAILWAY_DIMENSIONS["jednotorowy"])
     
     center = _hex_center(grid)
-    entry_pt = _side_to_edge_center(options.entry_side, grid)
-    exit_pt = _side_to_edge_center(options.exit_side, grid)
+    entry_edge = _side_to_edge_center(options.entry_side, grid)
+
+    dead_end = options.exit_side is None
+    if dead_end:
+        exit_edge = _dead_end_point(entry_edge, center, grid)
+    else:
+        exit_edge = _side_to_edge_center(options.exit_side, grid)
+
+    # „Dociągnięcie” końcówek: rysujemy trochę poza obrys heksa, a potem tniemy maską.
+    # Dystans dobieramy do szerokości podsypki (żeby nie było przerw przy krawędzi).
+    cap_overshoot = (dims["ballast_width"] / 2.0) + 2.0
+    entry_out = _extend_from_center(entry_edge, center, cap_overshoot)
+    exit_out = _extend_from_center(exit_edge, center, cap_overshoot) if not dead_end else exit_edge
     
     # Sprawdź czy tor jest prosty czy zakrzywiony
     # Prosty = przeciwne boki, zakrzywiony = inne
-    is_straight = SIDE_OPPOSITE.get(options.entry_side) == options.exit_side
+    is_straight = (not dead_end) and (SIDE_OPPOSITE.get(options.entry_side) == options.exit_side)
     
     # Generuj główną ścieżkę
     if is_straight:
-        main_path = _generate_straight_path(entry_pt, exit_pt)
+        main_core_path = _generate_straight_path(entry_edge, exit_edge)
     else:
-        main_path = _generate_curved_path(entry_pt, exit_pt, center)
+        main_core_path = _generate_curved_path(entry_edge, exit_edge, center)
+
+    # Dodaj caps (punkty „na zewnątrz”) dopiero po wyliczeniu logiki dojazdów.
+    main_path = [entry_out, *main_core_path, exit_out]
     
     # Generuj ścieżki dojazdów (rozjazdów)
     junction_paths = []
@@ -727,34 +855,38 @@ def generate_railway(options: RailwayOptions, output_path: Path) -> RailwayResul
             continue
         
         valid_junctions.append(junc_side)
-        junc_entry = _side_to_edge_center(junc_side, grid)
+        junc_entry_edge = _side_to_edge_center(junc_side, grid)
+        # Dojazd też „dociągamy” do ściany.
+        junc_dims = (RAILWAY_DIMENSIONS["dwutorowy"] if options.junction_double_track else RAILWAY_DIMENSIONS["jednotorowy"])
+        junc_cap_overshoot = (junc_dims["ballast_width"] / 2.0) + 2.0
+        junc_entry_out = _extend_from_center(junc_entry_edge, center, junc_cap_overshoot)
         
         # Znajdź punkt połączenia na głównym torze
         # Dojazd łączy się po PRZECIWNEJ stronie niż skąd wychodzi
         # To daje naturalny kształt "Y"
-        dist_to_entry = math.sqrt((junc_entry[0] - entry_pt[0])**2 + (junc_entry[1] - entry_pt[1])**2)
-        dist_to_exit = math.sqrt((junc_entry[0] - exit_pt[0])**2 + (junc_entry[1] - exit_pt[1])**2)
+        dist_to_entry = math.sqrt((junc_entry_edge[0] - entry_edge[0])**2 + (junc_entry_edge[1] - entry_edge[1])**2)
+        dist_to_exit = math.sqrt((junc_entry_edge[0] - exit_edge[0])**2 + (junc_entry_edge[1] - exit_edge[1])**2)
         
         # Jeśli dojazd jest bliżej WEJŚCIA - merge daleko, bliżej WYJŚCIA (3/4)
         # Jeśli dojazd jest bliżej WYJŚCIA - merge daleko, bliżej WEJŚCIA (1/4)
         if dist_to_entry < dist_to_exit:
-            merge_index = (len(main_path) * 3) // 4
+            merge_index = (len(main_core_path) * 3) // 4
         else:
-            merge_index = len(main_path) // 4
+            merge_index = len(main_core_path) // 4
         
-        merge_point = main_path[merge_index]
+        merge_point = main_core_path[merge_index]
         
         # Kierunek głównego toru w punkcie połączenia
-        if merge_index > 0 and merge_index < len(main_path) - 1:
+        if merge_index > 0 and merge_index < len(main_core_path) - 1:
             main_dir = (
-                main_path[merge_index + 1][0] - main_path[merge_index - 1][0],
-                main_path[merge_index + 1][1] - main_path[merge_index - 1][1],
+                main_core_path[merge_index + 1][0] - main_core_path[merge_index - 1][0],
+                main_core_path[merge_index + 1][1] - main_core_path[merge_index - 1][1],
             )
         else:
-            main_dir = (exit_pt[0] - entry_pt[0], exit_pt[1] - entry_pt[1])
-        
-        junc_path = _generate_junction_curve(junc_entry, merge_point, main_dir, junc_side)
-        junction_paths.append(junc_path)
+            main_dir = (exit_edge[0] - entry_edge[0], exit_edge[1] - entry_edge[1])
+
+        junc_path_core = _generate_junction_curve(junc_entry_edge, merge_point, main_dir, junc_side)
+        junction_paths.append([junc_entry_out, *junc_path_core])
     
     # === RENDEROWANIE ===
     
@@ -817,18 +949,19 @@ def generate_railway(options: RailwayOptions, output_path: Path) -> RailwayResul
             _draw_rails(draw, right_path, path_dims["track_gauge"], path_dims["rail_width"])
         else:
             _draw_rails(draw, path, path_dims["track_gauge"], path_dims["rail_width"])
+
+    # Bufor na dead-end (po szynach, przed maską).
+    if dead_end and len(main_path) >= 2:
+        _draw_buffer_stop(draw, main_path[-1], main_path[-2], thickness=int(max(2.0, dims["rail_width"] + 1.0)))
     
-    # Przytnij do maski heksa
-    # UWAGA: Jeśli jest tło, nie kasuj pikseli poza maską - zachowaj tło!
+    # Przytnij do maski heksa (ZAWSZE).
+    # To jest kluczowe: tory nie mogą wychodzić poza obrys, niezależnie od tła.
     mask = _build_hex_mask(grid)
     pixels = img.load()
-    
-    if not options.background:
-        # Tylko jeśli NIE ma tła - wyczyść piksele poza heksem
-        for row in range(grid):
-            for col in range(grid):
-                if not mask[row][col]:
-                    pixels[col, row] = (0, 0, 0, 0)
+    for row in range(grid):
+        for col in range(grid):
+            if not mask[row][col]:
+                pixels[col, row] = (0, 0, 0, 0)
     
     # Skaluj do rozmiaru eksportu
     export_size = EXPORT_SIZE_BY_GRID.get(grid, 512)
@@ -845,6 +978,7 @@ def generate_railway(options: RailwayOptions, output_path: Path) -> RailwayResul
         "export_size": export_size,
         "entry_side": options.entry_side,
         "exit_side": options.exit_side,
+        "dead_end": bool(dead_end),
         "railway_type": options.railway_type,
         "seed": options.seed,
         "junctions": valid_junctions,

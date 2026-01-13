@@ -71,6 +71,12 @@ except ImportError:
     generate_railway = None
     RAILWAY_HEX_SIDES = ()
     SIDE_OPPOSITE = {}
+    
+try:
+    from hex_feature_semantics import normalize_railway_options, normalize_road_options
+except Exception:
+    normalize_road_options = None
+    normalize_railway_options = None
 
 # Folder „assets” obok map_editor_prototyp.py
 ASSET_ROOT = Path(__file__).parent.parent / "assets"
@@ -5541,6 +5547,11 @@ class MapEditor:
             junction_double_track=junction_double,
             seed=seed,
         )
+
+        if normalize_railway_options:
+            options, _notes = normalize_railway_options(options)
+            if _notes:
+                print(f"[Railway Semantics] {hex_key}: " + "; ".join(_notes))
         
         try:
             # Generuj tory
@@ -5567,7 +5578,7 @@ class MapEditor:
             # Odśwież teksturę
             self.clear_texture_caches()
             self.redraw_canvas()
-            
+
             messagebox.showinfo(
                 "Sukces",
                 f"Wygenerowano tory kolejowe!\n\nPlik: {output_path.name}\n"
@@ -5866,6 +5877,11 @@ class MapEditor:
             seed=seed,
             crossroads=crossroads if crossroads else None,
         )
+        
+        if normalize_road_options:
+            options, _notes = normalize_road_options(options)
+            if _notes:
+                print(f"[Road Semantics] {hex_id}: " + "; ".join(_notes))
         
         try:
             result = generate_road(options, output_path)
@@ -6349,6 +6365,11 @@ class MapEditor:
                 seed=seed_base + idx,
                 crossroads=crossroads_sides if crossroads_sides else None,
             )
+
+            if normalize_road_options:
+                options, _notes = normalize_road_options(options)
+                if _notes:
+                    print(f"[Road Semantics] {hex_id}: " + "; ".join(_notes))
 
             try:
                 result = generate_road(options, output_path)
@@ -6905,6 +6926,11 @@ class MapEditor:
             grid_size=64,
             background=background_path
         )
+        
+        if normalize_railway_options:
+            options, _notes = normalize_railway_options(options)
+            if _notes:
+                print(f"[Railway Semantics] {hex_id}: " + "; ".join(_notes))
         
         # Generuj
         try:
