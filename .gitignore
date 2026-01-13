@@ -63,7 +63,11 @@ assets/terrain/hex_painted/railway_tool/
 # User-generated AI presets (ignore generated outputs)
 assets/terrain/presets/user_assets/bridge/
 assets/terrain/presets/user_assets/settlement/ai_generated/
+assets/terrain/presets/user_assets/settlement/kamienica_czarny_dach1*
 assets/terrain/presets/custom/*.png
+
+# Local docs (work-in-progress)
+docs/LAKE_GENERATOR_INTEGRATION.md
 
 # Editor test outputs
 edytory/road_test_*.png
