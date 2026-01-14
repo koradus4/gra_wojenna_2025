@@ -2314,7 +2314,7 @@ class MapEditor:
 
         tk.Radiobutton(
             lake_mode_frame,
-            text="Wieloheksowe (klaster, aż 3 heksy)",
+            text="Wieloheksowe (klaster, aż 7 heksów)",
             variable=self.lake_mode_var,
             value="multi",
             bg="darkolivegreen",
@@ -7283,7 +7283,7 @@ class MapEditor:
                 self.lake_generate_btn.config(state=tk.DISABLED)
                 self.lake_clear_btn.config(state=tk.DISABLED)
             else:
-                # Tryb multi: przycisk generuj włączony gdy mamy 1-3 heksy
+                # Tryb multi: przycisk generuj włączony gdy mamy 1-7 heksów
                 if 1 <= cluster_size <= 7:
                     self.lake_generate_btn.config(state=tk.NORMAL)
                 else:
