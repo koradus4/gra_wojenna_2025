@@ -71,7 +71,7 @@ def main() -> int:
     # Prosta walidacja
     ok = True
     for hid, info in results.items():
-        if info["lake_mode"] != "lake3":
+        if info["lake_mode"] not in ("lake3", "lake_y"):
             ok = False
         if not (info["texture"] and "lake_cluster_" in str(info["texture"])):
             ok = False
@@ -88,7 +88,7 @@ def main() -> int:
         pass
 
     if not ok:
-        print("[SMOKE] FAIL: lake3 nie wygląda na klaster (sprawdź logikę cluster_tile/texture).")
+        print("[SMOKE] FAIL: lake3/lake_y nie wygląda na klaster (sprawdź logikę cluster_tile/texture).")
         return 2
 
     print("[SMOKE] OK")

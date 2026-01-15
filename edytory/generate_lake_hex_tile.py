@@ -241,8 +241,10 @@ def _cluster_allowed_boundary_sides(grid: int, opts: "LakeOptions") -> set[str]:
                 break
 
     # odpływ: pozwól wodzie dojść do krawędzi na tym boku
-    if tile == "center" and opts.outflow_side:
-        allowed.add(str(opts.outflow_side))
+    if opts.outflow_side:
+        target_tile = str(getattr(opts, "outflow_tile", None) or "center")
+        if tile == target_tile:
+            allowed.add(str(opts.outflow_side))
 
     return allowed
 
@@ -316,6 +318,7 @@ class LakeOptions:
     # Odpływ jako "źródło dopływu" (kanał wychodzący do krawędzi)
     outflow_side: Optional[str] = None
     outflow_width: float = 2.2
+    outflow_tile: Optional[str] = None
 
     # Opcje klastrowe (spójny kształt na stykach)
     cluster_seed: Optional[int] = None
@@ -323,6 +326,8 @@ class LakeOptions:
     # Dla klasycznego lake3 będą to 2 elementy.
     cluster_neighbors: Optional[Tuple[str, ...]] = None
     cluster_tile: Optional[str] = None  # nazwa kafla w cluster7: center/top/... 
+    # Kształt klastra (np. "y" dla 3-heksowego Y). None = domyślny (okrągły).
+    cluster_shape: Optional[str] = None
 
 
 def _normalize_opts(opts: LakeOptions) -> LakeOptions:
@@ -395,7 +400,11 @@ def _global_lake_field_params(grid: int, seed: int, neighbors: Tuple[str, ...]) 
     return (cx, cy), base_radius
 
 
-def _compute_water_mask_single(grid: int, mask: Sequence[Sequence[bool]], opts: LakeOptions) -> List[List[bool]]:
+def _compute_water_mask_single(
+    grid: int,
+    mask: Sequence[Sequence[bool]],
+    opts: LakeOptions,
+) -> Tuple[List[List[bool]], List[Tuple[float, float, float, float]] | None]:
     cx, cy = _hex_center(grid)
     # lake_radius jest względem promienia heksa (grid/2)
     base_r = (grid / 2.0) * float(opts.lake_radius)
@@ -415,13 +424,18 @@ def _compute_water_mask_single(grid: int, mask: Sequence[Sequence[bool]], opts: 
                 water[row][col] = True
 
     # outflow: kanał do krawędzi
+    outflow_trace: List[Tuple[float, float, float, float]] | None = None
     if opts.outflow_side:
-        water = _carve_outflow_channel_single(water, mask, opts)
+        water, outflow_trace = _carve_outflow_channel_single(water, mask, opts, return_trace=True)
 
-    return water
+    return water, outflow_trace
 
 
-def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts: LakeOptions) -> List[List[bool]]:
+def _compute_water_mask_cluster3(
+    grid: int,
+    mask: Sequence[Sequence[bool]],
+    opts: LakeOptions,
+) -> Tuple[List[List[bool]], List[Tuple[float, float, float, float]] | None]:
     assert opts.cluster_seed is not None
     assert opts.cluster_neighbors is not None
     assert opts.cluster_tile is not None
@@ -431,6 +445,9 @@ def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts
     lake_center, base_r = _global_lake_field_params(grid, int(opts.cluster_seed), opts.cluster_neighbors)
     # W trybie klastrowym lake_radius jest mnożnikiem promienia pola (typowo 0.85..1.15).
     base_r *= float(opts.lake_radius)
+    # Dla kształtu Y zacieśnij pole, żeby obrys był bardziej „Y” niż „koło”.
+    if str(getattr(opts, "cluster_shape", "") or "").lower() == "y":
+        base_r *= 0.92
 
     # Pracujemy w układzie współrzędnych "środek heksa = (0,0)" dla każdego kafla,
     # a potem przesuwamy o offset środka kafla w klastrze. To zapewnia ciągłość
@@ -454,18 +471,23 @@ def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts
             if dist <= base_r * (1.0 + jitter):
                 water[row][col] = True
 
-    # outflow: na razie tylko na kaflu center (najczytelniej)
-    outflow_trace: List[Tuple[float, float, float]] | None = None
-    if opts.outflow_side and opts.cluster_tile == "center":
+    # outflow: kanał na wybranym kaflu klastra
+    outflow_trace: List[Tuple[float, float, float, float]] | None = None
+    target_tile = str(getattr(opts, "outflow_tile", None) or "center")
+    if opts.outflow_side and str(opts.cluster_tile) == target_tile:
         water, outflow_trace = _carve_outflow_channel_single(water, mask, opts, return_trace=True)
 
-    # Zapewnij "zewnętrzny" pas lądu pod brzeg: tam gdzie nie ma sąsiedniego heksa jeziora,
-    # cofamy wodę od krawędzi heksa, żeby bank mógł się narysować na całym obwodzie.
-    allowed = _cluster_allowed_boundary_sides(grid, opts)
-    forbidden: set[str] = set(HEX_SIDES) - set(allowed)
-    # margin w komórkach siatki: zależny od shore_width (ale zawsze >= 1)
-    margin = max(1.0, float(getattr(opts, "shore_width", 1)) + 0.65)
-    _apply_external_edge_margin(water, mask, forbidden_sides=forbidden, margin=margin, grid=grid)
+    # Zapewnij "zewnętrzny" pas lądu pod brzeg (dla cluster7),
+    # ale dla kształtu Y zostaw obrys z globalnego pola (bez ucinania przy krawędziach heksa).
+    cluster_shape = str(getattr(opts, "cluster_shape", "") or "").lower()
+    if cluster_shape != "y":
+        allowed = _cluster_allowed_boundary_sides(grid, opts)
+        forbidden: set[str] = set(HEX_SIDES) - set(allowed)
+        # margin w komórkach siatki: zależny od shore_width (ale zawsze >= 1)
+        margin = max(1.0, float(getattr(opts, "shore_width", 1)) + 0.65)
+        _apply_external_edge_margin(water, mask, forbidden_sides=forbidden, margin=margin, grid=grid)
+    else:
+        margin = max(1.0, float(getattr(opts, "shore_width", 1)) + 0.65)
 
     # Jeżeli lake3 ma odpływ, to zwykłe "pozwolenie wodzie dojść do krawędzi" często daje
     # zbyt szerokie otwarcie (wygląda jak urwany brzeg). Zawężamy ujście: w pasie przy krawędzi
@@ -473,7 +495,7 @@ def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts
     if (
         outflow_trace
         and opts.outflow_side
-        and opts.cluster_tile == "center"
+        and str(opts.cluster_tile) == target_tile
         and str(opts.outflow_side) in HEX_SIDES
     ):
         _constrict_outflow_mouth(
@@ -485,7 +507,7 @@ def _compute_water_mask_cluster3(grid: int, mask: Sequence[Sequence[bool]], opts
             trace=outflow_trace,
         )
 
-    return water
+    return water, outflow_trace
 
 
 def _constrict_outflow_mouth(
@@ -495,7 +517,7 @@ def _constrict_outflow_mouth(
     grid: int,
     outflow_side: str,
     edge_band: float,
-    trace: Sequence[Tuple[float, float, float]],
+    trace: Sequence[Tuple[float, float, float, float]],
 ) -> None:
     """Zawęża ujście odpływu w pasie przy krawędzi outflow_side.
 
@@ -512,7 +534,7 @@ def _constrict_outflow_mouth(
     (ax, ay), (bx, by) = edges[outflow_side]
 
     # szerokość "tolerancji" wokół osi kanału (poza samą szerokością kanału)
-    max_half = max(hw for (_, _, hw) in trace)
+    max_half = max(hw for (_, _, hw, *_rest) in trace)
     keep_extra = 0.75
     keep_dist = max(1.0, float(max_half) + keep_extra)
 
@@ -528,7 +550,7 @@ def _constrict_outflow_mouth(
 
             # sprawdź odległość do osi kanału (po próbkach)
             min_d = 1e9
-            for sx, sy, _ in trace:
+            for sx, sy, *_rest in trace:
                 d = math.hypot(px - sx, py - sy)
                 if d < min_d:
                     min_d = d
@@ -597,7 +619,7 @@ def _carve_outflow_channel_single(
 
     # próbkowanie od start do end
     steps = int(max(12, math.hypot(end[0] - start[0], end[1] - start[1]) * 2.0))
-    trace: List[Tuple[float, float, float]] = []
+    trace: List[Tuple[float, float, float, float]] = []
     for i in range(steps + 1):
         t = i / max(1, steps)
         x = start[0] + (end[0] - start[0]) * t
@@ -606,7 +628,7 @@ def _carve_outflow_channel_single(
         # (łatwiejsze łączenie z rzeką w sąsiednim heksie).
         local_width = width * (0.85 + 0.35 * t)
         half = local_width / 2.0
-        trace.append((x, y, half))
+        trace.append((x, y, half, t))
         col0 = int(math.floor(x))
         row0 = int(math.floor(y))
         for dr in range(-2, 3):
@@ -623,6 +645,36 @@ def _carve_outflow_channel_single(
                 if math.hypot(dx, dy) <= half:
                     water[row][col] = True
     return (water, trace) if return_trace else water
+
+
+def _soften_outflow_bank(
+    bank: List[List[bool]],
+    mask: Sequence[Sequence[bool]],
+    *,
+    grid: int,
+    trace: Sequence[Tuple[float, float, float, float]],
+) -> None:
+    if not trace:
+        return
+    # Zdejmij brzeg w wąskim pasie przy odpływie, aby przejście było bardziej płynne.
+    for sx, sy, half, t in trace:
+        if t < 0.55:
+            continue
+        radius = max(1.0, half + 1.2)
+        col0 = int(math.floor(sx))
+        row0 = int(math.floor(sy))
+        for dr in range(-3, 4):
+            for dc in range(-3, 4):
+                col = col0 + dc
+                row = row0 + dr
+                if not (0 <= row < grid and 0 <= col < grid):
+                    continue
+                if not mask[row][col] or not bank[row][col]:
+                    continue
+                dx = (col + 0.5) - sx
+                dy = (row + 0.5) - sy
+                if math.hypot(dx, dy) <= radius:
+                    bank[row][col] = False
 
 
 def _compute_banks(mask: Sequence[Sequence[bool]], water: Sequence[Sequence[bool]], shore_width: int) -> List[List[bool]]:
@@ -806,15 +858,17 @@ def render_lake(opts: LakeOptions) -> Tuple[Image.Image, Dict[str, Any]]:
     lake_center: Tuple[float, float] | None = None
     base_r: float | None = None
     noise_offset: Tuple[float, float] | None = None
+    outflow_trace: List[Tuple[float, float, float, float]] | None = None
     if is_cluster:
         assert opts.cluster_seed is not None
         assert opts.cluster_neighbors is not None
         assert opts.cluster_tile is not None
 
         cluster_seed = int(opts.cluster_seed)
-        water = _compute_water_mask_cluster3(grid, mask, opts)
+        water, outflow_trace = _compute_water_mask_cluster3(grid, mask, opts)
         seed_for_fill = cluster_seed
-        mode = "lake3"
+        cluster_shape = str(getattr(opts, "cluster_shape", "") or "").lower()
+        mode = "lake_y" if cluster_shape == "y" else "lake3"
         # parametry globalne do bezszwowego fill (spójne z _compute_water_mask_cluster3)
         centers = _cluster7_tile_centers(grid)
         tile_offset = centers.get(str(opts.cluster_tile), (0.0, 0.0))
@@ -822,11 +876,13 @@ def render_lake(opts: LakeOptions) -> Tuple[Image.Image, Dict[str, Any]]:
         lake_center, base_r = _global_lake_field_params(grid, cluster_seed, opts.cluster_neighbors)
         noise_offset = (-local_cx + tile_offset[0], -local_cy + tile_offset[1])
     else:
-        water = _compute_water_mask_single(grid, mask, opts)
+        water, outflow_trace = _compute_water_mask_single(grid, mask, opts)
         seed_for_fill = int(opts.seed)
         mode = "lake1"
 
     bank = _compute_banks(mask, water, opts.shore_width)
+    if outflow_trace:
+        _soften_outflow_bank(bank, mask, grid=grid, trace=outflow_trace)
 
     img = Image.new("RGBA", (grid, grid), (0, 0, 0, 0))
     px = img.load()
@@ -882,6 +938,8 @@ def render_lake(opts: LakeOptions) -> Tuple[Image.Image, Dict[str, Any]]:
         meta["cluster_seed"] = int(opts.cluster_seed)
         meta["cluster_neighbors"] = list(opts.cluster_neighbors or [])
         meta["cluster_tile"] = opts.cluster_tile
+        if opts.cluster_shape:
+            meta["cluster_shape"] = opts.cluster_shape
 
     return img, meta
 

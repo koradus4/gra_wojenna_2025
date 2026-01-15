@@ -79,6 +79,8 @@ class HexInspector:
         # odpływu jeziora i szerokości rzeki, gdy testujesz połączenie jezioro→rzeka.
         self.use_flow_width_slider = tk.BooleanVar(value=False)
         self.flow_width_var = tk.DoubleVar(value=7.2)
+        # Tryb zgodny z Map Editorem (realne parametry zamiast losowych ekstremów).
+        self.use_map_editor_profiles = tk.BooleanVar(value=True)
 
         self.backgrounds_dir = PROJEKT_ROOT / "assets" / "terrain" / "hex_painted"
         self.output_dir = PROJEKT_ROOT / "edytory" / "_hex_inspector_output"
@@ -188,6 +190,21 @@ class HexInspector:
                 activeforeground="#4fc3f7",
             )
             rb.pack(side=tk.LEFT, padx=5)
+
+        profile_frame = tk.Frame(self.root, bg="#1e1e1e")
+        profile_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
+
+        tk.Checkbutton(
+            profile_frame,
+            text="✅ Realne parametry jak w Map Editorze",
+            variable=self.use_map_editor_profiles,
+            bg="#1e1e1e",
+            fg="#ddd",
+            selectcolor="#363636",
+            activebackground="#1e1e1e",
+            activeforeground="#4fc3f7",
+            font=("Segoe UI", 9),
+        ).pack(side=tk.LEFT)
 
         width_frame = tk.Frame(self.root, bg="#1e1e1e")
         width_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
@@ -517,20 +534,32 @@ class HexInspector:
         elif category == "lake":
             # Jezioro: wariant 1-heksowy, czasem z odpływem (źródło dopływu)
             bg = self._pick_background(rng)
+            use_editor_profiles = bool(self.use_map_editor_profiles.get())
             outflow = None
-            if rng.random() < 0.45:
+            if not use_editor_profiles and rng.random() < 0.45:
+                outflow = rng.choice(list(lake_gen.HEX_SIDES))
+            elif use_editor_profiles and bool(self.use_flow_width_slider.get()):
                 outflow = rng.choice(list(lake_gen.HEX_SIDES))
 
             if outflow and bool(self.use_flow_width_slider.get()):
                 outflow_width = round(float(self.flow_width_var.get()), 2)
-            else:
+            elif outflow:
                 outflow_width = round(rng.uniform(1.8, 2.6), 2)
+            else:
+                outflow_width = 2.2
+
+            if use_editor_profiles:
+                lake_radius = rng.choice([0.26, 0.34, 0.42])
+                shore_width = 2
+            else:
+                lake_radius = round(rng.uniform(0.26, 0.42), 2)
+                shore_width = rng.choice([1, 2, 2, 3])
             config = {
                 "category": "lake",
                 "seed": rng.randint(1000, 99999),
                 "background": bg,
-                "lake_radius": round(rng.uniform(0.26, 0.42), 2),
-                "shore_width": rng.choice([1, 2, 2, 3]),
+                "lake_radius": lake_radius,
+                "shore_width": shore_width,
                 "outflow_side": outflow,
                 "outflow_width": outflow_width,
             }
@@ -720,22 +749,32 @@ class HexInspector:
         if category == "lake":
             # Układ: center + 2 sąsiady (trójka). Reszta blank.
             # Wersje: bez odpływu (wolne jezioro) / z odpływem (źródło dopływu).
-            pattern = rng.choice(["lake3", "lake3_source", "lake3_source_river"])
+            use_editor_profiles = bool(self.use_map_editor_profiles.get())
+            if use_editor_profiles:
+                pattern = rng.choice(["lake3", "lake7", "lake3_source_river"])
+            else:
+                pattern = rng.choice(["lake3", "lake3_source", "lake3_source_river"])
             bg = self._pick_background(rng)
             base_seed = rng.randint(1000, 99999)
 
-            # Wybierz 2 sąsiadów jako parę przyległych boków, żeby układ był spójny.
             lake_sides = list(lake_gen.HEX_SIDES)
-            a = rng.choice(lake_sides)
-            ai = lake_sides.index(a)
-            b = lake_sides[(ai + 1) % len(lake_sides)]
-            neighbors = (a, b)
+            if pattern == "lake7":
+                neighbors = tuple(lake_sides)
+            else:
+                # Wybierz 2 sąsiadów jako parę przyległych boków, żeby układ był spójny.
+                a = rng.choice(lake_sides)
+                ai = lake_sides.index(a)
+                b = lake_sides[(ai + 1) % len(lake_sides)]
+                neighbors = (a, b)
 
             tiles: Dict[str, Dict[str, Any]] = {}
             for name in ["center", "top", "top_right", "bottom_right", "bottom", "bottom_left", "top_left"]:
                 tiles[name] = {"category": "lake", "background": bg, "seed": base_seed, "blank": True}
 
-            active = ["center", neighbors[0], neighbors[1]]
+            if pattern == "lake7":
+                active = ["center", *list(neighbors)]
+            else:
+                active = ["center", neighbors[0], neighbors[1]]
             outflow_side = None
             if pattern in ("lake3_source", "lake3_source_river"):
                 # Odpływ: wybierz bok różny od 2 heksów jeziora, żeby wypływ nie szedł "w jezioro".
@@ -746,11 +785,19 @@ class HexInspector:
             # żeby łączył się ze standardową szerokością rzeki (bank_offset*GLOBAL_BANK_WIDTH_MULTIPLIER).
             # W pozostałych wariantach zachowujemy węższy, subtelny kanał.
             if pattern == "lake3_source_river":
-                outflow_width = round(rng.uniform(6.2, 8.4), 2)
-                shore_width = rng.choice([1, 1, 2])
+                if bool(self.use_flow_width_slider.get()):
+                    outflow_width = round(float(self.flow_width_var.get()), 2)
+                else:
+                    outflow_width = round(rng.uniform(6.2, 8.4), 2)
+                shore_width = 2 if use_editor_profiles else rng.choice([1, 1, 2])
             else:
                 outflow_width = round(rng.uniform(1.8, 2.6), 2)
-                shore_width = rng.choice([1, 2, 2, 3])
+                shore_width = 2 if use_editor_profiles else rng.choice([1, 2, 2, 3])
+
+            if use_editor_profiles:
+                lake_radius = rng.choice([0.90, 1.00, 1.12])
+            else:
+                lake_radius = round(rng.uniform(0.92, 1.08), 2)
 
             for tile_name in active:
                 tiles[tile_name] = {
@@ -762,8 +809,9 @@ class HexInspector:
                     "cluster_seed": base_seed,
                     "cluster_neighbors": list(neighbors),
                     "cluster_tile": tile_name,
+                    "cluster_shape": "y" if pattern != "lake7" else None,
                     # parametry jeziora
-                    "lake_radius": round(rng.uniform(0.92, 1.08), 2),
+                    "lake_radius": lake_radius,
                     "shore_width": shore_width,
                     "outflow_side": outflow_side if tile_name == "center" else None,
                     "outflow_width": outflow_width,
@@ -1240,6 +1288,7 @@ class HexInspector:
                             else None
                         ),
                         cluster_tile=str(cfg.get("cluster_tile")) if cfg.get("cluster_tile") else None,
+                        cluster_shape=str(cfg.get("cluster_shape")) if cfg.get("cluster_shape") else None,
                     )
                     generate_lake(opts, temp_path)
                 else:

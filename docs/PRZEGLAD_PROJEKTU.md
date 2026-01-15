@@ -1,4 +1,34 @@
-# Gra Wojenna - Wersja 3.8
+# Gra Wojenna — Przegląd projektu (AI aktywne)
+
+Strategiczna gra wojenna na heksach z trybem HvsH oraz wsparciem AI. Projekt rozwijany w Pythonie 3.12.
+
+## Kluczowe funkcje
+- Hexagonalna plansza z `map_data.json` jako źródłem prawdy.
+- System widoczności (graduated visibility) dla graczy human.
+- Silnik akcji: ruch, walka, punkty ekonomiczne, warunki zwycięstwa.
+- Moduły AI (`ai/`) z logowaniem sesji.
+- Edytory map i generatorów tekstur (rzeki, drogi, kolej, jeziora).
+
+## Główne komponenty
+- `engine/` – silnik gry i akcje (`engine.py`, `action_refactored_clean.py`).
+- `core/` – tury, ekonomia, zwycięstwo, pogoda.
+- `gui/` – panele generała/dowódcy/mapy.
+- `ai/` – AI + logi i testy.
+- `edytory/` – map editor i generatory tekstur.
+
+## Uruchamianie
+- HvsH: `main.py`
+- AI/Human mix: `ai_launcher.py`
+- Auto test: `auto_game_10_turns.py`
+
+## Logowanie
+- Sesje logów w `ai/logs/sessions/`.
+- SessionManager: `utils/session_manager.py`.
+
+## Dokumenty powiązane
+- [STRUKTURA_PROJEKTU.md](../STRUKTURA_PROJEKTU.md)
+- [HUMAN_VISION_SYSTEM.md](HUMAN_VISION_SYSTEM.md)
+- [TOKEN_BALANCING_GUIDE.md](TOKEN_BALANCING_GUIDE.md)# Gra Wojenna - Wersja 3.8
 
 Strategiczna gra wojenna z elementami sztucznej inteligencji napisana w Pythonie. Wykorzystuje hexagonalną planszę i system punktów zasobów do zarządzania jednostkami.
 
