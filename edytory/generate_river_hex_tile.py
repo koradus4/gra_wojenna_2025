@@ -341,10 +341,13 @@ class TributaryOptions:
 
 def list_flat_backgrounds(directory: Path = ASSET_DIR) -> Dict[str, Path]:
 	backgrounds: Dict[str, Path] = {}
-	if not directory.exists():
-		return backgrounds
-	for path in sorted(directory.glob("flat_*.png")):
-		backgrounds[path.stem] = path.resolve()
+	flat_dir = directory / "flat"
+	search_dirs = [flat_dir, directory]
+	for base in search_dirs:
+		if not base.exists():
+			continue
+		for path in sorted(base.glob("flat_*.png")):
+			backgrounds[path.stem] = path.resolve()
 	return backgrounds
 
 
@@ -2706,7 +2709,7 @@ def main(argv: Iterable[str] | None = None) -> None:
 
 	if args.list_backgrounds:
 		if not backgrounds:
-			print("Brak tekstur flat_* w katalogu assets/terrain/hex_painted.")
+			print("Brak tekstur flat_* w katalogu assets/terrain/hex_painted/flat.")
 		else:
 			print("Dostępne tła:")
 			for name in backgrounds:

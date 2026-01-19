@@ -53,6 +53,104 @@ except Exception:
     normalize_road_options = None
     normalize_railway_options = None
 
+# ============================================================================
+# OGRANICZENIA ZGODNE Z MAP EDITOREM (1:1)
+# ============================================================================
+
+# Jeziora: wartości zgodne z Map Editorem
+MAP_EDITOR_LAKE_SINGLE_RADII = (0.26, 0.34, 0.42)
+MAP_EDITOR_LAKE_CLUSTER_SCALES = (0.80, 1.00, 1.25)
+
+# Rzeki: profile zgodne z Map Editorem
+MAP_EDITOR_RIVER_SIZE_PRESETS = (
+    {
+        "label": "Duża rzeka",
+        "bank_offset": float(river_gen.DEFAULT_BANK_OFFSET) * 1.55,
+        "bank_variation": float(river_gen.DEFAULT_BANK_VARIATION) * 1.2,
+    },
+    {
+        "label": "Mała rzeka",
+        "bank_offset": float(river_gen.DEFAULT_BANK_OFFSET) * 1.05,
+        "bank_variation": float(river_gen.DEFAULT_BANK_VARIATION),
+    },
+    {
+        "label": "Strumień",
+        "bank_offset": float(river_gen.DEFAULT_BANK_OFFSET) * 0.78,
+        "bank_variation": float(river_gen.DEFAULT_BANK_VARIATION) * 0.85,
+    },
+)
+
+MAP_EDITOR_RIVER_CURVATURE_PRESETS = (
+    {
+        "label": "Prosta",
+        "shape_preference": "straight",
+        "shape_strength": 0.25,
+        "noise_amplitude": 0.05,
+        "noise_frequency": 1.2,
+    },
+    {
+        "label": "Łagodna",
+        "shape_preference": "curve",
+        "shape_strength": 0.45,
+        "noise_amplitude": 0.18,
+        "noise_frequency": 1.8,
+    },
+    {
+        "label": "Meandrująca",
+        "shape_preference": "curve",
+        "shape_strength": 0.7,
+        "noise_amplitude": 0.3,
+        "noise_frequency": 2.4,
+    },
+    {
+        "label": "Dynamiczna",
+        "shape_preference": "turn",
+        "shape_strength": 0.85,
+        "noise_amplitude": 0.45,
+        "noise_frequency": 3.0,
+    },
+)
+
+MAP_EDITOR_RIVER_BANK_PRESETS = (
+    {"label": "Stabilny brzeg", "offset_multiplier": 1.0, "variation_multiplier": 0.85, "variation_add": 0.0},
+    {"label": "Erozyjny brzeg", "offset_multiplier": 1.15, "variation_multiplier": 1.25, "variation_add": 0.08},
+    {"label": "Piaszczysty brzeg", "offset_multiplier": 1.25, "variation_multiplier": 0.95, "variation_add": -0.02},
+    {"label": "Błotnisty brzeg", "offset_multiplier": 0.9, "variation_multiplier": 1.35, "variation_add": 0.1},
+)
+
+MAP_EDITOR_TRIBUTARY_SIZE_PRESETS = (
+    {"label": "Mały dopływ", "bank_offset_scale": 0.65, "variation_scale": 0.9},
+    {"label": "Średni dopływ", "bank_offset_scale": 0.8, "variation_scale": 1.0},
+    {"label": "Duży dopływ", "bank_offset_scale": 1.0, "variation_scale": 1.15},
+)
+
+MAP_EDITOR_TRIBUTARY_CHARACTER_PRESETS = (
+    {
+        "label": "Łagodny dopływ",
+        "shape": "curve",
+        "shape_strength": 0.55,
+        "noise_amplitude": 0.18,
+        "noise_frequency": 2.2,
+        "shape_direction_mode": "auto",
+    },
+    {
+        "label": "Ostry dopływ",
+        "shape": "turn",
+        "shape_strength": 0.85,
+        "noise_amplitude": 0.32,
+        "noise_frequency": 2.9,
+        "shape_direction_mode": "auto",
+    },
+    {
+        "label": "Esowaty dopływ",
+        "shape": "curve",
+        "shape_strength": 0.75,
+        "noise_amplitude": 0.28,
+        "noise_frequency": 2.6,
+        "shape_direction_mode": "auto",
+    },
+)
+
 
 class HexInspector:
     def __init__(self, root: tk.Tk):
@@ -72,13 +170,6 @@ class HexInspector:
         self.current_cluster: Optional[Dict[str, Any]] = None
 
         # Jedno pokrętło do strojenia szerokości połączenia jezioro↔rzeka.
-        # Interpretacja:
-        # - lake: outflow_width (pełna szerokość kanału)
-        # - river: bank_offset ~ (outflow_width / 6.0) przy GLOBAL_BANK_WIDTH_MULTIPLIER=3
-        # Domyślnie wyłączone: to jest narzędzie QA do ręcznego strojenia szerokości
-        # odpływu jeziora i szerokości rzeki, gdy testujesz połączenie jezioro→rzeka.
-        self.use_flow_width_slider = tk.BooleanVar(value=False)
-        self.flow_width_var = tk.DoubleVar(value=7.2)
         # Tryb zgodny z Map Editorem (realne parametry zamiast losowych ekstremów).
         self.use_map_editor_profiles = tk.BooleanVar(value=True)
 
@@ -89,6 +180,58 @@ class HexInspector:
 
         self._create_ui()
         self._generate_random()
+
+    def _show_preview_window(self, image_path: Path) -> None:
+        try:
+            img = Image.open(image_path).convert("RGBA")
+        except Exception as exc:
+            messagebox.showerror("Podgląd", f"Nie udało się wczytać obrazu:\n{image_path}\n\n{exc}")
+            return
+
+        self.root.update_idletasks()
+        box_w = int(self.preview_label.winfo_width() or 512)
+        box_h = int(self.preview_label.winfo_height() or 512)
+        w, h = img.size
+        scale = min(1.0, box_w / float(w), box_h / float(h))
+        if scale < 1.0:
+            img = img.resize((int(round(w * scale)), int(round(h * scale))), RESAMPLE_NEAREST)
+
+        photo = ImageTk.PhotoImage(img)
+        self.current_photo = photo
+        self.current_image = img
+        self.preview_label.configure(image=photo)
+
+    def _restore_state_from_export(self, export_dir: Path) -> None:
+        config_path = export_dir / "hex_config.json"
+        report_path = export_dir / "problem_report.txt"
+
+        if config_path.exists():
+            try:
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                category = str(config.get("category") or self.current_category.get())
+                mode = str(config.get("mode") or "single")
+                if category in {"road", "river", "railway", "lake"}:
+                    self.current_category.set(category)
+                if mode in {"single", "cluster7"}:
+                    self.current_mode.set(mode)
+                self.current_config = config
+            except Exception as exc:
+                messagebox.showwarning("Stan eksportu", f"Nie udało się wczytać hex_config.json:\n{exc}")
+
+        if report_path.exists():
+            try:
+                content = report_path.read_text(encoding="utf-8")
+                marker = "OPIS PROBLEMU:"
+                if marker in content:
+                    desc = content.split(marker, 1)[1].strip()
+                else:
+                    desc = content.strip()
+                if hasattr(self, "description_text"):
+                    self.description_text.delete("1.0", tk.END)
+                    if desc:
+                        self.description_text.insert(tk.END, desc)
+            except Exception:
+                pass
 
     def _append_fix_queue_entry(self, *, fix_id: str, export_dir: Path, config: Dict[str, Any], description: str) -> None:
         entry: Dict[str, Any] = {
@@ -206,45 +349,6 @@ class HexInspector:
             font=("Segoe UI", 9),
         ).pack(side=tk.LEFT)
 
-        width_frame = tk.Frame(self.root, bg="#1e1e1e")
-        width_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
-
-        tk.Checkbutton(
-            width_frame,
-            text="QA: steruj szerokością odpływu/rzeki",
-            variable=self.use_flow_width_slider,
-            bg="#1e1e1e",
-            fg="#ddd",
-            selectcolor="#363636",
-            activebackground="#1e1e1e",
-            activeforeground="#4fc3f7",
-            font=("Segoe UI", 9),
-        ).pack(side=tk.LEFT, padx=(0, 12))
-
-        tk.Label(
-            width_frame,
-            text="Szerokość cieku:",
-            font=("Segoe UI", 9),
-            bg="#1e1e1e",
-            fg="#ddd",
-        ).pack(side=tk.LEFT)
-
-        tk.Scale(
-            width_frame,
-            from_=2.0,
-            to=10.0,
-            resolution=0.1,
-            orient=tk.HORIZONTAL,
-            variable=self.flow_width_var,
-            showvalue=True,
-            length=260,
-            bg="#1e1e1e",
-            fg="#ddd",
-            troughcolor="#363636",
-            activebackground="#1e1e1e",
-            highlightthickness=0,
-        ).pack(side=tk.LEFT, padx=(8, 0))
-
         preview_container = tk.Frame(self.root, bg="#1e1e1e")
         preview_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
@@ -347,8 +451,12 @@ class HexInspector:
 
     def _find_backgrounds(self):
         backgrounds = []
-        for bg in self.backgrounds_dir.glob("flat_*.png"):
-            backgrounds.append(bg)
+        flat_dir = self.backgrounds_dir / "flat"
+        for base in (flat_dir, self.backgrounds_dir):
+            if not base.exists():
+                continue
+            for bg in base.glob("flat_*.png"):
+                backgrounds.append(bg)
         return backgrounds
 
     def _pick_background(self, rng: random.Random) -> Optional[str]:
@@ -405,8 +513,8 @@ class HexInspector:
             rng.shuffle(candidates)
             crossroads_sides = candidates[: rng.choice([1, 2])]
 
-        backgrounds = self._find_backgrounds()
-        bg = rng.choice(backgrounds) if backgrounds else None
+        # Map Editor nie dodaje automatycznie tła pod drogami.
+        bg = None
 
         road_type = rng.choice(road_types)
         width = rng.choice(widths)
@@ -437,45 +545,74 @@ class HexInspector:
 
         entry, exit_side = self._pick_entry_exit_with_coverage(rng)
 
-        backgrounds = self._find_backgrounds()
-        bg = rng.choice(backgrounds) if backgrounds else None
+        bg = None
+
+        use_editor_profiles = bool(self.use_map_editor_profiles.get())
+
+        if use_editor_profiles:
+            size_preset = rng.choice(MAP_EDITOR_RIVER_SIZE_PRESETS)
+            curvature_preset = rng.choice(MAP_EDITOR_RIVER_CURVATURE_PRESETS)
+            bank_preset = rng.choice(MAP_EDITOR_RIVER_BANK_PRESETS)
+
+            base_bank_offset = float(size_preset["bank_offset"])
+            base_bank_variation = float(size_preset["bank_variation"])
+            bank_offset = base_bank_offset * float(bank_preset["offset_multiplier"])
+            bank_variation = max(
+                0.0,
+                base_bank_variation * float(bank_preset["variation_multiplier"])
+                + float(bank_preset["variation_add"]),
+            )
+
+            shape = curvature_preset["shape_preference"]
+            shape_strength = float(curvature_preset["shape_strength"])
+            noise_amplitude = float(curvature_preset["noise_amplitude"])
+            noise_frequency = float(curvature_preset["noise_frequency"])
+        else:
+            shape = rng.choice(river_shapes)
+            shape_strength = round(rng.uniform(0.25, 0.85), 2)
+            noise_amplitude = round(rng.uniform(0.05, 0.45), 3)
+            noise_frequency = round(rng.uniform(0.15, 0.35), 3)
+            bank_offset = round(rng.uniform(0.6, 3.2), 3)
+            bank_variation = round(rng.uniform(0.0, 0.8), 3)
 
         tributary = None
         if rng.random() < 0.30:
             trib_entry = rng.choice([s for s in sides if s not in (entry, exit_side)])
+            trib_size = rng.choice(MAP_EDITOR_TRIBUTARY_SIZE_PRESETS)
+            trib_char = rng.choice(MAP_EDITOR_TRIBUTARY_CHARACTER_PRESETS)
+            join_ratio = round(rng.uniform(river_gen.MIN_TRIBUTARY_JOIN, river_gen.MAX_TRIBUTARY_JOIN), 2)
+
+            trib_bank_offset = max(0.0, bank_offset * float(trib_size["bank_offset_scale"]))
+            trib_bank_variation = max(0.0, bank_variation * float(trib_size["variation_scale"]))
+
             tributary = {
                 "entry_side": trib_entry,
-                "join_ratio": round(rng.uniform(0.25, 0.75), 2),
-                "shape": rng.choice(["straight", "curve"]),
-                "shape_strength": round(rng.uniform(0.25, 0.7), 2),
-                "noise_amplitude": round(rng.uniform(0.03, 0.12), 3),
-                "noise_frequency": round(rng.uniform(0.12, 0.35), 3),
+                "join_ratio": join_ratio,
+                "shape": trib_char["shape"],
+                "shape_strength": float(trib_char["shape_strength"]),
+                "noise_amplitude": float(trib_char["noise_amplitude"]),
+                "noise_frequency": float(trib_char["noise_frequency"]),
+                "shape_direction_mode": trib_char["shape_direction_mode"],
+                "seed_offset": 1_000_000,
+                "bank_offset": trib_bank_offset,
+                "bank_variation": trib_bank_variation,
             }
 
         cfg: Dict[str, Any] = {
             "category": "river",
-            "shape": rng.choice(river_shapes),
+            "shape": shape,
             "entry_side": entry,
             "exit_side": exit_side,
-            "shape_strength": round(rng.uniform(0.3, 0.8), 2),
+            "shape_strength": shape_strength,
             "shape_direction": None,
-            "noise_amplitude": round(rng.uniform(0.05, 0.15), 3),
-            "noise_frequency": round(rng.uniform(0.15, 0.35), 3),
+            "noise_amplitude": noise_amplitude,
+            "noise_frequency": noise_frequency,
             "tributary": tributary,
             "seed": rng.randint(1000, 99999),
             "background": str(bg.name) if bg else None,
-            "bank_offset": float(river_gen.DEFAULT_BANK_OFFSET),
-            "bank_variation": float(river_gen.DEFAULT_BANK_VARIATION),
+            "bank_offset": float(bank_offset),
+            "bank_variation": float(bank_variation),
         }
-
-        # Jeżeli suwak jest aktywny, traktuj jego wartość jako docelową "pełną" szerokość cieku
-        # (w komórkach siatki). W rzece bank_offset jest mnożony przez GLOBAL_BANK_WIDTH_MULTIPLIER (~3.0),
-        # więc pełna szerokość jest w przybliżeniu ~ 2 * bank_offset * 3 = 6 * bank_offset.
-        if bool(self.use_flow_width_slider.get()):
-            flow_w = float(self.flow_width_var.get())
-            cfg["bank_offset"] = max(0.6, flow_w / 6.0)
-            # mniejsza wariacja = bardziej przewidywalny styk w testach jezioro→rzeka
-            cfg["bank_variation"] = 0.12
 
         return cfg
 
@@ -485,8 +622,7 @@ class HexInspector:
 
         entry, exit_side = self._pick_entry_exit_with_coverage(rng, prefer_horizontal=True)
 
-        backgrounds = self._find_backgrounds()
-        bg = rng.choice(backgrounds) if backgrounds else None
+        bg = None
 
         junctions = []
         if rng.random() < 0.35:
@@ -533,27 +669,16 @@ class HexInspector:
             config = self._random_river_config(rng)
         elif category == "lake":
             # Jezioro: wariant 1-heksowy, czasem z odpływem (źródło dopływu)
-            bg = self._pick_background(rng)
+            bg = None
             use_editor_profiles = bool(self.use_map_editor_profiles.get())
             outflow = None
-            if not use_editor_profiles and rng.random() < 0.45:
-                outflow = rng.choice(list(lake_gen.HEX_SIDES))
-            elif use_editor_profiles and bool(self.use_flow_width_slider.get()):
+            if rng.random() < 0.45:
                 outflow = rng.choice(list(lake_gen.HEX_SIDES))
 
-            if outflow and bool(self.use_flow_width_slider.get()):
-                outflow_width = round(float(self.flow_width_var.get()), 2)
-            elif outflow:
-                outflow_width = round(rng.uniform(1.8, 2.6), 2)
-            else:
-                outflow_width = 2.2
+            outflow_width = 2.2
 
-            if use_editor_profiles:
-                lake_radius = rng.choice([0.26, 0.34, 0.42])
-                shore_width = 2
-            else:
-                lake_radius = round(rng.uniform(0.26, 0.42), 2)
-                shore_width = rng.choice([1, 2, 2, 3])
+            lake_radius = rng.choice(MAP_EDITOR_LAKE_SINGLE_RADII)
+            shore_width = 2
             config = {
                 "category": "lake",
                 "seed": rng.randint(1000, 99999),
@@ -581,6 +706,7 @@ class HexInspector:
                     width=config["width"],
                     noise_amplitude=config.get("noise_amplitude", 0.3),
                     crossroads=(config["crossroads"] or None),
+                    neighbor_road_types=config.get("neighbor_road_types"),
                     seed=config["seed"],
                 )
                 if normalize_road_options:
@@ -600,6 +726,10 @@ class HexInspector:
                         shape_strength=float(tcfg["shape_strength"]),
                         noise_amplitude=float(tcfg["noise_amplitude"]),
                         noise_frequency=float(tcfg["noise_frequency"]),
+                        shape_direction_mode=str(tcfg.get("shape_direction_mode") or "auto"),
+                        seed_offset=int(tcfg.get("seed_offset", 1_000_000)),
+                        bank_offset=tcfg.get("bank_offset"),
+                        bank_variation=tcfg.get("bank_variation"),
                     )
 
                 opts = RiverCenterlineOptions(
@@ -706,6 +836,33 @@ class HexInspector:
         )
         return layout
 
+    def _cluster7_neighbor_map(self) -> Dict[str, Dict[str, str]]:
+        coords = {
+            "center": (0, 0),
+            "top": (0, -1),
+            "top_right": (1, -1),
+            "bottom_right": (1, 0),
+            "bottom": (0, 1),
+            "bottom_left": (-1, 1),
+            "top_left": (-1, 0),
+        }
+        directions = {
+            "top": (0, -1),
+            "top_right": (1, -1),
+            "bottom_right": (1, 0),
+            "bottom": (0, 1),
+            "bottom_left": (-1, 1),
+            "top_left": (-1, 0),
+        }
+        coord_to_name = {coord: name for name, coord in coords.items()}
+        neighbor_map: Dict[str, Dict[str, str]] = {name: {} for name in coords}
+        for name, (q, r) in coords.items():
+            for side, (dq, dr) in directions.items():
+                neighbor_name = coord_to_name.get((q + dq, r + dr))
+                if neighbor_name:
+                    neighbor_map[name][side] = neighbor_name
+        return neighbor_map
+
     def _blank_tile(self, background_name: Optional[str]) -> Image.Image:
         if background_name:
             bg_path = self.backgrounds_dir / background_name
@@ -745,11 +902,16 @@ class HexInspector:
 
     def _generate_cluster7_plan(self, rng: random.Random, category: str) -> Dict[str, Any]:
         sides = list(rail_gen.HEX_SIDES)
+        use_editor_profiles = bool(self.use_map_editor_profiles.get())
+        river_cluster_shape_strength: Optional[float] = None
+        river_cluster_noise_amp: Optional[float] = None
+        river_cluster_noise_freq: Optional[float] = None
+        river_bank_offset: float = float(river_gen.DEFAULT_BANK_OFFSET)
+        river_bank_variation: float = float(river_gen.DEFAULT_BANK_VARIATION)
 
         if category == "lake":
             # Układ: center + 2 sąsiady (trójka). Reszta blank.
             # Wersje: bez odpływu (wolne jezioro) / z odpływem (źródło dopływu).
-            use_editor_profiles = bool(self.use_map_editor_profiles.get())
             if use_editor_profiles:
                 pattern = rng.choice(["lake3", "lake7", "lake3_source_river"])
             else:
@@ -785,19 +947,16 @@ class HexInspector:
             # żeby łączył się ze standardową szerokością rzeki (bank_offset*GLOBAL_BANK_WIDTH_MULTIPLIER).
             # W pozostałych wariantach zachowujemy węższy, subtelny kanał.
             if pattern == "lake3_source_river":
-                if bool(self.use_flow_width_slider.get()):
-                    outflow_width = round(float(self.flow_width_var.get()), 2)
-                else:
-                    outflow_width = round(rng.uniform(6.2, 8.4), 2)
-                shore_width = 2 if use_editor_profiles else rng.choice([1, 1, 2])
+                outflow_width = 2.2
+                shore_width = 2
             else:
-                outflow_width = round(rng.uniform(1.8, 2.6), 2)
-                shore_width = 2 if use_editor_profiles else rng.choice([1, 2, 2, 3])
+                outflow_width = 2.2
+                shore_width = 2
 
             if use_editor_profiles:
-                lake_radius = rng.choice([0.90, 1.00, 1.12])
+                lake_radius = rng.choice(MAP_EDITOR_LAKE_CLUSTER_SCALES)
             else:
-                lake_radius = round(rng.uniform(0.92, 1.08), 2)
+                lake_radius = rng.choice(MAP_EDITOR_LAKE_CLUSTER_SCALES)
 
             for tile_name in active:
                 tiles[tile_name] = {
@@ -855,26 +1014,23 @@ class HexInspector:
             }
 
         if category == "road":
-            # t_junction_house: dojazd (odnoga) kończy się w heksie domem
-            patterns = ["straight3", "turn3", "horizontal3", "t_junction", "t_junction_house", "crossroads4"]
+            patterns = ["straight3", "turn3", "horizontal3", "t_junction", "crossroads4"]
         elif category == "river":
             # *_tributary   -> dopływ w centrum + wymuszona kontynuacja w sąsiednim heksie
-            # *_tributary_end -> dopływ w centrum, ale celowo zakończony na krawędzi (bez kontynuacji)
             # *_tributary_lake -> dopływ w centrum + jezioro w sąsiednim heksie dopływu
             patterns = [
                 "straight3",
                 "turn3",
                 "horizontal3",
                 "straight3_tributary",
-                "straight3_tributary_end",
                 "straight3_tributary_lake",
             ]
         else:
-            # branch4_buffer: odnoga kończy się buforem w heksie
-            patterns = ["straight3", "turn3", "horizontal3", "branch4", "branch4_buffer"]
+            # branch4: dodatkowa odnoga od głównej linii
+            patterns = ["straight3", "turn3", "horizontal3", "branch4"]
 
         pattern = rng.choice(patterns)
-        bg = self._pick_background(rng)
+        bg = None
 
         axis_a: Optional[str] = None
         axis_b: Optional[str] = None
@@ -970,7 +1126,17 @@ class HexInspector:
                 width_keys = [w for w in width_keys if w != "bardzo_szeroka"]
             road_cluster_width = rng.choice(width_keys)
         elif category == "river":
-            river_cluster_shape = rng.choice(list(getattr(river_gen, "PATH_SHAPES", ("straight", "curve", "turn"))))
+            if use_editor_profiles:
+                curvature_preset = rng.choice(MAP_EDITOR_RIVER_CURVATURE_PRESETS)
+                river_cluster_shape = curvature_preset["shape_preference"]
+                river_cluster_shape_strength = float(curvature_preset["shape_strength"])
+                river_cluster_noise_amp = float(curvature_preset["noise_amplitude"])
+                river_cluster_noise_freq = float(curvature_preset["noise_frequency"])
+            else:
+                river_cluster_shape = rng.choice(list(getattr(river_gen, "PATH_SHAPES", ("straight", "curve", "turn"))))
+                river_cluster_shape_strength = None
+                river_cluster_noise_amp = None
+                river_cluster_noise_freq = None
         else:
             railway_types = sorted(rail_gen.RAILWAY_DIMENSIONS.keys())
             preferred_double = "dwutorowy" if "dwutorowy" in railway_types else None
@@ -1004,6 +1170,21 @@ class HexInspector:
         tributary_for_center: Optional[Dict[str, Any]] = None
         lake_tile_for_tributary: Optional[str] = None
         if category == "river":
+            if use_editor_profiles:
+                size_preset = rng.choice(MAP_EDITOR_RIVER_SIZE_PRESETS)
+                bank_preset = rng.choice(MAP_EDITOR_RIVER_BANK_PRESETS)
+                base_bank_offset = float(size_preset["bank_offset"])
+                base_bank_variation = float(size_preset["bank_variation"])
+                river_bank_offset = base_bank_offset * float(bank_preset["offset_multiplier"])
+                river_bank_variation = max(
+                    0.0,
+                    base_bank_variation * float(bank_preset["variation_multiplier"])
+                    + float(bank_preset["variation_add"]),
+                )
+            else:
+                river_bank_offset = round(rng.uniform(0.6, 3.2), 3)
+                river_bank_variation = round(rng.uniform(0.0, 0.8), 3)
+
             center_sides_used = connected.get("center") or []
             center_entry: Optional[str] = None
             center_exit: Optional[str] = None
@@ -1019,25 +1200,26 @@ class HexInspector:
             if center_entry and center_exit and (force_tributary or rng.random() < 0.60):
                 candidates = [s for s in sides if s not in (center_entry, center_exit)]
                 if candidates:
-                    # W *_tributary_end dopływ nie jest kontynuowany w sąsiednim kaflu,
-                    # więc pokazujemy go jako źródło w heksie (nie wygląda na urwany).
                     trib_entry = rng.choice(candidates)
-                    use_source = bool(pattern == "straight3_tributary_end")
+                    use_source = False
+                    trib_size = rng.choice(MAP_EDITOR_TRIBUTARY_SIZE_PRESETS)
+                    trib_char = rng.choice(MAP_EDITOR_TRIBUTARY_CHARACTER_PRESETS)
                     tributary_for_center = {
                         "entry_side": None if use_source else trib_entry,
                         # Semantyka: dopływ jako „źródło”/strumień dopływający raczej wcześnie.
-                        "join_ratio": round(rng.uniform(0.18, 0.45), 2),
-                        "shape": rng.choice(["straight", "curve"]),
-                        "shape_strength": round(rng.uniform(0.25, 0.7), 2),
-                        "noise_amplitude": round(rng.uniform(0.03, 0.12), 3),
-                        "noise_frequency": round(rng.uniform(0.12, 0.35), 3),
-                        "shape_direction_mode": "source",
+                        "join_ratio": round(rng.uniform(river_gen.MIN_TRIBUTARY_JOIN, river_gen.MAX_TRIBUTARY_JOIN), 2),
+                        "shape": trib_char["shape"],
+                        "shape_strength": float(trib_char["shape_strength"]),
+                        "noise_amplitude": float(trib_char["noise_amplitude"]),
+                        "noise_frequency": float(trib_char["noise_frequency"]),
+                        "shape_direction_mode": trib_char["shape_direction_mode"],
+                        "seed_offset": 1_000_000,
+                        "bank_offset": max(0.0, river_bank_offset * float(trib_size["bank_offset_scale"])),
+                        "bank_variation": max(0.0, river_bank_variation * float(trib_size["variation_scale"])),
                     }
 
                     # W wariancie *_tributary dopływ ma kontynuację w sąsiadzie.
-                    # *_tributary_end to legalne urwanie (bez wymuszania sąsiada).
-                    if pattern != "straight3_tributary_end":
-                        connect("center", trib_entry, trib_entry)
+                    connect("center", trib_entry, trib_entry)
 
                     # Gotowiec: zamiast rzeki w kaflu dopływu daj jezioro z odpływem w stronę centrum.
                     if pattern == "straight3_tributary_lake" and not use_source:
@@ -1140,9 +1322,14 @@ class HexInspector:
 
             else:
                 shape = river_cluster_shape
-                shape_strength = round(rng.uniform(0.3, 0.8), 2)
-                noise_amplitude = round(rng.uniform(0.05, 0.15), 3)
-                noise_frequency = round(rng.uniform(0.15, 0.35), 3)
+                if use_editor_profiles and river_cluster_shape_strength is not None:
+                    shape_strength = river_cluster_shape_strength
+                    noise_amplitude = river_cluster_noise_amp
+                    noise_frequency = river_cluster_noise_freq
+                else:
+                    shape_strength = round(rng.uniform(0.3, 0.8), 2)
+                    noise_amplitude = round(rng.uniform(0.05, 0.15), 3)
+                    noise_frequency = round(rng.uniform(0.15, 0.35), 3)
 
                 if len(sides_used) == 0:
                     tiles[name] = {"category": "river", "background": bg, "seed": tile_seed, "blank": True}
@@ -1167,6 +1354,8 @@ class HexInspector:
                     "tributary": tributary,
                     "seed": tile_seed,
                     "background": bg,
+                    "bank_offset": river_bank_offset if category == "river" else None,
+                    "bank_variation": river_bank_variation if category == "river" else None,
                 }
 
         # Podmień kafel dopływu na jezioro (jeśli wybrano preset).
@@ -1202,6 +1391,8 @@ class HexInspector:
         tiles_out: Dict[str, Dict[str, Any]] = {}
         bg_name = plan.get("background")
 
+        neighbor_map = self._cluster7_neighbor_map() if plan.get("category") == "road" else {}
+
         tmp_dir = self.output_dir / "_tmp"
         tmp_dir.mkdir(exist_ok=True)
 
@@ -1214,6 +1405,20 @@ class HexInspector:
                 bg_path = self.backgrounds_dir / cfg["background"] if cfg.get("background") else None
 
                 if category == "road":
+                    neighbor_road_types: Optional[Dict[str, str]] = None
+                    if neighbor_map:
+                        neighbors_for_tile = neighbor_map.get(name, {})
+                        if neighbors_for_tile:
+                            neighbor_road_types = {}
+                            for side, neighbor_name in neighbors_for_tile.items():
+                                neighbor_cfg = plan["tiles"].get(neighbor_name, {})
+                                if neighbor_cfg.get("category") == "road" and not neighbor_cfg.get("blank"):
+                                    n_type = neighbor_cfg.get("road_type")
+                                    if n_type:
+                                        neighbor_road_types[side] = n_type
+                            if not neighbor_road_types:
+                                neighbor_road_types = None
+
                     opts = RoadOptions(
                         grid_size=64,
                         background=bg_path,
@@ -1223,6 +1428,7 @@ class HexInspector:
                         width=cfg["width"],
                         noise_amplitude=float(cfg.get("noise_amplitude", 0.3)),
                         crossroads=(cfg.get("crossroads") or None),
+                        neighbor_road_types=neighbor_road_types,
                         endcap_preset=(Path(cfg["endcap_preset"]) if cfg.get("endcap_preset") else None),
                         seed=int(cfg["seed"]),
                     )
@@ -1254,6 +1460,10 @@ class HexInspector:
                             shape_strength=float(tcfg["shape_strength"]),
                             noise_amplitude=float(tcfg["noise_amplitude"]),
                             noise_frequency=float(tcfg["noise_frequency"]),
+                            shape_direction_mode=str(tcfg.get("shape_direction_mode") or "auto"),
+                            seed_offset=int(tcfg.get("seed_offset", 1_000_000)),
+                            bank_offset=tcfg.get("bank_offset"),
+                            bank_variation=tcfg.get("bank_variation"),
                         )
                     opts = RiverCenterlineOptions(
                         grid_size=64,
@@ -1583,7 +1793,27 @@ class HexInspector:
             messagebox.showinfo("Brak eksportów", "Nie znaleziono żadnego folderu eksportu.")
             return
         try:
-            self._open_path(export_dir)
+            preview_path = None
+            for candidate in ["cluster_preview.png", "hex_problem.png"]:
+                cand = export_dir / candidate
+                if cand.exists():
+                    preview_path = cand
+                    break
+            if preview_path is None:
+                tiles_dir = export_dir / "tiles"
+                if tiles_dir.exists():
+                    for name in ["center.png", "top.png", "top_right.png", "bottom_right.png", "bottom.png", "bottom_left.png", "top_left.png"]:
+                        cand = tiles_dir / name
+                        if cand.exists():
+                            preview_path = cand
+                            break
+                if preview_path is None:
+                    pngs = sorted(export_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+                    if pngs:
+                        preview_path = pngs[0]
+            if preview_path is not None:
+                self._show_preview_window(preview_path)
+            self._restore_state_from_export(export_dir)
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się otworzyć folderu:\n{export_dir}\n\n{e}")
 

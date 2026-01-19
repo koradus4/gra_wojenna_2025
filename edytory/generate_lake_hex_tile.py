@@ -249,6 +249,52 @@ def _cluster_allowed_boundary_sides(grid: int, opts: "LakeOptions") -> set[str]:
     return allowed
 
 
+def _cluster_neighbor_sides(grid: int, opts: "LakeOptions") -> set[str]:
+    """Zwraca boki heksa, które stykają się z innymi heksami jeziora w klastrze."""
+    if not (opts.cluster_seed is not None and opts.cluster_neighbors and opts.cluster_tile):
+        return set()
+
+    active = {"center", *set(opts.cluster_neighbors)}
+    tile = str(opts.cluster_tile)
+    if tile not in active:
+        return set()
+
+    centers = _cluster7_tile_centers(grid)
+    if tile not in centers:
+        return set()
+
+    radius = grid / 2.0
+    dx = 1.5 * radius
+    dy = math.sqrt(3.0) * radius
+    dy_half = dy / 2.0
+    side_deltas: Dict[str, Tuple[float, float]] = {
+        "top": (0.0, -dy),
+        "top_right": (dx, -dy_half),
+        "bottom_right": (dx, dy_half),
+        "bottom": (0.0, dy),
+        "bottom_left": (-dx, dy_half),
+        "top_left": (-dx, -dy_half),
+    }
+
+    cx, cy = centers[tile]
+    allowed: set[str] = set()
+    tol = 1e-6
+    for other in active:
+        if other == tile:
+            continue
+        if other not in centers:
+            continue
+        ox, oy = centers[other]
+        ddx = ox - cx
+        ddy = oy - cy
+        for side, (sdx, sdy) in side_deltas.items():
+            if abs(ddx - sdx) < tol and abs(ddy - sdy) < tol:
+                allowed.add(side)
+                break
+
+    return allowed
+
+
 def _apply_external_edge_margin(
     water: List[List[bool]],
     mask: Sequence[Sequence[bool]],
@@ -271,6 +317,32 @@ def _apply_external_edge_margin(
                 d = _distance_point_to_segment(px, py, a[0], a[1], b[0], b[1])
                 if d <= margin:
                     water[row][col] = False
+                    break
+
+
+def _clear_bank_on_allowed_edges(
+    bank: List[List[bool]],
+    mask: Sequence[Sequence[bool]],
+    *,
+    allowed_sides: set[str],
+    margin: float,
+    grid: int,
+) -> None:
+    """Usuwa bank wzdłuż krawędzi, które mają sąsiada w klastrze (brak szwów)."""
+    if not allowed_sides:
+        return
+    edges = _edge_segments_by_side(grid)
+    for row in range(grid):
+        for col in range(grid):
+            if not mask[row][col] or not bank[row][col]:
+                continue
+            px = col + 0.5
+            py = row + 0.5
+            for side in allowed_sides:
+                (a, b) = edges[side]
+                d = _distance_point_to_segment(px, py, a[0], a[1], b[0], b[1])
+                if d <= margin:
+                    bank[row][col] = False
                     break
 
 
@@ -447,7 +519,11 @@ def _compute_water_mask_cluster3(
     base_r *= float(opts.lake_radius)
     # Dla kształtu Y zacieśnij pole, żeby obrys był bardziej „Y” niż „koło”.
     if str(getattr(opts, "cluster_shape", "") or "").lower() == "y":
-        base_r *= 0.92
+        # Mocniej zmniejsz promień, aby jezioro mieściło się naturalnie w 3 heksach
+        # zamiast wyglądać na sztucznie ucięte.
+        base_r *= 0.78
+        base_r -= (grid / 2.0) * 0.12
+        base_r = max(base_r, (grid / 2.0) * 0.35)
 
     # Pracujemy w układzie współrzędnych "środek heksa = (0,0)" dla każdego kafla,
     # a potem przesuwamy o offset środka kafla w klastrze. To zapewnia ciągłość
@@ -477,17 +553,17 @@ def _compute_water_mask_cluster3(
     if opts.outflow_side and str(opts.cluster_tile) == target_tile:
         water, outflow_trace = _carve_outflow_channel_single(water, mask, opts, return_trace=True)
 
-    # Zapewnij "zewnętrzny" pas lądu pod brzeg (dla cluster7),
-    # ale dla kształtu Y zostaw obrys z globalnego pola (bez ucinania przy krawędziach heksa).
+    # Zapewnij "zewnętrzny" pas lądu pod brzeg (dla cluster7).
+    # Dla kształtu Y stosuj łagodniejszy margin tylko na krawędziach bez sąsiada,
+    # aby brzeg był pełny, ale jezioro nie wyglądało na sztucznie ucięte.
     cluster_shape = str(getattr(opts, "cluster_shape", "") or "").lower()
-    if cluster_shape != "y":
-        allowed = _cluster_allowed_boundary_sides(grid, opts)
-        forbidden: set[str] = set(HEX_SIDES) - set(allowed)
-        # margin w komórkach siatki: zależny od shore_width (ale zawsze >= 1)
-        margin = max(1.0, float(getattr(opts, "shore_width", 1)) + 0.65)
-        _apply_external_edge_margin(water, mask, forbidden_sides=forbidden, margin=margin, grid=grid)
+    allowed = _cluster_allowed_boundary_sides(grid, opts)
+    forbidden: set[str] = set(HEX_SIDES) - set(allowed)
+    if cluster_shape == "y":
+        margin = max(0.8, float(getattr(opts, "shore_width", 1)) + 0.2)
     else:
         margin = max(1.0, float(getattr(opts, "shore_width", 1)) + 0.65)
+    _apply_external_edge_margin(water, mask, forbidden_sides=forbidden, margin=margin, grid=grid)
 
     # Jeżeli lake3 ma odpływ, to zwykłe "pozwolenie wodzie dojść do krawędzi" często daje
     # zbyt szerokie otwarcie (wygląda jak urwany brzeg). Zawężamy ujście: w pasie przy krawędzi
@@ -608,9 +684,21 @@ def _carve_outflow_channel_single(
             break
 
     if last_water is None:
-        # Fallback: jeżeli z jakiegoś powodu środek nie jest w wodzie, zachowaj stare zachowanie.
-        base_r = (grid / 2.0) * float(opts.lake_radius)
-        start = (cx + dir_vec[0] * base_r * 0.78, cy + dir_vec[1] * base_r * 0.78)
+        # Jeśli nie znaleziono wody na promieniu, znajdź najbliższy punkt wody
+        # i zacznij kanał od niego, aby zawsze łączył się z jeziorem.
+        nearest: Tuple[float, float] | None = None
+        nearest_dist = 1e9
+        for row in range(grid):
+            for col in range(grid):
+                if not mask[row][col] or not water[row][col]:
+                    continue
+                px = col + 0.5
+                py = row + 0.5
+                d = math.hypot(px - cx, py - cy)
+                if d < nearest_dist:
+                    nearest_dist = d
+                    nearest = (px, py)
+        start = nearest if nearest is not None else (cx, cy)
     else:
         # Cofnij o 1.5 komórki w głąb, żeby kanał startował w jeziorze.
         start = (last_water[0] - dir_vec[0] * 1.5, last_water[1] - dir_vec[1] * 1.5)
@@ -624,9 +712,9 @@ def _carve_outflow_channel_single(
         t = i / max(1, steps)
         x = start[0] + (end[0] - start[0]) * t
         y = start[1] + (end[1] - start[1]) * t
-        # Zmiana szerokości: nieco węższy przy starcie, wyraźniej szerszy przy krawędzi
-        # (łatwiejsze łączenie z rzeką w sąsiednim heksie).
-        local_width = width * (0.85 + 0.35 * t)
+        # Zmiana szerokości: lekko szerszy przy starcie (lepsze połączenie z jeziorem),
+        # wyraźniej szerszy przy krawędzi (łączenie z rzeką w sąsiednim heksie).
+        local_width = width * (0.95 + 0.45 * t)
         half = local_width / 2.0
         trace.append((x, y, half, t))
         col0 = int(math.floor(x))
@@ -644,6 +732,9 @@ def _carve_outflow_channel_single(
                 dy = (row + 0.5) - y
                 if math.hypot(dx, dy) <= half:
                     water[row][col] = True
+                elif t <= 0.2 and math.hypot(dx, dy) <= (half + 1.0):
+                    # delikatne poszerzenie przy starcie kanału, by połączyć z jeziorem
+                    water[row][col] = True
     return (water, trace) if return_trace else water
 
 
@@ -656,11 +747,12 @@ def _soften_outflow_bank(
 ) -> None:
     if not trace:
         return
-    # Zdejmij brzeg w wąskim pasie przy odpływie, aby przejście było bardziej płynne.
+    # Zdejmij brzeg w pasie przy odpływie, aby przejście było bardziej płynne.
     for sx, sy, half, t in trace:
-        if t < 0.55:
-            continue
-        radius = max(1.0, half + 1.2)
+        if t < 0.35:
+            radius = max(1.0, half + 0.6)
+        else:
+            radius = max(1.0, half + 1.2)
         col0 = int(math.floor(sx))
         row0 = int(math.floor(sy))
         for dr in range(-3, 4):
@@ -881,6 +973,17 @@ def render_lake(opts: LakeOptions) -> Tuple[Image.Image, Dict[str, Any]]:
         mode = "lake1"
 
     bank = _compute_banks(mask, water, opts.shore_width)
+    if is_cluster:
+        neighbor_sides = _cluster_neighbor_sides(grid, opts)
+        if neighbor_sides:
+            margin = max(1.0, float(getattr(opts, "shore_width", 1)) - 0.15)
+            _clear_bank_on_allowed_edges(
+                bank,
+                mask,
+                allowed_sides=neighbor_sides,
+                margin=margin,
+                grid=grid,
+            )
     if outflow_trace:
         _soften_outflow_bank(bank, mask, grid=grid, trace=outflow_trace)
 

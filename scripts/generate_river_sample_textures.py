@@ -91,7 +91,7 @@ SAMPLES: Iterable[dict] = [
         "noise": 0.2,
         "frequency": 1.8,
         "seed": 931,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "top_right",
@@ -113,7 +113,7 @@ SAMPLES: Iterable[dict] = [
         "noise": 0.3,
         "frequency": 1.4,
         "seed": 1337,
-        "background": "terrain/hex_painted/flat_grass_sandy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_sandy_mix_64.png",
         "tributary": {
             "index": 1,
             "entry_side": "bottom_left",
@@ -137,7 +137,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 2410,
         "bank_offset": DEFAULT_BANK_OFFSET * 0.95,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.15,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "top_right",
@@ -161,7 +161,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 3891,
         "bank_offset": DEFAULT_BANK_OFFSET * 1.2,
         "bank_variation": DEFAULT_BANK_VARIATION,
-        "background": "terrain/hex_painted/flat_grass_sandy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_sandy_mix_64.png",
         "tributary": {
             "index": 1,
             "entry_side": "bottom_left",
@@ -185,7 +185,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 5127,
         "bank_offset": DEFAULT_BANK_OFFSET,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.25,
-        "background": "terrain/hex_painted/flat_grass_muddy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_muddy_mix_64.png",
         "tributary": {
             "index": 3,
             "entry_side": "bottom_right",
@@ -209,7 +209,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 3105,
         "bank_offset": DEFAULT_BANK_OFFSET * 1.05,
         "bank_variation": DEFAULT_BANK_VARIATION,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 1,
             "entry_side": "bottom_left",
@@ -233,7 +233,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 4219,
         "bank_offset": DEFAULT_BANK_OFFSET,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.1,
-        "background": "terrain/hex_painted/flat_grass_sandy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_sandy_mix_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "top_right",
@@ -257,7 +257,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 2874,
         "bank_offset": DEFAULT_BANK_OFFSET * 0.9,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.2,
-        "background": "terrain/hex_painted/flat_grass_muddy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_muddy_mix_64.png",
         "tributary": {
             "index": 1,
             "entry_side": "bottom",
@@ -281,7 +281,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 3541,
         "bank_offset": DEFAULT_BANK_OFFSET,
         "bank_variation": DEFAULT_BANK_VARIATION,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "top_left",
@@ -305,7 +305,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 3998,
         "bank_offset": DEFAULT_BANK_OFFSET * 1.1,
         "bank_variation": DEFAULT_BANK_VARIATION * 0.9,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "bottom",
@@ -329,7 +329,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 4685,
         "bank_offset": DEFAULT_BANK_OFFSET * 1.15,
         "bank_variation": DEFAULT_BANK_VARIATION,
-        "background": "terrain/hex_painted/flat_grass_sandy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_sandy_mix_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "top_right",
@@ -353,7 +353,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 5129,
         "bank_offset": DEFAULT_BANK_OFFSET,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.05,
-        "background": "terrain/hex_painted/flat_grass_fields_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_fields_64.png",
         "tributary": {
             "index": 1,
             "entry_side": "bottom",
@@ -377,7 +377,7 @@ SAMPLES: Iterable[dict] = [
         "seed": 5781,
         "bank_offset": DEFAULT_BANK_OFFSET * 1.05,
         "bank_variation": DEFAULT_BANK_VARIATION * 1.1,
-        "background": "terrain/hex_painted/flat_grass_muddy_mix_64.png",
+        "background": "terrain/hex_painted/flat/flat_grass_muddy_mix_64.png",
         "tributary": {
             "index": 2,
             "entry_side": "bottom_left",

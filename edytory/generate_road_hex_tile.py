@@ -107,6 +107,8 @@ class RoadOptions:
     crossroads: List[str] | None = None
     # Opcjonalny cap na zakończeniu (np. budynek) jako preset JSON z assets/terrain/presets/user_assets/...
     endcap_preset: Path | None = None
+    # Opcjonalne typy dróg u sąsiadów do blendu na krawędziach (side -> road_type)
+    neighbor_road_types: Dict[str, str] | None = None
 
 
 @dataclass 
@@ -346,6 +348,25 @@ def _point_in_polygon(x: float, y: float, polygon: Sequence[Tuple[float, float]]
     return inside
 
 
+def _point_to_segment_distance(px: float, py: float, ax: float, ay: float, bx: float, by: float) -> float:
+    """Dystans punktu do odcinka."""
+    abx = bx - ax
+    aby = by - ay
+    apx = px - ax
+    apy = py - ay
+    denom = abx * abx + aby * aby
+    if denom <= 0.0:
+        return math.hypot(px - ax, py - ay)
+    t = (apx * abx + apy * aby) / denom
+    if t < 0.0:
+        t = 0.0
+    elif t > 1.0:
+        t = 1.0
+    nx = ax + abx * t
+    ny = ay + aby * t
+    return math.hypot(px - nx, py - ny)
+
+
 def _generate_road_path(
     entry: Tuple[float, float],
     exit_pt: Tuple[float, float],
@@ -441,10 +462,22 @@ def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
         exit_pt = _side_to_edge_center(options.exit_side, grid)
     
     # Generuj główną ścieżkę
-    main_path = _generate_road_path(
-        entry_pt, exit_pt, center, 
-        options.noise_amplitude, rng
-    )
+    if options.crossroads:
+        # Wymuś przejście przez środek, żeby odnogi zawsze się łączyły.
+        main_part_a = _generate_road_path(
+            entry_pt, center, center,
+            options.noise_amplitude, rng
+        )
+        main_part_b = _generate_road_path(
+            center, exit_pt, center,
+            options.noise_amplitude, rng
+        )
+        main_path = main_part_a + main_part_b[1:]
+    else:
+        main_path = _generate_road_path(
+            entry_pt, exit_pt, center, 
+            options.noise_amplitude, rng
+        )
     main_path = _smooth_path(main_path)
     
     # Dodatkowe ścieżki dla skrzyżowań
@@ -528,6 +561,51 @@ def generate_road(options: RoadOptions, output_path: Path) -> RoadResult:
         for col in range(grid):
             if not mask[row][col]:
                 pixels[col, row] = (0, 0, 0, 0)
+
+    # Blend krawędzi między różnymi typami dróg (tylko gdy brak tła)
+    if options.background is None and options.neighbor_road_types:
+        vertices = _hex_vertices(grid)
+        side_to_vertices = {
+            "top": (1, 2),
+            "top_right": (2, 3),
+            "bottom_right": (3, 4),
+            "bottom": (4, 5),
+            "bottom_left": (5, 0),
+            "top_left": (0, 1),
+        }
+        band_px = max(3, int(round(grid * 0.14)))
+        blend_strength = 0.85
+
+        for side, neighbor_type in options.neighbor_road_types.items():
+            if side not in side_to_vertices:
+                continue
+            neighbor_colors = ROAD_COLOR_PRESETS.get(neighbor_type)
+            if not neighbor_colors:
+                continue
+            target_color = neighbor_colors.get("edge") or neighbor_colors.get("center")
+            if not target_color:
+                continue
+
+            i1, i2 = side_to_vertices[side]
+            ax, ay = vertices[i1]
+            bx, by = vertices[i2]
+
+            for row in range(grid):
+                for col in range(grid):
+                    if not mask[row][col]:
+                        continue
+                    current = pixels[col, row]
+                    if not current or current[3] == 0:
+                        continue
+                    px = col + 0.5
+                    py = row + 0.5
+                    dist = _point_to_segment_distance(px, py, ax, ay, bx, by)
+                    if dist > band_px:
+                        continue
+                    t = (band_px - dist) / float(band_px)
+                    factor = t * blend_strength
+                    blended = _lerp_color(current, target_color, factor)
+                    pixels[col, row] = blended
 
     # Opcjonalny cap na dead-end (np. dom). Rysujemy po drogach i przed skalowaniem.
     if options.exit_side is None and options.endcap_preset and Path(options.endcap_preset).exists():

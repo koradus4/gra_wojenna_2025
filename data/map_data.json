@@ -2040,7 +2040,10 @@
     "5,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat\\flat_grass_dense_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "5,3": {
       "terrain_key": "teren_płaski",
@@ -2445,7 +2448,10 @@
     "6,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat\\flat_grass_dense_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dense"
     },
     "6,3": {
       "terrain_key": "teren_płaski",
@@ -9670,42 +9676,12 @@
     "24,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\lake_tool\\lake_cluster_center_24_-2_20260115_223348_s6936.png",
-      "lake_mode": "lake_y",
-      "lake_cluster_tile": "center",
-      "lake_cluster_seed": 6936,
-      "lake_cluster_neighbors": [
-        "bottom_right",
-        "bottom"
-      ],
-      "lake_cluster_shape": "y",
-      "lake_outflow_side": "top_right",
-      "lake_outflow_width": 3.3488,
-      "lake_outflow_tile": "center",
-      "lake_seed": 6936,
-      "lake_radius": 1.0,
-      "lake_shore_width": 2
+      "defense_mod": 0
     },
     "24,-1": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\lake_tool\\lake_cluster_bottom_24_-1_20260115_223348_s6936.png",
-      "lake_mode": "lake_y",
-      "lake_cluster_tile": "bottom",
-      "lake_cluster_seed": 6936,
-      "lake_cluster_neighbors": [
-        "bottom_right",
-        "bottom"
-      ],
-      "lake_cluster_shape": "y",
-      "lake_seed": 6936,
-      "lake_radius": 1.0,
-      "lake_shore_width": 2,
-      "lake_outflow_side": "top_right",
-      "lake_outflow_width": 3.3488,
-      "lake_outflow_tile": "center"
+      "defense_mod": 0
     },
     "24,0": {
       "terrain_key": "teren_płaski",
@@ -10095,141 +10071,12 @@
     "25,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "river_entry_side": "bottom_right",
-      "river_exit_side": "top_right",
-      "river_bank_offset": 2.093,
-      "river_bank_variation": 0.667,
-      "texture": "assets/terrain/hex_painted/river_tool/hex_25_-3_river_20260115_223128.png",
-      "texture_grid": 64,
-      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_25_-3_river_20260115_223054_01.json",
-      "river_has_tributary": false,
-      "river_generation_meta": {
-        "grid": 64,
-        "entry_side": "bottom_right",
-        "exit_side": "top_right",
-        "seed": 8874,
-        "background": null,
-        "start": {
-          "x": 55.625,
-          "y": 45.63990010960491
-        },
-        "end": {
-          "x": 55.625,
-          "y": 18.36009989039509
-        },
-        "shape": "turn",
-        "shape_strength": 0.85,
-        "shape_direction": -1,
-        "shape_direction_mode": "right",
-        "noise_amplitude": 0.45,
-        "noise_frequency": 1.0,
-        "noise_applied": true,
-        "shape_metadata": {
-          "control_points": [
-            {
-              "x": 55.625,
-              "y": 45.63990010960491
-            },
-            {
-              "x": 31.496521698759707,
-              "y": 35.39087916724778
-            },
-            {
-              "x": 44.2498283012403,
-              "y": 28.609120832752218
-            },
-            {
-              "x": 55.625,
-              "y": 18.36009989039509
-            }
-          ],
-          "handle_lengths": {
-            "entry": 26.214993713718464,
-            "exit": 15.311334411250334
-          },
-          "entry_inward": {
-            "x": -0.8660254037844386,
-            "y": -0.5
-          },
-          "exit_inward": {
-            "x": -0.8660254037844386,
-            "y": 0.5
-          },
-          "span_direction": {
-            "x": 0.0,
-            "y": -1.0
-          },
-          "lateral": {
-            "x": -12.75330660248059,
-            "y": -0.0
-          },
-          "lateral_sign": -1,
-          "noise": {
-            "applied": true,
-            "amplitude": 0.45,
-            "frequency": 1.0,
-            "seed": 8874,
-            "max_offset_px": 2.3040000000000003,
-            "offset_stats": {
-              "min": -0.4044242856299882,
-              "max": 0.0,
-              "median": -0.32858700541175306
-            }
-          }
-        },
-        "centerline_cell_count": 37,
-        "centerline_banks": {
-          "offset": 2.093,
-          "effective_offset": 6.279,
-          "color": {
-            "rgba": [
-              214,
-              192,
-              138,
-              255
-            ],
-            "hex": "#D6C08AFF"
-          },
-          "variation": 0.667,
-          "effective_variation": 2.0010000000000003,
-          "left_cell_count": 25,
-          "right_cell_count": 47
-        },
-        "tributary_present": false,
-        "tributary": null,
-        "water_depth_noise": {
-          "seed": 8874,
-          "strength": 0.32
-        },
-        "tributaries": [
-          {
-            "entry_side": "bottom_left",
-            "source_hex": "24,-2",
-            "size": "duży"
-          }
-        ]
-      }
+      "defense_mod": 0
     },
     "25,-2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\lake_tool\\lake_cluster_bottom_right_25_-2_20260115_223348_s6936.png",
-      "lake_mode": "lake_y",
-      "lake_cluster_tile": "bottom_right",
-      "lake_cluster_seed": 6936,
-      "lake_cluster_neighbors": [
-        "bottom_right",
-        "bottom"
-      ],
-      "lake_cluster_shape": "y",
-      "lake_seed": 6936,
-      "lake_radius": 1.0,
-      "lake_shore_width": 2,
-      "lake_outflow_side": "top_right",
-      "lake_outflow_width": 3.3488,
-      "lake_outflow_tile": "center"
+      "defense_mod": 0
     },
     "25,-1": {
       "terrain_key": "teren_płaski",
@@ -10624,226 +10471,12 @@
     "26,-4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "river_entry_side": "bottom_left",
-      "river_exit_side": "top_right",
-      "river_bank_offset": 2.093,
-      "river_bank_variation": 0.667,
-      "texture": "terrain\\hex_painted\\river_tool\\hex_26_-4_river_20260115_223054_02.png",
-      "texture_grid": 64,
-      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_26_-4_river_20260115_223054_02.json",
-      "river_has_tributary": false,
-      "river_generation_meta": {
-        "grid": 64,
-        "entry_side": "bottom_left",
-        "exit_side": "top_right",
-        "seed": 8875,
-        "background": null,
-        "start": {
-          "x": 8.375,
-          "y": 45.63990010960491
-        },
-        "end": {
-          "x": 55.625,
-          "y": 18.36009989039509
-        },
-        "shape": "turn",
-        "shape_strength": 0.85,
-        "shape_direction": null,
-        "shape_direction_mode": "auto",
-        "noise_amplitude": 0.45,
-        "noise_frequency": 1.0,
-        "noise_applied": true,
-        "shape_metadata": {
-          "control_points": [
-            {
-              "x": 8.375,
-              "y": 45.63990010960491
-            },
-            {
-              "x": 37.501996698759704,
-              "y": 14.09717072489065
-            },
-            {
-              "x": 26.498003301240296,
-              "y": 49.90282927510935
-            },
-            {
-              "x": 55.625,
-              "y": 18.36009989039509
-            }
-          ],
-          "handle_lengths": {
-            "entry": 42.933969228652444,
-            "exit": 42.933969228652444
-          },
-          "entry_inward": {
-            "x": 0.8660254037844386,
-            "y": -0.5
-          },
-          "exit_inward": {
-            "x": -0.8660254037844386,
-            "y": 0.5
-          },
-          "span_direction": {
-            "x": 0.8660254037844386,
-            "y": -0.5
-          },
-          "lateral": {
-            "x": -12.75330660248059,
-            "y": -22.089375
-          },
-          "lateral_sign": -1,
-          "noise": {
-            "applied": true,
-            "amplitude": 0.45,
-            "frequency": 1.0,
-            "seed": 8875,
-            "max_offset_px": 2.3040000000000003,
-            "offset_stats": {
-              "min": -0.5693163737778171,
-              "max": 0.2609381118296361,
-              "median": 0.045661084114964244
-            }
-          }
-        },
-        "centerline_cell_count": 51,
-        "centerline_banks": {
-          "offset": 2.093,
-          "effective_offset": 6.279,
-          "color": {
-            "rgba": [
-              214,
-              192,
-              138,
-              255
-            ],
-            "hex": "#D6C08AFF"
-          },
-          "variation": 0.667,
-          "effective_variation": 2.0010000000000003,
-          "left_cell_count": 52,
-          "right_cell_count": 52
-        },
-        "tributary_present": false,
-        "tributary": null,
-        "water_depth_noise": {
-          "seed": 8875,
-          "strength": 0.32
-        }
-      }
+      "defense_mod": 0
     },
     "26,-3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "river_entry_side": "bottom_right",
-      "river_exit_side": "top_left",
-      "river_bank_offset": 2.093,
-      "river_bank_variation": 0.667,
-      "texture": "terrain\\hex_painted\\river_tool\\hex_26_-3_river_20260115_223054_00.png",
-      "texture_grid": 64,
-      "river_metadata_path": "terrain\\hex_painted\\river_tool\\hex_26_-3_river_20260115_223054_00.json",
-      "river_has_tributary": false,
-      "river_generation_meta": {
-        "grid": 64,
-        "entry_side": "bottom_right",
-        "exit_side": "top_left",
-        "seed": 8873,
-        "background": null,
-        "start": {
-          "x": 55.625,
-          "y": 45.63990010960491
-        },
-        "end": {
-          "x": 8.375,
-          "y": 18.36009989039509
-        },
-        "shape": "turn",
-        "shape_strength": 0.85,
-        "shape_direction": null,
-        "shape_direction_mode": "auto",
-        "noise_amplitude": 0.45,
-        "noise_frequency": 1.0,
-        "noise_applied": true,
-        "shape_metadata": {
-          "control_points": [
-            {
-              "x": 55.625,
-              "y": 45.63990010960491
-            },
-            {
-              "x": 26.498003301240296,
-              "y": 14.09717072489065
-            },
-            {
-              "x": 37.501996698759704,
-              "y": 49.90282927510935
-            },
-            {
-              "x": 8.375,
-              "y": 18.36009989039509
-            }
-          ],
-          "handle_lengths": {
-            "entry": 42.933969228652444,
-            "exit": 42.933969228652444
-          },
-          "entry_inward": {
-            "x": -0.8660254037844386,
-            "y": -0.5
-          },
-          "exit_inward": {
-            "x": 0.8660254037844386,
-            "y": 0.5
-          },
-          "span_direction": {
-            "x": -0.8660254037844386,
-            "y": -0.5
-          },
-          "lateral": {
-            "x": 12.75330660248059,
-            "y": -22.089375
-          },
-          "lateral_sign": 1,
-          "noise": {
-            "applied": true,
-            "amplitude": 0.45,
-            "frequency": 1.0,
-            "seed": 8873,
-            "max_offset_px": 2.3040000000000003,
-            "offset_stats": {
-              "min": 0.0,
-              "max": 1.438858094095616,
-              "median": 1.2401341901804845
-            }
-          }
-        },
-        "centerline_cell_count": 52,
-        "centerline_banks": {
-          "offset": 2.093,
-          "effective_offset": 6.279,
-          "color": {
-            "rgba": [
-              214,
-              192,
-              138,
-              255
-            ],
-            "hex": "#D6C08AFF"
-          },
-          "variation": 0.667,
-          "effective_variation": 2.0010000000000003,
-          "left_cell_count": 54,
-          "right_cell_count": 51
-        },
-        "tributary_present": false,
-        "tributary": null,
-        "water_depth_noise": {
-          "seed": 8873,
-          "strength": 0.32
-        }
-      }
+      "defense_mod": 0
     },
     "26,-2": {
       "terrain_key": "teren_płaski",

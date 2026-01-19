@@ -85,9 +85,8 @@ except ImportError:
     LAKE_HEX_SIDES = ()
     
 try:
-    from hex_feature_semantics import normalize_railway_options, normalize_road_options
+    from hex_feature_semantics import normalize_railway_options
 except Exception:
-    normalize_road_options = None
     normalize_railway_options = None
 
 # Folder „assets” obok map_editor_prototyp.py
@@ -143,6 +142,9 @@ BRUSH_RADIUS_DEFAULT = 1
 
 HEX_TEXTURE_DIR = ASSET_ROOT / "terrain" / "hex_painted"
 HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
+
+FLAT_TEXTURE_DIR = HEX_TEXTURE_DIR / "flat"
+FLAT_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 RIVER_OUTPUT_DIR = HEX_TEXTURE_DIR / "river_tool"
 RIVER_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -601,6 +603,177 @@ FLAT_TERRAIN_TEXTURE_PRESETS = [
         "pattern": "patches",
         "accent_color": "#d5c89c",
         "accent_chance": 0.05,
+    },
+    {
+        "key": "field_light",
+        "name": "Pole jasne",
+        "description": "Jaśniejsze pola uprawne z delikatnymi pasami.",
+        "type": "builtin",
+        "seed": 1201,
+        "base_color": "#a9b874",
+        "secondary_color": "#cddf9a",
+        "band_width": 6,
+        "band_strength": 0.6,
+        "noise": 10,
+        "pattern": "stripes",
+    },
+    {
+        "key": "field_dark",
+        "name": "Pole ciemne",
+        "description": "Ciemniejsze łany uprawne – lepszy kontrast z łąkami.",
+        "type": "builtin",
+        "seed": 1202,
+        "base_color": "#7b8f4f",
+        "secondary_color": "#6d7f42",
+        "band_width": 7,
+        "band_strength": 0.55,
+        "noise": 10,
+        "pattern": "stripes",
+    },
+    {
+        "key": "meadow_light",
+        "name": "Łąka jasna",
+        "description": "Jasna, równomierna łąka z lekkim szumem.",
+        "type": "builtin",
+        "seed": 1203,
+        "base_color": "#93b86f",
+        "noise": 14,
+        "accent_color": "#b6d58a",
+        "accent_chance": 0.06,
+        "highlight_color": "#d6e7b0",
+        "highlight_chance": 0.03,
+        "pattern": "noise",
+    },
+    {
+        "key": "meadow_dark",
+        "name": "Łąka ciemna",
+        "description": "Ciemniejsza, gęstsza łąka do kontrastu.",
+        "type": "builtin",
+        "seed": 1204,
+        "base_color": "#5f7e46",
+        "noise": 16,
+        "accent_color": "#4b6a35",
+        "accent_chance": 0.06,
+        "highlight_color": "#86b561",
+        "highlight_chance": 0.03,
+        "pattern": "noise",
+    },
+    {
+        "key": "pasture_sparse",
+        "name": "Pastwisko rzadkie",
+        "description": "Przerzedzona trawa z jaśniejszymi przebłyskami.",
+        "type": "builtin",
+        "seed": 1205,
+        "base_color": "#90a66b",
+        "noise": 12,
+        "accent_color": "#c3d59a",
+        "accent_chance": 0.08,
+        "highlight_color": "#e5efc8",
+        "highlight_chance": 0.04,
+        "pattern": "noise",
+    },
+    {
+        "key": "fallow",
+        "name": "Ugór",
+        "description": "Ziemia odłogowana z plamami suchej gleby.",
+        "type": "builtin",
+        "seed": 1206,
+        "base_color": "#9b8d6b",
+        "secondary_color": "#6f5b3d",
+        "patch_size": 7,
+        "patch_jitter": 0.3,
+        "noise": 8,
+        "pattern": "patches",
+        "accent_color": "#b7a98a",
+        "accent_chance": 0.05,
+    },
+    {
+        "key": "wet_meadow",
+        "name": "Łąka podmokła",
+        "description": "Zielone tło z błotnistymi, wilgotnymi plamami.",
+        "type": "builtin",
+        "seed": 1207,
+        "base_color": "#6f7a4a",
+        "secondary_color": "#4b3a2c",
+        "patch_size": 6,
+        "patch_jitter": 0.28,
+        "noise": 10,
+        "pattern": "patches",
+        "accent_color": "#7f8d5b",
+        "accent_chance": 0.05,
+    },
+    {
+        "key": "heath",
+        "name": "Wrzosowisko",
+        "description": "Szarawozielona, sucha roślinność niska.",
+        "type": "builtin",
+        "seed": 1208,
+        "base_color": "#7d6a5c",
+        "noise": 14,
+        "accent_color": "#9a7c6f",
+        "accent_chance": 0.07,
+        "highlight_color": "#b39a86",
+        "highlight_chance": 0.03,
+        "pattern": "noise",
+    },
+    {
+        "key": "forest_edge",
+        "name": "Skraj lasu",
+        "description": "Plamisty pas zieleni imitujący zadrzewienia i krzaki.",
+        "type": "builtin",
+        "seed": 1209,
+        "base_color": "#5a6f3c",
+        "secondary_color": "#3a4f2b",
+        "patch_size": 6,
+        "patch_jitter": 0.35,
+        "noise": 10,
+        "pattern": "patches",
+        "accent_color": "#6a7f48",
+        "accent_chance": 0.06,
+    },
+    {
+        "key": "clearcut",
+        "name": "Wycinka",
+        "description": "Ślady świeżej wycinki z odkrytą glebą.",
+        "type": "builtin",
+        "seed": 1210,
+        "base_color": "#8a7b5c",
+        "secondary_color": "#5f4a38",
+        "patch_size": 7,
+        "patch_jitter": 0.32,
+        "noise": 10,
+        "pattern": "patches",
+        "accent_color": "#a18f6a",
+        "accent_chance": 0.05,
+    },
+    {
+        "key": "sand",
+        "name": "Piaski",
+        "description": "Jasne, suche piaski z drobnym szumem.",
+        "type": "builtin",
+        "seed": 1211,
+        "base_color": "#c8b27a",
+        "noise": 12,
+        "accent_color": "#e0d2a3",
+        "accent_chance": 0.06,
+        "highlight_color": "#f2e9c6",
+        "highlight_chance": 0.03,
+        "pattern": "noise",
+    },
+    {
+        "key": "hedgerows",
+        "name": "Miedze i zadrzewienia",
+        "description": "Pasy zieleni imitujące miedze i aleje między polami.",
+        "type": "builtin",
+        "seed": 1212,
+        "base_color": "#8ea56a",
+        "secondary_color": "#6a7b45",
+        "band_width": 4,
+        "band_strength": 0.65,
+        "noise": 9,
+        "pattern": "stripes",
+        "accent_color": "#4e5f33",
+        "accent_chance": 0.08,
     },
 ]
 
@@ -1212,7 +1385,35 @@ class MapEditor:
                 except Exception as exc:  # noqa: BLE001
                     issues.append(f"railway_tool/{file_path.name}: {exc}")
 
+        # Usuń nieużywane tekstury płaskie (flat_*.png)
+        used_flat_names = self._collect_used_flat_texture_names()
+        flat_dirs = [FLAT_TEXTURE_DIR, HEX_TEXTURE_DIR]
+        for flat_dir in flat_dirs:
+            if not flat_dir.exists():
+                continue
+            for flat_path in flat_dir.glob("flat_*.png"):
+                if flat_path.name in used_flat_names:
+                    continue
+                try:
+                    flat_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"flat/{flat_path.name}: {exc}")
+
         return removed, issues
+
+    def _collect_used_flat_texture_names(self) -> set[str]:
+        used: set[str] = set()
+        for terrain in self.hex_data.values():
+            if not isinstance(terrain, dict):
+                continue
+            texture_rel = terrain.get("texture")
+            if not texture_rel:
+                continue
+            texture_name = Path(str(texture_rel).replace("\\", "/")).name
+            if texture_name.startswith("flat_") and texture_name.endswith(".png"):
+                used.add(texture_name)
+        return used
 
     def _cleanup_tokens(self) -> tuple[bool, str]:
         self.save_data()
@@ -2173,6 +2374,9 @@ class MapEditor:
         )
         self.road_crossroads_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
 
+        # Ukryj sekcję skrzyżowań w UI (logika zostaje dostępna w trybie modyfikacji)
+        road_crossroads_section.pack_forget()
+
         # === PRZYCISKI AKCJI (jak w rzece) ===
         road_buttons_frame = tk.Frame(self.road_frame, bg="darkolivegreen")
         road_buttons_frame.pack(fill=tk.X, padx=4, pady=(4, 0))
@@ -2208,7 +2412,7 @@ class MapEditor:
             font=("Arial", 9, "bold"),
         )
         road_modify_section.pack(fill=tk.X, padx=4, pady=(6, 4))
-        
+
         tk.Label(
             road_modify_section,
             text="Zaznacz heks z wygenerowaną drogą:",
@@ -2218,11 +2422,10 @@ class MapEditor:
             anchor="w",
             wraplength=190,
         ).pack(fill=tk.X, padx=4, pady=(2, 4))
-        
-        # Przyciski skrzyżowań
+
         road_junction_frame = tk.Frame(road_modify_section, bg="darkolivegreen")
         road_junction_frame.pack(fill=tk.X, padx=4, pady=(0, 4))
-        
+
         self.road_junction_t_button = tk.Button(
             road_junction_frame,
             text="⊥ Skrzyżowanie T",
@@ -2232,7 +2435,7 @@ class MapEditor:
             state=tk.DISABLED,
         )
         self.road_junction_t_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
-        
+
         self.road_junction_x_button = tk.Button(
             road_junction_frame,
             text="✚ Skrzyżowanie X",
@@ -2242,7 +2445,7 @@ class MapEditor:
             state=tk.DISABLED,
         )
         self.road_junction_x_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 0))
-        
+
         self.road_continue_button = tk.Button(
             road_modify_section,
             text="↪ Kontynuuj drogę z heksu",
@@ -2252,8 +2455,7 @@ class MapEditor:
             state=tk.DISABLED,
         )
         self.road_continue_button.pack(fill=tk.X, padx=4, pady=(0, 4))
-        
-        # Status modyfikacji
+
         self.road_modify_status_var = tk.StringVar(value="")
         self.road_modify_status_label = tk.Label(
             road_modify_section,
@@ -5643,19 +5845,10 @@ class MapEditor:
         except ValueError:
             seed = 42
         
-        # Sprawdź czy istnieje tło dla heksa
+        # Bez tła terenu – generujemy samą linię torów
         q, r = self.selected_hex
         hex_key = f"{q}_{r}"
-        
-        # Pobierz istniejącą teksturę lub None
-        existing_texture = self.hex_data.get(hex_key, {}).get("hex_texture_path")
         background_path = None
-        
-        if existing_texture:
-            # Użyj istniejącej tekstury jako tła
-            bg_file = fix_image_path(existing_texture)
-            if bg_file.exists():
-                background_path = bg_file
         
         # Nazwa pliku wyjściowego
         output_filename = f"railway_{hex_key}_{entry_side}_{exit_side}_{railway_type}.png"
@@ -5736,10 +5929,10 @@ class MapEditor:
             )
             return
         
-        if not self.selected_hex or self.selected_hex not in self.road_path:
+        if not self.selected_hex or (self.selected_hex not in self.road_path and not self._hex_has_road(self.selected_hex)):
             messagebox.showinfo(
                 "Skrzyżowanie",
-                "Najpierw zaznacz heks ze ścieżki drogi na mapie.",
+                "Najpierw zaznacz heks z drogą albo ze ścieżki drogi.",
                 parent=self.root,
             )
             return
@@ -5750,7 +5943,7 @@ class MapEditor:
         self.road_crossroads_sides.clear()
         
         self.road_crossroads_status_var.set(f"Wskaż sąsiedni heks (PPM) dla odnogi od {self.selected_hex}")
-        self.add_crossroads_button.config(text="❌ Anuluj skrzyżowanie", bg="#8a4a4a", command=self._cancel_crossroads_mode)
+        self.add_crossroads_button.config(text="✅ Generuj skrzyżowanie", bg="#4a6a4a", command=self._apply_crossroads_mode)
         
         self.draw_grid()
         self.set_status("Tryb skrzyżowania: kliknij PPM na zielonym sąsiednim heksie aby dodać odnogę")
@@ -5765,23 +5958,47 @@ class MapEditor:
         self.draw_grid()
         self.set_status("Anulowano tryb skrzyżowania.")
 
+    def _apply_crossroads_mode(self) -> None:
+        """Zastosowuje wybrane odnogi skrzyżowania."""
+        if not self.road_crossroads_hex or not self.road_crossroads_sides:
+            messagebox.showinfo(
+                "Skrzyżowanie",
+                "Najpierw wskaż co najmniej jedną odnogę (PPM na sąsiedni heks).",
+                parent=self.root,
+            )
+            return
+
+        target_hex = self.road_crossroads_hex
+        if target_hex in self.road_path:
+            self.generate_road_path()
+        else:
+            self._regenerate_road_with_junction(target_hex, list(self.road_crossroads_sides))
+
+        self._cancel_crossroads_mode()
+
     def _get_hex_road_sides(self, hex_id: str) -> list[str]:
         """Zwraca listę boków drogi na danym heksie z metadanych."""
         record = self.hex_data.get(hex_id, {})
         meta = record.get("road_generation_meta", {})
-        sides = list(meta.get("road_sides", []))
-        # Dodaj entry/exit jeśli nie ma road_sides
-        if not sides:
-            entry = meta.get("entry_side")
-            exit_side = meta.get("exit_side")
-            if entry:
-                sides.append(entry)
-            if exit_side:
-                sides.append(exit_side)
-            # Dodaj crossroads jeśli są
-            crossroads = meta.get("crossroads", [])
-            sides.extend(crossroads)
-        return list(set(sides))  # Usuń duplikaty
+        entry = meta.get("entry_side")
+        exit_side = meta.get("exit_side")
+        crossroads = list(meta.get("crossroads", []))
+        recorded = list(meta.get("road_sides", []))
+
+        ordered: list[str] = []
+        for side in (entry, exit_side):
+            if side and side not in ordered:
+                ordered.append(side)
+
+        for side in recorded:
+            if side and side not in ordered:
+                ordered.append(side)
+
+        for side in crossroads:
+            if side and side not in ordered:
+                ordered.append(side)
+
+        return ordered
 
     def _hex_has_road(self, hex_id: str) -> bool:
         """Sprawdza czy heks ma wygenerowaną drogę."""
@@ -5814,6 +6031,13 @@ class MapEditor:
             return
         
         current_sides = self._get_hex_road_sides(self.selected_hex)
+        if len(current_sides) >= 3:
+            messagebox.showinfo(
+                "Skrzyżowanie T",
+                "Ten heks ma już skrzyżowanie. Użyj X lub wybierz inny heks.",
+                parent=self.root,
+            )
+            return
         
         # Znajdź dostępne boki (nie zajęte przez drogę)
         all_sides = list(HEX_SIDE_LABELS_PL.keys())
@@ -5887,7 +6111,12 @@ class MapEditor:
                 )
                 return
             if len(selected) > max_select:
-                selected = selected[:max_select]
+                messagebox.showwarning(
+                    "Wybór boków",
+                    f"Wybierz {'dokładnie 1 bok' if max_select == 1 else 'dokładnie 2 boki'}.",
+                    parent=dialog,
+                )
+                return
             
             dialog.destroy()
             self._regenerate_road_with_junction(self.selected_hex, selected)
@@ -5911,9 +6140,12 @@ class MapEditor:
         # Zachowaj starą teksturę do usunięcia
         old_texture_rel = record.get("texture")
         
-        # Pobierz istniejące boki
+        # Pobierz istniejące boki (z zachowaniem kolejności)
         current_sides = self._get_hex_road_sides(hex_id)
-        all_sides = list(set(current_sides + new_sides))
+        all_sides = list(current_sides)
+        for side in new_sides:
+            if side not in all_sides:
+                all_sides.append(side)
         
         # Zachowaj oryginalny entry/exit z metadanych - to główna droga!
         entry_side = meta.get("entry_side")
@@ -5940,52 +6172,8 @@ class MapEditor:
         noise = meta.get("noise_amplitude", 0.3)
         seed = meta.get("seed", 42)
         
-        # Pobierz tło terenu - szukamy oryginalnej tekstury terenu
+        # Bez tła terenu – generujemy samą drogę
         background_path = None
-        terrain_key = record.get("terrain_key", "teren_płaski")
-        
-        # Sprawdź czy jest oryginalne tło w metadanych (zapisane przy pierwszym generowaniu)
-        original_background = meta.get("original_background")
-        if original_background:
-            bg_abs = fix_image_path(original_background)
-            if bg_abs.exists():
-                background_path = bg_abs
-                print(f"[Junction] Znaleziono original_background: {bg_abs}")
-        
-        # Jeśli nie ma w metadanych, szukaj tekstury terenu
-        if not background_path and terrain_key:
-            terrain_data = TERRAIN_TYPES.get(terrain_key, {})
-            tex_pattern = terrain_data.get("texture_pattern")
-            if tex_pattern:
-                # Szukaj w katalogach z teksturami
-                search_dirs = [
-                    TERRAIN_DIR,
-                    ASSET_ROOT / "terrain",
-                    Path(__file__).parent / "assets" / "terrain",
-                    Path(__file__).parent.parent / "assets" / "terrain",
-                ]
-                for search_dir in search_dirs:
-                    if search_dir.exists():
-                        matches = list(search_dir.glob(tex_pattern))
-                        if matches:
-                            background_path = matches[0]
-                            print(f"[Junction] Znaleziono teksturę terenu: {background_path}")
-                            break
-        
-        # Jeśli nadal nie ma tła, użyj aktualnej tekstury heksu (która może już zawierać drogę)
-        # ale lepiej niż przezroczyste tło!
-        if not background_path:
-            current_texture = record.get("texture")
-            if current_texture:
-                candidate = fix_image_path(current_texture)
-                if candidate.exists():
-                    # UWAGA: to już zawiera drogę, więc regeneracja może być nieczysta
-                    # ale przynajmniej zachowa tło terenu
-                    background_path = candidate
-                    print(f"[Junction] Używam aktualnej tekstury jako fallback: {candidate}")
-        
-        if not background_path:
-            print(f"[Junction] UWAGA: Brak tła dla heksu {hex_id}, generuję na przezroczystym!")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"hex_{hex_id.replace(',', '_')}_road_{timestamp}_junction.png"
@@ -6001,12 +6189,8 @@ class MapEditor:
             noise_amplitude=noise,
             seed=seed,
             crossroads=crossroads if crossroads else None,
+            neighbor_road_types=self._collect_neighbor_road_types(hex_id, road_type),
         )
-        
-        if normalize_road_options:
-            options, _notes = normalize_road_options(options)
-            if _notes:
-                print(f"[Road Semantics] {hex_id}: " + "; ".join(_notes))
         
         try:
             result = generate_road(options, output_path)
@@ -6168,7 +6352,7 @@ class MapEditor:
 
     def _toggle_crossroads_neighbor(self, neighbor_hex: str) -> bool:
         """Przełącza bok skrzyżowania na podstawie klikniętego sąsiedniego heksu. Zwraca True jeśli obsłużono."""
-        if not self.selected_hex or self.selected_hex not in self.road_path:
+        if not self.selected_hex or (self.selected_hex not in self.road_path and not self._hex_has_road(self.selected_hex)):
             return False
         
         # Oblicz deltę między wybranym heksem a sąsiadem
@@ -6187,22 +6371,27 @@ class MapEditor:
         side = AXIAL_DIRECTION_TO_SIDE[delta]
         
         # Sprawdź czy strona nie jest zajęta przez główną drogę
-        idx = self.road_path.index(self.selected_hex)
         try:
-            coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
-            segments = []
-            for i in range(len(coords) - 1):
-                dq_seg = coords[i + 1][0] - coords[i][0]
-                dr_seg = coords[i + 1][1] - coords[i][1]
-                segments.append((dq_seg, dr_seg))
-            
-            entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            if self.selected_hex in self.road_path:
+                idx = self.road_path.index(self.selected_hex)
+                coords = [tuple(map(int, hid.split(","))) for hid in self.road_path]
+                segments = []
+                for i in range(len(coords) - 1):
+                    dq_seg = coords[i + 1][0] - coords[i][0]
+                    dr_seg = coords[i + 1][1] - coords[i][1]
+                    segments.append((dq_seg, dr_seg))
+                entry_side, exit_side = self._road_entry_exit_for_index(idx, segments)
+            else:
+                record = self.hex_data.get(self.selected_hex, {})
+                meta = record.get("road_generation_meta", {})
+                entry_side = meta.get("entry_side")
+                exit_side = meta.get("exit_side")
+
             if side in (entry_side, exit_side):
-                # Strona zajęta - pokaż komunikat
                 side_label = HEX_SIDE_LABELS_PL.get(side, side)
                 self.set_status(f"Strona {side_label} jest zajęta przez główną drogę!")
                 return True
-        except:
+        except Exception:
             pass
         
         # Przełącz bok
@@ -6226,6 +6415,23 @@ class MapEditor:
         
         self.draw_grid()
         return True
+
+    def _collect_neighbor_road_types(self, hex_id: str, road_type: str) -> dict[str, str]:
+        """Zbiera typy dróg u sąsiadów, aby zblendować krawędzie."""
+        try:
+            q, r = map(int, hex_id.split(","))
+        except ValueError:
+            return {}
+
+        result: dict[str, str] = {}
+        for side, (dq, dr) in SIDE_TO_AXIAL_DIRECTION.items():
+            neighbor_id = f"{q + dq},{r + dr}"
+            neighbor = self.hex_data.get(neighbor_id, {})
+            meta = neighbor.get("road_generation_meta", {})
+            neighbor_type = meta.get("road_type")
+            if neighbor_type and neighbor_type != road_type:
+                result[side] = neighbor_type
+        return result
 
     def _draw_crossroads_overlay(self) -> None:
         """Rysuje wizualizację trybu skrzyżowania - podświetla dozwolone sąsiednie heksy."""
@@ -6446,7 +6652,7 @@ class MapEditor:
                 if hasattr(self, 'road_crossroads_hex') and self.road_crossroads_hex == hex_id:
                     crossroads_sides = list(self.road_crossroads_sides)
 
-            # Pobierz tło
+            # Pobierz tło (wyłączone – generujemy samą drogę)
             terrain = self.hex_data.setdefault(hex_id, {
                 "terrain_key": "teren_płaski",
                 "move_mod": 0,
@@ -6456,22 +6662,6 @@ class MapEditor:
             background_path = None
             if texture_rel:
                 old_texture_paths.add(texture_rel)
-                candidate = fix_image_path(texture_rel)
-                if candidate.exists():
-                    background_path = candidate
-            
-            # Jeśli nie ma tekstury, użyj domyślnej tekstury trawy
-            if not background_path:
-                default_textures = [
-                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
-                    ASSET_ROOT / "terrain" / "hex_painted" / "flat_grass_dense_64.png",
-                    Path(__file__).parent.parent / "assets" / "terrain" / "hex_painted" / "flat_grass_dry_64.png",
-                ]
-                for default_tex in default_textures:
-                    if default_tex.exists():
-                        background_path = default_tex
-                        print(f"[Road] Użyto domyślnej tekstury dla {hex_id}: {background_path}")
-                        break
             
             # Zapisz użyte tło dla tego heksu
             background_paths_used[hex_id] = background_path
@@ -6489,12 +6679,8 @@ class MapEditor:
                 noise_amplitude=noise,
                 seed=seed_base + idx,
                 crossroads=crossroads_sides if crossroads_sides else None,
+                neighbor_road_types=self._collect_neighbor_road_types(hex_id, road_type),
             )
-
-            if normalize_road_options:
-                options, _notes = normalize_road_options(options)
-                if _notes:
-                    print(f"[Road Semantics] {hex_id}: " + "; ".join(_notes))
 
             try:
                 result = generate_road(options, output_path)
@@ -6540,7 +6726,11 @@ class MapEditor:
             # Dodaj crossroads jeśli to heks ze skrzyżowaniem
             if hex_id == self.road_crossroads_hex and self.road_crossroads_sides:
                 road_sides.extend(self.road_crossroads_sides)
-            result.metadata["road_sides"] = list(set(road_sides))
+            ordered_sides: list[str] = []
+            for side in road_sides:
+                if side not in ordered_sides:
+                    ordered_sides.append(side)
+            result.metadata["road_sides"] = ordered_sides
             
             # Zapisz original_background dla przyszłych regeneracji (skrzyżowania, modyfikacje)
             bg_used = background_paths_used.get(hex_id)
@@ -7010,23 +7200,13 @@ class MapEditor:
             )
             return
         
-        # Pobierz istniejące tło heksa
+        # Pobierz wpis terenu (bez użycia tła)
         terrain = self.hex_data.setdefault(hex_id, {
             "terrain_key": "teren_płaski",
             "move_mod": 0,
             "defense_mod": 0,
         })
-        
-        # Przygotuj ścieżkę tła (jeśli istnieje)
         background_path = None
-        texture_path = terrain.get("texture")
-        if texture_path:
-            try:
-                full_path = fix_image_path(texture_path)
-                if full_path.exists():
-                    background_path = full_path
-            except Exception as e:
-                print(f"Błąd wczytywania tła: {e}")
         
         # Przygotuj output
         output_dir = HEX_TEXTURE_DIR / "railway_tool"
@@ -12163,10 +12343,49 @@ class MapEditor:
 
         editor.protocol("WM_DELETE_WINDOW", close_editor)
 
-    def _clear_flat_texture_from_record(self, record: dict) -> None:
+    def _clear_flat_texture_from_record(self, record: dict, *, hex_id: str | None = None) -> None:
+        texture_rel = record.get("texture")
         record.pop("texture", None)
         record.pop("texture_grid", None)
         record.pop("flat_texture_preset", None)
+        self._delete_flat_texture_if_unused(texture_rel, exclude_hex_id=hex_id)
+
+    def _is_flat_texture_name(self, texture_rel: str | None) -> bool:
+        if not texture_rel:
+            return False
+        name = Path(str(texture_rel).replace("\\", "/")).name
+        return name.startswith("flat_") and name.endswith(".png")
+
+    def _is_flat_texture_used_elsewhere(self, texture_name: str, *, exclude_hex_id: str | None = None) -> bool:
+        for hex_id, terrain in self.hex_data.items():
+            if exclude_hex_id and hex_id == exclude_hex_id:
+                continue
+            if not isinstance(terrain, dict):
+                continue
+            other_texture = terrain.get("texture")
+            if not other_texture:
+                continue
+            other_name = Path(str(other_texture).replace("\\", "/")).name
+            if other_name == texture_name:
+                return True
+        return False
+
+    def _delete_flat_texture_if_unused(self, texture_rel: str | None, *, exclude_hex_id: str | None = None) -> None:
+        if not self._is_flat_texture_name(texture_rel):
+            return
+        texture_name = Path(str(texture_rel).replace("\\", "/")).name
+        if self._is_flat_texture_used_elsewhere(texture_name, exclude_hex_id=exclude_hex_id):
+            return
+        try:
+            texture_path = fix_image_path(str(texture_rel))
+            texture_path.relative_to(HEX_TEXTURE_DIR)
+        except Exception:
+            return
+        try:
+            texture_path.unlink(missing_ok=True)
+            print(f"🗑️ Usunięto teksturę płaską: {texture_path.name}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"⚠️ Nie udało się usunąć tekstury płaskiej {texture_path}: {exc}")
 
     def _apply_flat_texture_preset_to_record(self, record: dict, preset_key: str, grid_size: int | None = None) -> None:
         preset_meta = FLAT_TERRAIN_PRESET_LOOKUP.get(preset_key)
@@ -12181,7 +12400,7 @@ class MapEditor:
 
     def _ensure_flat_texture_asset(self, preset_key: str, grid_size: int) -> str:
         output_name = f"flat_{preset_key}_{grid_size}.png"
-        output_path = HEX_TEXTURE_DIR / output_name
+        output_path = FLAT_TEXTURE_DIR / output_name
         if not output_path.exists():
             pixels = self._generate_flat_texture_pixels(preset_key, grid_size)
             img = self._pixel_grid_to_image(pixels)
@@ -12925,15 +13144,15 @@ class MapEditor:
             if terrain_key == "teren_płaski":
                 brush_preset = self.selected_flat_texture_preset
                 if brush_preset == "none":
-                    self._clear_flat_texture_from_record(updated_record)
+                    self._clear_flat_texture_from_record(updated_record, hex_id=self.selected_hex)
                 elif brush_preset:
                     self._apply_flat_texture_preset_to_record(updated_record, brush_preset)
                 elif "flat_texture_preset" in updated_record and updated_record.get("texture") is None:
-                    self._clear_flat_texture_from_record(updated_record)
+                    self._clear_flat_texture_from_record(updated_record, hex_id=self.selected_hex)
             elif terrain_key == "miasto":
                 self._apply_flat_texture_preset_to_record(updated_record, "city_marker")
             else:
-                self._clear_flat_texture_from_record(updated_record)
+                self._clear_flat_texture_from_record(updated_record, hex_id=self.selected_hex)
 
             self.hex_data[self.selected_hex] = updated_record
             terrain_for_draw = updated_record
@@ -13139,7 +13358,7 @@ class MapEditor:
 
         previous_texture = record.get("texture")
         if preset_meta.get("type") == "clear":
-            self._clear_flat_texture_from_record(record)
+            self._clear_flat_texture_from_record(record, hex_id=target_hex)
             preset_name = preset_meta.get("name", "Brak tekstury")
         else:
             self._apply_flat_texture_preset_to_record(record, preset_key)
@@ -13857,13 +14076,13 @@ class MapEditor:
             if terrain_key == "teren_płaski":
                 brush_preset = self.selected_flat_texture_preset
                 if brush_preset == "none":
-                    self._clear_flat_texture_from_record(updated_record)
+                    self._clear_flat_texture_from_record(updated_record, hex_id=hex_id)
                 elif brush_preset:
                     self._apply_flat_texture_preset_to_record(updated_record, brush_preset)
                 elif "flat_texture_preset" in updated_record and updated_record.get("texture") is None:
-                    self._clear_flat_texture_from_record(updated_record)
+                    self._clear_flat_texture_from_record(updated_record, hex_id=hex_id)
             else:
-                self._clear_flat_texture_from_record(updated_record)
+                self._clear_flat_texture_from_record(updated_record, hex_id=hex_id)
 
             self.hex_data[hex_id] = updated_record
             terrain_for_draw = updated_record

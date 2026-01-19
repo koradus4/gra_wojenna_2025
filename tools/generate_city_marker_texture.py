@@ -128,7 +128,7 @@ def _pixels_to_image(pixels: list[list[tuple[int, int, int, int] | None]]) -> Im
 def main() -> None:
     root = Path(__file__).resolve().parent.parent
     asset_root = root / "assets"
-    output_path = asset_root / "terrain" / "hex_painted" / f"flat_{PRESET_KEY}_{GRID_SIZE}.png"
+    output_path = asset_root / "terrain" / "hex_painted" / "flat" / f"flat_{PRESET_KEY}_{GRID_SIZE}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     pixels = _generate_pixels()
