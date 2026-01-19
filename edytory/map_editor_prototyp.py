@@ -130,12 +130,18 @@ EDGE_BAND_CELLS_MAX = 12
 EDGE_BLEND_DEFAULT_STRENGTH = 65
 EDGE_BLEND_PROFILE_DEFAULT = "smooth"
 EDGE_BLEED_DEPTH_DEFAULT = 1
+EDGE_BLEND_DEFAULT_MODE = "medium"
 EDGE_BLEND_PROFILES = {
     "linear": {"label": "Liniowy", "exponent": 1.0},
     "smooth": {"label": "Łagodny", "exponent": 1.6},
     "strong": {"label": "Silny", "exponent": 2.4},
 }
 EDGE_BLEND_PROFILE_LABEL_TO_KEY = {meta["label"]: key for key, meta in EDGE_BLEND_PROFILES.items()}
+EDGE_BLEND_PRESETS = {
+    "light": {"label": "Lekki", "strength": 30, "bleed_depth": 1, "profile": "smooth"},
+    "medium": {"label": "Średni", "strength": 55, "bleed_depth": 2, "profile": "smooth"},
+    "strong": {"label": "Mocny", "strength": 98, "bleed_depth": 6, "profile": "strong"},
+}
 BRUSH_RADIUS_MIN = 0
 BRUSH_RADIUS_MAX = 4
 BRUSH_RADIUS_DEFAULT = 1
@@ -145,6 +151,9 @@ HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 FLAT_TEXTURE_DIR = HEX_TEXTURE_DIR / "flat"
 FLAT_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
+
+EDITED_HEX_TEXTURE_DIR = FLAT_TEXTURE_DIR / "edytor"
+EDITED_HEX_TEXTURE_DIR.mkdir(parents=True, exist_ok=True)
 
 RIVER_OUTPUT_DIR = HEX_TEXTURE_DIR / "river_tool"
 RIVER_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1333,6 +1342,13 @@ class MapEditor:
         # Usuń główne pliki tekstur
         if HEX_TEXTURE_DIR.exists():
             for texture_path in HEX_TEXTURE_DIR.glob("hex_*.png"):
+                try:
+                    texture_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"{texture_path.name}: {exc}")
+        if EDITED_HEX_TEXTURE_DIR.exists():
+            for texture_path in EDITED_HEX_TEXTURE_DIR.glob("hex_*.png"):
                 try:
                     texture_path.unlink()
                     removed += 1
@@ -8484,6 +8500,14 @@ class MapEditor:
 
         initial_edge_band_cells = EDGE_BAND_CELLS_DEFAULT
         edge_mode_data = build_edge_mode_data(initial_edge_band_cells)
+        initial_edge_blend_mode = EDGE_BLEND_DEFAULT_MODE
+        initial_blend_preset = EDGE_BLEND_PRESETS.get(initial_edge_blend_mode, EDGE_BLEND_PRESETS["medium"])
+        initial_edge_blend_strength = int(initial_blend_preset.get("strength", EDGE_BLEND_DEFAULT_STRENGTH))
+        initial_edge_blend_profile = initial_blend_preset.get("profile", EDGE_BLEND_PROFILE_DEFAULT)
+        initial_edge_bleed_depth = min(
+            initial_edge_band_cells,
+            int(initial_blend_preset.get("bleed_depth", EDGE_BLEED_DEPTH_DEFAULT)),
+        )
 
         def pixels_to_image(pixel_grid: list[list[str | None]]) -> Image.Image:
             img = Image.new("RGBA", (grid_size, grid_size), (0, 0, 0, 0))
@@ -9666,9 +9690,10 @@ class MapEditor:
             "edge_current_key": None,
             "edge_neighbors": edge_mode_data,
             "edge_band_cells": initial_edge_band_cells,
-            "edge_bleed_depth": min(initial_edge_band_cells, EDGE_BLEED_DEPTH_DEFAULT),
-            "edge_blend_strength": EDGE_BLEND_DEFAULT_STRENGTH,
-            "edge_blend_profile": EDGE_BLEND_PROFILE_DEFAULT,
+            "edge_bleed_depth": initial_edge_bleed_depth,
+            "edge_blend_strength": initial_edge_blend_strength,
+            "edge_blend_profile": initial_edge_blend_profile,
+            "edge_blend_mode": initial_edge_blend_mode,
             "undo_stack": [],
             "redo_stack": [],
             "history_action_active": False,
@@ -9706,17 +9731,12 @@ class MapEditor:
         edge_status_label = None
         edge_sync_status_label = None
         edge_band_width_value_label = None
-        edge_blend_strength_value_label = None
+        edge_blend_mode_label = None
         edge_bleed_depth_value_label = None
         edge_bleed_depth_scale = None
         edge_button_widgets: dict[str, tk.Radiobutton] = {}
         edge_band_width_var = tk.IntVar(master=editor, value=state["edge_band_cells"])
-        edge_blend_strength_var = tk.IntVar(master=editor, value=int(state["edge_blend_strength"]))
         edge_bleed_depth_var = tk.IntVar(master=editor, value=int(state["edge_bleed_depth"]))
-        edge_blend_profile_display_var = tk.StringVar(
-            master=editor,
-            value=EDGE_BLEND_PROFILES[state["edge_blend_profile"]]["label"],
-        )
         brush_radius_var = tk.IntVar(master=editor, value=state["brush_radius"])
         brush_radius_value_label = None
         undo_btn = None
@@ -11085,6 +11105,7 @@ class MapEditor:
                 )
             draw_grid()
             refresh_edge_preview(refresh_background=True)
+            set_edge_blend_mode(state.get("edge_blend_mode", EDGE_BLEND_DEFAULT_MODE), auto_apply=False)
 
         def exit_edge_mode() -> None:
             state["edge_mode_active"] = False
@@ -11154,20 +11175,33 @@ class MapEditor:
             if edge_bleed_depth_var.get() != depth:
                 edge_bleed_depth_var.set(depth)
 
-        def on_edge_blend_strength_change(value: str) -> None:
-            try:
-                strength = int(float(value))
-            except (TypeError, ValueError):
-                strength = EDGE_BLEND_DEFAULT_STRENGTH
-            strength = max(0, min(100, strength))
-            state["edge_blend_strength"] = strength
-            if edge_blend_strength_value_label is not None:
-                edge_blend_strength_value_label.config(text=f"Moc: {strength}%")
+        def set_edge_blend_mode(mode_key: str, *, auto_apply: bool = False) -> None:
+            preset = EDGE_BLEND_PRESETS.get(mode_key, EDGE_BLEND_PRESETS[EDGE_BLEND_DEFAULT_MODE])
+            state["edge_blend_mode"] = mode_key
+            state["edge_blend_strength"] = int(preset.get("strength", EDGE_BLEND_DEFAULT_STRENGTH))
+            state["edge_blend_profile"] = preset.get("profile", EDGE_BLEND_PROFILE_DEFAULT)
+            max_bleed = state.get("edge_band_cells", EDGE_BAND_CELLS_DEFAULT)
+            state["edge_bleed_depth"] = min(
+                max_bleed,
+                int(preset.get("bleed_depth", EDGE_BLEED_DEPTH_DEFAULT)),
+            )
+            if edge_blend_mode_label is not None:
+                edge_blend_mode_label.config(text=f"Tryb: {preset.get('label', mode_key)}")
+            if auto_apply:
+                blend_active_edge()
 
-        def on_edge_blend_profile_change(event=None) -> None:
-            label = edge_blend_profile_display_var.get()
-            profile_key = EDGE_BLEND_PROFILE_LABEL_TO_KEY.get(label, EDGE_BLEND_PROFILE_DEFAULT)
-            state["edge_blend_profile"] = profile_key
+        def _edge_blend_seed(edge_key: str) -> int:
+            base = 0
+            seed_text = f"{edge_key}|{state.get('current_hex_id', '')}"
+            for ch in seed_text:
+                base = (base * 31 + ord(ch)) & 0xFFFFFFFF
+            return base or 1
+
+        def _edge_blend_noise(row: int, col: int, seed: int) -> float:
+            value = (row * 374761393 + col * 668265263 + seed * 1442695041) & 0xFFFFFFFF
+            value = (value ^ (value >> 13)) & 0xFFFFFFFF
+            value = (value * 1274126177) & 0xFFFFFFFF
+            return value / 0xFFFFFFFF
 
         def blend_active_edge() -> None:
             edge_key = state.get("edge_current_key")
@@ -11203,6 +11237,20 @@ class MapEditor:
             profile_key = state.get("edge_blend_profile", EDGE_BLEND_PROFILE_DEFAULT)
             profile_meta = EDGE_BLEND_PROFILES.get(profile_key, EDGE_BLEND_PROFILES[EDGE_BLEND_PROFILE_DEFAULT])
             exponent = profile_meta.get("exponent", 1.0)
+            mode_key = state.get("edge_blend_mode", EDGE_BLEND_DEFAULT_MODE)
+            dominance_map = {
+                "light": (0.85, 1.05),
+                "medium": (0.65, 1.25),
+                "strong": (0.35, 1.6),
+            }
+            jitter_map = {
+                "light": 0.06,
+                "medium": 0.12,
+                "strong": 0.22,
+            }
+            active_scale, neighbor_scale = dominance_map.get(mode_key, (0.7, 1.2))
+            jitter_strength = jitter_map.get(mode_key, 0.1)
+            noise_seed = _edge_blend_seed(edge_key)
             begin_edit_action()
             changes_made = False
             try:
@@ -11215,6 +11263,10 @@ class MapEditor:
                             continue
                         ratio = 0.0 if max_distance <= 0 else float(distance_value) / float(max_distance)
                         weight = strength_factor * (1.0 - math.pow(ratio, exponent))
+                        weight = min(1.0, weight * active_scale)
+                        if jitter_strength > 0:
+                            jitter = (_edge_blend_noise(row, col, noise_seed) * 2.0 - 1.0) * jitter_strength
+                            weight = max(0.0, min(1.0, weight * (1.0 + jitter)))
                         current_color = state["pixels"][row][col]
                         neighbor_row = row - entry["dy_cells"]
                         neighbor_col = col - entry["dx_cells"]
@@ -11248,6 +11300,10 @@ class MapEditor:
                                 neighbor_ratio = 0.0 if neighbor_effective_max <= 0 else float(neighbor_distance_value) / float(neighbor_effective_max)
                                 neighbor_ratio = max(0.0, min(1.0, neighbor_ratio))
                                 neighbor_weight = strength_factor * (1.0 - math.pow(neighbor_ratio, exponent))
+                            neighbor_weight = min(1.0, neighbor_weight * neighbor_scale)
+                            if jitter_strength > 0:
+                                neighbor_jitter = (_edge_blend_noise(nr, nc, noise_seed) * 2.0 - 1.0) * jitter_strength
+                                neighbor_weight = max(0.0, min(1.0, neighbor_weight * (1.0 + neighbor_jitter)))
                             if neighbor_weight <= 0.0:
                                 continue
                             source_row = neighbor_source_row_map[nr][nc]
@@ -11972,44 +12028,21 @@ class MapEditor:
         stamp_status_label.pack(fill=tk.X, padx=2, pady=(0, 6))
 
         edge_frame = tk.LabelFrame(tools, text="Pas styku", bg="darkolivegreen", fg="white")
-        edge_frame.pack(fill=tk.X, pady=(12, 6))
+        edge_frame.pack(fill=tk.X, pady=(8, 4))
         tk.Label(
             edge_frame,
-            text="Wybierz krawędź, aby malować styki dwóch heksów lub wygładzać je między heksami.",
+            text="Wybierz krawędź i styl wygładzania.",
             bg="darkolivegreen",
             fg="#d4f2bf",
-            wraplength=200,
+            wraplength=180,
             justify="left"
-        ).pack(fill=tk.X, padx=4, pady=(2, 4))
-
-        band_controls = tk.Frame(edge_frame, bg="darkolivegreen")
-        band_controls.pack(fill=tk.X, padx=4, pady=(0, 6))
-        edge_band_width_value_label = tk.Label(
-            band_controls,
-            text=f"Szerokość: {state['edge_band_cells']} komórek",
-            bg="darkolivegreen",
-            fg="#d4f2bf",
-            anchor="w"
-        )
-        edge_band_width_value_label.pack(fill=tk.X, pady=(0, 2))
-        edge_band_scale = tk.Scale(
-            band_controls,
-            from_=EDGE_BAND_CELLS_MIN,
-            to=EDGE_BAND_CELLS_MAX,
-            orient=tk.HORIZONTAL,
-            resolution=1,
-            variable=edge_band_width_var,
-            command=on_edge_band_width_change,
-            length=200,
-            bg="darkolivegreen",
-            highlightthickness=0,
-            troughcolor="#555555"
-        )
-        edge_band_scale.pack(fill=tk.X)
+        ).pack(fill=tk.X, padx=4, pady=(2, 2))
 
         edges_list_frame = tk.Frame(edge_frame, bg="darkolivegreen")
-        edges_list_frame.pack(fill=tk.X, padx=4, pady=(4, 4))
-        for edge_entry in edge_definitions:
+        edges_list_frame.pack(fill=tk.X, padx=4, pady=(2, 2))
+        edges_list_frame.grid_columnconfigure(0, weight=1)
+        edges_list_frame.grid_columnconfigure(1, weight=1)
+        for idx, edge_entry in enumerate(edge_definitions):
             edge_info = edge_mode_data[edge_entry["key"]]
             label_text = f"{edge_entry['label']} → {edge_info['neighbor_id']}"
             btn = tk.Radiobutton(
@@ -12025,90 +12058,42 @@ class MapEditor:
             )
             if not edge_info.get("enabled"):
                 btn.config(state=tk.DISABLED, fg="#555555")
-            btn.pack(fill=tk.X, pady=1)
+            row = idx // 2
+            col = idx % 2
+            btn.grid(row=row, column=col, sticky="w", padx=2, pady=1)
             edge_button_widgets[edge_entry["key"]] = btn
 
         blend_frame = tk.LabelFrame(edge_frame, text="Wygładzanie", bg="darkolivegreen", fg="white")
-        blend_frame.pack(fill=tk.X, padx=4, pady=(4, 6))
-        edge_blend_strength_value_label = tk.Label(
+        blend_frame.pack(fill=tk.X, padx=4, pady=(2, 4))
+        edge_blend_mode_label = tk.Label(
             blend_frame,
-            text=f"Moc: {int(state['edge_blend_strength'])}%",
+            text=f"Tryb: {EDGE_BLEND_PRESETS[EDGE_BLEND_DEFAULT_MODE]['label']}",
             bg="darkolivegreen",
             fg="#d4f2bf",
             anchor="w"
         )
-        edge_blend_strength_value_label.pack(fill=tk.X, pady=(2, 0))
-        blend_strength_scale = tk.Scale(
-            blend_frame,
-            from_=0,
-            to=100,
-            orient=tk.HORIZONTAL,
-            resolution=1,
-            variable=edge_blend_strength_var,
-            command=on_edge_blend_strength_change,
-            length=200,
-            bg="darkolivegreen",
-            highlightthickness=0,
-            troughcolor="#555555"
-        )
-        blend_strength_scale.pack(fill=tk.X, pady=(0, 4))
-
-        edge_bleed_depth_value_label = tk.Label(
-            blend_frame,
-            text=bleed_depth_label_for_value(state["edge_bleed_depth"]),
-            bg="darkolivegreen",
-            fg="#d4f2bf",
-            anchor="w"
-        )
-        edge_bleed_depth_value_label.pack(fill=tk.X, pady=(2, 0))
-        edge_bleed_depth_scale = tk.Scale(
-            blend_frame,
-            from_=0,
-            to=state["edge_band_cells"],
-            orient=tk.HORIZONTAL,
-            resolution=1,
-            variable=edge_bleed_depth_var,
-            command=on_edge_bleed_depth_change,
-            length=200,
-            bg="darkolivegreen",
-            highlightthickness=0,
-            troughcolor="#555555"
-        )
-        edge_bleed_depth_scale.pack(fill=tk.X, pady=(0, 4))
-
-        tk.Label(
-            blend_frame,
-            text="Profil wygładzania",
-            bg="darkolivegreen",
-            fg="#d4f2bf",
-            anchor="w"
-        ).pack(fill=tk.X, pady=(2, 0))
-        blend_profile_combo = ttk.Combobox(
-            blend_frame,
-            textvariable=edge_blend_profile_display_var,
-            values=[meta["label"] for meta in EDGE_BLEND_PROFILES.values()],
-            state="readonly"
-        )
-        blend_profile_combo.pack(fill=tk.X, pady=(0, 4))
-        try:
-            current_index = [meta["label"] for meta in EDGE_BLEND_PROFILES.values()].index(
-                edge_blend_profile_display_var.get()
-            )
-            blend_profile_combo.current(current_index)
-        except ValueError:
-            default_label = EDGE_BLEND_PROFILES[EDGE_BLEND_PROFILE_DEFAULT]["label"]
-            edge_blend_profile_display_var.set(default_label)
-            blend_profile_combo.current(0)
-            on_edge_blend_profile_change()
-        blend_profile_combo.bind("<<ComboboxSelected>>", on_edge_blend_profile_change)
-
+        edge_blend_mode_label.pack(fill=tk.X, pady=(2, 2))
         tk.Button(
             blend_frame,
-            text="Wygładź aktywny pas",
-            command=blend_active_edge,
+            text="Lekki",
+            command=lambda: set_edge_blend_mode("light", auto_apply=True),
             bg="#4c7035",
             fg="white"
-        ).pack(fill=tk.X, pady=(2, 4))
+        ).pack(fill=tk.X, pady=(0, 1))
+        tk.Button(
+            blend_frame,
+            text="Średni",
+            command=lambda: set_edge_blend_mode("medium", auto_apply=True),
+            bg="#4c7035",
+            fg="white"
+        ).pack(fill=tk.X, pady=1)
+        tk.Button(
+            blend_frame,
+            text="Mocny",
+            command=lambda: set_edge_blend_mode("strong", auto_apply=True),
+            bg="#4c7035",
+            fg="white"
+        ).pack(fill=tk.X, pady=(1, 2))
 
         tk.Button(
             edge_frame,
@@ -12116,7 +12101,7 @@ class MapEditor:
             command=exit_edge_mode,
             bg="#555555",
             fg="white"
-        ).pack(fill=tk.X, padx=4, pady=(6, 2))
+        ).pack(fill=tk.X, padx=4, pady=(4, 2))
         edge_status_label = tk.Label(edge_frame, text="Aktywny: brak", bg="darkolivegreen", fg="#d4f2bf", anchor="w", wraplength=200, justify="left")
         edge_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
         edge_sync_status_label = tk.Label(
@@ -12128,11 +12113,9 @@ class MapEditor:
             wraplength=200,
             justify="left",
         )
-        edge_sync_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+        edge_sync_status_label.pack(fill=tk.X, padx=4, pady=(0, 2))
         refresh_edge_button_states()
-        on_edge_bleed_depth_change(str(state["edge_bleed_depth"]))
-        on_edge_blend_strength_change(str(state["edge_blend_strength"]))
-        on_edge_blend_profile_change()
+        set_edge_blend_mode(state.get("edge_blend_mode", EDGE_BLEND_DEFAULT_MODE))
 
         # Panel nawigacji między heksami
         hex_nav_frame = tk.LabelFrame(tools, text="Nawigacja", bg="darkolivegreen", fg="white")
@@ -12590,7 +12573,7 @@ class MapEditor:
         export_size = HEX_TEXTURE_EXPORT_SIZES.get(grid_size, grid_size)
         export_img = base_img.resize((export_size, export_size), Image.NEAREST)
         filename = f"hex_{hex_id.replace(',', '_')}.png"
-        output_path = HEX_TEXTURE_DIR / filename
+        output_path = EDITED_HEX_TEXTURE_DIR / filename
         export_img.save(output_path)
         rel_path = to_rel(str(output_path))
         print(f"Zapisano teksturę heksa do {output_path}")

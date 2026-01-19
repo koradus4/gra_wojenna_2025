@@ -2040,10 +2040,7 @@
     "5,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat\\flat_grass_dense_64.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_dense"
+      "defense_mod": 0
     },
     "5,3": {
       "terrain_key": "teren_płaski",
@@ -2448,10 +2445,7 @@
     "6,2": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0,
-      "texture": "terrain\\hex_painted\\flat\\flat_grass_dense_64.png",
-      "texture_grid": 64,
-      "flat_texture_preset": "grass_dense"
+      "defense_mod": 0
     },
     "6,3": {
       "terrain_key": "teren_płaski",
@@ -3666,7 +3660,10 @@
     "9,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat\\flat_field_dark_64.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "field_dark"
     },
     "9,5": {
       "terrain_key": "teren_płaski",
@@ -4066,12 +4063,18 @@
     "10,3": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat\\edytor\\hex_10_3.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "grass_dry"
     },
     "10,4": {
       "terrain_key": "teren_płaski",
       "move_mod": 0,
-      "defense_mod": 0
+      "defense_mod": 0,
+      "texture": "terrain\\hex_painted\\flat\\edytor\\hex_10_4.png",
+      "texture_grid": 64,
+      "flat_texture_preset": "field_dark"
     },
     "10,5": {
       "terrain_key": "teren_płaski",
