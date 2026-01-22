@@ -47,6 +47,7 @@ from generate_river_hex_tile import RiverCenterlineOptions, TributaryOptions, ge
 from generate_railway_hex_tile import RailwayOptions, generate_railway, _is_valid_junction
 from generate_lake_hex_tile import LakeOptions, generate_lake
 from generate_forest_hex_tile import ForestOptions, generate_forest, generate_forest_cluster
+from generate_settlement_hex_tile import SettlementOptions, generate_settlement_cluster
 
 try:
     from hex_feature_semantics import normalize_railway_options, normalize_road_options
@@ -211,7 +212,7 @@ class HexInspector:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
                 category = str(config.get("category") or self.current_category.get())
                 mode = str(config.get("mode") or "single")
-                if category in {"road", "river", "railway", "lake"}:
+                if category in {"road", "river", "railway", "lake", "forest", "settlement"}:
                     self.current_category.set(category)
                 if mode in {"single", "cluster7"}:
                     self.current_mode.set(mode)
@@ -294,7 +295,7 @@ class HexInspector:
             fg="#ddd",
         ).pack(side=tk.LEFT, padx=(0, 10))
 
-        for cat in ["road", "river", "railway", "lake", "forest"]:
+        for cat in ["road", "river", "railway", "lake", "forest", "settlement"]:
             rb = tk.Radiobutton(
                 category_frame,
                 text=cat.capitalize(),
@@ -1191,6 +1192,9 @@ class HexInspector:
                 river_cluster_noise_freq = None
                 river_bank_offset = float(river_gen.DEFAULT_BANK_OFFSET) * rng.uniform(0.8, 1.5)
                 river_bank_variation = float(river_gen.DEFAULT_BANK_VARIATION) * rng.uniform(0.85, 1.2)
+        elif category == "settlement":
+            # Settlement: wspólny seed dla spójności
+            settlement_cluster_seed = base_seed
         elif category == "forest":
             # Forest: spójny klaster (wspólna gęstość/typ drzew)
             forest_cluster_density = rng.choice(["rzadki", "średni", "gęsty"])
@@ -1387,6 +1391,13 @@ class HexInspector:
                     "background": bg,
                 }
 
+            elif category == "settlement":
+                tiles[name] = {
+                    "category": "settlement",
+                    "seed": settlement_cluster_seed,
+                    "background": bg,
+                }
+
             else:
                 shape = river_cluster_shape
                 if use_editor_profiles and river_cluster_shape_strength is not None:
@@ -1451,6 +1462,7 @@ class HexInspector:
             "forest_density": forest_cluster_density if category == "forest" else None,
             "forest_tree_type": forest_cluster_tree_type if category == "forest" else None,
             "forest_seed": base_seed if category == "forest" else None,
+            "settlement_seed": settlement_cluster_seed if category == "settlement" else None,
         }
 
     def _render_cluster7(self, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -1465,6 +1477,44 @@ class HexInspector:
 
         tmp_dir = self.output_dir / "_tmp"
         tmp_dir.mkdir(exist_ok=True)
+
+        settlement_cluster_outputs: Dict[str, Path] | None = None
+        if plan.get("category") == "settlement" and generate_settlement_cluster:
+            axial_map = self._cluster7_axial_map()
+            hex_ids: list[str] = []
+            output_paths: Dict[str, Path] = {}
+            background_textures: Dict[str, Optional[Path]] = {}
+            neighbor_info: Dict[str, Dict[str, Any]] = {}
+
+            for name, cfg in plan["tiles"].items():
+                if cfg.get("blank"):
+                    continue
+                q, r = axial_map.get(name, (0, 0))
+                hex_id = f"{q},{r}"
+                hex_ids.append(hex_id)
+                bg_path = self.backgrounds_dir / cfg["background"] if cfg.get("background") else None
+                background_textures[hex_id] = bg_path
+                output_paths[hex_id] = tmp_dir / f"settlement_{name}.png"
+                
+                # TODO: tutaj można by wykrywać sąsiadów z drogami/koleją
+                # Na razie pusta lista
+                neighbor_info[hex_id] = {"sides_with_roads": []}
+
+            if hex_ids:
+                seed = int(plan.get("settlement_seed") or 1)
+                generate_settlement_cluster(
+                    hex_ids,
+                    grid_size=64,
+                    seed=seed,
+                    neighbor_info=neighbor_info,
+                    background_textures=background_textures,
+                    output_paths=output_paths,
+                )
+                settlement_cluster_outputs = {
+                    name: output_paths[f"{axial_map[name][0]},{axial_map[name][1]}"]
+                    for name in plan["tiles"].keys()
+                    if name in axial_map and f"{axial_map[name][0]},{axial_map[name][1]}" in output_paths
+                }
 
         forest_cluster_outputs: Dict[str, Path] | None = None
         if plan.get("category") == "forest" and generate_forest_cluster:
@@ -1509,6 +1559,20 @@ class HexInspector:
                 category = cfg["category"]
                 temp_path = tmp_dir / f"{category}_{name}.png"
                 bg_path = self.backgrounds_dir / cfg["background"] if cfg.get("background") else None
+
+                if category == "settlement" and settlement_cluster_outputs and name in settlement_cluster_outputs:
+                    tile_img = Image.open(settlement_cluster_outputs[name]).convert("RGBA")
+                    if tile_img.size != (512, 512):
+                        tile_img = tile_img.resize((512, 512), RESAMPLE_NEAREST)
+                    tile_img = self._overlay_hex_outline(tile_img)
+                    x, y = layout[name]
+                    mosaic.alpha_composite(tile_img, (x, y))
+                    tiles_out[name] = {
+                        "config": cfg,
+                        "image": tile_img,
+                        "pos": (x, y),
+                    }
+                    continue
 
                 if category == "forest" and forest_cluster_outputs and name in forest_cluster_outputs:
                     tile_img = Image.open(forest_cluster_outputs[name]).convert("RGBA")
