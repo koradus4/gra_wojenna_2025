@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 try:
     from PIL.Image import Resampling
@@ -40,6 +40,13 @@ DENSITY_PRESETS = {
     "rzadki": {"min_trees": 1, "max_trees": 2, "attempts_multiplier": 15.0, "min_distance": 1.0},
     "średni": {"min_trees": 2, "max_trees": 4, "attempts_multiplier": 25.0, "min_distance": 0.5},
     "gęsty": {"min_trees": 3, "max_trees": 6, "attempts_multiplier": 40.0, "min_distance": 0.2},
+}
+
+# Lekkie poluzowanie dystansu dla nakładania się koron (nieagresywne).
+OVERLAP_DISTANCE_FACTOR = {
+    "rzadki": 0.85,
+    "średni": 0.70,
+    "gęsty": 0.55,
 }
 
 
@@ -218,6 +225,71 @@ def _build_hex_mask(grid: int) -> List[List[bool]]:
     return mask
 
 
+def _axial_to_pixel(q: int, r: int, s: float) -> Tuple[float, float]:
+    """Axial -> pixel (pointy-top)."""
+    x = s * 1.5 * q
+    y = s * math.sqrt(3.0) * (r + q / 2.0)
+    return (x, y)
+
+
+def _hex_polygon(center: Tuple[float, float], radius: float) -> List[Tuple[float, float]]:
+    """Wierzchołki heksa (pointy-top) w układzie pikseli."""
+    cx, cy = center
+    sqrt3 = math.sqrt(3.0)
+    return [
+        (cx - radius, cy),
+        (cx - radius / 2.0, cy - (sqrt3 / 2.0) * radius),
+        (cx + radius / 2.0, cy - (sqrt3 / 2.0) * radius),
+        (cx + radius, cy),
+        (cx + radius / 2.0, cy + (sqrt3 / 2.0) * radius),
+        (cx - radius / 2.0, cy + (sqrt3 / 2.0) * radius),
+    ]
+
+
+def _build_cluster_layout(hex_ids: Sequence[str], grid: int) -> Tuple[Dict[str, Tuple[float, float]], Tuple[int, int]]:
+    """Wyznacza pozycje środków heksów w jednej, spójnej siatce."""
+    radius = grid / 2.0 - 0.5
+    half = grid / 2.0
+    centers: Dict[str, Tuple[float, float]] = {}
+
+    for hex_id in hex_ids:
+        q, r = map(int, hex_id.split(","))
+        centers[hex_id] = _axial_to_pixel(q, r, radius)
+
+    min_x = min(cx - half for cx, _ in centers.values())
+    min_y = min(cy - half for _, cy in centers.values())
+    max_x = max(cx + half for cx, _ in centers.values())
+    max_y = max(cy + half for _, cy in centers.values())
+
+    shift_x = -min_x + 1.0
+    shift_y = -min_y + 1.0
+
+    shifted_centers = {
+        hex_id: (cx + shift_x, cy + shift_y)
+        for hex_id, (cx, cy) in centers.items()
+    }
+
+    width = int(math.ceil(max_x - min_x + 2.0))
+    height = int(math.ceil(max_y - min_y + 2.0))
+
+    return shifted_centers, (width, height)
+
+
+def _build_cluster_mask(
+    centers: Dict[str, Tuple[float, float]],
+    size: Tuple[int, int],
+    grid: int,
+) -> Image.Image:
+    """Maska spójnego klastra jako obraz L (0-255)."""
+    radius = grid / 2.0 - 0.5
+    mask_img = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask_img)
+    for center in centers.values():
+        poly = _hex_polygon(center, radius)
+        draw.polygon(poly, fill=255)
+    return mask_img
+
+
 def _calculate_tree_bounds(
     tree_img: Image.Image,
     hotspot: Tuple[float, float],
@@ -276,6 +348,43 @@ def _check_tree_fits_in_hex(
     return True
 
 
+def _check_tree_fits_in_mask(
+    tree_img: Image.Image,
+    hotspot: Tuple[float, float],
+    position: Tuple[float, float],
+    mask_img: Image.Image,
+) -> bool:
+    """Sprawdza czy drzewo mieści się w masce klastra (nie wychodzi poza obrys)."""
+    hx, hy = hotspot
+    px, py = position
+
+    offset_col = int(px - hx)
+    offset_row = int(py - hy)
+
+    min_col = offset_col
+    min_row = offset_row
+    max_col = offset_col + tree_img.width
+    max_row = offset_row + tree_img.height
+
+    if min_col < 0 or min_row < 0:
+        return False
+    if max_col > mask_img.width or max_row > mask_img.height:
+        return False
+
+    tree_pixels = tree_img.load()
+    mask_pixels = mask_img.load()
+    for tree_row in range(tree_img.height):
+        for tree_col in range(tree_img.width):
+            pixel = tree_pixels[tree_col, tree_row]
+            if len(pixel) >= 4 and pixel[3] > 10:
+                global_col = min_col + tree_col
+                global_row = min_row + tree_row
+                if mask_pixels[global_col, global_row] == 0:
+                    return False
+
+    return True
+
+
 def _check_tree_overlap(
     position: Tuple[float, float],
     tree_size: Tuple[int, int],
@@ -327,6 +436,135 @@ def _composite_tree(
     offset_row = int(py - hy)
     
     base.paste(tree_img, (offset_col, offset_row), tree_img)
+
+
+def generate_forest_cluster(
+    hex_ids: Sequence[str],
+    *,
+    grid_size: int,
+    density: str,
+    seed: Optional[int],
+    tree_type: str,
+    background_textures: Dict[str, Optional[Path]],
+    output_paths: Dict[str, Path],
+) -> Tuple[int, Dict[str, ForestResult]]:
+    """Generuje spójny las na klastrze heksów i zapisuje kafle per heks.
+
+    Zwraca: (łączna liczba drzew, mapowanie hex_id -> ForestResult).
+    """
+    density_key = density if density in DENSITY_PRESETS else "średni"
+    density_config = DENSITY_PRESETS[density_key]
+    overlap_factor = OVERLAP_DISTANCE_FACTOR.get(density_key, 0.7)
+
+    rng = random.Random(seed)
+
+    tree_assets = _find_available_tree_assets()
+    if tree_type == "iglaste":
+        tree_pool = tree_assets["iglaste"]
+    elif tree_type == "lisciaste":
+        tree_pool = tree_assets["lisciaste"]
+    else:
+        tree_pool = tree_assets["all"]
+
+    if not tree_pool:
+        raise ValueError("Brak dostępnych assetów drzew!")
+
+    centers, size = _build_cluster_layout(hex_ids, grid_size)
+    mask_img = _build_cluster_mask(centers, size, grid_size)
+
+    base_img = Image.new("RGBA", size, (0, 0, 0, 0))
+
+    half = grid_size / 2.0
+    for hex_id, (cx, cy) in centers.items():
+        bg_path = background_textures.get(hex_id)
+        if not bg_path or not bg_path.exists():
+            continue
+        try:
+            bg = Image.open(bg_path).convert("RGBA")
+            if bg.size != (grid_size, grid_size):
+                bg = bg.resize((grid_size, grid_size), RESAMPLE_NEAREST)
+        except Exception:
+            continue
+
+        left = int(round(cx - half))
+        top = int(round(cy - half))
+        base_img.alpha_composite(bg, (left, top))
+
+    min_trees = density_config["min_trees"]
+    max_trees = density_config["max_trees"]
+    min_distance = density_config["min_distance"] * overlap_factor
+    attempts = int(max_trees * density_config["attempts_multiplier"] * max(1, len(hex_ids)))
+    target_trees = rng.randint(min_trees, max_trees) * max(1, len(hex_ids))
+
+    cluster_centroid_x = sum(cx for cx, _ in centers.values()) / max(1, len(centers))
+    cluster_centroid_y = sum(cy for _, cy in centers.values()) / max(1, len(centers))
+    sigma = max(size) * 0.22
+
+    placed_trees: List[Tuple[Tuple[float, float], Tuple[int, int]]] = []
+    trees_placed_info: List[Dict[str, Any]] = []
+
+    for _ in range(attempts):
+        if len(placed_trees) >= target_trees:
+            break
+
+        if rng.random() < 0.65:
+            pos_x = rng.gauss(cluster_centroid_x, sigma)
+            pos_y = rng.gauss(cluster_centroid_y, sigma)
+        else:
+            pos_x = rng.uniform(0, size[0])
+            pos_y = rng.uniform(0, size[1])
+
+        ix = int(pos_x)
+        iy = int(pos_y)
+        if ix < 0 or iy < 0 or ix >= mask_img.width or iy >= mask_img.height:
+            continue
+        if mask_img.getpixel((ix, iy)) == 0:
+            continue
+
+        tree_json = rng.choice(tree_pool)
+        try:
+            tree_img, hotspot, meta = _load_tree_asset(tree_json, grid_size)
+        except (FileNotFoundError, ValueError):
+            continue
+
+        if not _check_tree_fits_in_mask(tree_img, hotspot, (pos_x, pos_y), mask_img):
+            continue
+
+        tree_size = (tree_img.width, tree_img.height)
+        if _check_tree_overlap((pos_x, pos_y), tree_size, placed_trees, min_distance):
+            continue
+
+        _composite_tree(base_img, tree_img, hotspot, (pos_x, pos_y))
+        placed_trees.append(((pos_x, pos_y), tree_size))
+        trees_placed_info.append(
+            {
+                "asset": tree_json.stem,
+                "position": (pos_x, pos_y),
+                "hotspot": hotspot,
+                "size": tree_size,
+            }
+        )
+
+    results: Dict[str, ForestResult] = {}
+    for hex_id, (cx, cy) in centers.items():
+        left = int(round(cx - half))
+        top = int(round(cy - half))
+        tile = base_img.crop((left, top, left + grid_size, top + grid_size))
+
+        output_path = output_paths.get(hex_id)
+        if not output_path:
+            continue
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_img = tile.resize((EXPORT_SIZE_BY_GRID.get(grid_size, grid_size * 8),) * 2, RESAMPLE_NEAREST)
+        output_img.save(output_path, "PNG")
+
+        results[hex_id] = ForestResult(
+            output_path=output_path,
+            tree_count=len(placed_trees),
+            trees_placed=trees_placed_info,
+        )
+
+    return len(placed_trees), results
 
 
 # ============================================================================

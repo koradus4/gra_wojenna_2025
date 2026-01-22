@@ -90,11 +90,13 @@ try:
         ForestOptions,
         generate_forest,
         DENSITY_PRESETS,
+        generate_forest_cluster,
     )
 except ImportError:
     ForestOptions = None
     generate_forest = None
     DENSITY_PRESETS = {}
+    generate_forest_cluster = None
     
 try:
     from hex_feature_semantics import normalize_railway_options
@@ -1533,6 +1535,13 @@ class MapEditor:
             bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
         )
         self.open_map_and_data_button.pack(padx=5, pady=2, fill=tk.X)
+
+        # Przycisk "Wczytaj dane mapy (JSON)"
+        self.open_map_data_button = tk.Button(
+            buttons_frame, text="Wczytaj dane mapy (JSON)", command=self.open_map_data_only,
+            bg="saddlebrown", fg="white", activebackground="saddlebrown", activeforeground="white"
+        )
+        self.open_map_data_button.pack(padx=5, pady=2, fill=tk.X)
 
         # Przycisk "Zapisz dane mapy"
         self.save_map_and_data_button = tk.Button(
@@ -8519,60 +8528,111 @@ class MapEditor:
         seed_base = self.forest_seed_var.get()
 
         success_count = 0
-        for i, hex_id in enumerate(self.forest_hexes):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if len(self.forest_hexes) > 1 and generate_forest_cluster:
             try:
-                # Seed unikalny dla każdego heksa
-                hex_seed = seed_base + i * 1000
+                background_textures: dict[str, Path | None] = {}
+                output_paths: dict[str, Path] = {}
+                for idx, hex_id in enumerate(self.forest_hexes):
+                    background_texture = None
+                    if hex_id in self.hex_data:
+                        terrain = self.hex_data[hex_id]
+                        texture_path_str = terrain.get("texture")
+                        if texture_path_str:
+                            if Path(texture_path_str).is_absolute():
+                                texture_path = Path(texture_path_str)
+                            else:
+                                texture_path = ASSET_ROOT / texture_path_str
+                            if texture_path.exists():
+                                background_texture = texture_path
 
-                # Pobierz istniejącą teksturę jako tło (jeśli jest)
-                background_texture = None
-                if hex_id in self.hex_data:
-                    terrain = self.hex_data[hex_id]
-                    texture_path_str = terrain.get("texture")
-                    if texture_path_str:
-                        # Konwertuj względną ścieżkę na absolutną
-                        if Path(texture_path_str).is_absolute():
-                            texture_path = Path(texture_path_str)
-                        else:
-                            texture_path = ASSET_ROOT / texture_path_str
-                        
-                        if texture_path.exists():
-                            background_texture = texture_path
+                    background_textures[hex_id] = background_texture
+                    filename = (
+                        f"forest_cluster_{hex_id.replace(',', '_')}_{density}_{timestamp}_s{seed_base}.png"
+                    )
+                    output_paths[hex_id] = FOREST_OUTPUT_DIR / filename
 
-                # Nazwa pliku wyjściowego
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"forest_{hex_id.replace(',', '_')}_{density}_{timestamp}_s{hex_seed}.png"
-                filepath = FOREST_OUTPUT_DIR / filename
-
-                # Opcje generowania
-                options = ForestOptions(
+                tree_count, results = generate_forest_cluster(
+                    self.forest_hexes,
                     grid_size=DEFAULT_HEX_TEXTURE_GRID_SIZE,
                     density=density,
-                    seed=hex_seed,
-                    background_texture=background_texture,
+                    seed=seed_base,
                     tree_type=tree_type,
+                    background_textures=background_textures,
+                    output_paths=output_paths,
                 )
 
-                # Generuj las
-                result = generate_forest(options, filepath)
+                for hex_id, result in results.items():
+                    if hex_id not in self.hex_data:
+                        self.hex_data[hex_id] = {}
+                    self.hex_data[hex_id]["texture"] = str(result.output_path.relative_to(ASSET_ROOT))
+                    self.hex_data[hex_id]["texture_grid"] = DEFAULT_HEX_TEXTURE_GRID_SIZE
+                    success_count += 1
 
-                # Zapisz w hex_data
-                if hex_id not in self.hex_data:
-                    self.hex_data[hex_id] = {}
-                
-                self.hex_data[hex_id]["texture"] = str(filepath.relative_to(ASSET_ROOT))
-                self.hex_data[hex_id]["texture_grid"] = DEFAULT_HEX_TEXTURE_GRID_SIZE
-
-                success_count += 1
-                print(f"✓ Las na {hex_id}: {result.tree_count} drzew")
+                print(f"✓ Las klastrowy: {tree_count} drzew na {len(results)} heksach")
 
             except Exception as e:
-                print(f"✗ Błąd generowania lasu na {hex_id}: {e}")
+                print(f"✗ Błąd generowania lasu klastrowego: {e}")
                 messagebox.showwarning(
                     "Błąd generowania",
-                    f"Nie udało się wygenerować lasu na {hex_id}:\n{e}",
+                    f"Nie udało się wygenerować lasu klastrowego:\n{e}",
                     parent=self.root,
                 )
+        else:
+            for i, hex_id in enumerate(self.forest_hexes):
+                try:
+                    # Seed unikalny dla każdego heksa
+                    hex_seed = seed_base + i * 1000
+
+                    # Pobierz istniejącą teksturę jako tło (jeśli jest)
+                    background_texture = None
+                    if hex_id in self.hex_data:
+                        terrain = self.hex_data[hex_id]
+                        texture_path_str = terrain.get("texture")
+                        if texture_path_str:
+                            # Konwertuj względną ścieżkę na absolutną
+                            if Path(texture_path_str).is_absolute():
+                                texture_path = Path(texture_path_str)
+                            else:
+                                texture_path = ASSET_ROOT / texture_path_str
+                            
+                            if texture_path.exists():
+                                background_texture = texture_path
+
+                    # Nazwa pliku wyjściowego
+                    filename = f"forest_{hex_id.replace(',', '_')}_{density}_{timestamp}_s{hex_seed}.png"
+                    filepath = FOREST_OUTPUT_DIR / filename
+
+                    # Opcje generowania
+                    options = ForestOptions(
+                        grid_size=DEFAULT_HEX_TEXTURE_GRID_SIZE,
+                        density=density,
+                        seed=hex_seed,
+                        background_texture=background_texture,
+                        tree_type=tree_type,
+                    )
+
+                    # Generuj las
+                    result = generate_forest(options, filepath)
+
+                    # Zapisz w hex_data
+                    if hex_id not in self.hex_data:
+                        self.hex_data[hex_id] = {}
+                    
+                    self.hex_data[hex_id]["texture"] = str(filepath.relative_to(ASSET_ROOT))
+                    self.hex_data[hex_id]["texture_grid"] = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+                    success_count += 1
+                    print(f"✓ Las na {hex_id}: {result.tree_count} drzew")
+
+                except Exception as e:
+                    print(f"✗ Błąd generowania lasu na {hex_id}: {e}")
+                    messagebox.showwarning(
+                        "Błąd generowania",
+                        f"Nie udało się wygenerować lasu na {hex_id}:\n{e}",
+                        parent=self.root,
+                    )
 
         if success_count > 0:
             self.clear_forest_selection()
@@ -13287,7 +13347,9 @@ class MapEditor:
 
     def load_data(self):
         'Wczytuje dane z pliku roboczego (teren, kluczowe i spawn).'
-        self.current_working_file = self.get_working_data_path()
+        # Jeśli current_working_file nie został jeszcze ustawiony, pobierz domyślną ścieżkę
+        if not hasattr(self, 'current_working_file') or not self.current_working_file:
+            self.current_working_file = self.get_working_data_path()
         print(f"Wczytywanie danych z: {self.current_working_file}")
         loaded_data = wczytaj_dane_hex(self.current_working_file)
         if loaded_data:
@@ -13310,6 +13372,54 @@ class MapEditor:
                 self.hex_data   = loaded_data.get("terrain", {})
                 self.key_points = loaded_data.get("key_points", {})
                 self.spawn_points = loaded_data.get("spawn_points", {})
+            
+            # === SZCZEGÓŁOWY LOG ZAŁADOWANYCH DANYCH ===
+            print(f"\n{'='*60}")
+            print(f"📊 ANALIZA ZAŁADOWANYCH DANYCH")
+            print(f"{'='*60}")
+            print(f"📦 Liczba heksów z danymi terenu: {len(self.hex_data)}")
+            
+            if self.hex_data:
+                # Zakres współrzędnych
+                q_coords = []
+                r_coords = []
+                terrain_types = {}
+                texture_types = {}
+                
+                for hex_id, terrain in self.hex_data.items():
+                    try:
+                        q, r = map(int, hex_id.split(','))
+                        q_coords.append(q)
+                        r_coords.append(r)
+                        
+                        # Zliczaj typy terenu
+                        terrain_key = terrain.get('terrain_key', 'unknown')
+                        terrain_types[terrain_key] = terrain_types.get(terrain_key, 0) + 1
+                        
+                        # Zliczaj typy tekstur
+                        texture = terrain.get('texture', '')
+                        if texture:
+                            texture_folder = texture.split('/')[-2] if '/' in texture else 'unknown'
+                            texture_types[texture_folder] = texture_types.get(texture_folder, 0) + 1
+                    except:
+                        pass
+                
+                if q_coords and r_coords:
+                    print(f"📍 Zakres współrzędnych:")
+                    print(f"   q: {min(q_coords)} do {max(q_coords)} (szerokość: {max(q_coords)-min(q_coords)+1})")
+                    print(f"   r: {min(r_coords)} do {max(r_coords)} (wysokość: {max(r_coords)-min(r_coords)+1})")
+                
+                print(f"\n🗺️  Typy terenu:")
+                for terrain_key, count in sorted(terrain_types.items(), key=lambda x: -x[1]):
+                    print(f"   {terrain_key}: {count}")
+                
+                print(f"\n🎨 Typy tekstur:")
+                for texture_folder, count in sorted(texture_types.items(), key=lambda x: -x[1]):
+                    print(f"   {texture_folder}: {count}")
+            
+            print(f"{'='*60}\n")
+            # === KONIEC LOGU ===
+            
             if self._ensure_city_marker_textures():
                 # aktualizuj zapis, aby nowa tekstura była dostępna w pliku
                 self.save_data()
@@ -13398,6 +13508,23 @@ class MapEditor:
                 messagebox.showinfo("Anulowano", "Nie wybrano mapy.")
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się otworzyć mapy i danych: {e}")
+
+    def open_map_data_only(self):
+        """Wczytuje dane mapy z pliku JSON bez zmiany obrazu tła."""
+        try:
+            data_path = filedialog.askopenfilename(
+                initialdir=str(DATA_ROOT),
+                title="Wybierz dane mapy (JSON)",
+                filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
+            )
+            if data_path:
+                self.current_working_file = data_path
+                self.load_data()
+                messagebox.showinfo("Sukces", "Dane mapy zostały pomyślnie wczytane.")
+            else:
+                messagebox.showinfo("Anulowano", "Nie wybrano pliku danych.")
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się wczytać danych mapy: {e}")
 
     def add_key_point_dialog(self):
         'Okno dialogowe do dodawania kluczowego punktu na wybranym heksie.'
@@ -14492,3 +14619,4 @@ if __name__ == '__main__':
     except Exception as e:
         print('Błąd startu:', e, file=sys.stderr)
         raise
+

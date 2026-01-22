@@ -46,7 +46,7 @@ from generate_road_hex_tile import RoadOptions, generate_road
 from generate_river_hex_tile import RiverCenterlineOptions, TributaryOptions, generate_centerline
 from generate_railway_hex_tile import RailwayOptions, generate_railway, _is_valid_junction
 from generate_lake_hex_tile import LakeOptions, generate_lake
-from generate_forest_hex_tile import ForestOptions, generate_forest
+from generate_forest_hex_tile import ForestOptions, generate_forest, generate_forest_cluster
 
 try:
     from hex_feature_semantics import normalize_railway_options, normalize_road_options
@@ -896,6 +896,17 @@ class HexInspector:
                     neighbor_map[name][side] = neighbor_name
         return neighbor_map
 
+    def _cluster7_axial_map(self) -> Dict[str, tuple[int, int]]:
+        return {
+            "center": (0, 0),
+            "top": (0, -1),
+            "top_right": (1, -1),
+            "bottom_right": (1, 0),
+            "bottom": (0, 1),
+            "bottom_left": (-1, 1),
+            "top_left": (-1, 0),
+        }
+
     def _blank_tile(self, background_name: Optional[str]) -> Image.Image:
         if background_name:
             bg_path = self.backgrounds_dir / background_name
@@ -1181,8 +1192,9 @@ class HexInspector:
                 river_bank_offset = float(river_gen.DEFAULT_BANK_OFFSET) * rng.uniform(0.8, 1.5)
                 river_bank_variation = float(river_gen.DEFAULT_BANK_VARIATION) * rng.uniform(0.85, 1.2)
         elif category == "forest":
-            # Forest: każdy heks niezależny, bez połączeń
-            pass
+            # Forest: spójny klaster (wspólna gęstość/typ drzew)
+            forest_cluster_density = rng.choice(["rzadki", "średni", "gęsty"])
+            forest_cluster_tree_type = rng.choice(["mixed", "iglaste", "lisciaste"])
         else:
             railway_types = sorted(rail_gen.RAILWAY_DIMENSIONS.keys())
             preferred_double = "dwutorowy" if "dwutorowy" in railway_types else None
@@ -1367,14 +1379,10 @@ class HexInspector:
                 }
 
             elif category == "forest":
-                # Każdy heks dostaje losową konfigurację lasu
-                densities = ["rzadki", "średni", "gęsty"]
-                tree_types = ["mixed", "iglaste", "lisciaste"]
-                
                 tiles[name] = {
                     "category": "forest",
-                    "density": rng.choice(densities),
-                    "tree_type": rng.choice(tree_types),
+                    "density": forest_cluster_density,
+                    "tree_type": forest_cluster_tree_type,
                     "seed": tile_seed,
                     "background": bg,
                 }
@@ -1440,6 +1448,9 @@ class HexInspector:
             "axis": [axis_a, axis_b],
             "branch_side": branch_side,
             "tiles": tiles,
+            "forest_density": forest_cluster_density if category == "forest" else None,
+            "forest_tree_type": forest_cluster_tree_type if category == "forest" else None,
+            "forest_seed": base_seed if category == "forest" else None,
         }
 
     def _render_cluster7(self, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -1455,6 +1466,42 @@ class HexInspector:
         tmp_dir = self.output_dir / "_tmp"
         tmp_dir.mkdir(exist_ok=True)
 
+        forest_cluster_outputs: Dict[str, Path] | None = None
+        if plan.get("category") == "forest" and generate_forest_cluster:
+            axial_map = self._cluster7_axial_map()
+            hex_ids: list[str] = []
+            output_paths: Dict[str, Path] = {}
+            background_textures: Dict[str, Optional[Path]] = {}
+
+            for name, cfg in plan["tiles"].items():
+                if cfg.get("blank"):
+                    continue
+                q, r = axial_map.get(name, (0, 0))
+                hex_id = f"{q},{r}"
+                hex_ids.append(hex_id)
+                bg_path = self.backgrounds_dir / cfg["background"] if cfg.get("background") else None
+                background_textures[hex_id] = bg_path
+                output_paths[hex_id] = tmp_dir / f"forest_{name}.png"
+
+            if hex_ids:
+                density = plan.get("forest_density") or "średni"
+                tree_type = plan.get("forest_tree_type") or "mixed"
+                seed = int(plan.get("forest_seed") or 1)
+                generate_forest_cluster(
+                    hex_ids,
+                    grid_size=64,
+                    density=str(density),
+                    seed=seed,
+                    tree_type=str(tree_type),
+                    background_textures=background_textures,
+                    output_paths=output_paths,
+                )
+                forest_cluster_outputs = {
+                    name: output_paths[f"{axial_map[name][0]},{axial_map[name][1]}"]
+                    for name in plan["tiles"].keys()
+                    if name in axial_map and f"{axial_map[name][0]},{axial_map[name][1]}" in output_paths
+                }
+
         for name, cfg in plan["tiles"].items():
             if cfg.get("blank"):
                 tile_img = self._blank_tile(bg_name)
@@ -1462,6 +1509,20 @@ class HexInspector:
                 category = cfg["category"]
                 temp_path = tmp_dir / f"{category}_{name}.png"
                 bg_path = self.backgrounds_dir / cfg["background"] if cfg.get("background") else None
+
+                if category == "forest" and forest_cluster_outputs and name in forest_cluster_outputs:
+                    tile_img = Image.open(forest_cluster_outputs[name]).convert("RGBA")
+                    if tile_img.size != (512, 512):
+                        tile_img = tile_img.resize((512, 512), RESAMPLE_NEAREST)
+                    tile_img = self._overlay_hex_outline(tile_img)
+                    x, y = layout[name]
+                    mosaic.alpha_composite(tile_img, (x, y))
+                    tiles_out[name] = {
+                        "config": cfg,
+                        "image": tile_img,
+                        "pos": (x, y),
+                    }
+                    continue
 
                 if category == "road":
                     neighbor_road_types: Optional[Dict[str, str]] = None
