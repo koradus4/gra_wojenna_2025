@@ -46,6 +46,7 @@ from generate_road_hex_tile import RoadOptions, generate_road
 from generate_river_hex_tile import RiverCenterlineOptions, TributaryOptions, generate_centerline
 from generate_railway_hex_tile import RailwayOptions, generate_railway, _is_valid_junction
 from generate_lake_hex_tile import LakeOptions, generate_lake
+from generate_forest_hex_tile import ForestOptions, generate_forest
 
 try:
     from hex_feature_semantics import normalize_railway_options, normalize_road_options
@@ -293,7 +294,7 @@ class HexInspector:
             fg="#ddd",
         ).pack(side=tk.LEFT, padx=(0, 10))
 
-        for cat in ["road", "river", "railway", "lake"]:
+        for cat in ["road", "river", "railway", "lake", "forest"]:
             rb = tk.Radiobutton(
                 category_frame,
                 text=cat.capitalize(),
@@ -659,6 +660,20 @@ class HexInspector:
             "background": str(bg.name) if bg else None,
         }
 
+    def _random_forest_config(self, rng: random.Random) -> Dict[str, Any]:
+        densities = ["rzadki", "średni", "gęsty"]
+        tree_types = ["mixed", "iglaste", "lisciaste"]
+        
+        bg = self._pick_background(rng)
+        
+        return {
+            "category": "forest",
+            "density": rng.choice(densities),
+            "tree_type": rng.choice(tree_types),
+            "seed": rng.randint(1000, 99999),
+            "background": str(bg.name) if bg else None,
+        }
+
     def _generate_random_hex(self) -> None:
         category = self.current_category.get()
         rng = random.Random()
@@ -667,6 +682,8 @@ class HexInspector:
             config = self._random_road_config(rng)
         elif category == "river":
             config = self._random_river_config(rng)
+        elif category == "forest":
+            config = self._random_forest_config(rng)
         elif category == "lake":
             # Jezioro: wariant 1-heksowy, czasem z odpływem (źródło dopływu)
             bg = None
@@ -761,6 +778,22 @@ class HexInspector:
                     outflow_width=float(config.get("outflow_width", 2.2)),
                 )
                 generate_lake(opts, temp_path)
+
+            elif config["category"] == "forest":
+                bg_path = self.backgrounds_dir / config["background"] if config["background"] else None
+                if bg_path and not bg_path.exists():
+                    bg_path = self.backgrounds_dir / "flat" / config["background"]
+                    if not bg_path.exists():
+                        bg_path = None
+                
+                opts = ForestOptions(
+                    density=config["density"],
+                    tree_type=config["tree_type"],
+                    seed=config["seed"],
+                    grid_size=64,
+                    background_texture=bg_path,
+                )
+                generate_forest(opts, temp_path)
 
             else:
                 bg_path = self.backgrounds_dir / config["background"] if config["background"] else None
@@ -1132,11 +1165,24 @@ class HexInspector:
                 river_cluster_shape_strength = float(curvature_preset["shape_strength"])
                 river_cluster_noise_amp = float(curvature_preset["noise_amplitude"])
                 river_cluster_noise_freq = float(curvature_preset["noise_frequency"])
+                
+                # Losuj też bank parameters z Map Editor presets
+                size_preset = rng.choice(MAP_EDITOR_RIVER_SIZE_PRESETS)
+                bank_preset = rng.choice(MAP_EDITOR_RIVER_BANK_PRESETS)
+                base_offset = size_preset["bank_offset"]
+                base_variation = size_preset["bank_variation"]
+                river_bank_offset = base_offset * bank_preset["offset_multiplier"]
+                river_bank_variation = base_variation * bank_preset["variation_multiplier"] + bank_preset["variation_add"]
             else:
                 river_cluster_shape = rng.choice(list(getattr(river_gen, "PATH_SHAPES", ("straight", "curve", "turn"))))
                 river_cluster_shape_strength = None
                 river_cluster_noise_amp = None
                 river_cluster_noise_freq = None
+                river_bank_offset = float(river_gen.DEFAULT_BANK_OFFSET) * rng.uniform(0.8, 1.5)
+                river_bank_variation = float(river_gen.DEFAULT_BANK_VARIATION) * rng.uniform(0.85, 1.2)
+        elif category == "forest":
+            # Forest: każdy heks niezależny, bez połączeń
+            pass
         else:
             railway_types = sorted(rail_gen.RAILWAY_DIMENSIONS.keys())
             preferred_double = "dwutorowy" if "dwutorowy" in railway_types else None
@@ -1320,6 +1366,19 @@ class HexInspector:
                     "background": bg,
                 }
 
+            elif category == "forest":
+                # Każdy heks dostaje losową konfigurację lasu
+                densities = ["rzadki", "średni", "gęsty"]
+                tree_types = ["mixed", "iglaste", "lisciaste"]
+                
+                tiles[name] = {
+                    "category": "forest",
+                    "density": rng.choice(densities),
+                    "tree_type": rng.choice(tree_types),
+                    "seed": tile_seed,
+                    "background": bg,
+                }
+
             else:
                 shape = river_cluster_shape
                 if use_editor_profiles and river_cluster_shape_strength is not None:
@@ -1477,8 +1536,8 @@ class HexInspector:
                         noise_frequency=float(cfg["noise_frequency"]),
                         seed=int(cfg["seed"]),
                         tributary=trib,
-                        bank_offset=float(cfg.get("bank_offset", 1.5)),
-                        bank_variation=float(cfg.get("bank_variation", 0.35)),
+                        bank_offset=float(cfg["bank_offset"]) if cfg.get("bank_offset") is not None else 1.5,
+                        bank_variation=float(cfg["bank_variation"]) if cfg.get("bank_variation") is not None else 0.35,
                     )
                     generate_centerline(opts, temp_path)
 
@@ -1501,6 +1560,15 @@ class HexInspector:
                         cluster_shape=str(cfg.get("cluster_shape")) if cfg.get("cluster_shape") else None,
                     )
                     generate_lake(opts, temp_path)
+                elif category == "forest":
+                    opts = ForestOptions(
+                        density=cfg["density"],
+                        tree_type=cfg["tree_type"],
+                        seed=int(cfg["seed"]),
+                        grid_size=64,
+                        background_texture=bg_path,
+                    )
+                    generate_forest(opts, temp_path)
                 else:
                     raise ValueError(f"Nieznana kategoria: {category!r}")
 

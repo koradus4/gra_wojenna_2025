@@ -83,6 +83,18 @@ except ImportError:
     LakeOptions = None
     render_lake = None
     LAKE_HEX_SIDES = ()
+
+# Import generatora lasów
+try:
+    from generate_forest_hex_tile import (
+        ForestOptions,
+        generate_forest,
+        DENSITY_PRESETS,
+    )
+except ImportError:
+    ForestOptions = None
+    generate_forest = None
+    DENSITY_PRESETS = {}
     
 try:
     from hex_feature_semantics import normalize_railway_options
@@ -163,6 +175,9 @@ ROAD_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 LAKE_OUTPUT_DIR = HEX_TEXTURE_DIR / "lake_tool"
 LAKE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+FOREST_OUTPUT_DIR = HEX_TEXTURE_DIR / "forest_tool"
+FOREST_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Konfiguracja dróg
 ROAD_TYPE_LABELS = {
@@ -1019,6 +1034,14 @@ class MapEditor:
         self.lake_seed_var = tk.IntVar(value=random.randint(0, 9999))
         self._lake_overlay_ids: list[int] = []  # ID elementów canvas overlay
 
+        # --- Narzędzie lasów ---
+        self.forest_mode_active = False
+        self.forest_hexes: list[str] = []  # Lista zaznaczonych heksów do zalesienia
+        self.forest_density_var = tk.StringVar(value="średni")
+        self.forest_status_var = tk.StringVar(value="Tryb lasu nieaktywny")
+        self.forest_seed_var = tk.IntVar(value=random.randint(0, 9999))
+        self.forest_tree_type_var = tk.StringVar(value="mixed")
+
         # --- Inicjalizacja GUI i danych ---
         self.load_token_index()
         self.build_gui()
@@ -1390,6 +1413,15 @@ class MapEditor:
                     removed += 1
                 except Exception as exc:  # noqa: BLE001
                     issues.append(f"lake_tool/{file_path.name}: {exc}")
+
+        # Usuń pliki lasów z forest_tool
+        if FOREST_OUTPUT_DIR.exists():
+            for file_path in FOREST_OUTPUT_DIR.glob("*"):
+                try:
+                    file_path.unlink()
+                    removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    issues.append(f"forest_tool/{file_path.name}: {exc}")
 
         # Usuń pliki torów z railway_tool
         railway_dir = HEX_TEXTURE_DIR / "railway_tool"
@@ -2610,6 +2642,129 @@ class MapEditor:
 
         self._set_lake_section_visibility(False)
         self._update_lake_ui_state()
+
+        # === SEKCJA LASÓW (ROZWIJANA) ===
+        self._forest_expanded = False
+        self.forest_section_toggle_button = tk.Button(
+            self.upper_frame,
+            text="[+] Lasy 🌲",
+            command=self._toggle_forest_section,
+            bg="#2d5016", fg="white",
+            activebackground="#3d6026", activeforeground="white",
+            font=("Arial", 9, "bold"), anchor="w",
+        )
+        self.forest_section_toggle_button.pack(fill=tk.X, padx=5, pady=2)
+
+        # Kontener na rozwijaną sekcję lasów
+        self.forest_section_container = tk.Frame(self.upper_frame, bg="darkolivegreen")
+        # Domyślnie ukryte - nie pakujemy
+
+        self.forest_frame = tk.Frame(
+            self.forest_section_container, bg="darkolivegreen"
+        )
+        self.forest_frame.pack(fill=tk.X, pady=(2, 0))
+
+        # Przycisk trybu
+        self.toggle_forest_mode_button = tk.Button(
+            self.forest_frame,
+            text="Włącz tryb lasu",
+            command=self.toggle_forest_mode,
+            bg="#2d5016", fg="white",
+            activebackground="#3d6026", activeforeground="white",
+        )
+        self.toggle_forest_mode_button.pack(fill=tk.X, padx=4, pady=2)
+
+        # Status
+        forest_status_label = tk.Label(
+            self.forest_frame, textvariable=self.forest_status_var,
+            bg="darkolivegreen", fg="#d4f2bf", font=("Arial", 8),
+        )
+        forest_status_label.pack(fill=tk.X, padx=4, pady=(0, 4))
+
+        # Gęstość lasu
+        forest_density_frame = tk.LabelFrame(
+            self.forest_frame,
+            text="🌳 Gęstość lasu",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        forest_density_frame.pack(fill=tk.X, padx=4, pady=2)
+
+        for density_key in ["rzadki", "średni", "gęsty"]:
+            rb = tk.Radiobutton(
+                forest_density_frame,
+                text=density_key.title(),
+                variable=self.forest_density_var,
+                value=density_key,
+                bg="darkolivegreen",
+                fg="white",
+                selectcolor="#2d5016",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            rb.pack(anchor=tk.W, padx=8, pady=1)
+
+        # Typ drzew
+        forest_type_frame = tk.LabelFrame(
+            self.forest_frame,
+            text="🌲 Typ drzew",
+            bg="darkolivegreen",
+            fg="#ffd166",
+            font=("Arial", 9, "bold"),
+        )
+        forest_type_frame.pack(fill=tk.X, padx=4, pady=2)
+
+        for tree_type, label in [("mixed", "Mieszane"), ("lisciaste", "Liściaste"), ("iglaste", "Iglaste")]:
+            rb = tk.Radiobutton(
+                forest_type_frame,
+                text=label,
+                variable=self.forest_tree_type_var,
+                value=tree_type,
+                bg="darkolivegreen",
+                fg="white",
+                selectcolor="#2d5016",
+                activebackground="darkolivegreen",
+                activeforeground="white",
+            )
+            rb.pack(anchor=tk.W, padx=8, pady=1)
+
+        # Instrukcja
+        tk.Label(
+            self.forest_frame,
+            text="1. Zaznacz heksy (LPM)\n2. Kliknij 'Generuj las'",
+            bg="darkolivegreen",
+            fg="#d4f2bf",
+            font=("Arial", 8),
+            anchor="w",
+            justify="left",
+        ).pack(fill=tk.X, padx=4, pady=(4, 2))
+
+        # Przyciski akcji
+        forest_buttons_frame = tk.Frame(self.forest_frame, bg="darkolivegreen")
+        forest_buttons_frame.pack(fill=tk.X, padx=4, pady=(4, 0))
+
+        self.forest_generate_button = tk.Button(
+            forest_buttons_frame,
+            text="🌲 Generuj las",
+            command=self.generate_forest_on_hexes,
+            bg="#2d5016",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.forest_generate_button.pack(fill=tk.X, pady=2)
+
+        self.forest_clear_button = tk.Button(
+            forest_buttons_frame,
+            text="🗑️ Wyczyść zaznaczenie",
+            command=self.clear_forest_selection,
+            bg="#5a4a3a",
+            fg="white",
+            state=tk.DISABLED,
+        )
+        self.forest_clear_button.pack(fill=tk.X, pady=2)
+
+        self._set_forest_section_visibility(False)
 
         # === SEKCJA TERENU (ROZWIJANA) ===
         self._terrain_expanded = False
@@ -3884,6 +4039,7 @@ class MapEditor:
     def draw_grid(self):
         """Rysuje siatkę heksów i aktualizuje wyświetlane żetony."""
         self.canvas.delete("all")
+        self.canvas.delete("forest_overlay")  # Usuń overlay lasów
         if getattr(self, "world_width", None) and getattr(self, "world_height", None):
             self.canvas.config(scrollregion=(0, 0, self.world_width, self.world_height))
         if not hasattr(self, 'photo_bg'):
@@ -3969,6 +4125,10 @@ class MapEditor:
         # Overlay klastra jezior
         if self.lake_mode_active and self.lake_cluster:
             self._draw_lake_overlay()
+        
+        # Overlay zaznaczonych heksów do zalesienia
+        if self.forest_mode_active and self.forest_hexes:
+            self._draw_forest_overlay()
         
         # Wizualizacja trybu skrzyżowania
         if self.road_crossroads_mode and self.selected_hex:
@@ -4106,6 +4266,12 @@ class MapEditor:
         if self.lake_mode_active:
             if hex_id:
                 self._lake_handle_left_click(hex_id)
+            return
+
+        # Obsługa trybu lasów
+        if self.forest_mode_active:
+            if hex_id:
+                self._forest_handle_left_click(hex_id)
             return
 
         if hex_id:
@@ -8222,6 +8388,202 @@ class MapEditor:
         for item_id in self._lake_overlay_ids:
             self.canvas.delete(item_id)
         self._lake_overlay_ids.clear()
+
+    def _draw_forest_overlay(self) -> None:
+        """Rysuje overlay dla zaznaczonych heksów do zalesienia."""
+        for hex_id in self.forest_hexes:
+            if hex_id not in self.hex_centers:
+                continue
+            
+            cx, cy = self.hex_centers[hex_id]
+            s = self.hex_size
+            
+            # Półprzezroczysty zielony prostokąt
+            r = s * 0.5
+            self.canvas.create_rectangle(
+                cx - r, cy - r, cx + r, cy + r,
+                outline="#2d5016", width=2,
+                fill="#90ee90", stipple="gray50",
+                tags="forest_overlay"
+            )
+            
+            # Ikona drzewa
+            self.canvas.create_text(
+                cx, cy,
+                text="🌲",
+                fill="#2d5016",
+                font=("Arial", 16, "bold"),
+                tags="forest_overlay"
+            )
+
+    # ============================================================================
+    # LASY - NOWY TRYB
+    # ============================================================================
+
+    def _toggle_forest_section(self) -> None:
+        """Rozwin/zwiń sekcję lasów."""
+        self._forest_expanded = not self._forest_expanded
+        self._set_forest_section_visibility(self._forest_expanded)
+        
+        if self._forest_expanded:
+            self.forest_section_toggle_button.config(text="[-] Lasy 🌲")
+        else:
+            self.forest_section_toggle_button.config(text="[+] Lasy 🌲")
+
+    def _set_forest_section_visibility(self, visible: bool) -> None:
+        """Ustawia widoczność sekcji lasów."""
+        if visible:
+            self.forest_section_container.pack(fill=tk.X, padx=5, pady=(0, 4), after=self.forest_section_toggle_button)
+        else:
+            self.forest_section_container.pack_forget()
+
+    def toggle_forest_mode(self) -> None:
+        """Włącza/wyłącza tryb lasów."""
+        if not generate_forest:
+            messagebox.showerror(
+                "Błąd",
+                "Generator lasów nie jest dostępny (brak modułu generate_forest_hex_tile.py)",
+                parent=self.root,
+            )
+            return
+
+        self.forest_mode_active = not self.forest_mode_active
+
+        if self.forest_mode_active:
+            # Wyłącz inne tryby
+            if self.river_mode_active:
+                self.toggle_river_mode()
+            if self.road_mode_active:
+                self.toggle_road_mode()
+            if self.railway_mode_active:
+                self.toggle_railway_mode()
+            if self.lake_mode_active:
+                self.toggle_lake_mode()
+
+            self.toggle_forest_mode_button.config(text="Wyłącz tryb lasu", bg="#3d6026")
+            self.forest_status_var.set("Zaznacz heksy do zalesienia (LPM)")
+            self.set_status("Tryb lasu włączony")
+        else:
+            self.toggle_forest_mode_button.config(text="Włącz tryb lasu", bg="#2d5016")
+            self.forest_status_var.set("Tryb lasu nieaktywny")
+            self.clear_forest_selection()
+            self.set_status("Tryb lasu wyłączony")
+
+        self._update_forest_ui_state()
+        self.draw_grid()
+
+    def _update_forest_ui_state(self) -> None:
+        """Aktualizuje stan przycisków UI lasów."""
+        count = len(self.forest_hexes)
+        
+        if not self.forest_mode_active:
+            self.forest_status_var.set("Tryb lasu nieaktywny")
+            self.forest_generate_button.config(state=tk.DISABLED)
+            self.forest_clear_button.config(state=tk.DISABLED)
+            return
+        
+        self.forest_status_var.set(f"Zaznaczono heksów: {count}")
+        self.forest_generate_button.config(state=tk.NORMAL if count > 0 else tk.DISABLED)
+        self.forest_clear_button.config(state=tk.NORMAL if count > 0 else tk.DISABLED)
+
+    def _forest_handle_left_click(self, hex_id: str) -> None:
+        """Obsługuje LPM w trybie lasów - dodaje/usuwa heks z zaznaczenia."""
+        if not self.forest_mode_active:
+            return
+
+        if hex_id in self.forest_hexes:
+            # Usuń z zaznaczenia
+            self.forest_hexes.remove(hex_id)
+        else:
+            # Dodaj do zaznaczenia
+            self.forest_hexes.append(hex_id)
+        
+        self.selected_hex = hex_id
+        self._update_forest_ui_state()
+        self.draw_grid()
+
+    def clear_forest_selection(self) -> None:
+        """Czyści zaznaczenie heksów do zalesienia."""
+        self.forest_hexes.clear()
+        self._update_forest_ui_state()
+        self.draw_grid()
+
+    def generate_forest_on_hexes(self) -> None:
+        """Generuje las na wszystkich zaznaczonych heksach."""
+        if not self.forest_hexes:
+            messagebox.showinfo("Brak zaznaczenia", "Najpierw zaznacz heksy do zalesienia.", parent=self.root)
+            return
+
+        density = self.forest_density_var.get()
+        tree_type = self.forest_tree_type_var.get()
+        seed_base = self.forest_seed_var.get()
+
+        success_count = 0
+        for i, hex_id in enumerate(self.forest_hexes):
+            try:
+                # Seed unikalny dla każdego heksa
+                hex_seed = seed_base + i * 1000
+
+                # Pobierz istniejącą teksturę jako tło (jeśli jest)
+                background_texture = None
+                if hex_id in self.hex_data:
+                    terrain = self.hex_data[hex_id]
+                    texture_path_str = terrain.get("texture")
+                    if texture_path_str:
+                        # Konwertuj względną ścieżkę na absolutną
+                        if Path(texture_path_str).is_absolute():
+                            texture_path = Path(texture_path_str)
+                        else:
+                            texture_path = ASSET_ROOT / texture_path_str
+                        
+                        if texture_path.exists():
+                            background_texture = texture_path
+
+                # Nazwa pliku wyjściowego
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"forest_{hex_id.replace(',', '_')}_{density}_{timestamp}_s{hex_seed}.png"
+                filepath = FOREST_OUTPUT_DIR / filename
+
+                # Opcje generowania
+                options = ForestOptions(
+                    grid_size=DEFAULT_HEX_TEXTURE_GRID_SIZE,
+                    density=density,
+                    seed=hex_seed,
+                    background_texture=background_texture,
+                    tree_type=tree_type,
+                )
+
+                # Generuj las
+                result = generate_forest(options, filepath)
+
+                # Zapisz w hex_data
+                if hex_id not in self.hex_data:
+                    self.hex_data[hex_id] = {}
+                
+                self.hex_data[hex_id]["texture"] = str(filepath.relative_to(ASSET_ROOT))
+                self.hex_data[hex_id]["texture_grid"] = DEFAULT_HEX_TEXTURE_GRID_SIZE
+
+                success_count += 1
+                print(f"✓ Las na {hex_id}: {result.tree_count} drzew")
+
+            except Exception as e:
+                print(f"✗ Błąd generowania lasu na {hex_id}: {e}")
+                messagebox.showwarning(
+                    "Błąd generowania",
+                    f"Nie udało się wygenerować lasu na {hex_id}:\n{e}",
+                    parent=self.root,
+                )
+
+        if success_count > 0:
+            self.clear_forest_selection()
+            self.draw_grid()
+            self.auto_save_and_export("wygenerowano las")
+            self.set_status(f"Wygenerowano las na {success_count} heksach")
+            messagebox.showinfo(
+                "Las wygenerowany",
+                f"Pomyślnie wygenerowano las na {success_count}/{len(self.forest_hexes)} heksach.",
+                parent=self.root,
+            )
 
 
     def open_selected_hex_texture_editor(self):
