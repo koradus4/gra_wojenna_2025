@@ -838,9 +838,10 @@ def wczytaj_dane_hex(filename=DATA_FILENAME_WORKING):
 CONFIG = {
     'map_settings': {
         'map_image_path': r"C:\\ścieżka\\do\\tła\\mapa.jpg",  # Pełna ścieżka do obrazu tła mapy
-        'hex_size': 30,
-        'grid_cols': 56,   # liczba kolumn heksów
-        'grid_rows': 40    # liczba wierszy heksów
+        'hex_size': 27,
+        'grid_cols': 64,   # liczba kolumn heksów
+        'grid_rows': 39,   # liczba wierszy heksów
+        'force_default_grid': True  # ignoruj meta siatki z plików map
     }
 }
 
@@ -3134,6 +3135,7 @@ class MapEditor:
         hex_var = tk.IntVar(value=current_hex)
         export_var = tk.BooleanVar(value=True)
         backup_var = tk.BooleanVar(value=True)
+        force_default_var = tk.BooleanVar(value=self.config.get("force_default_grid", False))
 
         main_frame = tk.Frame(dialog, bg="darkolivegreen", padx=12, pady=12)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -3169,14 +3171,24 @@ class MapEditor:
             hex_var.set(size)
 
         tk.Label(preset_frame, text="Presety:", bg="darkolivegreen", fg="yellow").pack(side=tk.LEFT)
+        tk.Button(preset_frame, text="3 km/heks", command=lambda: apply_preset(85, 51, 20)).pack(side=tk.LEFT, padx=2)
+        tk.Button(preset_frame, text="4 km/heks (rekom.)", command=lambda: apply_preset(64, 39, 27)).pack(side=tk.LEFT, padx=2)
+        tk.Button(preset_frame, text="5 km/heks", command=lambda: apply_preset(51, 31, 34)).pack(side=tk.LEFT, padx=2)
         tk.Button(preset_frame, text="Potyczka", command=lambda: apply_preset(30, 20, 28)).pack(side=tk.LEFT, padx=2)
-        tk.Button(preset_frame, text="Standard", command=lambda: apply_preset(56, 40, 30)).pack(side=tk.LEFT, padx=2)
         tk.Button(preset_frame, text="Kampania", command=lambda: apply_preset(120, 80, 32)).pack(side=tk.LEFT, padx=2)
 
         flags_frame = tk.Frame(main_frame, bg="darkolivegreen")
         flags_frame.pack(fill=tk.X, pady=(10, 0))
         tk.Checkbutton(flags_frame, text="Eksportuj startowe żetony", variable=export_var, bg="darkolivegreen", fg="white", selectcolor="darkolivegreen").pack(anchor="w")
         tk.Checkbutton(flags_frame, text="Zrób kopię mapy przed zmianą", variable=backup_var, bg="darkolivegreen", fg="white", selectcolor="darkolivegreen").pack(anchor="w")
+        tk.Checkbutton(
+            flags_frame,
+            text="Wymuś domyślną siatkę 4 km/heks (ignoruj meta)",
+            variable=force_default_var,
+            bg="darkolivegreen",
+            fg="white",
+            selectcolor="darkolivegreen",
+        ).pack(anchor="w")
 
         info_var = tk.StringVar(value="")
         warning_var = tk.StringVar(value="")
@@ -3216,6 +3228,7 @@ class MapEditor:
             except (tk.TclError, ValueError):
                 messagebox.showerror("Błąd", "Podano nieprawidłowe wartości.")
                 return
+            self.config["force_default_grid"] = bool(force_default_var.get())
             result = self._apply_map_configuration(
                 new_cols,
                 new_rows,
@@ -3223,21 +3236,34 @@ class MapEditor:
                 export_tokens=export_var.get(),
                 make_backup=backup_var.get()
             )
-            preview_canvas.tag_lower("neighbor_preview", "edge_band")
-            if edge_sync_status_label is not None:
-                status_text = (
-                    f"Podgląd sąsiada: {entry['neighbor_id']} "
-                    f"(aktywny pas: {local_band_total} pól, druga strona: {neighbor_band_total} pól"
-                )
-                if drawn and drawn != local_band_total:
-                    status_text += f", podgląd koloru: {drawn}"
-                elif not drawn:
-                    status_text += ", podgląd koloru: brak"
-                status_text += ")"
-                edge_sync_status_label.config(
-                    text=status_text,
-                    fg="#b7f28d" if neighbor_band_total else "#f2d7d5",
-                )
+            if result is None:
+                return
+            if result:
+                messagebox.showinfo("Konfiguracja mapy", result)
+            dialog.destroy()
+
+        cols_var.trace_add("write", lambda *_: update_preview())
+        rows_var.trace_add("write", lambda *_: update_preview())
+        hex_var.trace_add("write", lambda *_: update_preview())
+        update_preview()
+
+        tk.Button(buttons, text="Zastosuj", command=apply_changes, bg="darkseagreen", fg="black", width=10).pack(side=tk.RIGHT, padx=4)
+
+    def _estimate_canvas_size(self, cols: int, rows: int, hex_size: int) -> tuple[int, int]:
+        horizontal_spacing = 1.5 * hex_size
+        width = int(hex_size * 2 + max(0, cols - 1) * horizontal_spacing + hex_size)
+        hex_height = math.sqrt(3) * hex_size
+        height = int((math.sqrt(3) / 2) * hex_size + rows * hex_height + hex_size)
+        return max(200, width), max(200, height)
+
+    def _calculate_config_change_effects(self, cols: int, rows: int, hex_size: int) -> dict:
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        min_cols, max_cols = self.size_hard_limits["cols"]
+        min_rows, max_rows = self.size_hard_limits["rows"]
+        min_hex, max_hex = self.size_hard_limits["hex_size"]
+
         if not (min_cols <= cols <= max_cols):
             errors.append(f"Kolumny poza zakresem ({min_cols}-{max_cols}).")
         if not (min_rows <= rows <= max_rows):
@@ -3300,13 +3326,6 @@ class MapEditor:
             "allowed_hexes": allowed_hexes,
             "canvas_size": (required_width, required_height),
         }
-
-    def _estimate_canvas_size(self, cols: int, rows: int, hex_size: int) -> tuple[int, int]:
-        horizontal_spacing = 1.5 * hex_size
-        width = int(hex_size * 2 + max(0, cols - 1) * horizontal_spacing + hex_size)
-        hex_height = math.sqrt(3) * hex_size
-        height = int((math.sqrt(3) / 2) * hex_size + rows * hex_height + hex_size)
-        return max(200, width), max(200, height)
 
     def _build_allowed_hex_ids(self, cols: int, rows: int) -> set[str]:
         allowed = set()
@@ -13355,9 +13374,11 @@ class MapEditor:
         if loaded_data:
             meta = loaded_data.get("meta", {})
             if meta:
-                self.hex_size = meta.get("hex_size", self.hex_size)
-                self.config["grid_cols"] = meta.get("cols", self.config.get("grid_cols"))
-                self.config["grid_rows"] = meta.get("rows", self.config.get("grid_rows"))
+                force_default_grid = bool(self.config.get("force_default_grid", False))
+                if not force_default_grid:
+                    self.hex_size = meta.get("hex_size", self.hex_size)
+                    self.config["grid_cols"] = meta.get("cols", self.config.get("grid_cols"))
+                    self.config["grid_rows"] = meta.get("rows", self.config.get("grid_rows"))
                 self._update_map_info_label()
                 self._apply_background_metadata(meta.get("background"))
             else:
