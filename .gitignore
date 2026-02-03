@@ -44,3 +44,13 @@ Thumbs.db
 # Game specific
 saves/latest.json
 ekran_startowy.log
+
+# BEZPIECZEŃSTWO - Nigdy nie commituj kluczy API!
+.env
+.env.local
+.env.*.local
+*_config.json
+config.json
+api_keys.json
+secrets.json
+credentials.json
