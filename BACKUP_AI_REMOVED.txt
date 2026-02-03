@@ -1,0 +1,9 @@
+Ten commit usuwa wszystkie komponenty AI z projektu, aby przygotować czyste środowisko do napisania AI od nowa.
+
+Usunięte:
+- katalog ai/
+- main_ai_vs_human.py
+- testy w tests/ zaczynające się od test_ai_* oraz debug_ai_general.py
+- dokumenty w docs/ zaczynające się od AI_*
+
+Zmiany nie naruszają trybu Human vs Human.

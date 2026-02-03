@@ -1,0 +1,23 @@
+{
+  "id": "nowy_AL_Pluton__5_nowy_5_N_AL_Pluton_20250810221834",
+  "nation": "Niemcy",
+  "unitType": "AL",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_5_N_AL_Pluton",
+  "unit_full_name": "Niemcy Artyleria lekka Pluton ***",
+  "move": 2,
+  "attack": {
+    "range": 4,
+    "value": 8
+  },
+  "combat_value": 6,
+  "defense_value": 3,
+  "maintenance": 3,
+  "price": 25,
+  "sight": 2,
+  "owner": "5",
+  "image": "assets/tokens/nowe_dla_5/nowy_AL_Pluton__5_nowy_5_N_AL_Pluton_20250810221834/token.png",
+  "w": 240,
+  "h": 240
+}

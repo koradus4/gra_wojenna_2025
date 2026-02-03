@@ -1,0 +1,23 @@
+{
+  "id": "nowy_P_Pluton__2_nowy_2_PL_P_Pluton_20250703234048",
+  "nation": "Polska",
+  "unitType": "P",
+  "unitSize": "Pluton",
+  "shape": "prostokąt",
+  "label": "nowy_2_PL_P_Pluton",
+  "unit_full_name": "Polska Piechota Pluton ***",
+  "move": 2,
+  "attack": {
+    "range": 1,
+    "value": 2
+  },
+  "combat_value": 8,
+  "defense_value": 4,
+  "maintenance": 2,
+  "price": 15,
+  "sight": 1,
+  "owner": "2",
+  "image": "assets/tokens/nowe_dla_2/nowy_P_Pluton__2_nowy_2_PL_P_Pluton_20250703234048/token.png",
+  "w": 240,
+  "h": 240
+}
